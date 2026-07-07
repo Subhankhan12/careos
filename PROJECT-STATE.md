@@ -2,10 +2,13 @@
 
 Short, factual snapshot of where the project stands. Updated only at consolidations.
 
-- **Current phase:** Phase 0 — Foundation (in progress).
-- **Gates completed:** 0.1 (env verify), 0.2 / 0.2b (Laravel 12 skeleton + git + remote),
-  0.3 (quality rails + CI on MySQL 8), 0.4 (module skeleton + architecture guard),
-  0.5 (repo governance).
-- **Verified test count:** 5 passing (Unit 1, Feature/GET-/ 1, Architecture 3) via
-  `composer check` (Pint clean, PHPStan level 5 no errors).
-- **Next action:** Gate 0.C — Phase 0 consolidation.
+- **Current phase:** Phase 0 — Foundation — **COMPLETE**.
+- **Commits:** 5 on `main` (P0.G2, P0.G3, P0.G4, P0.G5, P0.C), pushed to
+  `origin/main` (https://github.com/Subhankhan12/careos); working tree clean.
+- **Verified test count:** 5 passing / 14 assertions (Unit 1, Feature/GET-/ 1,
+  Architecture 3) via `composer check` — Pint clean, PHPStan level 5 no errors.
+- **Stack (verified):** Laravel 12.63.0 on PHP 8.2.12; DEV DB = `careos` on XAMPP MariaDB
+  10.4.32 (port 3306); default DB cache/queue/session drivers.
+- **CI:** GitHub Actions workflow runs on push/PR to `main` against **MySQL 8** (production
+  parity). Not observed from the Windows dev box (`gh` not installed) — check the Actions tab.
+- **Next action:** Phase A — Platform core (fail-closed tenancy, RBAC, hash-chained audit).
