@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
+// TODO(Phase A): relocate into Modules\Platform (see boundary rule in CLAUDE.md).
 class User extends Authenticatable
 {
     /** @use HasFactory<UserFactory> */
