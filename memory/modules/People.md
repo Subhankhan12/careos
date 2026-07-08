@@ -37,7 +37,7 @@ read-logged.
 
 ## Status
 
-**P0B.G1 COMPLETE.** People module registered; staff profiles, credential vault, expiry status
+**Phase B COMPLETE.** People module registered; staff profiles, credential vault, expiry status
 service/scopes, refresh command, app-layer audit integration, and tests are in place.
 
 ## Open items

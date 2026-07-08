@@ -3,13 +3,14 @@
 Short, factual snapshot of where the project stands. Updated at consolidations and after gates
 (per the MEMORY PROTOCOL in AGENTS.md).
 
-- **Current phase:** Phase B - People & Patients - **IN PROGRESS**.
-- **Commits:** 22 on `main` after P0B.G6 (patient 360 + registration UI).
+- **Current phase:** Phase B - People & Patients - **COMPLETE**.
+- **Commits:** 23 on `main` after P0B.C (Phase B consolidation).
   Phase A = 11 (P0A.G1-G8, P0A.GM, P0A.GF, P0A.GF3), pushed to `origin/main`
   (https://github.com/Subhankhan12/careos).
 - **Verified quality (from actual output):** `composer check` green - Pint `passed`,
-  PHPStan level 5 `[OK] No errors`, Pest **111 passed / 457 assertions**; `npm.cmd run build`
-  green (Vite production build, 647 modules transformed).
+  PHPStan level 5 `[OK] No errors`, Pest **111 passed / 457 assertions**; `cmd /c npm run build`
+  green (Vite production build, 647 modules transformed); Phase B key suites **34 passed /
+  233 assertions**.
 - **Stack (verified):** Laravel 12.63.0 on PHP 8.2.12; DEV DB = `careos` on XAMPP MariaDB
   10.4.32 (127.0.0.1:3306); default DB cache/queue/session drivers; Fortify + Sanctum.
 - **Proven in Phase A:**
@@ -24,7 +25,7 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
   - Inertia/Vue3/TS/Tailwind v4 shell (login -> 2FA -> role redirect; app/admin landings).
   - Cross-agent memory system (AGENTS.md + memory/) as the single source of truth.
   - CI builds the frontend and runs the suite on MySQL 8 (Node 22).
-- **Proven in Phase B so far:**
+- **Proven in Phase B:**
   - People module registered with fail-closed `staff_profiles` and `credentials`.
   - Credential expiry status is derived from `expires_on` with tenant setting
     `people.credentials.expiry_alert_days` (default 30 days); manual `revoked` is preserved.
@@ -50,4 +51,5 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
     and audited with patient-scoped events (D-024).
   - First staff-facing patient UI is in place: RBAC-gated patient index/search, registration
     wizard with live duplicate warnings, and patient 360 view with consents + access log.
-- **Next action:** Continue Phase B. Execute only the next gate that is pasted.
+  - CI is green on MySQL 8 for the latest pushed Phase B work.
+- **Next action:** Phase C - Scheduling & front desk. Execute only the next gate that is pasted.

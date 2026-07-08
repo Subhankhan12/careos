@@ -103,7 +103,7 @@ Inertia pages.
 
 ## Status
 
-**P0B.G6 COMPLETE.** Patients module registered; CRM core tables/models, MRN generator,
+**Phase B COMPLETE.** Patients module registered; CRM core tables/models, MRN generator,
 transactional service, read-logging, access-report stub, demographic duplicate detection,
 permissioned audited merge, snapshot-based unmerge, consent engine, portal accounts, and first
 staff-facing patient UI are in place.
