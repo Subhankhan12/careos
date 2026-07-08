@@ -8,6 +8,7 @@ use Modules\Audit\Providers\AuditServiceProvider;
 use Modules\Patients\Providers\PatientsServiceProvider;
 use Modules\People\Providers\PeopleServiceProvider;
 use Modules\Platform\Providers\PlatformServiceProvider;
+use Modules\Scheduling\Providers\SchedulingServiceProvider;
 
 return [
     AppServiceProvider::class,
@@ -18,4 +19,5 @@ return [
     PatientsServiceProvider::class,
     PeopleServiceProvider::class,
     PlatformServiceProvider::class,
+    SchedulingServiceProvider::class,
 ];

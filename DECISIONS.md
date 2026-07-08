@@ -64,3 +64,7 @@ references the old ID.
   Horizon for workers/visibility. Sessions remain database for now to avoid unnecessary auth
   churn. CI runs a Redis 7 service alongside MySQL 8 and installs Linux `pcntl`/`posix` for
   Horizon (P0C.G0).
+- **D-026 - Service branch availability uses a tenant-owned link table.** Scheduling services
+  use `service_branch` instead of JSON branch IDs so availability stays queryable, portable, and
+  guarded by same-tenant checks. No link rows means the service is available at all tenant
+  branches (P0C.G1).
