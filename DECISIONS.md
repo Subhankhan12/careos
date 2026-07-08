@@ -100,3 +100,8 @@ references the old ID.
   unknowns escalate and medical/symptom/triage/dosing questions are refused with handoff. Scheduler
   tools are app-layer AiCore tools wrapping Scheduling services, capped at `approve`; waitlist
   booking is impossible before approval queue execution (P0C.G8).
+- **D-034 - Vue components are presentational; behavior is enforced server-side.** Authorization,
+  validation, and state-transition rules live in controllers/services/policies and are covered by
+  behavior-focused feature tests. Vue may display available actions, but tests must assert HTTP
+  status, redirects, DB state, audit rows, and Inertia component/props rather than markup, DOM
+  structure, or CSS classes (P0D.GU).

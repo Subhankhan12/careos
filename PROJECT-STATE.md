@@ -4,7 +4,7 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
 (per the MEMORY PROTOCOL in AGENTS.md).
 
 - **Current phase:** Phase C - Scheduling & front desk - **COMPLETE**. Next: Phase D - Clinical core.
-- **Commits:** 33 on `main` after P0C.C (Phase C consolidation).
+- **Commits:** 34 on `main` after P0D.GU (standing UI rule).
   Phase A = 11 (P0A.G1-G8, P0A.GM, P0A.GF, P0A.GF3), pushed to `origin/main`
   (https://github.com/Subhankhan12/careos).
 - **Verified quality (from actual output):** `composer check` green - Pint `passed`,
@@ -103,4 +103,6 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
   - Phase C decisions D-025..D-033 are logged: Redis/Horizon, service_branch, availability override
     semantics, booking locks, atomic reschedule, reminder idempotency, public booking tenant slug,
     AiCore governance/autonomy caps, and KB-only/approval-first agents.
+  - Standing UI rule is documented in AGENTS.md: Vue components are presentational; server-side
+    code owns authorization/validation/state transitions; feature tests assert behavior, not markup.
 - **Next action:** Begin Phase D - Clinical core. Execute only Gate D.1 when pasted.

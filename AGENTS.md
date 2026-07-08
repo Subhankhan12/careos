@@ -47,10 +47,30 @@ Market packs:
 - **Cross-module contact goes through services + domain events, never cross-module Eloquent.**
   Enforced by Pest architecture tests (`tests/Architecture/ModuleBoundariesTest.php`).
 
+## UI rule (standing)
+
+Vue components are PRESENTATIONAL. All authorization, validation, and state-transition rules
+are enforced and tested SERVER-SIDE. Components render props and dispatch actions; they never
+encode business rules. A component may *display* a rule (e.g. hide a Sign button without
+permission) but the server must independently enforce it.
+
+Feature tests assert BEHAVIOR — HTTP status, redirects, DB state, audit rows, and
+`assertInertia(component + props)`. They must NEVER assert on markup, DOM structure, or CSS
+classes.
+
+Consequence: any page must be replaceable by a visual redesign without touching controllers,
+routes, prop contracts, or tests. If deleting every .vue file would lose a guard or a rule,
+that rule is in the wrong place — move it to the server.
+
+Rationale: CareOS builds functional-plain UI in gates; a coherent visual redesign pass follows
+later. This rule keeps that swap a re-skin, not a rewrite.
+
 ## Workflow
 
 - Work in **gates**. Execute only the gate that is pasted; never start the next gate; no
   "while I'm at it" extras.
+- Every UI gate inherits the standing **UI rule**: Vue components are presentational, while
+  authorization, validation, state transitions, and behavior tests live server-side.
 - **One gate = one commit**, message format `P<phase>.G<n>: ...` (e.g. `P0A.G4: ...`).
   Consolidation at each phase end (`P<phase>.C: ...`).
 - **Verify from repo reality** — never state a result you did not observe in actual output.
