@@ -4,6 +4,7 @@ namespace Modules\Platform\Models;
 
 use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Modules\Platform\Concerns\BelongsToTenant;
 use Modules\Platform\Exceptions\TenantRegionImmutableException;
@@ -19,6 +20,8 @@ use Modules\Platform\Exceptions\TenantRegionImmutableException;
  * @property string $slug
  * @property string $region
  * @property string $status
+ * @property string|null $plan_id
+ * @property-read Plan|null $plan
  */
 class Tenant extends Model
 {
@@ -33,6 +36,7 @@ class Tenant extends Model
         'slug',
         'region',
         'status',
+        'plan_id',
     ];
 
     /**
@@ -57,5 +61,25 @@ class Tenant extends Model
     public function branches(): HasMany
     {
         return $this->hasMany(Branch::class);
+    }
+
+    public function plan(): BelongsTo
+    {
+        return $this->belongsTo(Plan::class);
+    }
+
+    /**
+     * Read a limit from the tenant's plan (e.g. 'max_branches'), or $default.
+     */
+    public function planLimit(string $key, mixed $default = null): mixed
+    {
+        if ($this->plan_id === null) {
+            return $default;
+        }
+
+        // plan_id is set → the plan exists (FK nullOnDelete keeps this consistent).
+        $limits = $this->plan->limits ?? [];
+
+        return $limits[$key] ?? $default;
     }
 }
