@@ -13,12 +13,16 @@ use Modules\AiCore\Events\AiInteractionRecorded;
 use Modules\AiCore\Services\ToolRegistry;
 use Modules\Audit\Contracts\AuditContext;
 use Modules\Audit\Services\AuditService;
+use Modules\Clinical\Events\EncounterClosed;
+use Modules\Clinical\Events\EncounterOpened;
+use Modules\Clinical\Models\Encounter;
 use Modules\People\Models\Credential;
 use Modules\Platform\Models\FeatureFlag;
 use Modules\Platform\Models\Role;
 use Modules\Platform\Models\RoleAssignment;
 use Modules\Platform\Models\Setting;
 use Modules\Platform\Models\Tenant;
+use Modules\Platform\Models\User;
 use Modules\Platform\Services\TenantContext;
 use Modules\Scheduling\Events\AppointmentBooked;
 use Modules\Scheduling\Events\AppointmentReminderDeliveryRecorded;
@@ -171,6 +175,15 @@ class AppServiceProvider extends ServiceProvider
             ]);
         });
 
+        // Clinical encounter changes. Kept in the app layer so Clinical does
+        // not depend on Audit models or services.
+        Event::listen(EncounterOpened::class, function (EncounterOpened $event): void {
+            $this->auditEncounterChange($event->encounter, $event->actor, 'encounter.opened');
+        });
+        Event::listen(EncounterClosed::class, function (EncounterClosed $event): void {
+            $this->auditEncounterChange($event->encounter, $event->actor, 'encounter.closed');
+        });
+
         // AiCore ledger/action events. This app-layer glue keeps AiCore from
         // depending on Audit while proving every governed path hits the chain.
         Event::listen(AiInteractionRecorded::class, function (AiInteractionRecorded $event): void {
@@ -247,6 +260,26 @@ class AppServiceProvider extends ServiceProvider
                 'type' => $credential->type,
                 'status' => $credential->status,
                 'expires_on' => $credential->expires_on?->toDateString(),
+            ],
+        ]);
+    }
+
+    private function auditEncounterChange(Encounter $encounter, User $actor, string $action): void
+    {
+        $this->auditChange($action, [
+            'actor_type' => 'user',
+            'actor_id' => (string) $actor->getKey(),
+            'patient_id' => $encounter->patient_id,
+            'resource_type' => 'encounter',
+            'resource_id' => $encounter->id,
+            'context' => [
+                'practitioner_id' => $encounter->practitioner_id,
+                'branch_id' => $encounter->branch_id,
+                'appointment_id' => $encounter->appointment_id,
+                'type' => $encounter->type,
+                'status' => $encounter->status,
+                'started_at' => $encounter->started_at->toDateTimeString(),
+                'ended_at' => $encounter->ended_at?->toDateTimeString(),
             ],
         ]);
     }

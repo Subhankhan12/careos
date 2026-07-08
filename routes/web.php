@@ -2,6 +2,7 @@
 
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
+use Modules\Clinical\Http\Controllers\EncounterShowController;
 use Modules\Patients\Http\Controllers\PatientConsentController;
 use Modules\Patients\Http\Controllers\PatientIndexController;
 use Modules\Patients\Http\Controllers\PatientRegistrationController;
@@ -50,6 +51,9 @@ Route::middleware('auth')->group(function () {
         ->name('scheduling.day-board.quick-book');
     Route::post('/scheduling/day-board/slots', [DayBoardActionController::class, 'slots'])
         ->name('scheduling.day-board.slots');
+
+    Route::get('/clinical/encounters/{encounter}', EncounterShowController::class)
+        ->name('clinical.encounters.show');
 });
 
 Route::prefix('book/{tenant:slug}')

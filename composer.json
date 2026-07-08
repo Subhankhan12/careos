@@ -37,7 +37,8 @@
             "Modules\\AiCore\\": "Modules/AiCore/src/",
             "Modules\\People\\": "Modules/People/src/",
             "Modules\\Patients\\": "Modules/Patients/src/",
-            "Modules\\Scheduling\\": "Modules/Scheduling/src/"
+            "Modules\\Scheduling\\": "Modules/Scheduling/src/",
+            "Modules\\Clinical\\": "Modules/Clinical/src/"
         }
     },
     "autoload-dev": {

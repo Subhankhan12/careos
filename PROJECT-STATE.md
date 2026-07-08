@@ -3,12 +3,12 @@
 Short, factual snapshot of where the project stands. Updated at consolidations and after gates
 (per the MEMORY PROTOCOL in AGENTS.md).
 
-- **Current phase:** Phase C - Scheduling & front desk - **COMPLETE**. Next: Phase D - Clinical core.
-- **Commits:** 34 on `main` after P0D.GU (standing UI rule).
+- **Current phase:** Phase D - Clinical core - **in progress**. Latest gate: D.1 encounters.
+- **Commits:** 35 on `main` after P0D.G1 (clinical encounters).
   Phase A = 11 (P0A.G1-G8, P0A.GM, P0A.GF, P0A.GF3), pushed to `origin/main`
   (https://github.com/Subhankhan12/careos).
 - **Verified quality (from actual output):** `composer check` green - Pint `passed`,
-  PHPStan level 5 `[OK] No errors`, Pest **168 passed / 711 assertions**; `cmd /c npm run build`
+  PHPStan level 5 `[OK] No errors`, Pest **176 passed / 757 assertions**; `cmd /c npm run build`
   green at P0C.C (Vite production build, 655 modules transformed). CI is green on MySQL 8 +
   Redis for latest pushed Phase C gate commit `c46301e`.
 - **Stack (verified):** Laravel 12.63.0 on PHP 8.2.12; DEV DB = `careos` on XAMPP MariaDB
@@ -105,4 +105,14 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
     AiCore governance/autonomy caps, and KB-only/approval-first agents.
   - Standing UI rule is documented in AGENTS.md: Vue components are presentational; server-side
     code owns authorization/validation/state transitions; feature tests assert behavior, not markup.
-- **Next action:** Begin Phase D - Clinical core. Execute only Gate D.1 when pasted.
+- **Proven in Phase D so far:**
+  - Clinical module registered with fail-closed tenant-owned `encounters`.
+  - `encounter.manage` is in the RBAC catalog; starter doctor/nurse/org-admin roles receive it,
+    reception does not.
+  - `EncounterService` opens/closes encounters, rejects cross-tenant references, and allows only
+    one open encounter per patient/practitioner at a time.
+  - Opening from an appointment transitions the appointment to `in_progress` through Scheduling
+    `AppointmentService`, not direct model mutation.
+  - Encounter read logging writes patient-scoped `read` audit rows; open/close write
+    `encounter.opened` / `encounter.closed` and the audit chain verifies.
+- **Next action:** Execute only Gate D.2 when pasted.

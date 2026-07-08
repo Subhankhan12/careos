@@ -28,6 +28,7 @@ class RbacProvisioner
         'patient.edit' => 'Create and edit patients',
         'patient.merge' => 'Merge duplicate patients',
         'appointment.manage' => 'Manage appointments',
+        'encounter.manage' => 'Manage clinical encounters',
         'ai.manage' => 'Manage governed AI actions',
         'billing.view' => 'View billing',
         'audit.view' => 'View the audit log',
@@ -44,16 +45,16 @@ class RbacProvisioner
             'name' => 'Organisation Admin',
             'permissions' => [
                 'admin.manage', 'patient.view', 'patient.edit', 'patient.merge',
-                'appointment.manage', 'ai.manage', 'billing.view', 'audit.view',
+                'appointment.manage', 'encounter.manage', 'ai.manage', 'billing.view', 'audit.view',
             ],
         ],
         'doctor' => [
             'name' => 'Doctor',
-            'permissions' => ['patient.view', 'patient.edit', 'appointment.manage'],
+            'permissions' => ['patient.view', 'patient.edit', 'appointment.manage', 'encounter.manage'],
         ],
         'nurse' => [
             'name' => 'Nurse',
-            'permissions' => ['patient.view', 'appointment.manage'],
+            'permissions' => ['patient.view', 'appointment.manage', 'encounter.manage'],
         ],
         'reception' => [
             'name' => 'Reception',
