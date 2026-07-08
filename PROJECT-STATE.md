@@ -4,11 +4,11 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
 (per the MEMORY PROTOCOL in AGENTS.md).
 
 - **Current phase:** Phase C - Scheduling & front desk - **IN PROGRESS**.
-- **Commits:** 25 on `main` after P0C.G1 (scheduling service catalog).
+- **Commits:** 26 on `main` after P0C.G2 (resource calendars + availability).
   Phase A = 11 (P0A.G1-G8, P0A.GM, P0A.GF, P0A.GF3), pushed to `origin/main`
   (https://github.com/Subhankhan12/careos).
 - **Verified quality (from actual output):** `composer check` green - Pint `passed`,
-  PHPStan level 5 `[OK] No errors`, Pest **120 passed / 497 assertions**; `cmd /c npm run build`
+  PHPStan level 5 `[OK] No errors`, Pest **126 passed / 511 assertions**; `cmd /c npm run build`
   green at P0B.C (Vite production build, 647 modules transformed).
 - **Stack (verified):** Laravel 12.63.0 on PHP 8.2.12; DEV DB = `careos` on XAMPP MariaDB
   10.4.32 (127.0.0.1:3306); Redis-compatible server on 127.0.0.1:6379 with Predis; queue/cache
@@ -64,4 +64,7 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
     availability links.
   - `ServiceCatalog` validates duration, buffers, resource requirements, per-tenant code
     uniqueness, and same-tenant branch availability.
-- **Next action:** Continue Phase C. Execute only Gate C.2 when pasted.
+  - Bookable resources and resource availability are tenant-owned and fail closed.
+  - `AvailabilityService::windowsFor()` combines recurring weekly hours with date-specific
+    overrides and blocks/time-off deterministically.
+- **Next action:** Continue Phase C. Execute only Gate C.3 when pasted.

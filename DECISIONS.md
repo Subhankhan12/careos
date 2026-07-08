@@ -68,3 +68,7 @@ references the old ID.
   use `service_branch` instead of JSON branch IDs so availability stays queryable, portable, and
   guarded by same-tenant checks. No link rows means the service is available at all tenant
   branches (P0C.G1).
+- **D-027 - Date-specific resource availability overrides weekly recurrence.** For resource
+  calendars, date-specific available rows replace the recurring windows for that date; date-
+  specific unavailable rows subtract blocks from the chosen windows, and an unavailable date row
+  without times is full-day time off (P0C.G2).
