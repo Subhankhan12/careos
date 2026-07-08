@@ -4,6 +4,7 @@ namespace Modules\Patients\Http\Controllers;
 
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Gate;
 use Modules\Patients\Models\Patient;
 use Modules\Patients\Services\PortalAccessService;
 
@@ -11,6 +12,8 @@ class PortalInvitationController
 {
     public function __invoke(Request $request, PortalAccessService $portal): JsonResponse
     {
+        Gate::authorize('patient.edit');
+
         /** @var array{patient_id: string, email: string} $data */
         $data = $request->validate([
             'patient_id' => ['required', 'string'],

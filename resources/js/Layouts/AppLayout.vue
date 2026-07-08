@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { router, usePage } from '@inertiajs/vue3';
+import { Link, router, usePage } from '@inertiajs/vue3';
 import { computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 
@@ -21,6 +21,10 @@ function signOut(): void {
                     <span class="flex h-7 w-7 items-center justify-center rounded-md bg-brand-600 text-sm font-bold text-white">C</span>
                     <span class="font-semibold tracking-tight text-ink">{{ t('app.name') }}</span>
                 </div>
+                <nav class="hidden items-center gap-4 text-sm font-medium text-ink-muted md:flex">
+                    <Link href="/patients" class="transition hover:text-ink">{{ t('app.nav.patients') }}</Link>
+                    <Link href="/patients/register" class="transition hover:text-ink">{{ t('app.nav.register') }}</Link>
+                </nav>
                 <div class="flex items-center gap-4">
                     <span v-if="user" class="text-sm text-ink-muted">{{ user.name }}</span>
                     <button

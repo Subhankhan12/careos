@@ -14,6 +14,8 @@ use Modules\Patients\Notifications\PortalInviteNotification;
 use Modules\Patients\Services\ConsentService;
 use Modules\Patients\Services\PatientService;
 use Modules\Platform\Exceptions\TenantContextMissingException;
+use Modules\Platform\Models\Role;
+use Modules\Platform\Models\RoleAssignment;
 use Modules\Platform\Models\Tenant;
 use Modules\Platform\Models\User;
 use Modules\Platform\Services\TenantContext;
@@ -48,7 +50,13 @@ function b5Patient(array $overrides = []): Patient
 
 function b5Staff(Tenant $tenant): User
 {
-    return User::factory()->forTenant($tenant)->twoFactorEnabled()->create();
+    b5Ctx()->set($tenant);
+
+    $user = User::factory()->forTenant($tenant)->twoFactorEnabled()->create();
+    $role = Role::where('key', 'doctor')->firstOrFail();
+    RoleAssignment::create(['user_id' => $user->id, 'role_id' => $role->id]);
+
+    return $user;
 }
 
 function b5ConsentTemplate(): ConsentTemplate

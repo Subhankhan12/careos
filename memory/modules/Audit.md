@@ -52,6 +52,8 @@ P0B.G3 added `patient.merged` and `patient.unmerged` audit actions with reversib
 P0B.G4 added patient-scoped `consent.granted` and `consent.withdrawn` audit actions; chain
 verification is covered in the consent lifecycle tests.
 P0B.G5 added patient-scoped `portal.invited`, `portal.first_login`, and `portal.login` actions.
+P0B.G6 surfaces `PatientAccessReport` in the patient 360 UI and verifies the 360 view writes the
+existing patient-scoped `read` event.
 
 ## Open items
 

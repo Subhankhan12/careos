@@ -2,6 +2,10 @@
 
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
+use Modules\Patients\Http\Controllers\PatientConsentController;
+use Modules\Patients\Http\Controllers\PatientIndexController;
+use Modules\Patients\Http\Controllers\PatientRegistrationController;
+use Modules\Patients\Http\Controllers\PatientShowController;
 use Modules\Patients\Http\Controllers\PortalAuthController;
 use Modules\Patients\Http\Controllers\PortalInvitationController;
 
@@ -26,6 +30,15 @@ Route::middleware('auth')->group(function () {
     // users to (and which it exempts so they are not locked out).
     Route::get('/two-factor/enrollment', fn () => Inertia::render('Auth/TwoFactorEnroll'))
         ->name('two-factor.enrollment');
+
+    Route::get('/patients', PatientIndexController::class)->name('patients.index');
+    Route::get('/patients/register', [PatientRegistrationController::class, 'create'])->name('patients.register');
+    Route::post('/patients', [PatientRegistrationController::class, 'store'])->name('patients.store');
+    Route::post('/patients/duplicates', [PatientRegistrationController::class, 'duplicates'])->name('patients.duplicates.check');
+    Route::get('/patients/{patient}', PatientShowController::class)->name('patients.show');
+    Route::post('/patients/{patient}/consents', [PatientConsentController::class, 'grant'])->name('patients.consents.grant');
+    Route::post('/patients/{patient}/consents/{consent}/withdraw', [PatientConsentController::class, 'withdraw'])
+        ->name('patients.consents.withdraw');
 });
 
 Route::prefix('portal')->name('portal.')->group(function () {

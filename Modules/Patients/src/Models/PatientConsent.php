@@ -5,6 +5,7 @@ namespace Modules\Patients\Models;
 use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Carbon;
 use Modules\Platform\Concerns\BelongsToTenant;
 use Modules\Platform\Exceptions\CrossTenantReferenceException;
 use Modules\Platform\Models\User;
@@ -25,6 +26,9 @@ use Modules\Platform\Services\TenantContext;
  * @property string $status
  * @property array<string, mixed> $signature
  * @property int $captured_by
+ * @property Carbon|null $granted_at
+ * @property Carbon|null $withdrawn_at
+ * @property Carbon|null $expires_at
  */
 class PatientConsent extends Model
 {

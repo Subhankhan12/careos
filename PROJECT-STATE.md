@@ -4,12 +4,12 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
 (per the MEMORY PROTOCOL in AGENTS.md).
 
 - **Current phase:** Phase B - People & Patients - **IN PROGRESS**.
-- **Commits:** 21 on `main` after P0B.G5 (patient portal accounts).
+- **Commits:** 22 on `main` after P0B.G6 (patient 360 + registration UI).
   Phase A = 11 (P0A.G1-G8, P0A.GM, P0A.GF, P0A.GF3), pushed to `origin/main`
   (https://github.com/Subhankhan12/careos).
 - **Verified quality (from actual output):** `composer check` green - Pint `passed`,
-  PHPStan level 5 `[OK] No errors`, Pest **106 passed / 408 assertions**. `npm run build` was
-  not required for P0B.G5 (backend/routes/tests only; no frontend pages or assets changed).
+  PHPStan level 5 `[OK] No errors`, Pest **111 passed / 457 assertions**; `npm.cmd run build`
+  green (Vite production build, 647 modules transformed).
 - **Stack (verified):** Laravel 12.63.0 on PHP 8.2.12; DEV DB = `careos` on XAMPP MariaDB
   10.4.32 (127.0.0.1:3306); default DB cache/queue/session drivers; Fortify + Sanctum.
 - **Proven in Phase A:**
@@ -48,4 +48,6 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
   - Patient portal identity uses separate tenant-owned `portal_accounts` with a dedicated
     `patient` guard/session; portal invite/activation/login is gated by `portal.access` consent
     and audited with patient-scoped events (D-024).
+  - First staff-facing patient UI is in place: RBAC-gated patient index/search, registration
+    wizard with live duplicate warnings, and patient 360 view with consents + access log.
 - **Next action:** Continue Phase B. Execute only the next gate that is pasted.

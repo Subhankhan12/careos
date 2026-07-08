@@ -14,6 +14,7 @@ use Modules\Platform\Exceptions\CrossTenantReferenceException;
  * @property string $patient_id
  * @property string $payer_name
  * @property string $member_id
+ * @property string|null $plan
  * @property string $coverage_type
  * @property int $priority
  */

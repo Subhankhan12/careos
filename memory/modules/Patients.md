@@ -5,6 +5,8 @@
 Tenant-owned patient CRM core: demographics, contacts, optional identifiers, coverages, MRN
 generation, patient read-logging for the "who accessed my record" audit report, and patient
 consent capture/scope checks, plus separate patient portal login identity.
+Staff-facing patient index/search, registration wizard, and 360 view are now exposed through
+Inertia pages.
 
 ## Key tables
 
@@ -57,6 +59,14 @@ consent capture/scope checks, plus separate patient portal login identity.
 - `Http\Middleware\IdentifyTenantFromPortalSession`, `EnsurePatientPortalAuthenticated`, and
   `EnsurePortalConsent` - re-establish tenant context from the portal session, authenticate the
   patient guard, and enforce `portal.access` consent.
+- `Http\Controllers\PatientIndexController` - RBAC-gated patient index/search using FULLTEXT
+  name matching with deterministic fallback and optional DOB filter.
+- `Http\Controllers\PatientRegistrationController` - RBAC-gated registration wizard endpoints;
+  duplicate-check JSON endpoint calls `DuplicateDetector` before create.
+- `Http\Controllers\PatientShowController` - RBAC-gated patient 360; calls `auditRead()`,
+  returns demographics/contacts/coverages/consents and access log.
+- Vue pages under lowercase `resources/js/pages/Patients`: `Index.vue`, `Register.vue`,
+  `Show.vue`; components `StepNav`, `Tabs`, `DataList`.
 
 ## Invariants enforced
 
@@ -84,18 +94,24 @@ consent capture/scope checks, plus separate patient portal login identity.
   `web` guard routes, and staff users cannot satisfy portal guard routes.
 - Portal sessions are tenant-bound (`portal_tenant_id`) and cross-tenant session tampering is
   denied before consent can grant access.
+- Patient UI routes are staff `web` guard only and RBAC-gated: `patient.view` for index/show,
+  `patient.edit` for register/create/duplicate-check and consent/portal actions.
+- Patient 360 viewing writes the existing patient-scoped `read` audit row and surfaces the
+  tenant-scoped `PatientAccessReport`.
+- Registration duplicate warnings are live client calls to `/patients/duplicates`, using B.3
+  scoring before the create POST.
 
 ## Status
 
-**P0B.G5 COMPLETE.** Patients module registered; CRM core tables/models, MRN generator,
+**P0B.G6 COMPLETE.** Patients module registered; CRM core tables/models, MRN generator,
 transactional service, read-logging, access-report stub, demographic duplicate detection,
-permissioned audited merge, snapshot-based unmerge, consent engine, and portal accounts are in place.
+permissioned audited merge, snapshot-based unmerge, consent engine, portal accounts, and first
+staff-facing patient UI are in place.
 
 ## Open items
 
 - Dev MariaDB 10.4 uses plain FULLTEXT while MySQL 8 CI/prod uses `WITH PARSER ngram` - patient
   name search tokenizes differently across environments; validate search parity before production.
-- B.6 patient 360 UI + registration wizard.
 - Portal UI screens are later; B.5 only exposes backend routes/guards/services.
 - Later gates must call `ConsentService::has()` before portal access or clinical data sharing.
 - MySQL 8 CI should verify the `WITH PARSER ngram` path; local MariaDB 10.4 lacks the ngram parser

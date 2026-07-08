@@ -1,7 +1,11 @@
 {
     "app": {
         "name": "CareOS",
-        "signOut": "Sign out"
+        "signOut": "Sign out",
+        "nav": {
+            "patients": "Patients",
+            "register": "Register"
+        }
     },
     "auth": {
         "login": {
@@ -41,6 +45,74 @@
             "title": "Platform administration",
             "welcome": "Platform administration",
             "empty": "Tenant and platform controls will appear here."
+        }
+    },
+    "patients": {
+        "fields": {
+            "name": "Name",
+            "firstName": "First name",
+            "lastName": "Last name",
+            "mrn": "MRN",
+            "dateOfBirth": "Date of birth",
+            "sex": "Sex",
+            "gender": "Gender",
+            "language": "Preferred language",
+            "status": "Status",
+            "phone": "Phone",
+            "email": "Email",
+            "address": "Address",
+            "city": "City",
+            "postal": "Postal code",
+            "country": "Country",
+            "identifierSystem": "Identifier system",
+            "identifierValue": "Identifier value",
+            "payer": "Payer",
+            "memberId": "Member ID",
+            "plan": "Plan"
+        },
+        "index": {
+            "title": "Patients",
+            "subtitle": "Search and open tenant patient records.",
+            "register": "Register patient",
+            "searchName": "Name",
+            "searchDob": "Date of birth",
+            "search": "Search",
+            "empty": "No patients found."
+        },
+        "register": {
+            "title": "Register patient",
+            "subtitle": "Create a patient record after checking for possible duplicates.",
+            "steps": {
+                "identity": "Identity",
+                "contacts": "Contacts",
+                "optional": "Identifiers",
+                "review": "Review"
+            },
+            "duplicatesTitle": "Possible duplicates",
+            "duplicatesChecking": "Checking for possible matches.",
+            "duplicatesHint": "Review these existing patients before creating a new record.",
+            "openDuplicate": "Open",
+            "identifiers": "Optional identifiers",
+            "coverages": "Coverages",
+            "back": "Back",
+            "next": "Next",
+            "create": "Create patient"
+        },
+        "show": {
+            "headerFlag": "Patient 360",
+            "tabs": {
+                "demographics": "Demographics",
+                "contacts": "Contacts",
+                "coverages": "Coverages",
+                "consents": "Consents",
+                "access": "Access log"
+            },
+            "empty": "No records yet.",
+            "consentTemplate": "Template key",
+            "consentSignature": "Typed signature",
+            "grantConsent": "Grant",
+            "withdrawReason": "Reason",
+            "withdraw": "Withdraw"
         }
     }
 }
