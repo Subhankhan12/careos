@@ -4,6 +4,7 @@ namespace Modules\Scheduling\Providers;
 
 use Illuminate\Support\ServiceProvider;
 use Modules\Scheduling\Console\AttemptBookingCommand;
+use Modules\Scheduling\Console\DispatchAppointmentRemindersCommand;
 
 class SchedulingServiceProvider extends ServiceProvider
 {
@@ -14,6 +15,7 @@ class SchedulingServiceProvider extends ServiceProvider
         if ($this->app->runningInConsole()) {
             $this->commands([
                 AttemptBookingCommand::class,
+                DispatchAppointmentRemindersCommand::class,
             ]);
         }
     }

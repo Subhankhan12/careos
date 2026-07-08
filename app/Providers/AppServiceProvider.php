@@ -16,8 +16,10 @@ use Modules\Platform\Models\Setting;
 use Modules\Platform\Models\Tenant;
 use Modules\Platform\Services\TenantContext;
 use Modules\Scheduling\Events\AppointmentBooked;
+use Modules\Scheduling\Events\AppointmentReminderDeliveryRecorded;
 use Modules\Scheduling\Events\AppointmentTransitioned;
 use Modules\Scheduling\Events\WaitlistEntryStatusChanged;
+use Modules\Scheduling\Models\Appointment;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -137,6 +139,24 @@ class AppServiceProvider extends ServiceProvider
                     'service_id' => $entry->service_id,
                     'branch_id' => $entry->branch_id,
                     ...$event->context,
+                ],
+            ]);
+        });
+        Event::listen(AppointmentReminderDeliveryRecorded::class, function (AppointmentReminderDeliveryRecorded $event): void {
+            $reminder = $event->reminder;
+            $appointment = Appointment::query()->find($reminder->appointment_id);
+
+            $this->auditChange('appointment_reminder.'.$reminder->status, [
+                'patient_id' => $appointment?->patient_id,
+                'resource_type' => 'appointment_reminder',
+                'resource_id' => $reminder->id,
+                'context' => [
+                    'appointment_id' => $reminder->appointment_id,
+                    'type' => $reminder->type,
+                    'channel' => $reminder->channel,
+                    'scheduled_for' => $reminder->scheduled_for->toDateTimeString(),
+                    'sent_at' => $reminder->sent_at?->toDateTimeString(),
+                    'failure_reason' => $reminder->failure_reason,
                 ],
             ]);
         });

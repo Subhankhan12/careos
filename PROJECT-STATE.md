@@ -4,11 +4,11 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
 (per the MEMORY PROTOCOL in AGENTS.md).
 
 - **Current phase:** Phase C - Scheduling & front desk - **IN PROGRESS**.
-- **Commits:** 28 on `main` after P0C.G4 (appointment lifecycle + waitlist).
+- **Commits:** 29 on `main` after P0C.G5 (queued appointment reminders).
   Phase A = 11 (P0A.G1-G8, P0A.GM, P0A.GF, P0A.GF3), pushed to `origin/main`
   (https://github.com/Subhankhan12/careos).
 - **Verified quality (from actual output):** `composer check` green - Pint `passed`,
-  PHPStan level 5 `[OK] No errors`, Pest **140 passed / 572 assertions**; `cmd /c npm run build`
+  PHPStan level 5 `[OK] No errors`, Pest **146 passed / 593 assertions**; `cmd /c npm run build`
   green at P0B.C (Vite production build, 647 modules transformed).
 - **Stack (verified):** Laravel 12.63.0 on PHP 8.2.12; DEV DB = `careos` on XAMPP MariaDB
   10.4.32 (127.0.0.1:3306); Redis-compatible server on 127.0.0.1:6379 with Predis; queue/cache
@@ -78,4 +78,6 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
     `BookingService`.
   - Waitlist entries are tenant-owned; matching respects service, branch, waiting status, and
     flexible/covering desired windows; offer/accept books through the no-double-book path.
-- **Next action:** Continue Phase C. Execute only Gate C.5 when pasted.
+  - Appointment reminders are tenant policy-driven, queued on Redis/Horizon, idempotent via
+    `appointment_reminders`, fail-closed on `comms.email` consent, and audited on delivery state.
+- **Next action:** Continue Phase C. Execute only Gate C.6 when pasted.

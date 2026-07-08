@@ -14,6 +14,8 @@ Deliberately deferred work. Not forgotten — parked until the right phase.
 - **Country statutory billing packs** (DE / CH / FR).
 - **US X12 claims** via clearinghouse.
 - **WhatsApp channel.**
+- **SMS / WhatsApp appointment reminder drivers.** C.5 adds the provider-free reminder channel
+  interface and email implementation only; external SMS/WhatsApp providers come later.
 - **Qualified e-signature.**
 - **Meilisearch** swap for FULLTEXT.
 - **Silo tenancy tier.**

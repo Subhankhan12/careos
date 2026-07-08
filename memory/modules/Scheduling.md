@@ -6,7 +6,7 @@ Scheduling and front-desk workflow: service catalog, bookable resources, no-doub
 appointment lifecycle, waitlist, reminders, reception day-board, and public booking. P0C.G0
 established the Redis/Horizon queue substrate; P0C.G1 adds the tenant-owned service catalog;
 P0C.G2 adds resources and availability calendars; P0C.G3 adds the concurrency-safe booking
-engine; P0C.G4 adds appointment lifecycle and waitlist.
+engine; P0C.G4 adds appointment lifecycle and waitlist; P0C.G5 adds queued reminders.
 
 ## Key tables
 
@@ -36,6 +36,10 @@ engine; P0C.G4 adds appointment lifecycle and waitlist.
   `service_id`, nullable `branch_id`, nullable desired start/end window, `flexible`, `priority`,
   `status`, nullable offered start/end/branch fields, timestamps. Indexed by
   `(tenant_id, service_id, status)` and `(tenant_id, branch_id, status)`.
+- `appointment_reminders` - tenant-owned (`BelongsToTenant`). ULID id, `tenant_id`,
+  `appointment_id`, `type`, `channel`, `status`, `scheduled_for`, nullable `sent_at`,
+  nullable `failed_at`, nullable `failure_reason`, timestamps. Unique
+  `(tenant_id, appointment_id, type, channel)`; indexed by `(tenant_id, status, scheduled_for)`.
 
 ## Key services / classes
 
@@ -57,6 +61,8 @@ engine; P0C.G4 adds appointment lifecycle and waitlist.
   cross-tenant appointment/resource references.
 - `Models\WaitlistEntry` - tenant-owned waitlist request; rejects cross-tenant patient/service/
   branch references and invalid windows.
+- `Models\AppointmentReminder` - tenant-owned reminder ledger; rejects cross-tenant appointment
+  references and tracks pending/sent/skipped/failed delivery state.
 - `Services\ServiceCatalog` - CRUD/validation for services and branch availability links.
 - `Services\AvailabilityService` - computes concrete windows for a resource/date range.
 - `Services\BookingService` - validates availability/buffers/RBAC and books appointments by locking
@@ -65,12 +71,25 @@ engine; P0C.G4 adds appointment lifecycle and waitlist.
   atomic cancel-and-rebook rescheduling.
 - `Services\WaitlistService` - creates/matches waitlist entries, offers slots, and accepts offers
   by booking through `BookingService`.
+- `Services\ReminderPolicy` - reads tenant setting `scheduling.reminders.policy` with default
+  24h + 1h offsets and email channel.
+- `Services\ReminderDispatcher` - finds in-window active appointments and enqueues idempotent
+  `SendAppointmentReminderJob` jobs on Redis queue `reminders`.
+- `Services\ReminderChannelManager` plus `Contracts\AppointmentReminderChannel` - provider-free
+  reminder channel abstraction; email implemented now.
+- `Channels\EmailAppointmentReminderChannel` - sends through Laravel notification routing to the
+  patient's primary email contact.
+- `Jobs\SendAppointmentReminderJob` - queued reminder sender; re-establishes tenant context,
+  locks the reminder row, re-checks status/consent/stale appointment state, then sends/skips/fails.
+- `Console\DispatchAppointmentRemindersCommand` - tenant loop command for enqueueing due reminders.
 - `Console\AttemptBookingCommand` - test harness command used by the parallel hammer to contend from
   separate PHP processes.
 - `Events\AppointmentBooked` - Scheduling event consumed by app-layer audit glue as
   `appointment.booked`.
 - `Events\AppointmentTransitioned` - app-layer audit glue records `appointment.<status>`.
 - `Events\WaitlistEntryStatusChanged` - app-layer audit glue records `waitlist.<status>`.
+- `Events\AppointmentReminderDeliveryRecorded` - app-layer audit glue records
+  `appointment_reminder.<status>`.
 
 ## Invariants enforced
 
@@ -108,15 +127,24 @@ engine; P0C.G4 adds appointment lifecycle and waitlist.
   old appointment and resource rows.
 - Waitlist matching is service-scoped, branch-scoped when requested, status `waiting`, and either
   flexible or covering the offered slot window.
+- Reminder policy is tenant settings-driven. Default offsets are 1440 and 60 minutes before the
+  appointment; default channel is email.
+- Reminder sending is fail-closed on patient consent: the job sends email only when
+  `ConsentService::has(patient, 'comms.email')` is true at send time.
+- Reminder idempotency is enforced by the `appointment_reminders` unique key plus row locking in
+  `SendAppointmentReminderJob`; sent/skipped rows are never sent again.
+- Cancelled/rescheduled/completed/no_show appointments are stale for reminders and are skipped by
+  the job even if a pending reminder was already queued.
+- SMS and WhatsApp drivers are deferred behind the reminder channel interface.
 
 ## Status
 
-**P0C.G4 COMPLETE.** Redis-compatible server is reachable locally, Predis and Horizon are
+**P0C.G5 COMPLETE.** Redis-compatible server is reachable locally, Predis and Horizon are
 installed, Horizon is configured for dev supervisors, the sanity queue round-trip test passes, and
 the Scheduling service catalog, resource calendars, no-double-book booking engine, appointment
-lifecycle, and waitlist are registered with tests. Local `composer check` is green: 140 tests /
-572 assertions.
+lifecycle, waitlist, and queued reminders are registered with tests. Local `composer check` is
+green: 146 tests / 593 assertions.
 
 ## Open items
 
-- Later gates add reminders, front-desk UI, public booking, and scheduler-agent proposals.
+- Later gates add front-desk UI, public booking, and scheduler-agent proposals.

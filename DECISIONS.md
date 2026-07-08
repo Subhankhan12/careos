@@ -81,3 +81,7 @@ references the old ID.
   enforced in `AppointmentService`; reschedule marks the old appointment `rescheduled`, frees its
   resource rows, and books the replacement through `BookingService` inside one transaction so the
   old slot and new slot change together or not at all (P0C.G4).
+- **D-030 - Appointment reminders are ledger-idempotent and consent-gated at send time.** Reminder
+  dispatch creates one `appointment_reminders` row per appointment/type/channel, queues Redis jobs,
+  and the job locks the row before re-checking active appointment state and
+  `ConsentService::has(patient, 'comms.email')`; no consent means skipped, not sent (P0C.G5).
