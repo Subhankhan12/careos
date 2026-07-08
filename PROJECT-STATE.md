@@ -3,16 +3,16 @@
 Short, factual snapshot of where the project stands. Updated at consolidations and after gates
 (per the MEMORY PROTOCOL in AGENTS.md).
 
-- **Current phase:** Phase B - People & Patients - **COMPLETE**.
-- **Commits:** 23 on `main` after P0B.C (Phase B consolidation).
+- **Current phase:** Phase C - Scheduling & front desk - **IN PROGRESS**.
+- **Commits:** 24 on `main` after P0C.G0 (Redis/Horizon queues).
   Phase A = 11 (P0A.G1-G8, P0A.GM, P0A.GF, P0A.GF3), pushed to `origin/main`
   (https://github.com/Subhankhan12/careos).
 - **Verified quality (from actual output):** `composer check` green - Pint `passed`,
-  PHPStan level 5 `[OK] No errors`, Pest **111 passed / 457 assertions**; `cmd /c npm run build`
-  green (Vite production build, 647 modules transformed); Phase B key suites **34 passed /
-  233 assertions**.
+  PHPStan level 5 `[OK] No errors`, Pest **113 passed / 464 assertions**; `cmd /c npm run build`
+  green at P0B.C (Vite production build, 647 modules transformed).
 - **Stack (verified):** Laravel 12.63.0 on PHP 8.2.12; DEV DB = `careos` on XAMPP MariaDB
-  10.4.32 (127.0.0.1:3306); default DB cache/queue/session drivers; Fortify + Sanctum.
+  10.4.32 (127.0.0.1:3306); Redis-compatible server on 127.0.0.1:6379 with Predis; queue/cache
+  use Redis + Horizon; sessions remain database; Fortify + Sanctum.
 - **Proven in Phase A:**
   - Fail-closed multi-tenancy (TenantContext + BelongsToTenant; no-context queries throw).
   - Fortify auth + **mandatory TOTP MFA** + tenant identification (suspended tenants denied).
@@ -52,4 +52,12 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
   - First staff-facing patient UI is in place: RBAC-gated patient index/search, registration
     wizard with live duplicate warnings, and patient 360 view with consents + access log.
   - CI is green on MySQL 8 for the latest pushed Phase B work.
-- **Next action:** Phase C - Scheduling & front desk. Execute only the next gate that is pasted.
+- **Proven in Phase C so far:**
+  - Redis-compatible server reachable on 127.0.0.1:6379 (`PING` => `PONG`).
+  - `predis/predis` and `laravel/horizon` are installed; Horizon dashboard is guarded by
+    `auth` + `super-admin`.
+  - Queue/cache use Redis; sessions intentionally stay on the database.
+  - CI workflow includes a Redis 7 service alongside MySQL 8 and installs `pcntl`/`posix` for
+    Horizon on Linux.
+  - A real Redis queue round-trip sanity job passes locally.
+- **Next action:** Continue Phase C. Execute only Gate C.1 when pasted.

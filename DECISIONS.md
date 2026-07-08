@@ -59,3 +59,8 @@ references the old ID.
   isolated from Fortify staff/admin MFA and RBAC. Portal sessions carry `portal_tenant_id` and
   re-establish tenant context before guard rehydration; portal access is gated by
   `ConsentService::has(patient, 'portal.access')` (P0B.G5).
+- **D-025 - Queue infrastructure is Redis + Horizon for Phase C.** Use a Redis-compatible server
+  on 127.0.0.1:6379 (Memurai on Windows), Predis as the PHP client, Redis for cache/queue, and
+  Horizon for workers/visibility. Sessions remain database for now to avoid unnecessary auth
+  churn. CI runs a Redis 7 service alongside MySQL 8 and installs Linux `pcntl`/`posix` for
+  Horizon (P0C.G0).

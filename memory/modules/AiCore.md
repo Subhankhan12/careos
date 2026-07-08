@@ -10,11 +10,12 @@ triage, symptom assessment, or dosing logic anywhere.
 
 ## Status
 
-**Scaffolded, not yet implemented.** Only the module skeleton + `AiCoreServiceProvider` exist
-(from P0.G4). No tables, services, or prompts yet. See the master plan **Phase H** and the
-AiCore design for the build-out.
+**Scaffolded, queue substrate ready.** Only the module skeleton + `AiCoreServiceProvider` exist
+(from P0.G4). P0C.G0 added Redis/Horizon for future agent jobs, but no AiCore tables, services,
+or prompts exist yet.
 
 ## Open items
 
-- Everything: `LlmManager`, cost ledger, budget gate, circuit breaker, prompt registry,
-  `ai_interactions` table, draft-approval workflow. All deferred to the AI phase.
+- Everything inside AiCore itself: `LlmManager`, cost ledger, budget gate, circuit breaker,
+  prompt registry, `ai_interactions` table, draft-approval workflow. Phase C activates these in
+  later gates.

@@ -23,6 +23,15 @@ jobs:
           --health-interval=10s
           --health-timeout=5s
           --health-retries=10
+      redis:
+        image: redis:7
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd="redis-cli ping"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
 
     env:
       DB_CONNECTION: mysql
@@ -31,6 +40,11 @@ jobs:
       DB_DATABASE: careos
       DB_USERNAME: root
       DB_PASSWORD: password
+      CACHE_STORE: redis
+      QUEUE_CONNECTION: redis
+      REDIS_CLIENT: predis
+      REDIS_HOST: 127.0.0.1
+      REDIS_PORT: 6379
 
     steps:
       - name: Checkout
@@ -40,7 +54,7 @@ jobs:
         uses: shivammathur/setup-php@v2
         with:
           php-version: '8.2'
-          extensions: pdo_mysql, mbstring, openssl, tokenizer, ctype, json, curl, fileinfo, bcmath
+          extensions: pdo_mysql, mbstring, openssl, tokenizer, ctype, json, curl, fileinfo, bcmath, pcntl, posix
           coverage: none
 
       - name: Setup Node

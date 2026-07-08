@@ -6,8 +6,6 @@ Deliberately deferred work. Not forgotten — parked until the right phase.
   target is MySQL 8).
 - Upgrade to **Laravel 13 / PHP 8.3+** when convenient (PHP 8.2 security support ends
   ~Dec 2026).
-- Switch cache/queue to **Redis** (Memurai or WSL2) and add **Horizon** before the first
-  queue-heavy phase.
 - **Voice receptionist.**
 - **Route optimization** (OR-tools).
 - **MAR** (medication administration record).

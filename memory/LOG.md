@@ -26,3 +26,4 @@ One line per completed gate. Newest at bottom. Format: `<commit> P<phase>.G<n>: 
 - `(pending)` P0B.G5: patient portal accounts - magic-link/OTP activation, consent-gated patient guard; 106 tests / 408 assertions.
 - `(pending)` P0B.G6: patient 360 + registration wizard UI - duplicate warnings, RBAC-gated routes, access log; 111 tests / 457 assertions; npm build green.
 - `(P0B.C)` Phase B COMPLETE - People + Patients. Pest 111/457, Phase B key suites 34/233, PHPStan L5 clean, Pint clean, npm build green, CI green on MySQL 8. Next: Phase C - Scheduling & front desk.
+- `(pending)` P0C.G0: Redis/Horizon queues live - Predis, Redis cache/queue, Horizon super-admin guard, CI Redis service, queue sanity job; 113 tests / 464 assertions.
