@@ -50,3 +50,7 @@ references the old ID.
 - **D-022 - Patient merge reversal restores only records moved by the merge.** `patient.unmerged`
   uses the `patient.merged` audit snapshot to restore the source patient and child rows moved
   during that merge; records created on the target afterward remain on the target (P0B.G3).
+- **D-023 - Captured patient consents store immutable template snapshots.** `patient_consents`
+  stores the signed template key/title/body/scope version alongside the template FK so consent
+  proof and scope resolution are stable even after newer template versions supersede old text
+  (P0B.G4).

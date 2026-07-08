@@ -4,12 +4,12 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
 (per the MEMORY PROTOCOL in AGENTS.md).
 
 - **Current phase:** Phase B - People & Patients - **IN PROGRESS**.
-- **Commits:** 19 on `main` after P0B.G3 (patient duplicate detection + reversible audited merge).
+- **Commits:** 20 on `main` after P0B.G4 (consent engine).
   Phase A = 11 (P0A.G1-G8, P0A.GM, P0A.GF, P0A.GF3), pushed to `origin/main`
   (https://github.com/Subhankhan12/careos).
 - **Verified quality (from actual output):** `composer check` green - Pint `passed`,
-  PHPStan level 5 `[OK] No errors`, Pest **95 passed / 326 assertions**. `npm run build` was
-  not required for P0B.G3 (backend/tests only; no frontend changes).
+  PHPStan level 5 `[OK] No errors`, Pest **101 passed / 369 assertions**. `npm run build` was
+  not required for P0B.G4 (backend/tests only; no frontend changes).
 - **Stack (verified):** Laravel 12.63.0 on PHP 8.2.12; DEV DB = `careos` on XAMPP MariaDB
   10.4.32 (127.0.0.1:3306); default DB cache/queue/session drivers; Fortify + Sanctum.
 - **Proven in Phase A:**
@@ -42,4 +42,7 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
   - Patient merge requires `patient.merge`, a reason, and same-tenant source/target; it writes
     `patient.merged`, moves captured child rows, soft-deletes the source, and `patient.unmerged`
     restores only the rows moved by that merge (D-022).
+  - Consent engine stores versioned tenant templates and patient consent captures with immutable
+    signed template snapshots; `ConsentService::has()` is fail-closed and respects scopes,
+    expiry, and withdrawal (D-023).
 - **Next action:** Continue Phase B. Execute only the next gate that is pasted.

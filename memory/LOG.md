@@ -22,3 +22,4 @@ One line per completed gate. Newest at bottom. Format: `<commit> P<phase>.G<n>: 
 - `(pending)` P0B.G1: People module - staff profiles + credential vault; 82 tests / 241 assertions.
 - `(pending)` P0B.G2: Patients module - CRM core + read-logging; 89 tests / 285 assertions.
 - `(pending)` P0B.G3: patient duplicate detection + reversible audited merge; 95 tests / 326 assertions.
+- `(pending)` P0B.G4: consent engine - versioned templates, patient capture, withdrawal, scope checks; 101 tests / 369 assertions.

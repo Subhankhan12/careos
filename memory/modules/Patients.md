@@ -3,7 +3,8 @@
 ## Purpose
 
 Tenant-owned patient CRM core: demographics, contacts, optional identifiers, coverages, MRN
-generation, and patient read-logging for the "who accessed my record" audit report.
+generation, patient read-logging for the "who accessed my record" audit report, and patient
+consent capture/scope checks.
 
 ## Key tables
 
@@ -17,6 +18,12 @@ generation, and patient read-logging for the "who accessed my record" audit repo
   nullable `valid_from`/`valid_to`. Not unique and not a dedupe key (D-021).
 - `patient_coverages` - tenant-owned. `patient_id`, `payer_name`, `member_id`, nullable `plan`,
   EU-generic `coverage_type`, integer `priority`, nullable validity dates.
+- `consent_templates` - tenant-owned versioned consent text. `key`, `title`, `body`, integer
+  `version`, JSON `scope_keys`, `is_active`; unique `(tenant_id, key, version)`.
+- `patient_consents` - tenant-owned captured consent. `patient_id`, `template_id`,
+  `template_version`, immutable signed template key/title/body/scope snapshot, `status`,
+  `granted_at`, nullable `withdrawn_at`/`expires_at`, JSON `signature`, and `captured_by`.
+  Index `(tenant_id, patient_id, status)`.
 
 ## Key services / classes
 
@@ -33,6 +40,10 @@ generation, and patient read-logging for the "who accessed my record" audit repo
   name/DOB/address/identifier rules plus FULLTEXT support; returns reasons and confidence.
 - `Services\PatientDuplicateReviewService` - review-list query wrapper for likely duplicates.
 - `Services\PatientMergeService` - permissioned, reason-required merge/unmerge with audit snapshots.
+- `Models\ConsentTemplate` and `PatientConsent` - tenant-owned consent templates and captures;
+  patient/template/capturer references are same-tenant guarded.
+- `Services\ConsentService` - grants current active template versions, withdraws with reason,
+  writes patient-scoped audit events, and resolves `has(patient, scopeKey)` fail-closed.
 
 ## Invariants enforced
 
@@ -47,17 +58,25 @@ generation, and patient read-logging for the "who accessed my record" audit repo
   `status=merged`, points to target, and is soft-deleted.
 - Unmerge restores the source and child rows moved by the merge snapshot only; target records
   created after merge remain on the target (D-022).
+- Patient consents move with patient merge/unmerge snapshots.
+- Consent checks fail closed: no non-expired granted consent carrying the requested signed scope
+  means `false`; withdrawn/expired consents never grant access.
+- Captured consents keep immutable template text/scope snapshots even if templates are edited or
+  superseded later (D-023).
+- Consent grant/withdraw writes patient-scoped audit actions `consent.granted` and
+  `consent.withdrawn`; read-logging remains reserved for patient record reads.
 
 ## Status
 
-**P0B.G3 COMPLETE.** Patients module registered; CRM core tables/models, MRN generator,
+**P0B.G4 COMPLETE.** Patients module registered; CRM core tables/models, MRN generator,
 transactional service, read-logging, access-report stub, demographic duplicate detection,
-permissioned audited merge, and snapshot-based unmerge are in place.
+permissioned audited merge, snapshot-based unmerge, and consent engine are in place.
 
 ## Open items
 
 - Dev MariaDB 10.4 uses plain FULLTEXT while MySQL 8 CI/prod uses `WITH PARSER ngram` - patient
   name search tokenizes differently across environments; validate search parity before production.
 - B.6 patient 360 UI + registration wizard.
+- Later gates must call `ConsentService::has()` before portal access or clinical data sharing.
 - MySQL 8 CI should verify the `WITH PARSER ngram` path; local MariaDB 10.4 lacks the ngram parser
   and uses the migration fallback FULLTEXT index.

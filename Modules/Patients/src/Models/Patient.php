@@ -99,6 +99,11 @@ class Patient extends Model
         return $this->hasMany(PatientCoverage::class);
     }
 
+    public function consents(): HasMany
+    {
+        return $this->hasMany(PatientConsent::class);
+    }
+
     public function mergedInto(): BelongsTo
     {
         return $this->belongsTo(self::class, 'merged_into_id');

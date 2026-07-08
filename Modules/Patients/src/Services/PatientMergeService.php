@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\Gate;
 use InvalidArgumentException;
 use Modules\Audit\Services\AuditService;
 use Modules\Patients\Models\Patient;
+use Modules\Patients\Models\PatientConsent;
 use Modules\Patients\Models\PatientContact;
 use Modules\Patients\Models\PatientCoverage;
 use Modules\Patients\Models\PatientIdentifier;
@@ -137,6 +138,7 @@ class PatientMergeService
                 'patient_contacts' => $this->ids(PatientContact::query()->where('patient_id', $source->id)->lockForUpdate()->pluck('id')->all()),
                 'patient_identifiers' => $this->ids(PatientIdentifier::query()->where('patient_id', $source->id)->lockForUpdate()->pluck('id')->all()),
                 'patient_coverages' => $this->ids(PatientCoverage::query()->where('patient_id', $source->id)->lockForUpdate()->pluck('id')->all()),
+                'patient_consents' => $this->ids(PatientConsent::query()->where('patient_id', $source->id)->lockForUpdate()->pluck('id')->all()),
             ],
             'created_at' => Carbon::now()->toISOString(),
             'boundary' => 'Reversal restores only records moved by this merge; records created on the target afterward are not moved back.',
@@ -154,6 +156,7 @@ class PatientMergeService
         $this->repoint('patient_contacts', $moved['patient_contacts'], $targetId);
         $this->repoint('patient_identifiers', $moved['patient_identifiers'], $targetId);
         $this->repoint('patient_coverages', $moved['patient_coverages'], $targetId);
+        $this->repoint('patient_consents', $moved['patient_consents'], $targetId);
     }
 
     /**
@@ -167,6 +170,7 @@ class PatientMergeService
         $this->repoint('patient_contacts', $this->ids($moved['patient_contacts'] ?? []), $sourceId, $targetId);
         $this->repoint('patient_identifiers', $this->ids($moved['patient_identifiers'] ?? []), $sourceId, $targetId);
         $this->repoint('patient_coverages', $this->ids($moved['patient_coverages'] ?? []), $sourceId, $targetId);
+        $this->repoint('patient_consents', $this->ids($moved['patient_consents'] ?? []), $sourceId, $targetId);
     }
 
     /**

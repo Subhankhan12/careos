@@ -49,6 +49,8 @@ hash-chained partitioned `audit_events` + AuditService (verifyChain, DB UPDATE/D
 audit integration, read-logging, and break-glass are in place; portable + green on MariaDB (dev)
 and MySQL 8 (CI as of Phase A). Read-logging is exercised via a probe and by real Patient reads.
 P0B.G3 added `patient.merged` and `patient.unmerged` audit actions with reversible merge snapshots.
+P0B.G4 added patient-scoped `consent.granted` and `consent.withdrawn` audit actions; chain
+verification is covered in the consent lifecycle tests.
 
 ## Open items
 

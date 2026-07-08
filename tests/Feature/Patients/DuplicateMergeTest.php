@@ -7,8 +7,11 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Modules\Audit\Services\AuditService;
+use Modules\Patients\Models\ConsentTemplate;
 use Modules\Patients\Models\Patient;
+use Modules\Patients\Models\PatientConsent;
 use Modules\Patients\Models\PatientContact;
+use Modules\Patients\Services\ConsentService;
 use Modules\Patients\Services\DuplicateCandidate;
 use Modules\Patients\Services\DuplicateDetector;
 use Modules\Patients\Services\PatientDuplicateReviewService;
@@ -45,6 +48,11 @@ function b3PatientService(): PatientService
 function b3MergeService(): PatientMergeService
 {
     return app(PatientMergeService::class);
+}
+
+function b3ConsentService(): ConsentService
+{
+    return app(ConsentService::class);
 }
 
 function b3Role(string $key): Role
@@ -84,6 +92,18 @@ function b3Address(string $line1 = 'Main Street 10', string $postal = '8000', st
         'country' => 'CH',
         'is_primary' => true,
     ];
+}
+
+function b3ConsentTemplate(): ConsentTemplate
+{
+    return ConsentTemplate::create([
+        'key' => 'portal',
+        'title' => 'Portal Access',
+        'body' => 'Portal access consent',
+        'version' => 1,
+        'scope_keys' => ['portal.access'],
+        'is_active' => true,
+    ]);
 }
 
 function b3Candidate(Collection $candidates, Patient $patient): DuplicateCandidate
@@ -215,6 +235,8 @@ test('merge re-points children marks the source merged and combines target recor
         ['first_name' => 'Ada Target'],
         [['type' => 'email', 'value' => 'target@example.test', 'is_primary' => true]],
     );
+    b3ConsentTemplate();
+    $sourceConsent = b3ConsentService()->grant($source, 'portal', 'Ada Lovelace', $user);
 
     b3MergeService()->merge($source->id, $target->id, 'Duplicate registration');
 
@@ -227,7 +249,8 @@ test('merge re-points children marks the source merged and combines target recor
         ->and(PatientContact::where('patient_id', $target->id)->count())->toBe(3)
         ->and($target->refresh()->contacts()->where('value', 'source@example.test')->exists())->toBeTrue()
         ->and($target->identifiers()->where('value', 'SRC')->exists())->toBeTrue()
-        ->and($target->coverages()->where('member_id', 'SRC-COV')->exists())->toBeTrue();
+        ->and($target->coverages()->where('member_id', 'SRC-COV')->exists())->toBeTrue()
+        ->and(PatientConsent::whereKey($sourceConsent->id)->value('patient_id'))->toBe($target->id);
 });
 
 test('merge writes an audit event and the tenant audit chain verifies', function () {
@@ -268,6 +291,8 @@ test('unmerge restores the source and only the children moved by the merge', fun
     $sourceContactId = $source->contacts->first()->id;
     $sourceIdentifierId = $source->identifiers->first()->id;
     $sourceCoverageId = $source->coverages->first()->id;
+    b3ConsentTemplate();
+    $sourceConsentId = b3ConsentService()->grant($source, 'portal', 'Ada Lovelace', $user)->id;
     $target = b3Patient(['first_name' => 'Ada Target']);
 
     $mergeEventId = b3MergeService()->merge($source->id, $target->id, 'Duplicate registration');
@@ -283,6 +308,7 @@ test('unmerge restores the source and only the children moved by the merge', fun
         ->and(PatientContact::whereKey($sourceContactId)->value('patient_id'))->toBe($source->id)
         ->and(DB::table('patient_identifiers')->where('id', $sourceIdentifierId)->value('patient_id'))->toBe($source->id)
         ->and(DB::table('patient_coverages')->where('id', $sourceCoverageId)->value('patient_id'))->toBe($source->id)
+        ->and(PatientConsent::whereKey($sourceConsentId)->value('patient_id'))->toBe($source->id)
         ->and($target->contacts()->where('value', '+4100000000')->exists())->toBeTrue()
         ->and(b3AuditRows($tenant->id, 'patient.unmerged'))->toHaveCount(1)
         ->and(b3AuditRows($tenant->id, 'patient.unmerged')->first()->id)->toBe($unmergeEventId)
