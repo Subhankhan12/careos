@@ -104,6 +104,11 @@ class Patient extends Model
         return $this->hasMany(PatientConsent::class);
     }
 
+    public function portalAccounts(): HasMany
+    {
+        return $this->hasMany(PortalAccount::class);
+    }
+
     public function mergedInto(): BelongsTo
     {
         return $this->belongsTo(self::class, 'merged_into_id');

@@ -51,6 +51,7 @@ and MySQL 8 (CI as of Phase A). Read-logging is exercised via a probe and by rea
 P0B.G3 added `patient.merged` and `patient.unmerged` audit actions with reversible merge snapshots.
 P0B.G4 added patient-scoped `consent.granted` and `consent.withdrawn` audit actions; chain
 verification is covered in the consent lifecycle tests.
+P0B.G5 added patient-scoped `portal.invited`, `portal.first_login`, and `portal.login` actions.
 
 ## Open items
 

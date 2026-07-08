@@ -4,6 +4,9 @@ use App\Http\Middleware\HandleInertiaRequests;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
+use Modules\Patients\Http\Middleware\EnsurePatientPortalAuthenticated;
+use Modules\Patients\Http\Middleware\EnsurePortalConsent;
+use Modules\Patients\Http\Middleware\IdentifyTenantFromPortalSession;
 use Modules\Platform\Http\Middleware\EnsureSuperAdmin;
 use Modules\Platform\Http\Middleware\EnsureTwoFactorEnabled;
 use Modules\Platform\Http\Middleware\IdentifyTenantFromUser;
@@ -23,6 +26,9 @@ return Application::configure(basePath: dirname(__DIR__))
             'identify-tenant' => IdentifyTenantFromUser::class,
             'two-factor' => EnsureTwoFactorEnabled::class,
             'super-admin' => EnsureSuperAdmin::class,
+            'portal-tenant' => IdentifyTenantFromPortalSession::class,
+            'portal-auth' => EnsurePatientPortalAuthenticated::class,
+            'portal-consent' => EnsurePortalConsent::class,
         ]);
 
         // After the guard resolves the user: set tenant context, then enforce MFA.

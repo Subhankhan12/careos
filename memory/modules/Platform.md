@@ -30,6 +30,8 @@ enforces fail-closed tenancy.
 - `Services\FeatureService` (flag resolution: override → plan default → false),
   `Services\SettingsService` (typed get/set + platform defaults).
 - Middleware: `IdentifyTenantFromUser`, `EnsureTwoFactorEnabled`, `EnsureSuperAdmin`.
+- Patient portal auth is intentionally separate in Patients (`portal_accounts` + `patient`
+  guard); staff `users`/Fortify/RBAC remain for staff/admin only.
 - Models: `Tenant`, `User`, `Branch`, `Department`, `Role`, `Permission`, `RoleAssignment`,
   `Plan`, `FeatureFlag`, `Setting`, `BreakGlassGrant`.
 
@@ -41,6 +43,7 @@ enforces fail-closed tenancy.
 - Mandatory TOTP MFA for all users; suspended tenants denied at login and at request time.
 - Super-admin (tenant_id null) is the ONLY RBAC bypass (`Gate::before`).
 - `patient.merge` is a permissioned destructive action granted to org-admin starter roles.
+- RBAC applies to staff `users` only; patient portal accounts do not receive staff permissions.
 - Money as integer minor units; plans store `price_minor`.
 
 ## Status

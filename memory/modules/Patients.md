@@ -4,7 +4,7 @@
 
 Tenant-owned patient CRM core: demographics, contacts, optional identifiers, coverages, MRN
 generation, patient read-logging for the "who accessed my record" audit report, and patient
-consent capture/scope checks.
+consent capture/scope checks, plus separate patient portal login identity.
 
 ## Key tables
 
@@ -24,6 +24,11 @@ consent capture/scope checks.
   `template_version`, immutable signed template key/title/body/scope snapshot, `status`,
   `granted_at`, nullable `withdrawn_at`/`expires_at`, JSON `signature`, and `captured_by`.
   Index `(tenant_id, patient_id, status)`.
+- `portal_accounts` - tenant-owned patient login identity separate from staff `users`.
+  `patient_id`, globally unique `email`, nullable hashed `password` until activation, `status`,
+  invite/activation/last-login timestamps, remember token. Unique `(tenant_id, patient_id)`.
+- `portal_login_tokens` - tenant-owned short-lived magic-link + OTP verifiers for portal
+  invite/activation. Stores token hash, OTP hash, purpose, expiry, and consumed timestamp.
 
 ## Key services / classes
 
@@ -44,6 +49,14 @@ consent capture/scope checks.
   patient/template/capturer references are same-tenant guarded.
 - `Services\ConsentService` - grants current active template versions, withdraws with reason,
   writes patient-scoped audit events, and resolves `has(patient, scopeKey)` fail-closed.
+- `Models\PortalAccount` and `PortalLoginToken` - tenant-owned portal identity and invite token
+  rows; patient/account references are same-tenant guarded.
+- `Services\PortalAccessService` - creates portal invites, sends magic-link/OTP notification,
+  activates accounts with first password, logs in via the `patient` guard, and audits portal
+  invite/first-login/login.
+- `Http\Middleware\IdentifyTenantFromPortalSession`, `EnsurePatientPortalAuthenticated`, and
+  `EnsurePortalConsent` - re-establish tenant context from the portal session, authenticate the
+  patient guard, and enforce `portal.access` consent.
 
 ## Invariants enforced
 
@@ -65,18 +78,25 @@ consent capture/scope checks.
   superseded later (D-023).
 - Consent grant/withdraw writes patient-scoped audit actions `consent.granted` and
   `consent.withdrawn`; read-logging remains reserved for patient record reads.
+- Portal access is fail-closed: invite, activation, password login, and `/portal` access require
+  an active `portal.access` consent.
+- Patient portal auth uses the `patient` guard only. Patient accounts cannot satisfy staff/admin
+  `web` guard routes, and staff users cannot satisfy portal guard routes.
+- Portal sessions are tenant-bound (`portal_tenant_id`) and cross-tenant session tampering is
+  denied before consent can grant access.
 
 ## Status
 
-**P0B.G4 COMPLETE.** Patients module registered; CRM core tables/models, MRN generator,
+**P0B.G5 COMPLETE.** Patients module registered; CRM core tables/models, MRN generator,
 transactional service, read-logging, access-report stub, demographic duplicate detection,
-permissioned audited merge, snapshot-based unmerge, and consent engine are in place.
+permissioned audited merge, snapshot-based unmerge, consent engine, and portal accounts are in place.
 
 ## Open items
 
 - Dev MariaDB 10.4 uses plain FULLTEXT while MySQL 8 CI/prod uses `WITH PARSER ngram` - patient
   name search tokenizes differently across environments; validate search parity before production.
 - B.6 patient 360 UI + registration wizard.
+- Portal UI screens are later; B.5 only exposes backend routes/guards/services.
 - Later gates must call `ConsentService::has()` before portal access or clinical data sharing.
 - MySQL 8 CI should verify the `WITH PARSER ngram` path; local MariaDB 10.4 lacks the ngram parser
   and uses the migration fallback FULLTEXT index.

@@ -4,12 +4,12 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
 (per the MEMORY PROTOCOL in AGENTS.md).
 
 - **Current phase:** Phase B - People & Patients - **IN PROGRESS**.
-- **Commits:** 20 on `main` after P0B.G4 (consent engine).
+- **Commits:** 21 on `main` after P0B.G5 (patient portal accounts).
   Phase A = 11 (P0A.G1-G8, P0A.GM, P0A.GF, P0A.GF3), pushed to `origin/main`
   (https://github.com/Subhankhan12/careos).
 - **Verified quality (from actual output):** `composer check` green - Pint `passed`,
-  PHPStan level 5 `[OK] No errors`, Pest **101 passed / 369 assertions**. `npm run build` was
-  not required for P0B.G4 (backend/tests only; no frontend changes).
+  PHPStan level 5 `[OK] No errors`, Pest **106 passed / 408 assertions**. `npm run build` was
+  not required for P0B.G5 (backend/routes/tests only; no frontend pages or assets changed).
 - **Stack (verified):** Laravel 12.63.0 on PHP 8.2.12; DEV DB = `careos` on XAMPP MariaDB
   10.4.32 (127.0.0.1:3306); default DB cache/queue/session drivers; Fortify + Sanctum.
 - **Proven in Phase A:**
@@ -45,4 +45,7 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
   - Consent engine stores versioned tenant templates and patient consent captures with immutable
     signed template snapshots; `ConsentService::has()` is fail-closed and respects scopes,
     expiry, and withdrawal (D-023).
+  - Patient portal identity uses separate tenant-owned `portal_accounts` with a dedicated
+    `patient` guard/session; portal invite/activation/login is gated by `portal.access` consent
+    and audited with patient-scoped events (D-024).
 - **Next action:** Continue Phase B. Execute only the next gate that is pasted.

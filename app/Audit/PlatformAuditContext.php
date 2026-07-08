@@ -4,6 +4,7 @@ namespace App\Audit;
 
 use Illuminate\Support\Facades\Auth;
 use Modules\Audit\Contracts\AuditContext;
+use Modules\Patients\Models\PortalAccount;
 use Modules\Platform\Services\TenantContext;
 
 /**
@@ -28,6 +29,12 @@ class PlatformAuditContext implements AuditContext
 
         if ($user !== null) {
             return ['type' => 'user', 'id' => (string) $user->getAuthIdentifier()];
+        }
+
+        $patient = Auth::guard('patient')->user();
+
+        if ($patient instanceof PortalAccount) {
+            return ['type' => 'patient', 'id' => (string) $patient->getAuthIdentifier()];
         }
 
         return ['type' => 'service', 'id' => null];

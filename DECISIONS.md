@@ -54,3 +54,8 @@ references the old ID.
   stores the signed template key/title/body/scope version alongside the template FK so consent
   proof and scope resolution are stable even after newer template versions supersede old text
   (P0B.G4).
+- **D-024 - Patient portal identity is separate from staff users.** Use tenant-owned
+  `portal_accounts` plus a dedicated `patient` session guard, not `users`, so patient logins are
+  isolated from Fortify staff/admin MFA and RBAC. Portal sessions carry `portal_tenant_id` and
+  re-establish tenant context before guard rehydration; portal access is gated by
+  `ConsentService::has(patient, 'portal.access')` (P0B.G5).

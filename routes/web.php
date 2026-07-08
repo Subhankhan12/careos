@@ -2,6 +2,8 @@
 
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
+use Modules\Patients\Http\Controllers\PortalAuthController;
+use Modules\Patients\Http\Controllers\PortalInvitationController;
 
 Route::get('/', function () {
     if (! auth()->check()) {
@@ -25,3 +27,17 @@ Route::middleware('auth')->group(function () {
     Route::get('/two-factor/enrollment', fn () => Inertia::render('Auth/TwoFactorEnroll'))
         ->name('two-factor.enrollment');
 });
+
+Route::prefix('portal')->name('portal.')->group(function () {
+    Route::get('/login', fn () => response('Patient portal login pending UI'))->name('login');
+    Route::post('/accept-invite', [PortalAuthController::class, 'acceptInvite'])->name('accept-invite');
+    Route::post('/login', [PortalAuthController::class, 'login'])->name('login.attempt');
+
+    Route::get('/', fn () => response('Patient portal pending UI'))
+        ->middleware(['portal-tenant', 'portal-auth', 'portal-consent'])
+        ->name('home');
+});
+
+Route::post('/portal/invitations', PortalInvitationController::class)
+    ->middleware('auth')
+    ->name('portal.invitations.store');
