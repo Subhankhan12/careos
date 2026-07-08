@@ -43,7 +43,9 @@ enforces fail-closed tenancy.
 
 ## Status
 
-Built through gate P0A.G8. Auth flow (login → 2FA → role redirect) + app/admin shells in place.
+**Phase A COMPLETE** (through P0A.C). Tenancy, org hierarchy, auth+MFA, RBAC, config
+(plans/flags/settings), break-glass, and the auth flow (login → 2FA → role redirect) + app/admin
+shells are in place and green on MariaDB (dev) and MySQL 8 (CI).
 
 ## Open items
 

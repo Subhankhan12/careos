@@ -3,23 +3,25 @@
 Short, factual snapshot of where the project stands. Updated at consolidations and after gates
 (per the MEMORY PROTOCOL in AGENTS.md).
 
-- **Current phase:** Phase A — Platform core — in progress (foundations complete through the app shell).
-- **Gates done:** Phase 0 (P0.G2–G5, P0.C); Phase A (P0A.G1–G8) + memory gate P0A.GM +
-  CI fixes P0A.GF and P0A.GF3. All on `main`, pushed to `origin/main`
-  (https://github.com/Subhankhan12/careos); tree clean.
-- **Verified test count:** 75 passing / 202 assertions via `composer check` (as of P0A.G8) —
-  Pint clean, PHPStan level 5 no errors. `npm run build` green (Inertia+Vue3+TS+Tailwind v4).
-- **Delivered so far:** fail-closed multi-tenancy (TenantContext + BelongsToTenant); Fortify auth
-  + mandatory TOTP MFA + tenant identification; org hierarchy (branches/departments); RBAC with
-  branch-scoped assignments + Gate; plans/feature-flags/typed-settings; append-only hash-chained
-  partitioned `audit_events` + AuditService; audit integration + read-logging + break-glass;
-  Inertia/Vue3/TS/Tailwind shell (login → 2FA → role redirect, app/admin landings).
-- **Stack (verified):** Laravel 12 on PHP 8.2; DEV DB `careos` on XAMPP MariaDB 10.4 (port 3306);
-  default DB cache/queue/session drivers; Fortify + Sanctum; Inertia v2 + Vue 3 + TS + Tailwind v4.
-- **CI:** GitHub Actions runs on push/PR to `main` against **MySQL 8** (production parity).
-  Workflow builds frontend assets (setup-node 22 + `npm ci` + `npm run build`) before tests
-  (P0A.GF). Inertia page dir is `resources/js/pages` (lowercase) to match inertia-laravel's
-  `pages.paths` on case-sensitive Linux (P0A.GF3). Not observed from the Windows dev box
-  (`gh` not installed) — confirm the run is green on the Actions tab.
-- **Next action:** continue per the master plan — People/Patients are next in the module map
-  (Phase B). Execute only the gate that is pasted.
+- **Current phase:** Phase A — Platform core — **COMPLETE**.
+- **Commits:** 16 on `main`; Phase A = 11 (P0A.G1–G8, P0A.GM, P0A.GF, P0A.GF3), pushed to
+  `origin/main` (https://github.com/Subhankhan12/careos); working tree clean, up to date.
+- **Verified quality (from actual output):** `composer check` green — Pint `passed`,
+  PHPStan level 5 `[OK] No errors`, Pest **75 passed / 202 assertions**. `npm run build` green
+  (Inertia + Vue 3 + TS + Tailwind v4). CI **green on MySQL 8** for the latest commit
+  `6ae661c` (CI #15, confirmed by the user).
+- **Stack (verified):** Laravel 12.63.0 on PHP 8.2.12; DEV DB = `careos` on XAMPP MariaDB
+  10.4.32 (127.0.0.1:3306); default DB cache/queue/session drivers; Fortify + Sanctum.
+- **Proven in Phase A:**
+  - Fail-closed multi-tenancy (TenantContext + BelongsToTenant; no-context queries throw).
+  - Fortify auth + **mandatory TOTP MFA** + tenant identification (suspended tenants denied).
+  - Org hierarchy (branches/departments) with cross-tenant FK guard.
+  - Custom **RBAC** with branch-scoped assignments + `Gate::before` (super-admin sole bypass).
+  - Plans (integer minor units) + feature flags + typed settings.
+  - Append-only, hash-chained, monthly-partitioned `audit_events` + AuditService
+    (`verifyChain`, DB UPDATE/DELETE triggers), portable on MariaDB 10.4 + MySQL 8.
+  - Audit integration (auth/RBAC/config events) + read-logging + time-boxed break-glass.
+  - Inertia/Vue3/TS/Tailwind v4 shell (login → 2FA → role redirect; app/admin landings).
+  - Cross-agent memory system (AGENTS.md + memory/) as the single source of truth.
+  - CI builds the frontend and runs the suite on MySQL 8 (Node 22).
+- **Next action:** **Phase B — People & Patients.** Execute only the gate that is pasted.

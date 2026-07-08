@@ -44,7 +44,10 @@ before_hash, after_hash, reason, ip, ua, context, occurred_at, prev_hash`.
 
 ## Status
 
-Built through gate P0A.G7. Read-logging exercised via a probe; wired to patients in Phase B.
+**Phase A COMPLETE** (through P0A.C). Append-only hash-chained partitioned `audit_events` +
+AuditService (verifyChain, DB UPDATE/DELETE triggers), audit integration, read-logging, and
+break-glass are in place; portable + green on MariaDB (dev) and MySQL 8 (CI). Read-logging
+exercised via a probe; wired to patients in Phase B.
 
 ## Open items
 

@@ -26,3 +26,21 @@ references the old ID.
 - **D-011 — EU region cell first; PHI never crosses cells.**
 - **D-012 — Plain internal Modules** (no nwidart or other third-party module manager).
 - **D-013 — Append-only + hash-chained audit with read-logging.**
+- **D-014 — Custom tenant-aware RBAC, not spatie/laravel-permission.** Roles/permissions are
+  tenant-owned with branch-scoped assignments and ABAC-condition slots; integrated via
+  `Gate::before`, with platform super-admin (tenant_id null) as the ONLY bypass (P0A.G4).
+- **D-015 — Users are global-email for now.** Single nullable `tenant_id` per user (null =
+  super-admin); multi-tenant same-email membership is deferred (P0A.G2, see DEFERRED.md).
+- **D-016 — DB triggers are the active append-only guard for `audit_events` in dev.** BEFORE
+  UPDATE/DELETE triggers `SIGNAL SQLSTATE '45000'`; a least-privilege DB user (UPDATE/DELETE
+  revoked) is the production defence-in-depth, deferred (P0A.G6).
+- **D-017 — Cross-module composition lives in the app layer.** Modules never depend on each
+  other (arch-test enforced); glue that needs two modules (e.g. Audit + Platform tenant context,
+  break-glass) lives in `app/` via services/contracts (P0A.G7).
+- **D-018 — AGENTS.md is the single source of truth across agents.** `CLAUDE.md` and `codex.md`
+  are thin pointers; every task follows the MEMORY PROTOCOL (P0A.GM).
+- **D-019 — Inertia pages live in `resources/js/pages` (lowercase).** Matches inertia-laravel's
+  `pages.paths` for case-sensitive Linux/CI parity (P0A.GF3).
+- **D-020 — CI builds the frontend and runs on MySQL 8.** `npm ci` + `npm run build` before
+  tests (Vite manifest), Node 22; full suite runs against MySQL 8 for production parity
+  (P0A.GF / P0A.GF3).

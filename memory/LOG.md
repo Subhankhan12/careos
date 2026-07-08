@@ -16,5 +16,6 @@ One line per completed gate. Newest at bottom. Format: `<commit> P<phase>.G<n>: 
 - `cac62d7` P0A.G7: audit integration (auth/RBAC/config events) + read-logging (LogsReads) + break-glass.
 - `5e6296a` P0A.G8: Inertia+Vue3+TS+Tailwind v4 shell — login, 2FA challenge/enroll, role redirect; 75 tests / 202 assertions.
 - `01f262b` P0A.GM: cross-agent memory & context system — AGENTS.md + codex.md thin pointers + memory/ (docs only).
-- `(this commit)` P0A.GF: CI fix — build frontend (setup-node 20 + npm ci + npm run build) before tests, so the Vite manifest exists; ci.yml only. Local 75 passed / 202 assertions.
-- `(this commit)` P0A.GF3: CI fix — Inertia page dir renamed `resources/js/Pages` → `resources/js/pages` (git mv) to match inertia-laravel's `pages.paths` (`js/pages`), fixing case-sensitive Linux `ensure_pages_exist`; app.ts glob → `./pages`; setup-node bumped 20→22. Local 75 passed / 202 assertions.
+- `0cd0f5f` P0A.GF: CI fix — build frontend (setup-node 20 + npm ci + npm run build) before tests, so the Vite manifest exists; ci.yml only. Local 75 passed / 202 assertions.
+- `6ae661c` P0A.GF3: CI fix — Inertia page dir renamed `resources/js/Pages` → `resources/js/pages` (git mv) to match inertia-laravel's `pages.paths` (`js/pages`), fixing case-sensitive Linux `ensure_pages_exist`; app.ts glob → `./pages`; setup-node bumped 20→22. Local 75 passed / 202 assertions. CI #15 GREEN on MySQL 8.
+- `(P0A.C)` Phase A COMPLETE — Platform core + Audit + app shell. 16 commits; Pest 75/202, PHPStan L5 clean, Pint clean, npm build green, CI green on MySQL 8. Proven: fail-closed tenancy, mandatory MFA, RBAC+branch scope, hash-chained append-only audit + triggers, break-glass, Inertia shell, cross-agent memory. Next: Phase B — People & Patients.
