@@ -6,4 +6,5 @@ parameters:
     paths:
         - app
         - Modules
+        - tests/Support
     tmpDir: storage/phpstan
