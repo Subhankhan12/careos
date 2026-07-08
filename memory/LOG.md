@@ -17,3 +17,4 @@ One line per completed gate. Newest at bottom. Format: `<commit> P<phase>.G<n>: 
 - `5e6296a` P0A.G8: Inertia+Vue3+TS+Tailwind v4 shell — login, 2FA challenge/enroll, role redirect; 75 tests / 202 assertions.
 - `01f262b` P0A.GM: cross-agent memory & context system — AGENTS.md + codex.md thin pointers + memory/ (docs only).
 - `(this commit)` P0A.GF: CI fix — build frontend (setup-node 20 + npm ci + npm run build) before tests, so the Vite manifest exists; ci.yml only. Local 75 passed / 202 assertions.
+- `(this commit)` P0A.GF3: CI fix — Inertia page dir renamed `resources/js/Pages` → `resources/js/pages` (git mv) to match inertia-laravel's `pages.paths` (`js/pages`), fixing case-sensitive Linux `ensure_pages_exist`; app.ts glob → `./pages`; setup-node bumped 20→22. Local 75 passed / 202 assertions.
