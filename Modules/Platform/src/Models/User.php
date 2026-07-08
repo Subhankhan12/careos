@@ -10,6 +10,7 @@ use Illuminate\Notifications\Notifiable;
 use Laravel\Fortify\TwoFactorAuthenticatable;
 use Laravel\Sanctum\HasApiTokens;
 use Modules\Platform\Concerns\BelongsToTenant;
+use Modules\Platform\Services\PermissionService;
 
 /**
  * A platform user (staff or super-admin).
@@ -81,6 +82,15 @@ class User extends Authenticatable
     public function isTenantStaff(): bool
     {
         return $this->tenant_id !== null;
+    }
+
+    /**
+     * Whether the user holds a permission, optionally for a specific branch.
+     * Delegates to the PermissionService (super-admin always true).
+     */
+    public function hasPermission(string $key, ?string $branchId = null): bool
+    {
+        return app(PermissionService::class)->has($this, $key, $branchId);
     }
 
     public function tenant(): BelongsTo
