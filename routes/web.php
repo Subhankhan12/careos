@@ -8,6 +8,9 @@ use Modules\Patients\Http\Controllers\PatientRegistrationController;
 use Modules\Patients\Http\Controllers\PatientShowController;
 use Modules\Patients\Http\Controllers\PortalAuthController;
 use Modules\Patients\Http\Controllers\PortalInvitationController;
+use Modules\Scheduling\Http\Controllers\DayBoardActionController;
+use Modules\Scheduling\Http\Controllers\DayBoardController;
+use Modules\Scheduling\Http\Controllers\PublicBookingController;
 
 Route::get('/', function () {
     if (! auth()->check()) {
@@ -39,7 +42,24 @@ Route::middleware('auth')->group(function () {
     Route::post('/patients/{patient}/consents', [PatientConsentController::class, 'grant'])->name('patients.consents.grant');
     Route::post('/patients/{patient}/consents/{consent}/withdraw', [PatientConsentController::class, 'withdraw'])
         ->name('patients.consents.withdraw');
+
+    Route::get('/scheduling/day-board', DayBoardController::class)->name('scheduling.day-board');
+    Route::post('/scheduling/day-board/transition', [DayBoardActionController::class, 'transition'])
+        ->name('scheduling.day-board.transition');
+    Route::post('/scheduling/day-board/quick-book', [DayBoardActionController::class, 'quickBook'])
+        ->name('scheduling.day-board.quick-book');
+    Route::post('/scheduling/day-board/slots', [DayBoardActionController::class, 'slots'])
+        ->name('scheduling.day-board.slots');
 });
+
+Route::prefix('book/{tenant:slug}')
+    ->middleware('throttle:20,1')
+    ->name('public.booking.')
+    ->group(function () {
+        Route::get('/', [PublicBookingController::class, 'index'])->name('index');
+        Route::post('/slots', [PublicBookingController::class, 'slots'])->name('slots');
+        Route::post('/', [PublicBookingController::class, 'store'])->name('store');
+    });
 
 Route::prefix('portal')->name('portal.')->group(function () {
     Route::get('/login', fn () => response('Patient portal login pending UI'))->name('login');

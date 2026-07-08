@@ -85,3 +85,8 @@ references the old ID.
   dispatch creates one `appointment_reminders` row per appointment/type/channel, queues Redis jobs,
   and the job locks the row before re-checking active appointment state and
   `ConsentService::has(patient, 'comms.email')`; no consent means skipped, not sent (P0C.G5).
+- **D-031 - Public booking uses tenant slugs and the existing safe booking path.** Public online
+  booking is mounted under `/book/{tenant:slug}` so tenant context can be established without staff
+  auth; it exposes only active `bookable_online` services, rate-limits requests, runs demographic
+  duplicate detection before patient creation, and calls the same locked `BookingService` path with
+  `source=online` and `booked_by=null` (P0C.G6).

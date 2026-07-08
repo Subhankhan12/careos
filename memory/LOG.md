@@ -32,3 +32,4 @@ One line per completed gate. Newest at bottom. Format: `<commit> P<phase>.G<n>: 
 - `(pending)` P0C.G3: Booking engine + no-double-book parallel hammer - appointments, appointment_resources, locked BookingService; 134 tests / 536 assertions.
 - `(pending)` P0C.G4: Appointment lifecycle + waitlist - legal transitions, atomic reschedule, waitlist offer/accept; 140 tests / 572 assertions.
 - `(pending)` P0C.G5: Queued appointment reminders - policy, consent-gated email channel, idempotent Redis jobs; 146 tests / 593 assertions.
+- `(pending)` P0C.G6: Reception day-board + public online booking - RBAC day-board, quick-book safe path, tenant-slug public booking; 152 tests / 633 assertions; npm build green.

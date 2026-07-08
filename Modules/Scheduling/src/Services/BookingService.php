@@ -44,9 +44,62 @@ class BookingService
         ?string $notes = null,
         ?string $rescheduledFromId = null,
     ): Appointment {
+        return $this->createBooking(
+            $serviceId,
+            $patientId,
+            $branchId,
+            $startsAt,
+            $resourceIds,
+            $bookedBy,
+            true,
+            $source,
+            $notes,
+            $rescheduledFromId,
+        );
+    }
+
+    /**
+     * @param  list<string>  $resourceIds
+     */
+    public function bookOnline(
+        string $serviceId,
+        ?string $patientId,
+        string $branchId,
+        CarbonInterface|string $startsAt,
+        array $resourceIds,
+        ?string $notes = null,
+    ): Appointment {
+        return $this->createBooking(
+            $serviceId,
+            $patientId,
+            $branchId,
+            $startsAt,
+            $resourceIds,
+            null,
+            false,
+            Appointment::SOURCE_ONLINE,
+            $notes,
+        );
+    }
+
+    /**
+     * @param  list<string>  $resourceIds
+     */
+    private function createBooking(
+        string $serviceId,
+        ?string $patientId,
+        string $branchId,
+        CarbonInterface|string $startsAt,
+        array $resourceIds,
+        ?User $bookedBy,
+        bool $authorize,
+        string $source,
+        ?string $notes = null,
+        ?string $rescheduledFromId = null,
+    ): Appointment {
         $tenantId = $this->tenantContext->id();
 
-        if (! Gate::forUser($bookedBy)->allows('appointment.manage', ['branch_id' => $branchId])) {
+        if ($authorize && ($bookedBy === null || ! Gate::forUser($bookedBy)->allows('appointment.manage', ['branch_id' => $branchId]))) {
             throw new AuthorizationException('This user cannot manage appointments.');
         }
 
@@ -106,7 +159,7 @@ class BookingService
                 'starts_at' => $starts,
                 'ends_at' => $ends,
                 'status' => Appointment::STATUS_BOOKED,
-                'booked_by' => (string) $bookedBy->getKey(),
+                'booked_by' => $bookedBy !== null ? (string) $bookedBy->getKey() : null,
                 'source' => $source,
                 'notes' => $notes,
             ]);

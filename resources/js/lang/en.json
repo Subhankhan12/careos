@@ -4,7 +4,8 @@
         "signOut": "Sign out",
         "nav": {
             "patients": "Patients",
-            "register": "Register"
+            "register": "Register",
+            "schedule": "Schedule"
         }
     },
     "auth": {
@@ -113,6 +114,41 @@
             "grantConsent": "Grant",
             "withdrawReason": "Reason",
             "withdraw": "Withdraw"
+        }
+    },
+    "scheduling": {
+        "fields": {
+            "date": "Date",
+            "branch": "Branch",
+            "service": "Service",
+            "patient": "Patient",
+            "notes": "Notes"
+        },
+        "actions": {
+            "arrive": "Arrive",
+            "start": "Start",
+            "complete": "Complete",
+            "cancel": "Cancel",
+            "noShow": "No-show"
+        },
+        "slots": {
+            "empty": "No free slots."
+        },
+        "dayBoard": {
+            "title": "Day-board",
+            "subtitle": "Branch agenda by resource.",
+            "time": "Time",
+            "block": "Block",
+            "refresh": "Refresh",
+            "quickBook": "Quick book",
+            "quickBookHint": "Find a free slot and book through the safe booking path.",
+            "book": "Book",
+            "actionReason": "Updated from day-board"
+        },
+        "public": {
+            "title": "Book an appointment",
+            "emergencyNotice": "This booking form is not for emergencies. For urgent help, contact local emergency services.",
+            "book": "Book appointment"
         }
     }
 }

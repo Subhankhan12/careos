@@ -6,7 +6,8 @@ Scheduling and front-desk workflow: service catalog, bookable resources, no-doub
 appointment lifecycle, waitlist, reminders, reception day-board, and public booking. P0C.G0
 established the Redis/Horizon queue substrate; P0C.G1 adds the tenant-owned service catalog;
 P0C.G2 adds resources and availability calendars; P0C.G3 adds the concurrency-safe booking
-engine; P0C.G4 adds appointment lifecycle and waitlist; P0C.G5 adds queued reminders.
+engine; P0C.G4 adds appointment lifecycle and waitlist; P0C.G5 adds queued reminders; P0C.G6
+adds the reception day-board and public online booking surface.
 
 ## Key tables
 
@@ -77,6 +78,8 @@ engine; P0C.G4 adds appointment lifecycle and waitlist; P0C.G5 adds queued remin
   `SendAppointmentReminderJob` jobs on Redis queue `reminders`.
 - `Services\ReminderChannelManager` plus `Contracts\AppointmentReminderChannel` - provider-free
   reminder channel abstraction; email implemented now.
+- `Services\AvailableSlotFinder` - computes free concrete slots for a service/branch/date by
+  combining resource availability with blocking appointment overlaps and service buffers.
 - `Channels\EmailAppointmentReminderChannel` - sends through Laravel notification routing to the
   patient's primary email contact.
 - `Jobs\SendAppointmentReminderJob` - queued reminder sender; re-establishes tenant context,
@@ -84,6 +87,11 @@ engine; P0C.G4 adds appointment lifecycle and waitlist; P0C.G5 adds queued remin
 - `Console\DispatchAppointmentRemindersCommand` - tenant loop command for enqueueing due reminders.
 - `Console\AttemptBookingCommand` - test harness command used by the parallel hammer to contend from
   separate PHP processes.
+- `Http\Controllers\DayBoardController` - RBAC-gated staff day-board data endpoint and Inertia page.
+- `Http\Controllers\DayBoardActionController` - lifecycle actions, quick-book, and slot preview for
+  authenticated front-desk staff.
+- `Http\Controllers\PublicBookingController` - tenant-slug public booking flow for online-bookable
+  services.
 - `Events\AppointmentBooked` - Scheduling event consumed by app-layer audit glue as
   `appointment.booked`.
 - `Events\AppointmentTransitioned` - app-layer audit glue records `appointment.<status>`.
@@ -136,15 +144,24 @@ engine; P0C.G4 adds appointment lifecycle and waitlist; P0C.G5 adds queued remin
 - Cancelled/rescheduled/completed/no_show appointments are stale for reminders and are skipped by
   the job even if a pending reminder was already queued.
 - SMS and WhatsApp drivers are deferred behind the reminder channel interface.
+- Reception day-board routes require auth plus `appointment.manage` and stay tenant-scoped.
+- Quick-book previews only slots from `AvailableSlotFinder` and books through `BookingService`.
+- Public booking uses `/book/{tenant:slug}` to establish tenant context without staff auth, exposes
+  only active `bookable_online` services, rate-limits the flow, runs duplicate detection, and books
+  through the same locked safe booking path with `source=online`.
+- Public booking captures only minimal patient details required to create/reuse a patient and never
+  runs triage, diagnosis, symptom assessment, or dosing logic.
+- Realtime day-board refresh through Reverb is deferred; C.6 uses request/slot refreshes now.
 
 ## Status
 
-**P0C.G5 COMPLETE.** Redis-compatible server is reachable locally, Predis and Horizon are
+**P0C.G6 COMPLETE.** Redis-compatible server is reachable locally, Predis and Horizon are
 installed, Horizon is configured for dev supervisors, the sanity queue round-trip test passes, and
 the Scheduling service catalog, resource calendars, no-double-book booking engine, appointment
-lifecycle, waitlist, and queued reminders are registered with tests. Local `composer check` is
-green: 146 tests / 593 assertions.
+lifecycle, waitlist, queued reminders, reception day-board, quick-book, and public online booking
+are registered with tests. Local `composer check` is green: 152 tests / 633 assertions. Local
+`npm run build` is green.
 
 ## Open items
 
-- Later gates add front-desk UI, public booking, and scheduler-agent proposals.
+- Later gates add scheduler-agent proposals and realtime day-board refresh.

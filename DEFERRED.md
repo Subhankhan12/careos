@@ -16,6 +16,8 @@ Deliberately deferred work. Not forgotten — parked until the right phase.
 - **WhatsApp channel.**
 - **SMS / WhatsApp appointment reminder drivers.** C.5 adds the provider-free reminder channel
   interface and email implementation only; external SMS/WhatsApp providers come later.
+- **Realtime day-board refresh with Reverb.** C.6 uses normal request/slot refreshes; websocket
+  refresh belongs later when realtime infrastructure is introduced.
 - **Qualified e-signature.**
 - **Meilisearch** swap for FULLTEXT.
 - **Silo tenancy tier.**
