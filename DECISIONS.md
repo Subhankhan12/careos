@@ -95,3 +95,8 @@ references the old ID.
   `ai_interactions`, hash-pinned prompts, declared tools with RBAC/autonomy, approval queue, kill
   switch, visible draft label, and app-layer audit events. Clinical and financial tool categories
   are hard-capped at `approve`, never `auto` (P0C.G7).
+- **D-033 - Front-Desk Agent is KB-only and Scheduler Agent is approval-first.** Front-Desk answers
+  only from active same-tenant KB articles with citation and lexical support after retrieval;
+  unknowns escalate and medical/symptom/triage/dosing questions are refused with handoff. Scheduler
+  tools are app-layer AiCore tools wrapping Scheduling services, capped at `approve`; waitlist
+  booking is impossible before approval queue execution (P0C.G8).

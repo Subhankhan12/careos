@@ -85,7 +85,7 @@ class ApprovalQueue
             approverId: (string) $reviewer->getKey(),
         );
 
-        $result = $tool->execute($payload);
+        $result = $tool->execute($payload, $reviewer);
 
         $action->forceFill([
             'status' => AgentAction::STATUS_EXECUTED,
@@ -164,7 +164,7 @@ class ApprovalQueue
             throw new AiCoreException('Only reversible tools may run automatically.');
         }
 
-        $result = $tool->execute($input);
+        $result = $tool->execute($input, $actor);
         $prompt = $this->prompts->get($feature);
 
         $interaction = $this->recorder->record(

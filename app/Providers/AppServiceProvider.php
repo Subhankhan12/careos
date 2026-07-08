@@ -2,12 +2,15 @@
 
 namespace App\Providers;
 
+use App\AiCore\Tools\FillFromWaitlistTool;
+use App\AiCore\Tools\SuggestSlotsTool;
 use App\Audit\AuthAuditSubscriber;
 use App\Audit\PlatformAuditContext;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\ServiceProvider;
 use Modules\AiCore\Events\AgentActionLifecycleChanged;
 use Modules\AiCore\Events\AiInteractionRecorded;
+use Modules\AiCore\Services\ToolRegistry;
 use Modules\Audit\Contracts\AuditContext;
 use Modules\Audit\Services\AuditService;
 use Modules\People\Models\Credential;
@@ -33,6 +36,11 @@ class AppServiceProvider extends ServiceProvider
         // Wire the audit context to the Platform-aware implementation. This
         // binding lives in the app layer so neither module depends on the other.
         $this->app->bind(AuditContext::class, PlatformAuditContext::class);
+
+        $this->app->afterResolving(ToolRegistry::class, function (ToolRegistry $registry): void {
+            $registry->register($this->app->make(FillFromWaitlistTool::class));
+            $registry->register($this->app->make(SuggestSlotsTool::class));
+        });
     }
 
     /**

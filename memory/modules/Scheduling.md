@@ -7,7 +7,8 @@ appointment lifecycle, waitlist, reminders, reception day-board, and public book
 established the Redis/Horizon queue substrate; P0C.G1 adds the tenant-owned service catalog;
 P0C.G2 adds resources and availability calendars; P0C.G3 adds the concurrency-safe booking
 engine; P0C.G4 adds appointment lifecycle and waitlist; P0C.G5 adds queued reminders; P0C.G6
-adds the reception day-board and public online booking surface.
+adds the reception day-board and public online booking surface; P0C.G8 adds governed Scheduler
+Agent tools that wrap the safe waitlist and slot-finder paths.
 
 ## Key tables
 
@@ -92,6 +93,11 @@ adds the reception day-board and public online booking surface.
   authenticated front-desk staff.
 - `Http\Controllers\PublicBookingController` - tenant-slug public booking flow for online-bookable
   services.
+- `App\AiCore\Tools\FillFromWaitlistTool` - app-layer AiCore/Scheduling integration tool; proposes
+  matching waitlist fills and calls `WaitlistService::offer()` + `accept()` only after human
+  approval.
+- `App\AiCore\Tools\SuggestSlotsTool` - app-layer AiCore/Scheduling integration tool; returns slots
+  from `AvailableSlotFinder` and never books.
 - `Events\AppointmentBooked` - Scheduling event consumed by app-layer audit glue as
   `appointment.booked`.
 - `Events\AppointmentTransitioned` - app-layer audit glue records `appointment.<status>`.
@@ -152,16 +158,19 @@ adds the reception day-board and public online booking surface.
 - Public booking captures only minimal patient details required to create/reuse a patient and never
   runs triage, diagnosis, symptom assessment, or dosing logic.
 - Realtime day-board refresh through Reverb is deferred; C.6 uses request/slot refreshes now.
+- Scheduler Agent proposals are governed by AiCore and capped at approve. Nothing books from the
+  waitlist until the approval queue executes the tool with a human approver.
 
 ## Status
 
-**P0C.G6 COMPLETE.** Redis-compatible server is reachable locally, Predis and Horizon are
+**P0C.G8 INTEGRATION COMPLETE.** Redis-compatible server is reachable locally, Predis and Horizon are
 installed, Horizon is configured for dev supervisors, the sanity queue round-trip test passes, and
 the Scheduling service catalog, resource calendars, no-double-book booking engine, appointment
 lifecycle, waitlist, queued reminders, reception day-board, quick-book, and public online booking
-are registered with tests. Local `composer check` is green: 152 tests / 633 assertions. Local
-`npm run build` is green.
+are registered with tests. Scheduler Agent tools now wrap waitlist fill proposals and slot
+suggestions under AiCore approval governance. Local `composer check` is green: 168 tests / 711
+assertions. Local `npm run build` is green as of P0C.G6.
 
 ## Open items
 
-- Later gates add scheduler-agent proposals and realtime day-board refresh.
+- Later gates add realtime day-board refresh and UI surfaces for agent proposals.

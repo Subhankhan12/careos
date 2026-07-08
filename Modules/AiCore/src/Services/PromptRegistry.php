@@ -20,6 +20,24 @@ class PromptRegistry
                 'Return the supplied message as a visibly labeled draft. Do not infer clinical facts.',
                 true,
             ),
+            'scheduler.fill_waitlist:1' => new PromptVersion(
+                'scheduler.fill_waitlist',
+                1,
+                'Propose waitlist candidates for an open scheduling slot. Do not book without human approval.',
+                true,
+            ),
+            'scheduler.suggest_slots:1' => new PromptVersion(
+                'scheduler.suggest_slots',
+                1,
+                'Suggest appointment slots from availability only. Do not book or modify records.',
+                true,
+            ),
+            'front_desk.faq:1' => new PromptVersion(
+                'front_desk.faq',
+                1,
+                'Answer only from tenant-approved KB content. If not covered, escalate to a human.',
+                true,
+            ),
         ];
     }
 

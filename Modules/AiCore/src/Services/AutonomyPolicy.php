@@ -47,6 +47,10 @@ class AutonomyPolicy
 
     private function cap(ToolDefinition $definition, string $level): string
     {
+        if (self::LEVELS[$level] > self::LEVELS[$definition->autonomyCeiling]) {
+            $level = $definition->autonomyCeiling;
+        }
+
         if ($definition->isClinicalOrFinancial() && self::LEVELS[$level] > self::LEVELS[self::APPROVE]) {
             return self::APPROVE;
         }

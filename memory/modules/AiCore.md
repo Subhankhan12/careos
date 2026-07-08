@@ -17,6 +17,10 @@ triage, symptom assessment, or dosing logic anywhere.
 - `agent_actions` - tenant-owned approval queue. ULID id, tenant, related interaction, feature,
   agent, tool key, autonomy level, status, proposer/reviewer, approve/reject/execute timestamps,
   rejection reason, why/diff/input/proposed output/edited payload/result.
+- `kb_articles` - tenant-owned active/inactive KB content for Front-Desk answers: title, body,
+  tags, active flag, timestamps.
+- `kb_embeddings` - tenant-owned portable vector-as-JSON embeddings for KB articles, keyed by
+  article/model with a content hash.
 
 ## Key classes
 
@@ -34,6 +38,13 @@ triage, symptom assessment, or dosing logic anywhere.
   hard-capped at approve.
 - `Services\ApprovalQueue` and `Services\AgentRuntime` - propose/approve/edit/reject/execute flow
   around the demo echo tool.
+- `Agents\FrontDeskAgent` - KB-only answer/escalate/refuse path for front-desk FAQ.
+- `Retrieval\KbEmbeddingService` and `Retrieval\KbRetriever` - deterministic portable embeddings,
+  cosine scoring in PHP, plus lexical support before any answer.
+- `App\AiCore\Tools\FillFromWaitlistTool` - governed Scheduler Agent tool that proposes matching
+  waitlist fills and books only after approval via Scheduling's `WaitlistService`.
+- `App\AiCore\Tools\SuggestSlotsTool` - governed Scheduler Agent tool that proposes available
+  slots from Scheduling's safe slot finder and never books.
 - `Events\AiInteractionRecorded` and `Events\AgentActionLifecycleChanged` - app-layer audit glue
   records ledger/action paths into the audit chain without AiCore depending on Audit.
 
@@ -49,17 +60,23 @@ triage, symptom assessment, or dosing logic anywhere.
   writes ledger/audit records.
 - Tool autonomy defaults to suggest. Clinical/financial tools cannot be set above approve.
 - Demo echo tool requires `ai.manage`; `ai.manage` is in the RBAC catalog and org-admin role.
+- Scheduler tools require `appointment.manage`, are capped at `approve`, and create approval-queue
+  items; waitlist booking happens only when a human approves.
+- Front-Desk KB answers may run automatically only when grounded in the current tenant's active KB
+  and a retrieved article has lexical support; unknown questions escalate with no answer.
+- Front-Desk medical/symptom/triage/dosing questions are refused and handed off.
+- KB retrieval never crosses tenants and ignores inactive articles.
 - AiCore may use Platform for tenant/settings/RBAC primitives; it does not depend on Audit or domain
   modules. Audit composition lives in `app/`.
 
 ## Status
 
-**P0C.G7 ACTIVE / COMPLETE.** The governed runtime foundation is live: gateway, cost ledger,
-budget gate, circuit breaker, prompt registry, tool registry, autonomy dial, kill switch, approval
-queue, demo echo tool, and app-layer audit events are implemented. Local `composer check` is green:
-160 tests / 668 assertions.
+**P0C.G8 COMPLETE.** The governed runtime foundation is live and now runs the first two agents:
+Scheduler Agent (waitlist fill proposals + slot suggestions) and Front-Desk Agent (tenant KB-only
+FAQ with refusal/escalation). Local `composer check` is green: 168 tests / 711 assertions.
 
 ## Open items
 
-- Future gates add real agents/tools. All of them must run through this governed runtime.
+- Future gates add UI for approval queue / KB administration and richer production-grade vector
+  retrieval. All agents/tools must continue through AiCore governance.
 - Expand the prompt eval harness beyond the minimal eval-passed flag before real prompt rollout.

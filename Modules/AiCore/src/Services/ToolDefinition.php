@@ -20,6 +20,7 @@ class ToolDefinition
         public readonly string $permission,
         public readonly array $schema,
         public readonly bool $reversible = true,
+        public readonly string $autonomyCeiling = AutonomyPolicy::AUTO,
     ) {}
 
     public function isClinicalOrFinancial(): bool

@@ -34,3 +34,4 @@ One line per completed gate. Newest at bottom. Format: `<commit> P<phase>.G<n>: 
 - `(pending)` P0C.G5: Queued appointment reminders - policy, consent-gated email channel, idempotent Redis jobs; 146 tests / 593 assertions.
 - `(pending)` P0C.G6: Reception day-board + public online booking - RBAC day-board, quick-book safe path, tenant-slug public booking; 152 tests / 633 assertions; npm build green.
 - `(pending)` P0C.G7: AiCore foundation - governed LLM gateway, append-only ledger, budget/circuit gates, prompt/tool registry, autonomy dial, approval queue; 160 tests / 668 assertions.
+- `(pending)` P0C.G8: Scheduler + Front-Desk agents - waitlist/slot tools under approval, tenant KB-only FAQ, electric-fence refusal; 168 tests / 711 assertions.

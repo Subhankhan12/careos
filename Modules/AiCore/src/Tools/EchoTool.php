@@ -4,6 +4,7 @@ namespace Modules\AiCore\Tools;
 
 use Modules\AiCore\Contracts\AiTool;
 use Modules\AiCore\Services\ToolDefinition;
+use Modules\Platform\Models\User;
 
 class EchoTool implements AiTool
 {
@@ -30,7 +31,7 @@ class EchoTool implements AiTool
         return $this->payload($input);
     }
 
-    public function execute(array $input): array
+    public function execute(array $input, ?User $actor = null): array
     {
         return $this->payload($input);
     }

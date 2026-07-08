@@ -2,6 +2,7 @@
 
 namespace Modules\AiCore\Services;
 
+use Modules\AiCore\Exceptions\AiCoreException;
 use Modules\AiCore\Models\AgentAction;
 use Modules\Platform\Models\User;
 
@@ -14,6 +15,7 @@ class AgentRuntime
         private readonly ApprovalQueue $approvalQueue,
         private readonly PromptRegistry $prompts,
         private readonly AiInteractionRecorder $recorder,
+        private readonly BudgetGate $budgetGate,
     ) {}
 
     /**
@@ -24,6 +26,28 @@ class AgentRuntime
     {
         $tool = $this->tools->get($toolKey);
         $prompt = $this->prompts->get($feature);
+
+        try {
+            $this->budgetGate->assertWithinBudget(1);
+        } catch (AiCoreException $e) {
+            $this->recorder->record(
+                $feature,
+                $agent,
+                'internal',
+                'tool-runtime',
+                '1',
+                $prompt->hash(),
+                'budget_blocked',
+                toolCalls: [['tool' => $toolKey]],
+                errorMessage: $e->getMessage(),
+            );
+
+            return [
+                'status' => 'budget_blocked',
+                'label' => AiInteractionRecorder::LABEL,
+                'human_handoff' => true,
+            ];
+        }
 
         if (! $this->killSwitch->enabled($feature)) {
             $this->recorder->record(

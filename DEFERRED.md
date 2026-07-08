@@ -20,6 +20,11 @@ Deliberately deferred work. Not forgotten — parked until the right phase.
   refresh belongs later when realtime infrastructure is introduced.
 - **Expanded AI prompt eval harness.** C.7 adds a minimal prompt registry eval-passed gate; richer
   offline/fixture evals come before real agent prompt rollout.
+- **Production vector search for KB RAG.** C.8 stores portable vector-as-JSON embeddings and scores
+  cosine similarity in PHP; ANN/vector indexes can replace this when the stack chooses a portable
+  search backend.
+- **Agent UI surfaces.** C.8 is backend + tests only; approval-queue and KB admin screens come in a
+  later UI gate.
 - **Qualified e-signature.**
 - **Meilisearch** swap for FULLTEXT.
 - **Silo tenancy tier.**
