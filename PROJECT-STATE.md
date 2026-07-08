@@ -4,11 +4,11 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
 (per the MEMORY PROTOCOL in AGENTS.md).
 
 - **Current phase:** Phase C - Scheduling & front desk - **IN PROGRESS**.
-- **Commits:** 26 on `main` after P0C.G2 (resource calendars + availability).
+- **Commits:** 27 on `main` after P0C.G3 (booking engine + no-double-book parallel hammer).
   Phase A = 11 (P0A.G1-G8, P0A.GM, P0A.GF, P0A.GF3), pushed to `origin/main`
   (https://github.com/Subhankhan12/careos).
 - **Verified quality (from actual output):** `composer check` green - Pint `passed`,
-  PHPStan level 5 `[OK] No errors`, Pest **126 passed / 511 assertions**; `cmd /c npm run build`
+  PHPStan level 5 `[OK] No errors`, Pest **134 passed / 536 assertions**; `cmd /c npm run build`
   green at P0B.C (Vite production build, 647 modules transformed).
 - **Stack (verified):** Laravel 12.63.0 on PHP 8.2.12; DEV DB = `careos` on XAMPP MariaDB
   10.4.32 (127.0.0.1:3306); Redis-compatible server on 127.0.0.1:6379 with Predis; queue/cache
@@ -67,4 +67,10 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
   - Bookable resources and resource availability are tenant-owned and fail closed.
   - `AvailabilityService::windowsFor()` combines recurring weekly hours with date-specific
     overrides and blocks/time-off deterministically.
-- **Next action:** Continue Phase C. Execute only Gate C.3 when pasted.
+  - Booking engine stores tenant-owned appointments and appointment resource consumption rows.
+  - `BookingService` enforces `appointment.manage`, availability, buffers, same-tenant references,
+    and no double-booking by locking resource rows then checking overlapping held windows inside
+    the transaction before insert.
+  - Parallel hammer test runs eight independent PHP processes against the same slot and proves
+    exactly one appointment/resource row is created.
+- **Next action:** Continue Phase C. Execute only Gate C.4 when pasted.

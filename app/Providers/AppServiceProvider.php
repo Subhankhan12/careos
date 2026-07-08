@@ -15,6 +15,7 @@ use Modules\Platform\Models\RoleAssignment;
 use Modules\Platform\Models\Setting;
 use Modules\Platform\Models\Tenant;
 use Modules\Platform\Services\TenantContext;
+use Modules\Scheduling\Events\AppointmentBooked;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -79,6 +80,28 @@ class AppServiceProvider extends ServiceProvider
                 : 'credential.updated';
 
             $this->auditCredentialChange($m, $action);
+        });
+
+        // Scheduling booking changes. Kept in the app layer so Scheduling does
+        // not depend on Audit models or services.
+        Event::listen(AppointmentBooked::class, function (AppointmentBooked $event): void {
+            $appointment = $event->appointment;
+
+            $this->auditChange('appointment.booked', [
+                'actor_type' => $appointment->booked_by !== null ? 'user' : 'system',
+                'actor_id' => $appointment->booked_by,
+                'patient_id' => $appointment->patient_id,
+                'resource_type' => 'appointment',
+                'resource_id' => $appointment->id,
+                'context' => [
+                    'service_id' => $appointment->service_id,
+                    'branch_id' => $appointment->branch_id,
+                    'starts_at' => $appointment->starts_at->toDateTimeString(),
+                    'ends_at' => $appointment->ends_at->toDateTimeString(),
+                    'resource_ids' => $event->resourceIds,
+                    'source' => $appointment->source,
+                ],
+            ]);
         });
 
         // Tenant status changes (platform-level; audited against the tenant itself).

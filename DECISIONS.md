@@ -72,3 +72,8 @@ references the old ID.
   calendars, date-specific available rows replace the recurring windows for that date; date-
   specific unavailable rows subtract blocks from the chosen windows, and an unavailable date row
   without times is full-day time off (P0C.G2).
+- **D-028 - Appointment booking serializes on resource rows.** To guarantee no double-booking on
+  MariaDB 10.4 and MySQL 8, `BookingService` locks each requested `resources` row in deterministic
+  ID order inside the transaction, then checks overlapping `appointment_resources`/`appointments`
+  rows using the service-buffer-expanded half-open window before inserting appointment rows
+  (P0C.G3).
