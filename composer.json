@@ -32,7 +32,8 @@
             "Database\\Seeders\\": "database/seeders/",
             "Modules\\Platform\\": "Modules/Platform/src/",
             "Modules\\Audit\\": "Modules/Audit/src/",
-            "Modules\\AiCore\\": "Modules/AiCore/src/"
+            "Modules\\AiCore\\": "Modules/AiCore/src/",
+            "Modules\\People\\": "Modules/People/src/"
         }
     },
     "autoload-dev": {

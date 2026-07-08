@@ -34,3 +34,5 @@ Deliberately deferred work. Not forgotten — parked until the right phase.
   (introduced in P0A.G6).
 - **Schedule `audit:ensure-partitions`.** Wire it into the scheduler once the scheduler
   is set up, so upcoming monthly partitions are always provisioned (P0A.G6).
+- **Schedule `credentials:refresh-status`.** Wire it into the scheduler once the scheduler
+  is set up, so credential expiry status stays current outside manual command runs (P0B.G1).

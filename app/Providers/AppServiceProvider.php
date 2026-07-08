@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Event;
 use Illuminate\Support\ServiceProvider;
 use Modules\Audit\Contracts\AuditContext;
 use Modules\Audit\Services\AuditService;
+use Modules\People\Models\Credential;
 use Modules\Platform\Models\FeatureFlag;
 use Modules\Platform\Models\Role;
 use Modules\Platform\Models\RoleAssignment;
@@ -69,6 +70,17 @@ class AppServiceProvider extends ServiceProvider
             'context' => ['key' => $m->key],
         ]));
 
+        // People credential vault changes. The observer lives here so People
+        // stays independent from Audit while still using the Platform audit context.
+        Credential::created(fn (Credential $m) => $this->auditCredentialChange($m, 'credential.created'));
+        Credential::updated(function (Credential $m): void {
+            $action = $m->wasChanged('status') && $m->status === Credential::STATUS_REVOKED
+                ? 'credential.revoked'
+                : 'credential.updated';
+
+            $this->auditCredentialChange($m, $action);
+        });
+
         // Tenant status changes (platform-level; audited against the tenant itself).
         Tenant::updated(function (Tenant $tenant): void {
             if ($tenant->wasChanged('status')) {
@@ -96,5 +108,19 @@ class AppServiceProvider extends ServiceProvider
         }
 
         $this->app->make(AuditService::class)->record(['action' => $action, ...$data]);
+    }
+
+    private function auditCredentialChange(Credential $credential, string $action): void
+    {
+        $this->auditChange($action, [
+            'resource_type' => 'credential',
+            'resource_id' => $credential->id,
+            'context' => [
+                'staff_profile_id' => $credential->staff_profile_id,
+                'type' => $credential->type,
+                'status' => $credential->status,
+                'expires_on' => $credential->expires_on?->toDateString(),
+            ],
+        ]);
     }
 }
