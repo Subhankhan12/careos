@@ -97,6 +97,23 @@ class AuditService
     }
 
     /**
+     * Record a read of a sensitive resource (action 'read'). This is the
+     * mechanism the patient "who accessed my record" report builds on.
+     *
+     * @param  array<string, mixed>  $context
+     */
+    public function recordRead(string $resourceType, string $resourceId, ?string $patientId = null, array $context = []): AuditEvent
+    {
+        return $this->record([
+            'action' => 'read',
+            'resource_type' => $resourceType,
+            'resource_id' => $resourceId,
+            'patient_id' => $patientId,
+            'context' => $context !== [] ? $context : null,
+        ]);
+    }
+
+    /**
      * Walk a tenant's chain in order and report whether it is intact.
      *
      * @return array{ok: bool, broken_at: string|null, index?: int, reason?: string, count?: int}
