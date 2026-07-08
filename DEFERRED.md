@@ -25,3 +25,6 @@ Deliberately deferred work. Not forgotten — parked until the right phase.
 - **List-B AI** (partner-first).
 - **Capacitor wrappers.**
 - **Payroll connectors.**
+- **Multi-tenant same-email membership** (one human belonging to several tenants).
+  Users carry a single nullable `tenant_id` and email is globally unique for now
+  (introduced in P0A.G2).
