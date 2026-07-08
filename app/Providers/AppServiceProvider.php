@@ -6,6 +6,8 @@ use App\Audit\AuthAuditSubscriber;
 use App\Audit\PlatformAuditContext;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\ServiceProvider;
+use Modules\AiCore\Events\AgentActionLifecycleChanged;
+use Modules\AiCore\Events\AiInteractionRecorded;
 use Modules\Audit\Contracts\AuditContext;
 use Modules\Audit\Services\AuditService;
 use Modules\People\Models\Credential;
@@ -157,6 +159,43 @@ class AppServiceProvider extends ServiceProvider
                     'scheduled_for' => $reminder->scheduled_for->toDateTimeString(),
                     'sent_at' => $reminder->sent_at?->toDateTimeString(),
                     'failure_reason' => $reminder->failure_reason,
+                ],
+            ]);
+        });
+
+        // AiCore ledger/action events. This app-layer glue keeps AiCore from
+        // depending on Audit while proving every governed path hits the chain.
+        Event::listen(AiInteractionRecorded::class, function (AiInteractionRecorded $event): void {
+            $interaction = $event->interaction;
+
+            $this->auditChange('ai_interaction.'.$interaction->outcome, [
+                'actor_type' => 'agent',
+                'actor_id' => $interaction->agent,
+                'resource_type' => 'ai_interaction',
+                'resource_id' => $interaction->id,
+                'context' => [
+                    'feature' => $interaction->feature,
+                    'provider' => $interaction->provider,
+                    'model' => $interaction->model,
+                    'prompt_hash' => $interaction->prompt_hash,
+                    'cost_minor' => $interaction->cost_minor,
+                    'label' => $interaction->label,
+                ],
+            ]);
+        });
+        Event::listen(AgentActionLifecycleChanged::class, function (AgentActionLifecycleChanged $event): void {
+            $action = $event->action;
+
+            $this->auditChange('agent_action.'.$event->state, [
+                'actor_type' => 'agent',
+                'actor_id' => $action->agent,
+                'resource_type' => 'agent_action',
+                'resource_id' => $action->id,
+                'context' => [
+                    'feature' => $action->feature,
+                    'tool_key' => $action->tool_key,
+                    'status' => $action->status,
+                    ...$event->context,
                 ],
             ]);
         });

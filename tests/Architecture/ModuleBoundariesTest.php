@@ -20,10 +20,9 @@ arch('Audit does not depend on Platform, AiCore, People, Patients, or Scheduling
         'Modules\Scheduling',
     ]);
 
-arch('AiCore does not depend on Platform, Audit, People, Patients, or Scheduling')
+arch('AiCore may depend on Platform but not Audit, People, Patients, or Scheduling')
     ->expect('Modules\AiCore')
     ->not->toUse([
-        'Modules\Platform',
         'Modules\Audit',
         'Modules\People',
         'Modules\Patients',

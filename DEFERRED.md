@@ -18,6 +18,8 @@ Deliberately deferred work. Not forgotten — parked until the right phase.
   interface and email implementation only; external SMS/WhatsApp providers come later.
 - **Realtime day-board refresh with Reverb.** C.6 uses normal request/slot refreshes; websocket
   refresh belongs later when realtime infrastructure is introduced.
+- **Expanded AI prompt eval harness.** C.7 adds a minimal prompt registry eval-passed gate; richer
+  offline/fixture evals come before real agent prompt rollout.
 - **Qualified e-signature.**
 - **Meilisearch** swap for FULLTEXT.
 - **Silo tenancy tier.**

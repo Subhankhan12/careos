@@ -90,3 +90,8 @@ references the old ID.
   auth; it exposes only active `bookable_online` services, rate-limits requests, runs demographic
   duplicate detection before patient creation, and calls the same locked `BookingService` path with
   `source=online` and `booked_by=null` (P0C.G6).
+- **D-032 - Every future agent must enter through AiCore governance.** Real agent behavior is not
+  added until after the safety runtime: `LlmManager` budget/circuit checks, append-only
+  `ai_interactions`, hash-pinned prompts, declared tools with RBAC/autonomy, approval queue, kill
+  switch, visible draft label, and app-layer audit events. Clinical and financial tool categories
+  are hard-capped at `approve`, never `auto` (P0C.G7).

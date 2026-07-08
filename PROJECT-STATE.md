@@ -4,11 +4,11 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
 (per the MEMORY PROTOCOL in AGENTS.md).
 
 - **Current phase:** Phase C - Scheduling & front desk - **IN PROGRESS**.
-- **Commits:** 30 on `main` after P0C.G6 (reception day-board + public booking).
+- **Commits:** 31 on `main` after P0C.G7 (AiCore governed agent runtime foundation).
   Phase A = 11 (P0A.G1-G8, P0A.GM, P0A.GF, P0A.GF3), pushed to `origin/main`
   (https://github.com/Subhankhan12/careos).
 - **Verified quality (from actual output):** `composer check` green - Pint `passed`,
-  PHPStan level 5 `[OK] No errors`, Pest **152 passed / 633 assertions**; `cmd /c npm run build`
+  PHPStan level 5 `[OK] No errors`, Pest **160 passed / 668 assertions**; `cmd /c npm run build`
   green at P0C.G6 (Vite production build, 655 modules transformed).
 - **Stack (verified):** Laravel 12.63.0 on PHP 8.2.12; DEV DB = `careos` on XAMPP MariaDB
   10.4.32 (127.0.0.1:3306); Redis-compatible server on 127.0.0.1:6379 with Predis; queue/cache
@@ -85,4 +85,10 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
   - Public online booking is tenant-slug scoped, rate-limited, exposes only active
     `bookable_online` services, runs duplicate detection before creating/reusing a patient, and
     books with `source=online` through the same locked booking path.
-- **Next action:** Continue Phase C. Execute only Gate C.7 when pasted.
+  - AiCore is active as the governed runtime foundation: provider-agnostic `LlmManager`,
+    append-only `ai_interactions`, budget gate, circuit breaker, hash-pinned prompt registry,
+    declared tool registry, autonomy dial, approval queue, kill switch, visible AI labels, and
+    audit-chain integration.
+  - The demo echo/no-op tool exercises the full pipeline; real agent behavior remains for later
+    gates and must run through AiCore.
+- **Next action:** Continue Phase C. Execute only Gate C.8 when pasted.
