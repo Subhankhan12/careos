@@ -20,3 +20,4 @@ One line per completed gate. Newest at bottom. Format: `<commit> P<phase>.G<n>: 
 - `6ae661c` P0A.GF3: CI fix — Inertia page dir renamed `resources/js/Pages` → `resources/js/pages` (git mv) to match inertia-laravel's `pages.paths` (`js/pages`), fixing case-sensitive Linux `ensure_pages_exist`; app.ts glob → `./pages`; setup-node bumped 20→22. Local 75 passed / 202 assertions. CI #15 GREEN on MySQL 8.
 - `(P0A.C)` Phase A COMPLETE — Platform core + Audit + app shell. 16 commits; Pest 75/202, PHPStan L5 clean, Pint clean, npm build green, CI green on MySQL 8. Proven: fail-closed tenancy, mandatory MFA, RBAC+branch scope, hash-chained append-only audit + triggers, break-glass, Inertia shell, cross-agent memory. Next: Phase B — People & Patients.
 - `(pending)` P0B.G1: People module - staff profiles + credential vault; 82 tests / 241 assertions.
+- `(pending)` P0B.G2: Patients module - CRM core + read-logging; 89 tests / 285 assertions.

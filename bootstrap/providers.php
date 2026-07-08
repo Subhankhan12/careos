@@ -4,6 +4,7 @@ use App\Providers\AppServiceProvider;
 use App\Providers\FortifyServiceProvider;
 use Modules\AiCore\Providers\AiCoreServiceProvider;
 use Modules\Audit\Providers\AuditServiceProvider;
+use Modules\Patients\Providers\PatientsServiceProvider;
 use Modules\People\Providers\PeopleServiceProvider;
 use Modules\Platform\Providers\PlatformServiceProvider;
 
@@ -14,4 +15,5 @@ return [
     AuditServiceProvider::class,
     AiCoreServiceProvider::class,
     PeopleServiceProvider::class,
+    PatientsServiceProvider::class,
 ];

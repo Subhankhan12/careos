@@ -44,3 +44,6 @@ references the old ID.
 - **D-020 — CI builds the frontend and runs on MySQL 8.** `npm ci` + `npm run build` before
   tests (Vite manifest), Node 22; full suite runs against MySQL 8 for production parity
   (P0A.GF / P0A.GF3).
+- **D-021 - Patient identifiers are optional attributes, not dedupe keys.** `patient_identifiers`
+  may store external/national/insurance/member IDs for CRM context, but matching/dedupe must not
+  treat them as unique patient identity keys (P0B.G2).

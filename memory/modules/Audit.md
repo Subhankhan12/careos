@@ -44,13 +44,13 @@ before_hash, after_hash, reason, ip, ua, context, occurred_at, prev_hash`.
 
 ## Status
 
-**Phase A COMPLETE** (through P0A.C). Append-only hash-chained partitioned `audit_events` +
-AuditService (verifyChain, DB UPDATE/DELETE triggers), audit integration, read-logging, and
-break-glass are in place; portable + green on MariaDB (dev) and MySQL 8 (CI). Read-logging
-exercised via a probe; wired to patients in Phase B.
+**Phase A COMPLETE** (through P0A.C) + patient read-logging wired in P0B.G2. Append-only
+hash-chained partitioned `audit_events` + AuditService (verifyChain, DB UPDATE/DELETE triggers),
+audit integration, read-logging, and break-glass are in place; portable + green on MariaDB (dev)
+and MySQL 8 (CI as of Phase A). Read-logging is exercised via a probe and by real Patient reads.
 
 ## Open items
 
 - Least-privilege DB user with UPDATE/DELETE revoked on `audit_events` (deferred; triggers guard now).
 - Schedule `audit:ensure-partitions` once the scheduler exists (deferred).
-- Break-glass flagging on every access is caller-driven; patient-report integration in Phase B.
+- Break-glass flagging on every access is caller-driven; full patient access-report UI is later.

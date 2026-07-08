@@ -33,7 +33,8 @@
             "Modules\\Platform\\": "Modules/Platform/src/",
             "Modules\\Audit\\": "Modules/Audit/src/",
             "Modules\\AiCore\\": "Modules/AiCore/src/",
-            "Modules\\People\\": "Modules/People/src/"
+            "Modules\\People\\": "Modules/People/src/",
+            "Modules\\Patients\\": "Modules/Patients/src/"
         }
     },
     "autoload-dev": {
