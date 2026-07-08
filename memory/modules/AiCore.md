@@ -71,7 +71,7 @@ triage, symptom assessment, or dosing logic anywhere.
 
 ## Status
 
-**P0C.G8 COMPLETE.** The governed runtime foundation is live and now runs the first two agents:
+**Phase C COMPLETE / active.** The governed runtime foundation is live and now runs the first two agents:
 Scheduler Agent (waitlist fill proposals + slot suggestions) and Front-Desk Agent (tenant KB-only
 FAQ with refusal/escalation). Local `composer check` is green: 168 tests / 711 assertions.
 

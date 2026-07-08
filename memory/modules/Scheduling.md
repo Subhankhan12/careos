@@ -163,13 +163,13 @@ Agent tools that wrap the safe waitlist and slot-finder paths.
 
 ## Status
 
-**P0C.G8 INTEGRATION COMPLETE.** Redis-compatible server is reachable locally, Predis and Horizon are
+**Phase C COMPLETE / active.** Redis-compatible server is reachable locally, Predis and Horizon are
 installed, Horizon is configured for dev supervisors, the sanity queue round-trip test passes, and
 the Scheduling service catalog, resource calendars, no-double-book booking engine, appointment
 lifecycle, waitlist, queued reminders, reception day-board, quick-book, and public online booking
 are registered with tests. Scheduler Agent tools now wrap waitlist fill proposals and slot
 suggestions under AiCore approval governance. Local `composer check` is green: 168 tests / 711
-assertions. Local `npm run build` is green as of P0C.G6.
+assertions. Local `npm run build` is green as of P0C.C.
 
 ## Open items
 

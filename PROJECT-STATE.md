@@ -3,13 +3,14 @@
 Short, factual snapshot of where the project stands. Updated at consolidations and after gates
 (per the MEMORY PROTOCOL in AGENTS.md).
 
-- **Current phase:** Phase C - Scheduling & front desk - **IN PROGRESS**.
-- **Commits:** 32 on `main` after P0C.G8 (Scheduler + Front-Desk agents).
+- **Current phase:** Phase C - Scheduling & front desk - **COMPLETE**. Next: Phase D - Clinical core.
+- **Commits:** 33 on `main` after P0C.C (Phase C consolidation).
   Phase A = 11 (P0A.G1-G8, P0A.GM, P0A.GF, P0A.GF3), pushed to `origin/main`
   (https://github.com/Subhankhan12/careos).
 - **Verified quality (from actual output):** `composer check` green - Pint `passed`,
   PHPStan level 5 `[OK] No errors`, Pest **168 passed / 711 assertions**; `cmd /c npm run build`
-  green at P0C.G6 (Vite production build, 655 modules transformed).
+  green at P0C.C (Vite production build, 655 modules transformed). CI is green on MySQL 8 +
+  Redis for latest pushed Phase C gate commit `c46301e`.
 - **Stack (verified):** Laravel 12.63.0 on PHP 8.2.12; DEV DB = `careos` on XAMPP MariaDB
   10.4.32 (127.0.0.1:3306); Redis-compatible server on 127.0.0.1:6379 with Predis; queue/cache
   use Redis + Horizon; sessions remain database; Fortify + Sanctum.
@@ -97,4 +98,9 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
   - Front-Desk Agent is live under AiCore governance: answers only from current-tenant active KB
     articles with source citation, escalates unknowns, and refuses medical/symptom/triage/dosing
     questions with human handoff.
-- **Next action:** Continue Phase C. Execute only Gate C.9 when pasted.
+  - Public booking carries a static non-emergency notice and collects only service/branch/date/slot
+    plus minimal patient identity/contact fields; no symptom/triage free-text field is present.
+  - Phase C decisions D-025..D-033 are logged: Redis/Horizon, service_branch, availability override
+    semantics, booking locks, atomic reschedule, reminder idempotency, public booking tenant slug,
+    AiCore governance/autonomy caps, and KB-only/approval-first agents.
+- **Next action:** Begin Phase D - Clinical core. Execute only Gate D.1 when pasted.
