@@ -77,3 +77,7 @@ references the old ID.
   ID order inside the transaction, then checks overlapping `appointment_resources`/`appointments`
   rows using the service-buffer-expanded half-open window before inserting appointment rows
   (P0C.G3).
+- **D-029 - Reschedule is atomic cancel-and-rebook.** Appointment lifecycle transitions are
+  enforced in `AppointmentService`; reschedule marks the old appointment `rescheduled`, frees its
+  resource rows, and books the replacement through `BookingService` inside one transaction so the
+  old slot and new slot change together or not at all (P0C.G4).

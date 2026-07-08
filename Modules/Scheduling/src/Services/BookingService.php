@@ -42,6 +42,7 @@ class BookingService
         User $bookedBy,
         string $source = Appointment::SOURCE_STAFF,
         ?string $notes = null,
+        ?string $rescheduledFromId = null,
     ): Appointment {
         $tenantId = $this->tenantContext->id();
 
@@ -90,6 +91,7 @@ class BookingService
             $bookedBy,
             $source,
             $notes,
+            $rescheduledFromId,
         ): Appointment {
             foreach ($resourceIds as $resourceId) {
                 $this->lockResource($tenantId, $resourceId);
@@ -97,6 +99,7 @@ class BookingService
             }
 
             $appointment = Appointment::query()->create([
+                'rescheduled_from_id' => $rescheduledFromId,
                 'patient_id' => $patientId,
                 'service_id' => $service->id,
                 'branch_id' => $branchId,
@@ -214,15 +217,17 @@ class BookingService
         CarbonImmutable $heldStart,
         CarbonImmutable $heldEnd,
     ): void {
+        $blockingStatuses = Appointment::blockingStatuses();
+        $placeholders = implode(',', array_fill(0, count($blockingStatuses), '?'));
         $overlaps = DB::select(
-            <<<'SQL'
+            <<<SQL
 select appointment_resources.id
 from appointment_resources
 inner join appointments on appointments.id = appointment_resources.appointment_id
 inner join services on services.id = appointments.service_id
 where appointment_resources.tenant_id = ?
   and appointment_resources.resource_id = ?
-  and appointments.status = ?
+  and appointments.status in ({$placeholders})
   and date_sub(appointments.starts_at, interval services.buffer_before_minutes minute) < ?
   and date_add(appointments.ends_at, interval services.buffer_after_minutes minute) > ?
 for update
@@ -230,7 +235,7 @@ SQL,
             [
                 $tenantId,
                 $resourceId,
-                Appointment::STATUS_BOOKED,
+                ...$blockingStatuses,
                 $heldEnd->format('Y-m-d H:i:s'),
                 $heldStart->format('Y-m-d H:i:s'),
             ],

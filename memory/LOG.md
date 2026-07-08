@@ -30,3 +30,4 @@ One line per completed gate. Newest at bottom. Format: `<commit> P<phase>.G<n>: 
 - `(pending)` P0C.G1: Scheduling service catalog - services + service_branch, ServiceCatalog validation, module boundary tests; 120 tests / 497 assertions.
 - `(pending)` P0C.G2: Resource calendars - resources + resource_availability, same-tenant FK guards, deterministic windowsFor overrides/blocks; 126 tests / 511 assertions.
 - `(pending)` P0C.G3: Booking engine + no-double-book parallel hammer - appointments, appointment_resources, locked BookingService; 134 tests / 536 assertions.
+- `(pending)` P0C.G4: Appointment lifecycle + waitlist - legal transitions, atomic reschedule, waitlist offer/accept; 140 tests / 572 assertions.

@@ -16,6 +16,8 @@ use Modules\Platform\Models\Setting;
 use Modules\Platform\Models\Tenant;
 use Modules\Platform\Services\TenantContext;
 use Modules\Scheduling\Events\AppointmentBooked;
+use Modules\Scheduling\Events\AppointmentTransitioned;
+use Modules\Scheduling\Events\WaitlistEntryStatusChanged;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -100,6 +102,41 @@ class AppServiceProvider extends ServiceProvider
                     'ends_at' => $appointment->ends_at->toDateTimeString(),
                     'resource_ids' => $event->resourceIds,
                     'source' => $appointment->source,
+                ],
+            ]);
+        });
+        Event::listen(AppointmentTransitioned::class, function (AppointmentTransitioned $event): void {
+            $appointment = $event->appointment;
+
+            $this->auditChange('appointment.'.$event->toStatus, [
+                'actor_type' => 'user',
+                'actor_id' => (string) $event->actor->getKey(),
+                'patient_id' => $appointment->patient_id,
+                'resource_type' => 'appointment',
+                'resource_id' => $appointment->id,
+                'reason' => $event->reason,
+                'context' => [
+                    'from_status' => $event->fromStatus,
+                    'to_status' => $event->toStatus,
+                    ...$event->context,
+                ],
+            ]);
+        });
+        Event::listen(WaitlistEntryStatusChanged::class, function (WaitlistEntryStatusChanged $event): void {
+            $entry = $event->entry;
+
+            $this->auditChange('waitlist.'.$event->toStatus, [
+                'actor_type' => 'user',
+                'actor_id' => (string) $event->actor->getKey(),
+                'patient_id' => $entry->patient_id,
+                'resource_type' => 'waitlist_entry',
+                'resource_id' => $entry->id,
+                'context' => [
+                    'from_status' => $event->fromStatus,
+                    'to_status' => $event->toStatus,
+                    'service_id' => $entry->service_id,
+                    'branch_id' => $entry->branch_id,
+                    ...$event->context,
                 ],
             ]);
         });

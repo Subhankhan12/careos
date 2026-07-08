@@ -6,7 +6,7 @@ Scheduling and front-desk workflow: service catalog, bookable resources, no-doub
 appointment lifecycle, waitlist, reminders, reception day-board, and public booking. P0C.G0
 established the Redis/Horizon queue substrate; P0C.G1 adds the tenant-owned service catalog;
 P0C.G2 adds resources and availability calendars; P0C.G3 adds the concurrency-safe booking
-engine.
+engine; P0C.G4 adds appointment lifecycle and waitlist.
 
 ## Key tables
 
@@ -24,12 +24,18 @@ engine.
   `is_available`, nullable `reason`, timestamps. Indexed by `(tenant_id, resource_id, weekday)`
   and `(tenant_id, resource_id, date)`.
 - `appointments` - tenant-owned (`BelongsToTenant`). ULID id, `tenant_id`, nullable
-  `patient_id`, `service_id`, `branch_id`, `starts_at`, `ends_at`, `status`, nullable
-  `booked_by`, `source`, nullable `notes`, timestamps. Indexed by `(tenant_id, branch_id,
-  starts_at)` and `(tenant_id, patient_id, starts_at)`.
+  `rescheduled_from_id`, nullable `patient_id`, `service_id`, `branch_id`, `starts_at`,
+  `ends_at`, `status`, nullable `status_reason`, nullable `booked_by`, nullable
+  `status_changed_by`, nullable `status_changed_at`, `source`, nullable `notes`, timestamps.
+  Indexed by `(tenant_id, branch_id, starts_at)`, `(tenant_id, patient_id, starts_at)`, and
+  `(tenant_id, status)`.
 - `appointment_resources` - tenant-owned (`BelongsToTenant`). ULID id, `tenant_id`,
   `appointment_id`, `resource_id`, timestamps. Unique `(tenant_id, appointment_id, resource_id)`;
   indexed for `(tenant_id, resource_id, appointment_id)` overlap lookups.
+- `waitlist_entries` - tenant-owned (`BelongsToTenant`). ULID id, `tenant_id`, `patient_id`,
+  `service_id`, nullable `branch_id`, nullable desired start/end window, `flexible`, `priority`,
+  `status`, nullable offered start/end/branch fields, timestamps. Indexed by
+  `(tenant_id, service_id, status)` and `(tenant_id, branch_id, status)`.
 
 ## Key services / classes
 
@@ -46,17 +52,25 @@ engine.
 - `Models\ResourceAvailability` - tenant-owned recurring or date-specific availability/block; rejects
   cross-tenant resource references and invalid time shapes.
 - `Models\Appointment` - tenant-owned appointment row; rejects cross-tenant patient/service/branch
-  references.
+  references and defines lifecycle/blocking statuses.
 - `Models\AppointmentResource` - tenant-owned appointment/resource consumption row; rejects
   cross-tenant appointment/resource references.
+- `Models\WaitlistEntry` - tenant-owned waitlist request; rejects cross-tenant patient/service/
+  branch references and invalid windows.
 - `Services\ServiceCatalog` - CRUD/validation for services and branch availability links.
 - `Services\AvailabilityService` - computes concrete windows for a resource/date range.
 - `Services\BookingService` - validates availability/buffers/RBAC and books appointments by locking
   each resource row in a transaction before overlap checks/inserts.
+- `Services\AppointmentService` - enforces legal lifecycle transitions, cancellation, no-show, and
+  atomic cancel-and-rebook rescheduling.
+- `Services\WaitlistService` - creates/matches waitlist entries, offers slots, and accepts offers
+  by booking through `BookingService`.
 - `Console\AttemptBookingCommand` - test harness command used by the parallel hammer to contend from
   separate PHP processes.
 - `Events\AppointmentBooked` - Scheduling event consumed by app-layer audit glue as
   `appointment.booked`.
+- `Events\AppointmentTransitioned` - app-layer audit glue records `appointment.<status>`.
+- `Events\WaitlistEntryStatusChanged` - app-layer audit glue records `waitlist.<status>`.
 
 ## Invariants enforced
 
@@ -79,18 +93,30 @@ engine.
 - Booking validates that each resource's held window (`starts_at - buffer_before` through
   `ends_at + buffer_after`) fits inside computed availability.
 - No double-booking: inside one DB transaction, resource rows are locked in deterministic ID order,
-  overlap rows are checked with `FOR UPDATE`, and appointment/resource rows are inserted only if
-  every required resource is free.
+  overlap rows for blocking statuses (`booked`, `confirmed`, `arrived`, `in_progress`) are checked
+  with `FOR UPDATE`, and appointment/resource rows are inserted only if every required resource is
+  free.
 - Booking writes `appointment.booked` through app-layer audit glue; Scheduling does not depend on
   Audit models/services.
+- Legal appointment transitions: `booked -> confirmed/cancelled/no_show/rescheduled`;
+  `confirmed -> arrived/cancelled/no_show/rescheduled`; `arrived -> in_progress/cancelled`;
+  `in_progress -> completed`; terminal states have no outgoing transitions.
+- Cancellation requires a reason, records actor/reason on the appointment, deletes resource
+  consumption rows, and audits `appointment.cancelled`.
+- Reschedule marks the old appointment `rescheduled`, deletes old resource consumption rows, and
+  books the new appointment through `BookingService` inside one transaction; failure rolls back the
+  old appointment and resource rows.
+- Waitlist matching is service-scoped, branch-scoped when requested, status `waiting`, and either
+  flexible or covering the offered slot window.
 
 ## Status
 
-**P0C.G3 COMPLETE.** Redis-compatible server is reachable locally, Predis and Horizon are
+**P0C.G4 COMPLETE.** Redis-compatible server is reachable locally, Predis and Horizon are
 installed, Horizon is configured for dev supervisors, the sanity queue round-trip test passes, and
-the Scheduling service catalog, resource calendars, and no-double-book booking engine are
-registered with tests. Local `composer check` is green: 134 tests / 536 assertions.
+the Scheduling service catalog, resource calendars, no-double-book booking engine, appointment
+lifecycle, and waitlist are registered with tests. Local `composer check` is green: 140 tests /
+572 assertions.
 
 ## Open items
 
-- Later gates add lifecycle/waitlist, reminders, and UI.
+- Later gates add reminders, front-desk UI, public booking, and scheduler-agent proposals.
