@@ -14,6 +14,9 @@ use Modules\Platform\Exceptions\CrossTenantReferenceException;
  * @property string $patient_id
  * @property string $type
  * @property string|null $value
+ * @property string|null $line1
+ * @property string|null $city
+ * @property string|null $postal
  * @property bool $is_primary
  */
 class PatientContact extends Model

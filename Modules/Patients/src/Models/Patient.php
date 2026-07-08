@@ -27,6 +27,7 @@ use Modules\Platform\Exceptions\CrossTenantReferenceException;
  * @property Carbon|null $deceased_at
  * @property string $status
  * @property string|null $merged_into_id
+ * @property Carbon|null $deleted_at
  */
 class Patient extends Model
 {

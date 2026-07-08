@@ -16,6 +16,7 @@ enforces fail-closed tenancy.
   tenant / per tenant+branch; department branch must be same tenant.
 - `roles` (tenant-owned), `permissions` (platform catalog), `permission_role`,
   `role_user` (tenant-owned assignment: nullable `branch_id`, `abac_conditions` JSON reserved).
+  Catalog includes destructive `patient.merge`; starter `org_admin` receives it.
 - `plans` (platform; `price_minor` integer minor units, `limits`/`features` JSON),
   `feature_flags` (tenant-owned), `settings` (tenant-owned, typed value JSON).
 - `break_glass_grants` — tenant-owned, time-boxed emergency access (reason required, `expires_at`).
@@ -39,6 +40,7 @@ enforces fail-closed tenancy.
 - Tenant region immutable after creation; cross-tenant references rejected (`CrossTenantReferenceException`).
 - Mandatory TOTP MFA for all users; suspended tenants denied at login and at request time.
 - Super-admin (tenant_id null) is the ONLY RBAC bypass (`Gate::before`).
+- `patient.merge` is a permissioned destructive action granted to org-admin starter roles.
 - Money as integer minor units; plans store `price_minor`.
 
 ## Status

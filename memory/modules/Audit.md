@@ -48,6 +48,7 @@ before_hash, after_hash, reason, ip, ua, context, occurred_at, prev_hash`.
 hash-chained partitioned `audit_events` + AuditService (verifyChain, DB UPDATE/DELETE triggers),
 audit integration, read-logging, and break-glass are in place; portable + green on MariaDB (dev)
 and MySQL 8 (CI as of Phase A). Read-logging is exercised via a probe and by real Patient reads.
+P0B.G3 added `patient.merged` and `patient.unmerged` audit actions with reversible merge snapshots.
 
 ## Open items
 

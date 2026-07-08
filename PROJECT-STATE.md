@@ -4,15 +4,12 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
 (per the MEMORY PROTOCOL in AGENTS.md).
 
 - **Current phase:** Phase B - People & Patients - **IN PROGRESS**.
-- **Commits:** 18 on `main` after P0B.G2 (Patients CRM core + read-logging). Phase A = 11
-  (P0A.G1-G8, P0A.GM, P0A.GF, P0A.GF3), pushed to `origin/main`
+- **Commits:** 19 on `main` after P0B.G3 (patient duplicate detection + reversible audited merge).
+  Phase A = 11 (P0A.G1-G8, P0A.GM, P0A.GF, P0A.GF3), pushed to `origin/main`
   (https://github.com/Subhankhan12/careos).
 - **Verified quality (from actual output):** `composer check` green - Pint `passed`,
-  PHPStan level 5 `[OK] No errors`, Pest **89 passed / 285 assertions**. `npm run build` was
-  not required for P0B.G2 (backend/tests only; no frontend changes). Local schema inspection on
-  MariaDB 10.4.32 confirmed `patients_name_fulltext` exists as a FULLTEXT index; the local engine
-  does not have the `ngram` parser installed, so the migration uses a clean fallback after trying
-  `WITH PARSER ngram`.
+  PHPStan level 5 `[OK] No errors`, Pest **95 passed / 326 assertions**. `npm run build` was
+  not required for P0B.G3 (backend/tests only; no frontend changes).
 - **Stack (verified):** Laravel 12.63.0 on PHP 8.2.12; DEV DB = `careos` on XAMPP MariaDB
   10.4.32 (127.0.0.1:3306); default DB cache/queue/session drivers; Fortify + Sanctum.
 - **Proven in Phase A:**
@@ -40,4 +37,9 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
   - Patient reads use the Phase A read-logging mechanism with `patient_id`; `PatientAccessReport`
     can list read audit rows for a tenant-scoped patient.
   - Patient identifiers are optional attributes, not unique dedupe/match keys (D-021).
+  - Duplicate detection is demographic, tenant-scoped, explainable, and combines deterministic
+    name/DOB/address/identifier scoring with FULLTEXT only as supporting evidence.
+  - Patient merge requires `patient.merge`, a reason, and same-tenant source/target; it writes
+    `patient.merged`, moves captured child rows, soft-deletes the source, and `patient.unmerged`
+    restores only the rows moved by that merge (D-022).
 - **Next action:** Continue Phase B. Execute only the next gate that is pasted.

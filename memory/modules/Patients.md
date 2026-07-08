@@ -29,6 +29,10 @@ generation, and patient read-logging for the "who accessed my record" audit repo
 - `Services\PatientService` - create/update patient and child contacts/identifiers/coverages
   in one transaction.
 - `Services\PatientAccessReport` - tenant-scoped stub listing read audit rows for a patient.
+- `Services\DuplicateDetector` - tenant-scoped demographic duplicate scoring using deterministic
+  name/DOB/address/identifier rules plus FULLTEXT support; returns reasons and confidence.
+- `Services\PatientDuplicateReviewService` - review-list query wrapper for likely duplicates.
+- `Services\PatientMergeService` - permissioned, reason-required merge/unmerge with audit snapshots.
 
 ## Invariants enforced
 
@@ -38,15 +42,22 @@ generation, and patient read-logging for the "who accessed my record" audit repo
 - Identifiers are optional attributes; duplicate `(system, value)` values are allowed.
 - Patient reads produce append-only audit `read` events with `patient_id` set.
 - Soft-deleted patients are excluded by default.
+- Duplicate detection never crosses tenants and never treats identifiers as the sole match key.
+- Merge requires `patient.merge`, a reason, and same-tenant source/target. Source becomes
+  `status=merged`, points to target, and is soft-deleted.
+- Unmerge restores the source and child rows moved by the merge snapshot only; target records
+  created after merge remain on the target (D-022).
 
 ## Status
 
-**P0B.G2 COMPLETE.** Patients module registered; CRM core tables/models, MRN generator,
-transactional service, read-logging, access-report stub, and tests are in place.
+**P0B.G3 COMPLETE.** Patients module registered; CRM core tables/models, MRN generator,
+transactional service, read-logging, access-report stub, demographic duplicate detection,
+permissioned audited merge, and snapshot-based unmerge are in place.
 
 ## Open items
 
-- B.3 matching/merge must use D-021: identifiers are not dedupe keys.
+- Dev MariaDB 10.4 uses plain FULLTEXT while MySQL 8 CI/prod uses `WITH PARSER ngram` - patient
+  name search tokenizes differently across environments; validate search parity before production.
 - B.6 patient 360 UI + registration wizard.
 - MySQL 8 CI should verify the `WITH PARSER ngram` path; local MariaDB 10.4 lacks the ngram parser
   and uses the migration fallback FULLTEXT index.

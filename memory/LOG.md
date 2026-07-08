@@ -21,3 +21,4 @@ One line per completed gate. Newest at bottom. Format: `<commit> P<phase>.G<n>: 
 - `(P0A.C)` Phase A COMPLETE — Platform core + Audit + app shell. 16 commits; Pest 75/202, PHPStan L5 clean, Pint clean, npm build green, CI green on MySQL 8. Proven: fail-closed tenancy, mandatory MFA, RBAC+branch scope, hash-chained append-only audit + triggers, break-glass, Inertia shell, cross-agent memory. Next: Phase B — People & Patients.
 - `(pending)` P0B.G1: People module - staff profiles + credential vault; 82 tests / 241 assertions.
 - `(pending)` P0B.G2: Patients module - CRM core + read-logging; 89 tests / 285 assertions.
+- `(pending)` P0B.G3: patient duplicate detection + reversible audited merge; 95 tests / 326 assertions.

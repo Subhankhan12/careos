@@ -26,6 +26,7 @@ class RbacProvisioner
     public const PERMISSIONS = [
         'patient.view' => 'View patients',
         'patient.edit' => 'Create and edit patients',
+        'patient.merge' => 'Merge duplicate patients',
         'appointment.manage' => 'Manage appointments',
         'billing.view' => 'View billing',
         'audit.view' => 'View the audit log',
@@ -41,7 +42,7 @@ class RbacProvisioner
         'org_admin' => [
             'name' => 'Organisation Admin',
             'permissions' => [
-                'admin.manage', 'patient.view', 'patient.edit',
+                'admin.manage', 'patient.view', 'patient.edit', 'patient.merge',
                 'appointment.manage', 'billing.view', 'audit.view',
             ],
         ],

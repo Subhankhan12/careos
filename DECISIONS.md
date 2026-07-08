@@ -47,3 +47,6 @@ references the old ID.
 - **D-021 - Patient identifiers are optional attributes, not dedupe keys.** `patient_identifiers`
   may store external/national/insurance/member IDs for CRM context, but matching/dedupe must not
   treat them as unique patient identity keys (P0B.G2).
+- **D-022 - Patient merge reversal restores only records moved by the merge.** `patient.unmerged`
+  uses the `patient.merged` audit snapshot to restore the source patient and child rows moved
+  during that merge; records created on the target afterward remain on the target (P0B.G3).
