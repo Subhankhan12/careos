@@ -1,8 +1,10 @@
 <?php
 
+use App\Http\Middleware\HandleInertiaRequests;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
+use Modules\Platform\Http\Middleware\EnsureSuperAdmin;
 use Modules\Platform\Http\Middleware\EnsureTwoFactorEnabled;
 use Modules\Platform\Http\Middleware\IdentifyTenantFromUser;
 
@@ -20,11 +22,14 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'identify-tenant' => IdentifyTenantFromUser::class,
             'two-factor' => EnsureTwoFactorEnabled::class,
+            'super-admin' => EnsureSuperAdmin::class,
         ]);
 
         // After the guard resolves the user: set tenant context, then enforce MFA.
         // Both self-skip for guests, so they are safe to run group-wide.
+        // HandleInertiaRequests must run so shared props are available to pages.
         $middleware->web(append: [
+            HandleInertiaRequests::class,
             IdentifyTenantFromUser::class,
             EnsureTwoFactorEnabled::class,
         ]);

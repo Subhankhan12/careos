@@ -1,0 +1,46 @@
+{
+    "app": {
+        "name": "CareOS",
+        "signOut": "Sign out"
+    },
+    "auth": {
+        "login": {
+            "title": "Sign in",
+            "subtitle": "Access your CareOS workspace.",
+            "email": "Email",
+            "password": "Password",
+            "remember": "Remember me",
+            "submit": "Sign in",
+            "invalid": "Those credentials do not match our records."
+        },
+        "twoFactor": {
+            "challengeTitle": "Two-factor authentication",
+            "challengeSubtitle": "Enter the code from your authenticator app.",
+            "code": "Authentication code",
+            "recoveryCode": "Recovery code",
+            "useRecovery": "Use a recovery code",
+            "useCode": "Use an authentication code",
+            "verify": "Verify",
+            "enrollTitle": "Set up two-factor authentication",
+            "enrollSubtitle": "Two-factor authentication is required for every account. Scan the QR code with your authenticator app, then confirm the generated code.",
+            "enrollStep1": "Scan this QR code with your authenticator app.",
+            "enrollStep2": "Enter the 6-digit code to confirm.",
+            "recoveryCodesTitle": "Recovery codes",
+            "recoveryCodesHint": "Store these codes somewhere safe. Each can be used once if you lose your device.",
+            "enable": "Begin setup",
+            "confirm": "Confirm and finish"
+        }
+    },
+    "shell": {
+        "app": {
+            "title": "Workspace",
+            "welcome": "Welcome to your CareOS workspace.",
+            "empty": "Your tools will appear here as the platform is built out."
+        },
+        "admin": {
+            "title": "Platform administration",
+            "welcome": "Platform administration",
+            "empty": "Tenant and platform controls will appear here."
+        }
+    }
+}

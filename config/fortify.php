@@ -128,11 +128,11 @@ return [
     | you may not need them when building your own application. This may be
     | especially true if you're writing a custom single-page application.
     |
-    | Headless in CareOS: the login / enrollment UI arrives in gate A.8.
+    | Login + 2FA-challenge views are Inertia pages (see FortifyServiceProvider).
     |
     */
 
-    'views' => false,
+    'views' => true,
 
     /*
     |--------------------------------------------------------------------------
@@ -167,7 +167,7 @@ return [
         Features::resetPasswords(),
         Features::twoFactorAuthentication([
             'confirm' => true,
-            'confirmPassword' => true,
+            'confirmPassword' => false,
             // 'window' => 0,
         ]),
     ],

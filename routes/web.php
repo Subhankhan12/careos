@@ -1,13 +1,27 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
+use Inertia\Inertia;
 
 Route::get('/', function () {
-    return view('welcome');
+    if (! auth()->check()) {
+        return redirect()->route('login');
+    }
+
+    return redirect(auth()->user()->isSuperAdmin() ? '/admin' : '/app');
 });
 
-// Placeholder MFA enrollment target. The real enrollment UI arrives in gate A.8;
-// EnsureTwoFactorEnabled redirects un-enrolled users here (this route is exempt).
-Route::get('/two-factor/enrollment', function () {
-    return response(__('platform::auth.two_factor_required'), 200);
-})->middleware('auth')->name('two-factor.enrollment');
+Route::middleware('auth')->group(function () {
+    // Tenant app shell. Tenant identification + mandatory-MFA run in the web group.
+    Route::get('/app', fn () => Inertia::render('App/Landing'))->name('app.landing');
+
+    // Platform admin shell (super-admins only).
+    Route::middleware('super-admin')
+        ->get('/admin', fn () => Inertia::render('Admin/Landing'))
+        ->name('admin.landing');
+
+    // Mandatory MFA enrollment — the target EnsureTwoFactorEnabled routes un-enrolled
+    // users to (and which it exempts so they are not locked out).
+    Route::get('/two-factor/enrollment', fn () => Inertia::render('Auth/TwoFactorEnroll'))
+        ->name('two-factor.enrollment');
+});
