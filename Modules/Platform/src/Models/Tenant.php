@@ -4,6 +4,7 @@ namespace Modules\Platform\Models;
 
 use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Modules\Platform\Concerns\BelongsToTenant;
 use Modules\Platform\Exceptions\TenantRegionImmutableException;
 
@@ -51,5 +52,10 @@ class Tenant extends Model
                 throw TenantRegionImmutableException::make();
             }
         });
+    }
+
+    public function branches(): HasMany
+    {
+        return $this->hasMany(Branch::class);
     }
 }
