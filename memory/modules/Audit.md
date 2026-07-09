@@ -59,7 +59,8 @@ logging. P0D.G2 added patient-scoped `note.signed` and `note.amended` actions pl
 read logging. P0D.G3 added patient-scoped `problem.added`, `allergy.added`, `vital.recorded`,
 `medication.added`, and `allergy.override` actions plus clinical-list read logging. P0D.G4 added
 patient-scoped `document.uploaded`, `document.shared`, `document.unshared`, and
-`document.deleted` actions plus staff/portal document download read logging.
+`document.deleted` actions plus staff/portal document download read logging. P0D.G7 added
+patient-scoped `read` rows for the clinical chart and note-editor surfaces.
 
 ## Open items
 

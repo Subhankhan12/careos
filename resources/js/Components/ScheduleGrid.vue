@@ -3,6 +3,7 @@ defineProps<{
     resources: Array<{ id: string; name: string; type: string }>;
     appointments: Array<{
         id: string;
+        patient_id: string | null;
         patient: string | null;
         service: string | null;
         starts_at: string;
@@ -12,7 +13,10 @@ defineProps<{
     }>;
 }>();
 
-defineEmits<{ (e: 'action', payload: { appointmentId: string; action: string }): void }>();
+defineEmits<{
+    (e: 'action', payload: { appointmentId: string; action: string }): void;
+    (e: 'open-encounter', payload: { appointmentId: string }): void;
+}>();
 
 function time(value: string): string {
     return value.slice(11, 16);
@@ -55,6 +59,14 @@ function time(value: string): string {
                             <span class="rounded bg-surface px-2 py-0.5 text-[11px] font-semibold text-ink-muted">{{ appointment.status }}</span>
                         </div>
                         <div class="mt-2 grid grid-cols-2 gap-1">
+                            <button
+                                v-if="appointment.patient_id"
+                                class="rounded border border-brand-300 bg-surface px-2 py-1 font-semibold text-brand-800 hover:bg-brand-50"
+                                type="button"
+                                @click="$emit('open-encounter', { appointmentId: appointment.id })"
+                            >
+                                {{ $t('scheduling.actions.document') }}
+                            </button>
                             <button class="rounded border border-line bg-surface px-2 py-1 font-semibold text-ink hover:bg-surface-muted" type="button" @click="$emit('action', { appointmentId: appointment.id, action: 'arrive' })">
                                 {{ $t('scheduling.actions.arrive') }}
                             </button>

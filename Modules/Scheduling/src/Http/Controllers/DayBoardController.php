@@ -75,6 +75,7 @@ class DayBoardController
                 'transitionUrl' => route('scheduling.day-board.transition'),
                 'quickBookUrl' => route('scheduling.day-board.quick-book'),
                 'slotsUrl' => route('scheduling.day-board.slots'),
+                'openEncounterUrl' => route('scheduling.day-board.open-encounter'),
             ],
         ]);
     }
@@ -91,6 +92,7 @@ class DayBoardController
 
         return [
             'id' => $appointment->id,
+            'patient_id' => $appointment->patient_id,
             'patient' => $patient !== null ? trim($patient->first_name.' '.$patient->last_name) : null,
             'service' => $service?->name,
             'starts_at' => $appointment->starts_at->toDateTimeString(),

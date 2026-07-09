@@ -152,6 +152,9 @@ Agent tools that wrap the safe waitlist and slot-finder paths.
 - SMS and WhatsApp drivers are deferred behind the reminder channel interface.
 - Reception day-board routes require auth plus `appointment.manage` and stay tenant-scoped.
 - Quick-book previews only slots from `AvailableSlotFinder` and books through `BookingService`.
+- Day-board appointment props include `patient_id` and an `openEncounterUrl`; the Document action
+  posts to app-layer Clinical glue, which opens the encounter/draft note through server services
+  and redirects to the note editor.
 - Public booking uses `/book/{tenant:slug}` to establish tenant context without staff auth, exposes
   only active `bookable_online` services, rate-limits the flow, runs duplicate detection, and books
   through the same locked safe booking path with `source=online`.
@@ -168,8 +171,8 @@ installed, Horizon is configured for dev supervisors, the sanity queue round-tri
 the Scheduling service catalog, resource calendars, no-double-book booking engine, appointment
 lifecycle, waitlist, queued reminders, reception day-board, quick-book, and public online booking
 are registered with tests. Scheduler Agent tools now wrap waitlist fill proposals and slot
-suggestions under AiCore approval governance. Local `composer check` is green: 168 tests / 711
-assertions. Local `npm run build` is green as of P0C.C.
+suggestions under AiCore approval governance. D.7 added the day-board Document handoff to Clinical.
+Local `composer check` is green: 205 tests / 1013 assertions. Local `cmd /c npm run build` is green.
 
 ## Open items
 

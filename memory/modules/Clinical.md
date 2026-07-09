@@ -6,7 +6,8 @@ Tenant-owned clinical record foundation. D.1 adds encounters: the clinical visit
 links a patient, practitioner, branch, optional appointment, and future clinical artifacts.
 D.2 adds structured SOAP clinical notes with legal-grade sign-and-lock immutability and
 visible superseding amendments. D.3 adds structured clinical lists and a deterministic allergy
-hard-stop. D.4 adds private clinical documents with portal sharing and per-download audit.
+hard-stop. D.4 adds private clinical documents with portal sharing and per-download audit. D.7
+adds the clinical SOAP/chart UI surfaces without moving business rules into Vue components.
 
 ## Key tables
 
@@ -67,6 +68,18 @@ hard-stop. D.4 adds private clinical documents with portal sharing and per-downl
 - `Events\DocumentChanged` - app-layer audit glue writes document upload/share/unshare/delete.
 - Document controllers - staff upload/download/share/unshare/delete and portal list/download
   endpoints; all access streams through controllers, never public URLs.
+- `Http\Controllers\NoteEditorController` - Inertia note editor surface; server-enforces
+  `note.write`/`note.sign`, saves drafts, signs, and starts amendments through
+  `ClinicalNoteService`.
+- `Http\Controllers\ClinicalChartController` - Inertia patient chart surface; authorizes
+  `patient.view`, read-logs the chart view, and returns encounters, notes/version history,
+  allergies, raw vitals, medications, documents, and empty later-domain sections.
+- `Http\Controllers\OpenEncounterFromAppointmentController` - day-board integration that opens an
+  encounter and draft note through Clinical/Scheduling services, then redirects to the note editor.
+- Vue pages: `resources/js/pages/Clinical/NoteEditor.vue` and
+  `resources/js/pages/Clinical/Chart.vue`.
+- Vue components: `SoapEditor`, `VersionHistory`, `AllergyBanner`, and `Timeline` are
+  presentational only.
 
 ## Invariants enforced
 
@@ -103,13 +116,27 @@ hard-stop. D.4 adds private clinical documents with portal sharing and per-downl
   fail-closed.
 - Upload/share/unshare/delete write patient-scoped document audit events. Every staff or portal
   download writes a patient-scoped `read` audit row for resource `document`.
+- Clinical UI routes remain server-enforced: `patient.view` for chart/note display, `note.write`
+  for drafts/amendments, and `note.sign` for signing. Vue components may hide actions but do not
+  own authorization, validation, or state transitions.
+- Signed notes are returned read-only in the note editor response, and the update route rejects
+  later edits even if a client sends the request directly.
+- Amendment history returns the full original-to-latest version chain; the original remains
+  visible.
+- Chart views write patient-scoped read audit rows. Allergy data is first-class and prominent in
+  the response/UI; vitals props carry raw documented values only, with no flags, scores, ranges,
+  or interpretation fields.
+- Day-board -> Document opens an encounter plus draft note and redirects to the note editor; the
+  observed open -> document -> sign path is 3 clicks.
 
 ## Status
 
 **Phase D in progress.** D.1 encounters, D.2 SOAP notes, D.3 clinical lists/allergy hard-stop,
-and D.4 clinical documents are registered and covered by feature and architecture tests. Local
-`composer check` is green: 200 tests / 905 assertions.
+D.4 clinical documents, and D.7 clinical UI are registered and covered by feature and architecture
+tests. Local `composer check` is green: 205 tests / 1013 assertions. Local `cmd /c npm run build`
+is green for the clinical pages.
 
 ## Open items
 
-- D.5 is the next clinical-core gate when pasted.
+- Execute only the next pasted Phase D gate; D.5/D.6 are not present in this repo unless separately
+  pasted and completed.

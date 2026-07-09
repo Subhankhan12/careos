@@ -2,12 +2,15 @@
 
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
+use Modules\Clinical\Http\Controllers\ClinicalChartController;
 use Modules\Clinical\Http\Controllers\ClinicalNoteShowController;
 use Modules\Clinical\Http\Controllers\DocumentDeleteController;
 use Modules\Clinical\Http\Controllers\DocumentDownloadController;
 use Modules\Clinical\Http\Controllers\DocumentShareController;
 use Modules\Clinical\Http\Controllers\DocumentUploadController;
 use Modules\Clinical\Http\Controllers\EncounterShowController;
+use Modules\Clinical\Http\Controllers\NoteEditorController;
+use Modules\Clinical\Http\Controllers\OpenEncounterFromAppointmentController;
 use Modules\Clinical\Http\Controllers\PortalDocumentController;
 use Modules\Patients\Http\Controllers\PatientConsentController;
 use Modules\Patients\Http\Controllers\PatientIndexController;
@@ -57,11 +60,25 @@ Route::middleware('auth')->group(function () {
         ->name('scheduling.day-board.quick-book');
     Route::post('/scheduling/day-board/slots', [DayBoardActionController::class, 'slots'])
         ->name('scheduling.day-board.slots');
+    Route::post('/scheduling/day-board/open-encounter', OpenEncounterFromAppointmentController::class)
+        ->name('scheduling.day-board.open-encounter');
 
     Route::get('/clinical/encounters/{encounter}', EncounterShowController::class)
         ->name('clinical.encounters.show');
     Route::get('/clinical/notes/{note}', ClinicalNoteShowController::class)
         ->name('clinical.notes.show');
+    Route::get('/clinical/chart/{patient}', ClinicalChartController::class)
+        ->name('clinical.chart');
+    Route::post('/clinical/encounters/{encounter}/notes', [NoteEditorController::class, 'store'])
+        ->name('clinical.notes.store');
+    Route::get('/clinical/notes/{note}/edit', [NoteEditorController::class, 'edit'])
+        ->name('clinical.notes.edit');
+    Route::patch('/clinical/notes/{note}', [NoteEditorController::class, 'update'])
+        ->name('clinical.notes.update');
+    Route::post('/clinical/notes/{note}/sign', [NoteEditorController::class, 'sign'])
+        ->name('clinical.notes.sign');
+    Route::post('/clinical/notes/{note}/amend', [NoteEditorController::class, 'amend'])
+        ->name('clinical.notes.amend');
     Route::post('/clinical/patients/{patient}/documents', DocumentUploadController::class)
         ->name('clinical.documents.upload');
     Route::get('/clinical/documents/{document}', DocumentDownloadController::class)

@@ -127,6 +127,7 @@
         "actions": {
             "arrive": "Arrive",
             "start": "Start",
+            "document": "Document",
             "complete": "Complete",
             "cancel": "Cancel",
             "noShow": "No-show"
@@ -149,6 +150,51 @@
             "title": "Book an appointment",
             "emergencyNotice": "This booking form is not for emergencies. For urgent help, contact local emergency services.",
             "book": "Book appointment"
+        }
+    },
+    "clinical": {
+        "note": {
+            "title": "SOAP note",
+            "chart": "Chart",
+            "sections": {
+                "subjective": "Subjective",
+                "objective": "Objective",
+                "assessment": "Assessment",
+                "plan": "Plan"
+            },
+            "required": "Required",
+            "saving": "Saving",
+            "saved": "Saved",
+            "save": "Save draft",
+            "sign": "Sign",
+            "signConfirm": "Signing permanently locks this note.",
+            "amendTitle": "Amend signed note",
+            "amendReason": "Amendment reason",
+            "amend": "Amend",
+            "history": "Version history",
+            "versionLabel": "Version {version}",
+            "openVersion": "Open version",
+            "open": "Open"
+        },
+        "chart": {
+            "title": "Patient chart",
+            "empty": "No records yet.",
+            "download": "Download",
+            "allergies": {
+                "title": "Allergies"
+            },
+            "tabs": {
+                "timeline": "Timeline",
+                "notes": "Notes",
+                "problems": "Problems",
+                "vitals": "Vitals",
+                "medications": "Medications",
+                "documents": "Documents",
+                "care": "Care"
+            },
+            "carePlans": "Care plans",
+            "referrals": "Referrals",
+            "recalls": "Recalls"
         }
     }
 }

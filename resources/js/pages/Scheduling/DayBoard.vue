@@ -15,11 +15,11 @@ const props = defineProps<{
     filters: { date: string; branch_id: string };
     branches: Array<{ id: string; name: string }>;
     resources: Array<{ id: string; name: string; type: string }>;
-    appointments: Array<{ id: string; patient: string | null; service: string | null; starts_at: string; ends_at: string; status: string; resource_ids: string[] }>;
+    appointments: Array<{ id: string; patient_id: string | null; patient: string | null; service: string | null; starts_at: string; ends_at: string; status: string; resource_ids: string[] }>;
     services: Array<{ id: string; name: string; duration: number }>;
     patients: Array<{ id: string; name: string; mrn: string }>;
     slotPreview: Array<{ starts_at: string; ends_at: string; resource_ids: string[] }>;
-    actions: { transitionUrl: string; quickBookUrl: string; slotsUrl: string };
+    actions: { transitionUrl: string; quickBookUrl: string; slotsUrl: string; openEncounterUrl: string };
 }>();
 
 const filters = reactive({ ...props.filters });
@@ -44,6 +44,12 @@ function transition(payload: { appointmentId: string; action: string }): void {
         action: payload.action,
         reason: t('scheduling.dayBoard.actionReason'),
     }, { preserveScroll: true });
+}
+
+function openEncounter(payload: { appointmentId: string }): void {
+    router.post(props.actions.openEncounterUrl, {
+        appointment_id: payload.appointmentId,
+    });
 }
 
 async function loadSlots(): Promise<void> {
@@ -132,7 +138,7 @@ watch(() => [quick.service_id, filters.branch_id, filters.date], loadSlots);
                 </form>
             </Card>
 
-            <ScheduleGrid :resources="resources" :appointments="appointments" @action="transition" />
+            <ScheduleGrid :resources="resources" :appointments="appointments" @action="transition" @open-encounter="openEncounter" />
         </div>
     </AppLayout>
 </template>

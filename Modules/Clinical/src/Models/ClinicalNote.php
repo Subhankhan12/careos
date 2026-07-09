@@ -33,6 +33,8 @@ use Modules\Platform\Models\User;
  * @property int $version
  * @property string|null $supersedes_id
  * @property string|null $amendment_reason
+ * @property Carbon|null $created_at
+ * @property Carbon|null $updated_at
  */
 class ClinicalNote extends Model
 {
