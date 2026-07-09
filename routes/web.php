@@ -2,6 +2,7 @@
 
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
+use Modules\Clinical\Http\Controllers\ClinicalNoteShowController;
 use Modules\Clinical\Http\Controllers\EncounterShowController;
 use Modules\Patients\Http\Controllers\PatientConsentController;
 use Modules\Patients\Http\Controllers\PatientIndexController;
@@ -54,6 +55,8 @@ Route::middleware('auth')->group(function () {
 
     Route::get('/clinical/encounters/{encounter}', EncounterShowController::class)
         ->name('clinical.encounters.show');
+    Route::get('/clinical/notes/{note}', ClinicalNoteShowController::class)
+        ->name('clinical.notes.show');
 });
 
 Route::prefix('book/{tenant:slug}')

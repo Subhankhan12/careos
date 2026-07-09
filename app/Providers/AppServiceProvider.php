@@ -13,8 +13,11 @@ use Modules\AiCore\Events\AiInteractionRecorded;
 use Modules\AiCore\Services\ToolRegistry;
 use Modules\Audit\Contracts\AuditContext;
 use Modules\Audit\Services\AuditService;
+use Modules\Clinical\Events\ClinicalNoteAmended;
+use Modules\Clinical\Events\ClinicalNoteSigned;
 use Modules\Clinical\Events\EncounterClosed;
 use Modules\Clinical\Events\EncounterOpened;
+use Modules\Clinical\Models\ClinicalNote;
 use Modules\Clinical\Models\Encounter;
 use Modules\People\Models\Credential;
 use Modules\Platform\Models\FeatureFlag;
@@ -183,6 +186,15 @@ class AppServiceProvider extends ServiceProvider
         Event::listen(EncounterClosed::class, function (EncounterClosed $event): void {
             $this->auditEncounterChange($event->encounter, $event->actor, 'encounter.closed');
         });
+        Event::listen(ClinicalNoteSigned::class, function (ClinicalNoteSigned $event): void {
+            $this->auditClinicalNoteChange($event->note, $event->actor, 'note.signed');
+        });
+        Event::listen(ClinicalNoteAmended::class, function (ClinicalNoteAmended $event): void {
+            $this->auditClinicalNoteChange($event->amendment, $event->actor, 'note.amended', [
+                'supersedes_id' => $event->original->id,
+                'amendment_id' => $event->amendment->id,
+            ], $event->reason);
+        });
 
         // AiCore ledger/action events. This app-layer glue keeps AiCore from
         // depending on Audit while proving every governed path hits the chain.
@@ -280,6 +292,36 @@ class AppServiceProvider extends ServiceProvider
                 'status' => $encounter->status,
                 'started_at' => $encounter->started_at->toDateTimeString(),
                 'ended_at' => $encounter->ended_at?->toDateTimeString(),
+            ],
+        ]);
+    }
+
+    /**
+     * @param  array<string, mixed>  $extraContext
+     */
+    private function auditClinicalNoteChange(
+        ClinicalNote $note,
+        User $actor,
+        string $action,
+        array $extraContext = [],
+        ?string $reason = null,
+    ): void {
+        $this->auditChange($action, [
+            'actor_type' => 'user',
+            'actor_id' => (string) $actor->getKey(),
+            'patient_id' => $note->patient_id,
+            'resource_type' => 'clinical_note',
+            'resource_id' => $note->id,
+            'reason' => $reason,
+            'context' => [
+                'encounter_id' => $note->encounter_id,
+                'author_id' => $note->author_id,
+                'status' => $note->status,
+                'version' => $note->version,
+                'template_id' => $note->template_id,
+                'signed_at' => $note->signed_at?->toDateTimeString(),
+                'signed_by' => $note->signed_by,
+                ...$extraContext,
             ],
         ]);
     }

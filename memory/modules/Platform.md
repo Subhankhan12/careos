@@ -17,8 +17,8 @@ enforces fail-closed tenancy.
 - `roles` (tenant-owned), `permissions` (platform catalog), `permission_role`,
   `role_user` (tenant-owned assignment: nullable `branch_id`, `abac_conditions` JSON reserved).
   Catalog includes destructive `patient.merge`, appointment/encounter management, and governed
-  AI management. Starter `org_admin` receives all; doctor/nurse receive `encounter.manage`;
-  reception does not.
+  AI management. Starter `org_admin` receives all; doctor/nurse receive `encounter.manage`,
+  `note.write`, and `note.sign`; reception does not.
 - `plans` (platform; `price_minor` integer minor units, `limits`/`features` JSON),
   `feature_flags` (tenant-owned), `settings` (tenant-owned, typed value JSON).
 - `break_glass_grants` — tenant-owned, time-boxed emergency access (reason required, `expires_at`).
@@ -46,6 +46,8 @@ enforces fail-closed tenancy.
 - Super-admin (tenant_id null) is the ONLY RBAC bypass (`Gate::before`).
 - `patient.merge` is a permissioned destructive action granted to org-admin starter roles.
 - `encounter.manage` is granted to org-admin, doctor, and nurse starter roles; reception is denied.
+- `note.write` and `note.sign` are granted to org-admin, doctor, and nurse starter roles;
+  reception is denied.
 - RBAC applies to staff `users` only; patient portal accounts do not receive staff permissions.
 - Money as integer minor units; plans store `price_minor`.
 
@@ -55,6 +57,7 @@ enforces fail-closed tenancy.
 (plans/flags/settings), break-glass, and the auth flow (login → 2FA → role redirect) + app/admin
 shells are in place and green on MariaDB (dev) and MySQL 8 (CI).
 P0D.G1 adds `encounter.manage` to the permission catalog and starter doctor/nurse/org-admin roles.
+P0D.G2 adds `note.write` and `note.sign` to the catalog and starter clinician roles.
 
 ## Open items
 

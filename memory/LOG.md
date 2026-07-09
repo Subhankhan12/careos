@@ -38,3 +38,4 @@ One line per completed gate. Newest at bottom. Format: `<commit> P<phase>.G<n>: 
 - `(pending)` P0C.C: Phase C consolidation - Scheduling/front desk + AiCore agents complete; 168 tests / 711 assertions; npm build green.
 - `(pending)` P0D.GU: Standing UI rule - presentational Vue components and behavior-only feature tests documented; 168 tests / 711 assertions.
 - `(pending)` P0D.G1: Clinical encounters - tenant-owned encounter container, RBAC, appointment start boundary, read logging; 176 tests / 757 assertions.
+- `(pending)` P0D.G2: SOAP clinical notes - editable drafts, signed-note immutability, versioned amendments, templates, read logging; 186 tests / 800 assertions.

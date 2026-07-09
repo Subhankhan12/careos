@@ -3,12 +3,12 @@
 Short, factual snapshot of where the project stands. Updated at consolidations and after gates
 (per the MEMORY PROTOCOL in AGENTS.md).
 
-- **Current phase:** Phase D - Clinical core - **in progress**. Latest gate: D.1 encounters.
-- **Commits:** 35 on `main` after P0D.G1 (clinical encounters).
+- **Current phase:** Phase D - Clinical core - **in progress**. Latest gate: D.2 SOAP notes.
+- **Commits:** 36 on `main` after P0D.G2 (SOAP clinical notes).
   Phase A = 11 (P0A.G1-G8, P0A.GM, P0A.GF, P0A.GF3), pushed to `origin/main`
   (https://github.com/Subhankhan12/careos).
 - **Verified quality (from actual output):** `composer check` green - Pint `passed`,
-  PHPStan level 5 `[OK] No errors`, Pest **176 passed / 757 assertions**; `cmd /c npm run build`
+  PHPStan level 5 `[OK] No errors`, Pest **186 passed / 800 assertions**; `cmd /c npm run build`
   green at P0C.C (Vite production build, 655 modules transformed). CI is green on MySQL 8 +
   Redis for latest pushed Phase C gate commit `c46301e`.
 - **Stack (verified):** Laravel 12.63.0 on PHP 8.2.12; DEV DB = `careos` on XAMPP MariaDB
@@ -115,4 +115,14 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
     `AppointmentService`, not direct model mutation.
   - Encounter read logging writes patient-scoped `read` audit rows; open/close write
     `encounter.opened` / `encounter.closed` and the audit chain verifies.
-- **Next action:** Execute only Gate D.2 when pasted.
+  - Structured SOAP clinical notes are tenant-owned and read-logged with denormalized
+    `patient_id` for patient-scoped access reports.
+  - Draft notes remain editable; signed notes are immutable at both model level and DB-trigger
+    level. The trigger keys off `OLD.status = 'signed'` so draft updates and draft-to-signed
+    transitions remain allowed.
+  - Amendments create new superseding note rows with mandatory reasons; originals are never
+    modified, and `versionsFor()` returns the ordered original-to-amendments chain.
+  - Note templates provide SOAP prefills and required sections; `note.write` / `note.sign` are
+    clinician-gated (org-admin/doctor/nurse, not reception).
+  - `note.signed` and `note.amended` audit events are written and chain-verified.
+- **Next action:** Execute only Gate D.3 when pasted.

@@ -105,3 +105,8 @@ references the old ID.
   behavior-focused feature tests. Vue may display available actions, but tests must assert HTTP
   status, redirects, DB state, audit rows, and Inertia component/props rather than markup, DOM
   structure, or CSS classes (P0D.GU).
+- **D-035 - Clinical notes are structured SOAP and signed notes are immutable.** Clinical notes
+  store subjective/objective/assessment/plan sections directly. Drafts are editable, but once a
+  note is signed it is frozen at both the Eloquent and DB-trigger levels; later corrections are
+  visible superseding note versions with mandatory amendment reasons, never destructive edits
+  (P0D.G2).

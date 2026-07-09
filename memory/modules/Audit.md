@@ -54,6 +54,9 @@ verification is covered in the consent lifecycle tests.
 P0B.G5 added patient-scoped `portal.invited`, `portal.first_login`, and `portal.login` actions.
 P0B.G6 surfaces `PatientAccessReport` in the patient 360 UI and verifies the 360 view writes the
 existing patient-scoped `read` event.
+P0D.G1 added patient-scoped `encounter.opened` and `encounter.closed` actions plus encounter read
+logging. P0D.G2 added patient-scoped `note.signed` and `note.amended` actions plus clinical-note
+read logging.
 
 ## Open items
 
