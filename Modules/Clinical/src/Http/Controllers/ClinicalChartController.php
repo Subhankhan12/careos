@@ -13,6 +13,9 @@ use Modules\Clinical\Models\Document;
 use Modules\Clinical\Models\Encounter;
 use Modules\Clinical\Models\Medication;
 use Modules\Clinical\Models\Problem;
+use Modules\Clinical\Models\Recall;
+use Modules\Clinical\Models\RecallRule;
+use Modules\Clinical\Models\Referral;
 use Modules\Clinical\Models\Vital;
 use Modules\Clinical\Services\ClinicalNoteService;
 use Modules\Patients\Models\Patient;
@@ -137,8 +140,18 @@ class ClinicalChartController
                 ->get()
                 ->map(fn (CarePlan $carePlan): array => $this->carePlanSummary($carePlan))
                 ->all(),
-            'referrals' => [],
-            'recalls' => [],
+            'referrals' => Referral::query()
+                ->where('patient_id', $record->id)
+                ->orderByDesc('created_at')
+                ->get()
+                ->map(fn (Referral $referral): array => $this->referralSummary($referral))
+                ->all(),
+            'recalls' => Recall::query()
+                ->where('patient_id', $record->id)
+                ->orderBy('due_on')
+                ->get()
+                ->map(fn (Recall $recall): array => $this->recallSummary($recall))
+                ->all(),
             'actions' => [
                 'can_view' => Gate::allows('patient.view'),
                 'can_write_notes' => Gate::allows('note.write'),
@@ -199,6 +212,45 @@ class ClinicalChartController
                     'status' => $goal->status,
                 ])
                 ->all(),
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function referralSummary(Referral $referral): array
+    {
+        $referral->auditRead(['surface' => 'clinical_chart']);
+
+        return [
+            'id' => $referral->id,
+            'direction' => $referral->direction,
+            'status' => $referral->status,
+            'specialty' => $referral->specialty,
+            'reason' => $referral->reason,
+            'to_provider_name' => $referral->to_provider_name,
+            'from_provider_name' => $referral->from_provider_name,
+            'to_branch_id' => $referral->to_branch_id,
+            'sent_at' => $referral->sent_at?->toDateTimeString(),
+            'responded_at' => $referral->responded_at?->toDateTimeString(),
+            'notes' => $referral->notes,
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function recallSummary(Recall $recall): array
+    {
+        $recall->auditRead(['surface' => 'clinical_chart']);
+        $rule = RecallRule::query()->whereKey($recall->rule_id)->firstOrFail();
+
+        return [
+            'id' => $recall->id,
+            'rule_id' => $recall->rule_id,
+            'rule_name' => $rule->name,
+            'due_on' => $recall->due_on->toDateString(),
+            'status' => $recall->status,
         ];
     }
 

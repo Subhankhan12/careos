@@ -6,9 +6,10 @@ Tenant-owned clinical record foundation. D.1 adds encounters: the clinical visit
 links a patient, practitioner, branch, optional appointment, and future clinical artifacts.
 D.2 adds structured SOAP clinical notes with legal-grade sign-and-lock immutability and
 visible superseding amendments. D.3 adds structured clinical lists and a deterministic allergy
-hard-stop. D.4 adds private clinical documents with portal sharing and per-download audit. D.6
-adds care plans, clinical tasks, and unsigned-note worklists. D.7 adds the clinical SOAP/chart UI
-surfaces without moving business rules into Vue components.
+hard-stop. D.4 adds private clinical documents with portal sharing and per-download audit. D.5
+adds referrals and deterministic recalls. D.6 adds care plans, clinical tasks, and unsigned-note
+worklists. D.7 adds the clinical SOAP/chart UI surfaces without moving business rules into Vue
+components.
 
 ## Key tables
 
@@ -32,6 +33,13 @@ surfaces without moving business rules into Vue components.
 - `documents` - tenant-owned clinical document metadata with `patient_id`, nullable
   `encounter_id`, category/title/original filename, private `storage_path`, MIME/size,
   uploader/upload timestamp, portal share flags, timestamps, and soft deletes.
+- `referrals` - tenant-owned patient referrals with nullable encounter, inbound/outbound
+  direction, external provider names, nullable same-tenant `to_branch_id`, specialty, documented
+  reason, lifecycle status, sent/responded timestamps, and notes.
+- `recall_rules` - tenant-owned deterministic recall rules with JSON criteria, interval months,
+  and active flag.
+- `recalls` - tenant-owned patient recalls with rule FK, due date, and due/contacted/booked/
+  completed/dismissed status.
 - `care_plans` - tenant-owned patient care plans with title, active/completed/cancelled status,
   started/ended dates, creator, and timestamps.
 - `care_plan_goals` - tenant-owned goals attached to a care plan with clinician-authored
@@ -76,6 +84,14 @@ surfaces without moving business rules into Vue components.
 - `Events\DocumentChanged` - app-layer audit glue writes document upload/share/unshare/delete.
 - Document controllers - staff upload/download/share/unshare/delete and portal list/download
   endpoints; all access streams through controllers, never public URLs.
+- `Models\Referral`, `RecallRule`, `Recall` - tenant-owned referral/recall rows; referrals and
+  recalls are read-logged patient data, recall rules are tenant policy/configuration.
+- `Services\ReferralService` - creates referrals and enforces draft -> sent -> accepted/declined
+  -> completed lifecycle; writes referral audit events.
+- `Services\RecallEngine` - deterministic tenant evaluator for active recall rules over patient,
+  problem, and encounter data; creates idempotent due recall rows.
+- `Services\RecallService` - enforces recall due/contacted/booked/completed/dismissed lifecycle
+  and writes recall audit events.
 - `Models\CarePlan`, `CarePlanGoal`, `ClinicalTask` - tenant-owned care plan/task records with
   same-tenant reference guards; care plans/tasks are read-logged patient data when applicable.
 - `Services\CarePlanService` - creates plans/goals and enforces active -> completed/cancelled plan
@@ -132,6 +148,18 @@ surfaces without moving business rules into Vue components.
   fail-closed.
 - Upload/share/unshare/delete write patient-scoped document audit events. Every staff or portal
   download writes a patient-scoped `read` audit row for resource `document`.
+- Referrals require `note.write`, stay tenant-owned, and never widen scope for cross-tenant
+  exchange. Internal referrals use same-tenant `to_branch_id`; external referrals are documented
+  provider-name records until explicit share objects exist.
+- Referral lifecycle is draft -> sent -> accepted/declined; accepted referrals may become
+  completed. Created/sent/responded/completed actions are audited.
+- Recall rules are deterministic: supported criteria are exact active problem-code membership and
+  exact absence of an encounter type within `interval_months`. No AI, inference, triage, or
+  clinical judgement selects recall recipients.
+- Recall generation is idempotent per tenant/patient/rule/due date. Recall lifecycle is
+  due -> contacted/booked/completed/dismissed; contacted -> booked/completed/dismissed; booked ->
+  completed/dismissed; completed/dismissed are terminal.
+- Chart views now return and read-log referrals and recalls as real patient data.
 - Care plans/goals/tasks are clinician-authored storage only; no generated clinical content.
 - Care plan and task writes require `note.write`; task assignees must be same-tenant staff.
 - Care-plan status transitions are active -> completed/cancelled only. Goal transitions are
@@ -146,20 +174,19 @@ surfaces without moving business rules into Vue components.
   later edits even if a client sends the request directly.
 - Amendment history returns the full original-to-latest version chain; the original remains
   visible.
-- Chart views write patient-scoped read audit rows and now return real care plans with goals.
-  Allergy data is first-class and prominent in the response/UI; vitals props carry raw documented
-  values only, with no flags, scores, ranges, or interpretation fields.
+- Chart views write patient-scoped read audit rows and now return real care plans with goals,
+  referrals, and recalls. Allergy data is first-class and prominent in the response/UI; vitals
+  props carry raw documented values only, with no flags, scores, ranges, or interpretation fields.
 - Day-board -> Document opens an encounter plus draft note and redirects to the note editor; the
   observed open -> document -> sign path is 3 clicks.
 
 ## Status
 
 **Phase D in progress.** D.1 encounters, D.2 SOAP notes, D.3 clinical lists/allergy hard-stop,
-D.4 clinical documents, D.6 care plans/tasks/worklist, and D.7 clinical UI are registered and
-covered by feature and architecture tests. Local `composer check` is green: 210 tests / 1045
-assertions. Local `cmd /c npm run build` is green for the clinical pages.
+D.4 clinical documents, D.5 referrals/recalls, D.6 care plans/tasks/worklist, and D.7 clinical UI
+are registered and covered by feature and architecture tests. Local `composer check` is green:
+215 tests / 1080 assertions. Local `cmd /c npm run build` is green for the clinical pages.
 
 ## Open items
 
-- Execute only the next pasted Phase D gate; D.5 is not present in this repo unless separately
-  pasted and completed.
+- Execute only the next pasted Phase D gate.

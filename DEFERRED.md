@@ -52,3 +52,7 @@ Deliberately deferred work. Not forgotten — parked until the right phase.
   Drug-interaction checking, allergy class inference, dose calculation, and clinical decision
   support require a partner-first licensed drug database and a funded regulatory track; do not
   build these in-house as CareOS deterministic clinical-list logic (P0D.G3).
+- **Cross-tenant CareOS referrals require explicit share objects.** D.5 records external
+  referrals by provider name only and same-tenant internal referrals by `to_branch_id`. Never
+  widen tenant scope to send referrals to another CareOS tenant; design explicit share objects
+  before building cross-tenant referral exchange.

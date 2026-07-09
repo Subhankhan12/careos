@@ -126,3 +126,10 @@ references the old ID.
   `note.supervise` see only drafts authored by their own staff profile; `note.supervise` users
   see tenant-team drafts. The starter `org_admin` role receives `note.supervise`; doctor/nurse do
   not by default (P0D.G6).
+- **D-039 - Recalls are deterministic rule output; cross-tenant referrals need share objects.**
+  `RecallEngine` evaluates explicit tenant-owned JSON criteria against patient/problem/encounter
+  data only. Current criteria are exact active problem-code membership plus exact missing
+  encounter type inside the configured interval; no AI, inference, triage, or clinical judgement
+  selects recipients. Referrals to another CareOS tenant are not implemented by widening tenant
+  scope; external referrals are provider-name records until explicit cross-tenant share objects
+  are designed (P0D.G5).

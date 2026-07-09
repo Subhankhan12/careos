@@ -10,6 +10,9 @@ use Modules\Clinical\Models\ClinicalNote;
 use Modules\Clinical\Models\Document;
 use Modules\Clinical\Models\Encounter;
 use Modules\Clinical\Models\NoteTemplate;
+use Modules\Clinical\Models\Recall;
+use Modules\Clinical\Models\RecallRule;
+use Modules\Clinical\Models\Referral;
 use Modules\Clinical\Services\CarePlanService;
 use Modules\Clinical\Services\ClinicalListService;
 use Modules\Clinical\Services\ClinicalNoteService;
@@ -302,6 +305,28 @@ test('patient chart is RBAC gated read logged and returns raw clinical sections'
     ], [
         ['description' => 'Clinician-authored goal', 'target_date' => '2026-08-01'],
     ]);
+    Referral::query()->create([
+        'patient_id' => $patient->id,
+        'encounter_id' => $encounter->id,
+        'direction' => Referral::DIRECTION_OUTBOUND,
+        'to_provider_name' => 'External Cardiology',
+        'specialty' => 'cardiology',
+        'reason' => 'Clinician documented referral reason',
+        'status' => Referral::STATUS_SENT,
+        'sent_at' => now(),
+    ]);
+    $rule = RecallRule::query()->create([
+        'name' => 'Follow-up recall',
+        'criteria' => ['active_problem_codes' => ['FU']],
+        'interval_months' => 6,
+        'active' => true,
+    ]);
+    Recall::query()->create([
+        'patient_id' => $patient->id,
+        'rule_id' => $rule->id,
+        'due_on' => '2026-07-20',
+        'status' => Recall::STATUS_DUE,
+    ]);
     $lists = app(ClinicalListService::class);
     $lists->recordAllergy($patient, $encounter->practitioner, $doctor, [
         'substance' => 'Latex',
@@ -351,10 +376,12 @@ test('patient chart is RBAC gated read logged and returns raw clinical sections'
             ->has('carePlans', 1)
             ->where('carePlans.0.title', 'Recovery plan')
             ->where('carePlans.0.goals.0.description', 'Clinician-authored goal')
-            ->has('referrals')
-            ->has('recalls'));
+            ->has('referrals', 1)
+            ->where('referrals.0.specialty', 'cardiology')
+            ->has('recalls', 1)
+            ->where('recalls.0.rule_name', 'Follow-up recall'));
 
-    expect(d7ReadRows($tenant->id, $patient->id))->toHaveCount(2)
+    expect(d7ReadRows($tenant->id, $patient->id))->toHaveCount(4)
         ->and(app(AuditService::class)->verifyChain($tenant->id)['ok'])->toBeTrue();
 
     $unprivileged = d7User($tenant, '');

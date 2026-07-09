@@ -62,7 +62,9 @@ patient-scoped `document.uploaded`, `document.shared`, `document.unshared`, and
 `document.deleted` actions plus staff/portal document download read logging. P0D.G7 added
 patient-scoped `read` rows for the clinical chart and note-editor surfaces. P0D.G6 added
 patient-scoped care-plan/task lifecycle actions (`care_plan.*`, `care_plan_goal.*`,
-`clinical_task.*`) and care-plan chart read logging.
+`clinical_task.*`) and care-plan chart read logging. P0D.G5 added patient-scoped referral and
+recall lifecycle actions (`referral.*`, `recall.*`) plus chart read logging for referrals and
+recalls.
 
 ## Open items
 

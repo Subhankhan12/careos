@@ -37,8 +37,20 @@ const props = defineProps<{
         ended_on: string | null;
         goals: Array<{ id: string; description: string; target_date: string | null; status: string }>;
     }>;
-    referrals: Array<Record<string, unknown>>;
-    recalls: Array<Record<string, unknown>>;
+    referrals: Array<{
+        id: string;
+        direction: string;
+        status: string;
+        specialty: string | null;
+        reason: string;
+        to_provider_name: string | null;
+        from_provider_name: string | null;
+        to_branch_id: string | null;
+        sent_at: string | null;
+        responded_at: string | null;
+        notes: string | null;
+    }>;
+    recalls: Array<{ id: string; rule_id: string; rule_name: string; due_on: string; status: string }>;
 }>();
 
 const activeTab = ref('timeline');
@@ -161,13 +173,24 @@ function rawVital(vital: typeof props.vitals[number]): string {
                             </div>
                             <p v-if="carePlans.length === 0" class="text-sm text-ink-muted">{{ t('clinical.chart.empty') }}</p>
                         </div>
-                        <div class="rounded-md border border-line p-4">
+                        <div class="space-y-3 rounded-md border border-line p-4">
                             <p class="font-semibold text-ink">{{ t('clinical.chart.referrals') }}</p>
-                            <p class="mt-2 text-sm text-ink-muted">{{ referrals.length || t('clinical.chart.empty') }}</p>
+                            <div v-for="referral in referrals" :key="referral.id" class="rounded-md border border-line p-3">
+                                <p class="font-semibold text-ink">{{ referral.specialty || referral.direction }}</p>
+                                <p class="text-sm text-ink-muted">
+                                    {{ referral.direction }} | {{ referral.status }} | {{ referral.to_provider_name || referral.from_provider_name || referral.to_branch_id || '-' }}
+                                </p>
+                                <p class="mt-2 text-sm text-ink-muted">{{ referral.reason }}</p>
+                            </div>
+                            <p v-if="referrals.length === 0" class="text-sm text-ink-muted">{{ t('clinical.chart.empty') }}</p>
                         </div>
-                        <div class="rounded-md border border-line p-4">
+                        <div class="space-y-3 rounded-md border border-line p-4">
                             <p class="font-semibold text-ink">{{ t('clinical.chart.recalls') }}</p>
-                            <p class="mt-2 text-sm text-ink-muted">{{ recalls.length || t('clinical.chart.empty') }}</p>
+                            <div v-for="recall in recalls" :key="recall.id" class="rounded-md border border-line p-3">
+                                <p class="font-semibold text-ink">{{ recall.rule_name }}</p>
+                                <p class="text-sm text-ink-muted">{{ recall.status }} | {{ recall.due_on }}</p>
+                            </div>
+                            <p v-if="recalls.length === 0" class="text-sm text-ink-muted">{{ t('clinical.chart.empty') }}</p>
                         </div>
                     </section>
                 </Tabs>

@@ -3,13 +3,13 @@
 Short, factual snapshot of where the project stands. Updated at consolidations and after gates
 (per the MEMORY PROTOCOL in AGENTS.md).
 
-- **Current phase:** Phase D - Clinical core - **in progress**. Latest gate: D.6 care plans/tasks
-  backfill after D.7.
-- **Commits:** 40 on `main` after P0D.G6 (care plans, clinical tasks, unsigned-note worklist).
+- **Current phase:** Phase D - Clinical core - **in progress**. Latest gate: D.5 referrals/recalls
+  backfill after D.6/D.7.
+- **Commits:** 41 on `main` after P0D.G5 (referrals + deterministic recalls engine).
   Phase A = 11 (P0A.G1-G8, P0A.GM, P0A.GF, P0A.GF3), pushed to `origin/main`
   (https://github.com/Subhankhan12/careos).
 - **Verified quality (from actual output):** `composer check` green - Pint `passed`,
-  PHPStan level 5 `[OK] No errors`, Pest **210 passed / 1045 assertions**; `cmd /c npm run build`
+  PHPStan level 5 `[OK] No errors`, Pest **215 passed / 1080 assertions**; `cmd /c npm run build`
   green (Vite production build, 667 modules transformed). CI is green on MySQL 8 +
   Redis for latest pushed Phase C gate commit `c46301e`.
 - **Stack (verified):** Laravel 12.63.0 on PHP 8.2.12; DEV DB = `careos` on XAMPP MariaDB
@@ -141,6 +141,14 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
     patient-scoped `read` audit rows naming the document.
   - Portal sharing is fail-closed on `portal.access` consent and portal users can see only
     explicitly shared documents for their own patient account.
+  - Referrals are tenant-owned, patient-scoped, audited through created/sent/responded/completed
+    lifecycle, and either same-tenant internal `to_branch_id` records or external provider-name
+    records; cross-tenant CareOS referral exchange is deferred to explicit share objects.
+  - Recall rules are tenant-owned deterministic JSON criteria. `RecallEngine` evaluates exact
+    active problem-code membership plus exact missing encounter-type criteria over an explicit
+    tenant and generates idempotent due recall rows; no AI or inference selects recipients.
+  - Recall lifecycle changes are audited; chart reads of referrals/recalls are patient-scoped
+    read-logged.
   - Care plans and care-plan goals are tenant-owned, clinician-authored, RBAC-gated by
     `note.write`, audited on lifecycle changes, and read-logged when returned in the chart.
   - Clinical tasks are tenant-owned, assigned only to same-tenant staff, optionally linked to a
@@ -152,9 +160,8 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
   - `NoteEditorController` enforces `note.write`/`note.sign` server-side; signed notes are
     returned read-only and server updates to signed notes are rejected.
   - The patient chart is `patient.view` gated, read-logged, returns full note version history,
-    real care plans with goals, allergies prominently, and raw vitals without interpretation
-    flags/scores.
+    real care plans with goals, real referrals/recalls, allergies prominently, and raw vitals
+    without interpretation flags/scores.
   - The day-board Document action opens the encounter and draft note through server services,
     then redirects to the note editor; the honest open -> document -> sign path is 3 clicks.
-- **Next action:** Execute only the next pasted Phase D gate; D.5 is not present in this repo
-  unless separately pasted and completed.
+- **Next action:** Execute only the next pasted Phase D gate.
