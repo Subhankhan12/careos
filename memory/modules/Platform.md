@@ -22,7 +22,8 @@ enforces fail-closed tenancy.
   doctor/nurse receive `encounter.manage`, `note.write`, and `note.sign`; doctor/org_admin receive
   `allergy.override`; org_admin receives `note.supervise`; reception does not.
 - `plans` (platform; `price_minor` integer minor units, `limits`/`features` JSON),
-  `feature_flags` (tenant-owned), `settings` (tenant-owned, typed value JSON).
+  `feature_flags` (tenant-owned), `settings` (tenant-owned, typed value JSON). Nursing proof-of-
+  visit privacy notice defaults to `nursing.visit.gps_privacy_notice`.
 - `break_glass_grants` — tenant-owned, time-boxed emergency access (reason required, `expires_at`).
 
 ## Key services / classes
@@ -72,6 +73,7 @@ P0D.G3 adds `allergy.override` to the catalog and starter org-admin/doctor roles
 P0D.G6 adds `note.supervise` to the catalog and starter org-admin roles.
 P0E.G1 adds `agreement.manage` and the `coordinator` starter role for nursing service agreements.
 P0E.G3 adds `dispatch.manage` to org-admin and coordinator starter roles for Nursing dispatch.
+P0E.G4 adds the default `nursing.visit.gps_privacy_notice` setting text for staff privacy notice.
 
 ## Open items
 

@@ -30,6 +30,15 @@ home-care visits, including who receives care, what is authorized, and who funds
 - `nurse_constraints` - tenant-owned nurse/resource constraints. `resource_id` (Scheduling
   practitioner resource), `qualification`, decimal `max_hours_per_week`, and
   `max_travel_minutes_between_visits`. Unique `(tenant_id, resource_id)`.
+- `visits` - tenant-owned executed visit container. Nullable `planned_visit_id`, `patient_id`,
+  nurse `resource_id`, `branch_id`, `scheduled_start_at`, nullable check-in/out timestamps,
+  lifecycle status (`scheduled/in_progress/completed/missed/cancelled`), and per-tenant unique
+  `client_visit_uuid` offline idempotency key.
+- `visit_events` - tenant-owned append-only proof events. `visit_id`, type `check_in/check_out`,
+  device `occurred_at`, server `received_at`, nullable GPS `location` POINT SRID 4326, non-null
+  `location_index` mirror for portable spatial indexing, nullable accuracy, source `gps/manual`,
+  required manual reason for manual source, computed `distance_meters`, `recorded_by`, timestamps.
+  DB triggers block UPDATE/DELETE.
 
 ## Key services / classes
 
@@ -57,6 +66,10 @@ home-care visits, including who receives care, what is authorized, and who funds
   parallel hammer.
 - `Http\Controllers\DispatchBoardController` and `DispatchActionController` - Inertia dispatcher
   board and server-side assign/unassign actions.
+- `Models\Visit` and `VisitEvent` - tenant-owned visit execution records; `VisitEvent` is
+  append-only at model and DB level.
+- `Services\VisitService` - creates visits from assigned planned visits and records exactly one
+  check-in plus one check-out event with GPS or reason-required manual fallback.
 - `Events\ServiceAgreementChanged` - app-layer audit glue records `service_agreement.*` actions.
 - `Events\PlannedVisitChanged` - app-layer audit glue records `planned_visit.materialized` and
   `planned_visit.cancelled`.
@@ -92,11 +105,23 @@ home-care visits, including who receives care, what is authorized, and who funds
   proves one winner for eight overlapping contenders.
 - Assignment/unassignment writes patient-scoped `planned_visit.assigned` /
   `planned_visit.unassigned` audit events; dispatch board reads write patient-scoped read rows.
+- GPS privacy posture D-E3: proof-of-visit captures location only at check-in and check-out.
+  There is no continuous location tracking, no background location collection, and no route capture.
+- Manual proof fallback requires a non-empty reason whenever GPS is unavailable/denied.
+- Check-out requires a prior check-in; the unique `(tenant_id, visit_id, type)` key prevents more
+  than one check-in or one check-out event for a visit.
+- Geofence distance is informational only: `VisitService` computes `ST_Distance_Sphere` from the
+  event GPS point to the planned visit target coordinate, stores `distance_meters`, and flags
+  distant events in audit context without blocking check-in/out.
+- `visit_events.location` remains nullable for manual fallback. MariaDB 10.4 requires spatial
+  indexes to be NOT NULL, so `location_index` is the non-null indexed mirror while `location`
+  preserves the nullable business value; MySQL 8 CI verifies the same DDL.
 
 ## Status
 
 **Phase E IN PROGRESS.** P0E.G1 service agreements, P0E.G2 planned visits from RRULE recurrence,
-and P0E.G3 dispatcher assignment are registered with tests and app-layer audit.
+P0E.G3 dispatcher assignment, and P0E.G4 proof-of-visit are registered with tests and app-layer
+audit.
 
 ## Open items
 

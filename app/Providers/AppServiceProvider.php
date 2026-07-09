@@ -25,6 +25,7 @@ use Modules\Clinical\Models\ClinicalNote;
 use Modules\Clinical\Models\Encounter;
 use Modules\Nursing\Events\PlannedVisitChanged;
 use Modules\Nursing\Events\ServiceAgreementChanged;
+use Modules\Nursing\Events\VisitEventRecorded;
 use Modules\People\Models\Credential;
 use Modules\Platform\Models\FeatureFlag;
 use Modules\Platform\Models\Role;
@@ -264,6 +265,28 @@ class AppServiceProvider extends ServiceProvider
                     'scheduled_date' => $visit->scheduled_date->toDateString(),
                     'status' => $visit->status,
                     'assigned_resource_id' => $visit->assigned_resource_id,
+                    ...$event->context,
+                ],
+            ]);
+        });
+        Event::listen(VisitEventRecorded::class, function (VisitEventRecorded $event): void {
+            $visitEvent = $event->event;
+            $visit = $event->visit;
+
+            $this->auditChange('visit.'.$visitEvent->type, [
+                'actor_type' => 'user',
+                'actor_id' => (string) $event->actor->getKey(),
+                'patient_id' => $visit->patient_id,
+                'resource_type' => 'visit',
+                'resource_id' => $visit->id,
+                'context' => [
+                    'visit_event_id' => $visitEvent->id,
+                    'planned_visit_id' => $visit->planned_visit_id,
+                    'resource_id' => $visit->resource_id,
+                    'branch_id' => $visit->branch_id,
+                    'status' => $visit->status,
+                    'location_source' => $visitEvent->location_source,
+                    'distance_meters' => $visitEvent->distance_meters,
                     ...$event->context,
                 ],
             ]);

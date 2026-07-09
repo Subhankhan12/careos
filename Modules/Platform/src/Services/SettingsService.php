@@ -25,6 +25,10 @@ class SettingsService
         'locale' => ['value' => 'en', 'type' => 'string'],
         'timezone' => ['value' => 'UTC', 'type' => 'string'],
         'currency' => ['value' => 'EUR', 'type' => 'string'],
+        'nursing.visit.gps_privacy_notice' => [
+            'value' => 'Location is captured only at check-in and check-out; no continuous tracking, no background location, and no route capture.',
+            'type' => 'string',
+        ],
     ];
 
     public function get(string $key, mixed $default = null): mixed

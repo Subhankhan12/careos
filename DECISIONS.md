@@ -161,3 +161,9 @@ references the old ID.
   locks the planned visit, nurse resource, and candidate assigned visits with `FOR UPDATE` before
   persisting, so overlapping concurrent contenders for one nurse serialize and only one wins
   (P0E.G3).
+- **D-044 / D-E3 - GPS proof-of-visit is point-in-time, not surveillance.** Nursing captures GPS
+  only at check-in and check-out. There is no continuous location tracking, background location
+  collection, or route capture. If GPS is unavailable or denied, a manual fallback is allowed only
+  with a non-empty reason. Geofence distance is computed for review and audit context but never
+  auto-blocks a visit, because a nurse may legitimately meet a patient away from the planned
+  address (P0E.G4).

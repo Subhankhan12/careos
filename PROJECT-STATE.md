@@ -3,15 +3,16 @@
 Short, factual snapshot of where the project stands. Updated at consolidations and after gates
 (per the MEMORY PROTOCOL in AGENTS.md).
 
-- **Current phase:** Phase E - Nursing wedge - **IN PROGRESS**. Latest gate: P0E.G3 dispatcher
-  board and validated concurrency-safe assignment. Next: Gate E.4.
-- **Commits:** 46 on `main` after P0E.G3 (dispatcher board + validated assignment).
+- **Current phase:** Phase E - Nursing wedge - **IN PROGRESS**. Latest gate: P0E.G4 visits +
+  GPS proof-of-visit. Next: Gate E.5.
+- **Commits:** 47 on `main` after P0E.G4 (visits + GPS proof-of-visit).
   Phase A = 11 (P0A.G1-G8, P0A.GM, P0A.GF, P0A.GF3), pushed to `origin/main`
   (https://github.com/Subhankhan12/careos).
 - **Verified quality (from actual output):** `composer check` green - Pint `passed`,
-  PHPStan level 5 `[OK] No errors`, Pest **243 passed / 1331 assertions**; `cmd /c npm run build`
-  green (`vite build`, 669 modules transformed). CI was green on MySQL 8 + Redis for Phase D;
-  P0E.G3 CI is checked after push.
+  PHPStan level 5 `[OK] No errors`, Pest **250 passed / 1362 assertions**; latest frontend build
+  remains P0E.G3 `cmd /c npm run build` green (`vite build`, 669 modules transformed) because
+  P0E.G4 has no frontend changes. CI was green on MySQL 8 + Redis for Phase D; P0E.G4 CI is
+  checked after push.
 - **Stack (verified):** Laravel 12.63.0 on PHP 8.2.12; DEV DB = `careos` on XAMPP MariaDB
   10.4.32 (127.0.0.1:3306); Redis-compatible server on 127.0.0.1:6379 with Predis (`PONG`);
   queue/cache use Redis and Horizon is installed/guarded. Local Windows PHP lacks `pcntl`, so
@@ -216,4 +217,13 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
     for one nurse and proves exactly one assignment wins.
   - Dispatcher board UI is Inertia/Vue presentational only; routes are RBAC-gated, tenant-scoped,
     patient read-logged, and server validation failures surface as explainable reasons.
-- **Next action:** Execute only Gate E.4 when pasted.
+  - Executed `visits` are tenant-owned and may be created from assigned planned visits or ad hoc
+    later; `client_visit_uuid` is unique per tenant for offline idempotency.
+  - `visit_events` are append-only check-in/check-out proof rows with DB UPDATE/DELETE triggers,
+    device/server timestamps, GPS/manual source, optional nullable GPS `location`, accuracy,
+    computed geofence distance, and patient-scoped audit.
+  - GPS privacy posture D-E3 is bound in code: location is captured only at check-in and check-out;
+    there is no continuous/background tracking or route capture; manual fallback requires a reason.
+  - Geofence distance uses `ST_Distance_Sphere` against the planned visit target coordinate and
+    flags distant events for review in audit context without blocking the visit transition.
+- **Next action:** Execute only Gate E.5 when pasted.
