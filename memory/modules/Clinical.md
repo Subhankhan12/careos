@@ -6,7 +6,7 @@ Tenant-owned clinical record foundation. D.1 adds encounters: the clinical visit
 links a patient, practitioner, branch, optional appointment, and future clinical artifacts.
 D.2 adds structured SOAP clinical notes with legal-grade sign-and-lock immutability and
 visible superseding amendments. D.3 adds structured clinical lists and a deterministic allergy
-hard-stop.
+hard-stop. D.4 adds private clinical documents with portal sharing and per-download audit.
 
 ## Key tables
 
@@ -27,6 +27,9 @@ hard-stop.
   `weight_g`, `height_mm`) plus `extra`; no interpretation/flag/score fields.
 - `medications` - tenant-owned documented medications with normalized `substance_key`,
   free-text dose/route/frequency, dates, status, recorder, and audit/read logging.
+- `documents` - tenant-owned clinical document metadata with `patient_id`, nullable
+  `encounter_id`, category/title/original filename, private `storage_path`, MIME/size,
+  uploader/upload timestamp, portal share flags, timestamps, and soft deletes.
 
 ## Key services / classes
 
@@ -56,6 +59,14 @@ hard-stop.
 - `Services\MedicationService` - records medications through the allergy hard-stop; override
   requires `allergy.override` plus a non-empty reason.
 - `Events\ClinicalRecordChanged` - app-layer audit glue writes clinical-list change events.
+- `Models\Document` - tenant-owned/read-logged document metadata; same-tenant patient,
+  optional encounter, and uploader guards.
+- `Services\DocumentService` - validates uploads, stores bytes under generated per-tenant private
+  paths, shares/unshares for portal access, soft-deletes metadata, and resolves portal-visible
+  documents.
+- `Events\DocumentChanged` - app-layer audit glue writes document upload/share/unshare/delete.
+- Document controllers - staff upload/download/share/unshare/delete and portal list/download
+  endpoints; all access streams through controllers, never public URLs.
 
 ## Invariants enforced
 
@@ -84,13 +95,21 @@ hard-stop.
   patient-scoped `allergy.override` audit rows flagged as overrides.
 - Clinical-list writes require clinician write permission (`note.write`). Reads through
   `ClinicalListService::readListsForPatient()` write patient-scoped `read` audit rows.
+- Document storage paths are generated from tenant ID, patient ID, and ULID under private local
+  storage; sanitized original filenames are metadata only and never drive storage paths.
+- Staff document downloads require `patient.view`; uploads/share/unshare/delete require
+  `note.write`. Portal users only see documents explicitly shared with their own patient account.
+- Sharing requires an active `portal.access` consent via `ConsentService::has()`; no consent means
+  fail-closed.
+- Upload/share/unshare/delete write patient-scoped document audit events. Every staff or portal
+  download writes a patient-scoped `read` audit row for resource `document`.
 
 ## Status
 
-**Phase D in progress.** D.1 encounters, D.2 SOAP notes, and D.3 clinical lists/allergy
-hard-stop are registered and covered by feature and architecture tests. Local `composer check`
-is green: 193 tests / 840 assertions.
+**Phase D in progress.** D.1 encounters, D.2 SOAP notes, D.3 clinical lists/allergy hard-stop,
+and D.4 clinical documents are registered and covered by feature and architecture tests. Local
+`composer check` is green: 200 tests / 905 assertions.
 
 ## Open items
 
-- D.4 is the next clinical-core gate when pasted.
+- D.5 is the next clinical-core gate when pasted.

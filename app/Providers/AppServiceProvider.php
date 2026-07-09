@@ -16,6 +16,7 @@ use Modules\Audit\Services\AuditService;
 use Modules\Clinical\Events\ClinicalNoteAmended;
 use Modules\Clinical\Events\ClinicalNoteSigned;
 use Modules\Clinical\Events\ClinicalRecordChanged;
+use Modules\Clinical\Events\DocumentChanged;
 use Modules\Clinical\Events\EncounterClosed;
 use Modules\Clinical\Events\EncounterOpened;
 use Modules\Clinical\Models\ClinicalNote;
@@ -205,6 +206,24 @@ class AppServiceProvider extends ServiceProvider
                 'resource_id' => $event->resourceId,
                 'reason' => $event->reason,
                 'context' => $event->context,
+            ]);
+        });
+        Event::listen(DocumentChanged::class, function (DocumentChanged $event): void {
+            $document = $event->document;
+
+            $this->auditChange($event->action, [
+                'actor_type' => 'user',
+                'actor_id' => (string) $event->actor->getKey(),
+                'patient_id' => $document->patient_id,
+                'resource_type' => 'document',
+                'resource_id' => $document->id,
+                'context' => [
+                    'category' => $document->category,
+                    'title' => $document->title,
+                    'original_filename' => $document->original_filename,
+                    'shared_with_patient' => $document->shared_with_patient,
+                    ...$event->context,
+                ],
             ]);
         });
 

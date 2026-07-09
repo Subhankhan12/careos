@@ -57,7 +57,9 @@ existing patient-scoped `read` event.
 P0D.G1 added patient-scoped `encounter.opened` and `encounter.closed` actions plus encounter read
 logging. P0D.G2 added patient-scoped `note.signed` and `note.amended` actions plus clinical-note
 read logging. P0D.G3 added patient-scoped `problem.added`, `allergy.added`, `vital.recorded`,
-`medication.added`, and `allergy.override` actions plus clinical-list read logging.
+`medication.added`, and `allergy.override` actions plus clinical-list read logging. P0D.G4 added
+patient-scoped `document.uploaded`, `document.shared`, `document.unshared`, and
+`document.deleted` actions plus staff/portal document download read logging.
 
 ## Open items
 

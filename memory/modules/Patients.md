@@ -59,6 +59,9 @@ Inertia pages.
 - `Http\Middleware\IdentifyTenantFromPortalSession`, `EnsurePatientPortalAuthenticated`, and
   `EnsurePortalConsent` - re-establish tenant context from the portal session, authenticate the
   patient guard, and enforce `portal.access` consent.
+- Clinical document portal endpoints use the existing patient guard/session and portal consent
+  middleware; portal accounts can list/download only Clinical documents explicitly shared for
+  their own `patient_id`.
 - `Http\Controllers\PatientIndexController` - RBAC-gated patient index/search using FULLTEXT
   name matching with deterministic fallback and optional DOB filter.
 - `Http\Controllers\PatientRegistrationController` - RBAC-gated registration wizard endpoints;
@@ -94,6 +97,8 @@ Inertia pages.
   `web` guard routes, and staff users cannot satisfy portal guard routes.
 - Portal sessions are tenant-bound (`portal_tenant_id`) and cross-tenant session tampering is
   denied before consent can grant access.
+- Portal document access is fail-closed: only `shared_with_patient=true` documents for the
+  authenticated account's own patient are visible/downloadable, and every download is read-logged.
 - Patient UI routes are staff `web` guard only and RBAC-gated: `patient.view` for index/show,
   `patient.edit` for register/create/duplicate-check and consent/portal actions.
 - Patient 360 viewing writes the existing patient-scoped `read` audit row and surfaces the
@@ -114,5 +119,7 @@ staff-facing patient UI are in place.
   name search tokenizes differently across environments; validate search parity before production.
 - Portal UI screens are later; B.5 only exposes backend routes/guards/services.
 - Later gates must call `ConsentService::has()` before portal access or clinical data sharing.
+- D.4 Clinical document sharing now calls `ConsentService::has(patient, 'portal.access')` before
+  exposing documents to the portal.
 - MySQL 8 CI should verify the `WITH PARSER ngram` path; local MariaDB 10.4 lacks the ngram parser
   and uses the migration fallback FULLTEXT index.

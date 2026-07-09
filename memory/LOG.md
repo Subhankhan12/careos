@@ -40,3 +40,4 @@ One line per completed gate. Newest at bottom. Format: `<commit> P<phase>.G<n>: 
 - `(pending)` P0D.G1: Clinical encounters - tenant-owned encounter container, RBAC, appointment start boundary, read logging; 176 tests / 757 assertions.
 - `(pending)` P0D.G2: SOAP clinical notes - editable drafts, signed-note immutability, versioned amendments, templates, read logging; 186 tests / 800 assertions.
 - `(pending)` P0D.G3: Structured clinical lists and deterministic allergy hard-stop; 193 tests / 840 assertions.
+- `(pending)` P0D.G4: Clinical documents - private uploads, portal sharing, per-document audit/read logging; 200 tests / 905 assertions.

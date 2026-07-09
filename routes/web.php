@@ -3,7 +3,12 @@
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 use Modules\Clinical\Http\Controllers\ClinicalNoteShowController;
+use Modules\Clinical\Http\Controllers\DocumentDeleteController;
+use Modules\Clinical\Http\Controllers\DocumentDownloadController;
+use Modules\Clinical\Http\Controllers\DocumentShareController;
+use Modules\Clinical\Http\Controllers\DocumentUploadController;
 use Modules\Clinical\Http\Controllers\EncounterShowController;
+use Modules\Clinical\Http\Controllers\PortalDocumentController;
 use Modules\Patients\Http\Controllers\PatientConsentController;
 use Modules\Patients\Http\Controllers\PatientIndexController;
 use Modules\Patients\Http\Controllers\PatientRegistrationController;
@@ -57,6 +62,16 @@ Route::middleware('auth')->group(function () {
         ->name('clinical.encounters.show');
     Route::get('/clinical/notes/{note}', ClinicalNoteShowController::class)
         ->name('clinical.notes.show');
+    Route::post('/clinical/patients/{patient}/documents', DocumentUploadController::class)
+        ->name('clinical.documents.upload');
+    Route::get('/clinical/documents/{document}', DocumentDownloadController::class)
+        ->name('clinical.documents.download');
+    Route::post('/clinical/documents/{document}/share', [DocumentShareController::class, 'share'])
+        ->name('clinical.documents.share');
+    Route::post('/clinical/documents/{document}/unshare', [DocumentShareController::class, 'unshare'])
+        ->name('clinical.documents.unshare');
+    Route::delete('/clinical/documents/{document}', DocumentDeleteController::class)
+        ->name('clinical.documents.delete');
 });
 
 Route::prefix('book/{tenant:slug}')
@@ -76,6 +91,12 @@ Route::prefix('portal')->name('portal.')->group(function () {
     Route::get('/', fn () => response('Patient portal pending UI'))
         ->middleware(['portal-tenant', 'portal-auth', 'portal-consent'])
         ->name('home');
+    Route::get('/documents', [PortalDocumentController::class, 'index'])
+        ->middleware(['portal-tenant', 'portal-auth', 'portal-consent'])
+        ->name('documents.index');
+    Route::get('/documents/{document}', [PortalDocumentController::class, 'show'])
+        ->middleware(['portal-tenant', 'portal-auth', 'portal-consent'])
+        ->name('documents.show');
 });
 
 Route::post('/portal/invitations', PortalInvitationController::class)

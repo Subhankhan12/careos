@@ -116,3 +116,8 @@ references the old ID.
   drug-class inference, interaction checking, dose calculation, or clinical decision support in
   this rule; those remain deferred medical-device territory. A clinician with `allergy.override`
   may override only with a reason, and the override is audited (P0D.G3).
+- **D-037 - Clinical document files are private and controller-streamed.** Document metadata is
+  tenant-owned in `documents`, while file bytes live under a generated
+  `tenants/{tenant}/clinical-documents/{patient}/{ulid}` private storage path. No user filename is
+  used to derive storage paths, no public URL is exposed, and every staff or portal download must
+  pass through RBAC/tenant/portal-share checks and write a patient-scoped read audit row (P0D.G4).
