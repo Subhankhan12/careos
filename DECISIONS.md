@@ -140,3 +140,10 @@ references the old ID.
   recall rows selected by `RecallEngine` plus clinician-authored templates, never selecting
   recipients or adding medical advice. Both clinical tools have explicit `suggest` ceilings even
   beyond the clinical category cap (P0D.G8).
+- **D-041 - Nursing service agreements are contract records, not generated schedules.**
+  Service agreements store the authorized patient/branch/funding window and child
+  `agreement_services` store documented planned frequency text, required qualification, and
+  duration. Visit schedule generation remains for later Nursing gates. The lifecycle is service-
+  enforced (`draft -> active/ended`, `active -> suspended/ended`, `suspended -> active/ended`,
+  `ended` terminal), and `agreement.manage` belongs to org-admin plus a new coordinator starter
+  role (P0E.G1).

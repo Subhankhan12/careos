@@ -3,15 +3,15 @@
 Short, factual snapshot of where the project stands. Updated at consolidations and after gates
 (per the MEMORY PROTOCOL in AGENTS.md).
 
-- **Current phase:** Phase D - Clinical core - **COMPLETE**. Next: Phase E - Nursing wedge
-  (home care, dispatch, offline-first nurse PWA).
-- **Commits:** 43 on `main` after P0D.C (Phase D consolidation).
+- **Current phase:** Phase E - Nursing wedge - **IN PROGRESS**. Latest gate: P0E.G1 service
+  agreements. Next: Gate E.2.
+- **Commits:** 44 on `main` after P0E.G1 (nursing service agreements).
   Phase A = 11 (P0A.G1-G8, P0A.GM, P0A.GF, P0A.GF3), pushed to `origin/main`
   (https://github.com/Subhankhan12/careos).
 - **Verified quality (from actual output):** `composer check` green - Pint `passed`,
-  PHPStan level 5 `[OK] No errors`, Pest **222 passed / 1202 assertions**; `cmd /c npm run build`
-  green (Vite production build, 667 modules transformed). CI is green on MySQL 8 + Redis for
-  latest pushed Phase D gate commit `d09b6b1`; P0D.C CI is checked after push.
+  PHPStan level 5 `[OK] No errors`, Pest **229 passed / 1247 assertions**; latest frontend build
+  remains the Phase D `cmd /c npm run build` green result (E.1 has no frontend changes). CI was
+  green on MySQL 8 + Redis for Phase D; P0E.G1 CI is checked after push.
 - **Stack (verified):** Laravel 12.63.0 on PHP 8.2.12; DEV DB = `careos` on XAMPP MariaDB
   10.4.32 (127.0.0.1:3306); Redis-compatible server on 127.0.0.1:6379 with Predis (`PONG`);
   queue/cache use Redis and Horizon is installed/guarded. Local Windows PHP lacks `pcntl`, so
@@ -177,4 +177,18 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
   - Full consult loop is covered end to end: day-board -> open encounter -> SOAP draft -> sign ->
     chart shows signed note -> amend with reason -> chart shows both versions -> audit chain
     verifies.
-- **Next action:** Execute only the next pasted Phase E gate.
+- **Proven in Phase E so far:**
+  - Nursing module registered with fail-closed tenant-owned `service_agreements` and
+    `agreement_services`.
+  - Service agreements link patient, branch, funding/authorization metadata, authorized hours,
+    start/end dates, lifecycle status, and creating staff user.
+  - Agreement services link to the Scheduling service catalog and store documented planned
+    frequency, required qualification, and duration without computing care plans.
+  - `ServiceAgreementService` enforces `agreement.manage`, same-tenant patient/branch/service
+    guards, and legal transitions: draft -> active/ended; active -> suspended/ended;
+    suspended -> active/ended; ended terminal.
+  - `agreement.manage` is in the RBAC catalog for org-admin and the new coordinator starter role;
+    reception does not receive it.
+  - Agreement lifecycle changes are audited patient-scoped; reading an agreement writes a
+    patient-scoped `read` audit row.
+- **Next action:** Execute only Gate E.2 when pasted.

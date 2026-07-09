@@ -53,6 +53,8 @@ enforces fail-closed tenancy.
   receive it by default.
 - `note.supervise` is granted to org-admin starter roles for tenant-team unsigned-note worklists;
   clinicians without it see only their own drafts.
+- `agreement.manage` is granted to org-admin and coordinator starter roles for nursing service
+  agreements; reception is denied.
 - RBAC applies to staff `users` only; patient portal accounts do not receive staff permissions.
 - Money as integer minor units; plans store `price_minor`.
 
@@ -65,6 +67,7 @@ P0D.G1 adds `encounter.manage` to the permission catalog and starter doctor/nurs
 P0D.G2 adds `note.write` and `note.sign` to the catalog and starter clinician roles.
 P0D.G3 adds `allergy.override` to the catalog and starter org-admin/doctor roles.
 P0D.G6 adds `note.supervise` to the catalog and starter org-admin roles.
+P0E.G1 adds `agreement.manage` and the `coordinator` starter role for nursing service agreements.
 
 ## Open items
 

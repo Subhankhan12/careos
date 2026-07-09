@@ -23,6 +23,7 @@ use Modules\Clinical\Events\EncounterClosed;
 use Modules\Clinical\Events\EncounterOpened;
 use Modules\Clinical\Models\ClinicalNote;
 use Modules\Clinical\Models\Encounter;
+use Modules\Nursing\Events\ServiceAgreementChanged;
 use Modules\People\Models\Credential;
 use Modules\Platform\Models\FeatureFlag;
 use Modules\Platform\Models\Role;
@@ -226,6 +227,23 @@ class AppServiceProvider extends ServiceProvider
                     'title' => $document->title,
                     'original_filename' => $document->original_filename,
                     'shared_with_patient' => $document->shared_with_patient,
+                    ...$event->context,
+                ],
+            ]);
+        });
+        Event::listen(ServiceAgreementChanged::class, function (ServiceAgreementChanged $event): void {
+            $agreement = $event->agreement;
+
+            $this->auditChange($event->action, [
+                'actor_type' => 'user',
+                'actor_id' => (string) $event->actor->getKey(),
+                'patient_id' => $agreement->patient_id,
+                'resource_type' => 'service_agreement',
+                'resource_id' => $agreement->id,
+                'context' => [
+                    'branch_id' => $agreement->branch_id,
+                    'funding_type' => $agreement->funding_type,
+                    'status' => $agreement->status,
                     ...$event->context,
                 ],
             ]);

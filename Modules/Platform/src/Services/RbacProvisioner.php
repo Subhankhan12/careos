@@ -28,6 +28,7 @@ class RbacProvisioner
         'patient.edit' => 'Create and edit patients',
         'patient.merge' => 'Merge duplicate patients',
         'appointment.manage' => 'Manage appointments',
+        'agreement.manage' => 'Manage nursing service agreements',
         'encounter.manage' => 'Manage clinical encounters',
         'note.write' => 'Write clinical note drafts',
         'note.sign' => 'Sign clinical notes',
@@ -49,9 +50,14 @@ class RbacProvisioner
             'name' => 'Organisation Admin',
             'permissions' => [
                 'admin.manage', 'patient.view', 'patient.edit', 'patient.merge',
-                'appointment.manage', 'encounter.manage', 'note.write', 'note.sign',
-                'note.supervise', 'allergy.override', 'ai.manage', 'billing.view', 'audit.view',
+                'appointment.manage', 'agreement.manage', 'encounter.manage', 'note.write',
+                'note.sign', 'note.supervise', 'allergy.override', 'ai.manage', 'billing.view',
+                'audit.view',
             ],
+        ],
+        'coordinator' => [
+            'name' => 'Nursing Coordinator',
+            'permissions' => ['patient.view', 'appointment.manage', 'agreement.manage'],
         ],
         'doctor' => [
             'name' => 'Doctor',

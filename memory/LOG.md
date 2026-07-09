@@ -46,3 +46,4 @@ One line per completed gate. Newest at bottom. Format: `<commit> P<phase>.G<n>: 
 - `(pending)` P0D.G5: Referrals plus deterministic recall rules/engine and real chart referrals/recalls data; 215 tests / 1080 assertions; npm build green.
 - `(pending)` P0D.G8: Clinical Summary + Follow-up agents - extractive source-linked summaries, deterministic recall-message drafts, suggest-only ceilings; 221 tests / 1144 assertions; npm build green.
 - `(pending)` P0D.C: Phase D consolidation - full consult loop test added and Phase D marked complete; 222 tests / 1202 assertions; npm build green.
+- `(pending)` P0E.G1: Nursing service agreements - module registration, agreement lifecycle, RBAC coordinator role, audit/read logging; 229 tests / 1247 assertions.
