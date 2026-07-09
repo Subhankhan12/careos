@@ -19,7 +19,7 @@ enforces fail-closed tenancy.
   Catalog includes destructive `patient.merge`, appointment/encounter management, deterministic
   allergy override, and governed AI management. Starter `org_admin` receives all; doctor/nurse
   receive `encounter.manage`, `note.write`, and `note.sign`; doctor/org_admin receive
-  `allergy.override`; reception does not.
+  `allergy.override`; org_admin receives `note.supervise`; reception does not.
 - `plans` (platform; `price_minor` integer minor units, `limits`/`features` JSON),
   `feature_flags` (tenant-owned), `settings` (tenant-owned, typed value JSON).
 - `break_glass_grants` — tenant-owned, time-boxed emergency access (reason required, `expires_at`).
@@ -51,6 +51,8 @@ enforces fail-closed tenancy.
   reception is denied.
 - `allergy.override` is granted to org-admin and doctor starter roles; nurse/reception do not
   receive it by default.
+- `note.supervise` is granted to org-admin starter roles for tenant-team unsigned-note worklists;
+  clinicians without it see only their own drafts.
 - RBAC applies to staff `users` only; patient portal accounts do not receive staff permissions.
 - Money as integer minor units; plans store `price_minor`.
 
@@ -62,6 +64,7 @@ shells are in place and green on MariaDB (dev) and MySQL 8 (CI).
 P0D.G1 adds `encounter.manage` to the permission catalog and starter doctor/nurse/org-admin roles.
 P0D.G2 adds `note.write` and `note.sign` to the catalog and starter clinician roles.
 P0D.G3 adds `allergy.override` to the catalog and starter org-admin/doctor roles.
+P0D.G6 adds `note.supervise` to the catalog and starter org-admin roles.
 
 ## Open items
 

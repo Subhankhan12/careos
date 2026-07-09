@@ -42,3 +42,4 @@ One line per completed gate. Newest at bottom. Format: `<commit> P<phase>.G<n>: 
 - `(pending)` P0D.G3: Structured clinical lists and deterministic allergy hard-stop; 193 tests / 840 assertions.
 - `(pending)` P0D.G4: Clinical documents - private uploads, portal sharing, per-document audit/read logging; 200 tests / 905 assertions.
 - `(pending)` P0D.G7: Clinical UI - SOAP note editor, sign/read-only response, amendment history, patient chart, and day-board document handoff; 205 tests / 1013 assertions; npm build green.
+- `(pending)` P0D.G6: Care plans, clinical tasks, unsigned-notes worklist, and real chart carePlans data; 210 tests / 1045 assertions; npm build green.

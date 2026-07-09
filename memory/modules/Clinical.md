@@ -6,8 +6,9 @@ Tenant-owned clinical record foundation. D.1 adds encounters: the clinical visit
 links a patient, practitioner, branch, optional appointment, and future clinical artifacts.
 D.2 adds structured SOAP clinical notes with legal-grade sign-and-lock immutability and
 visible superseding amendments. D.3 adds structured clinical lists and a deterministic allergy
-hard-stop. D.4 adds private clinical documents with portal sharing and per-download audit. D.7
-adds the clinical SOAP/chart UI surfaces without moving business rules into Vue components.
+hard-stop. D.4 adds private clinical documents with portal sharing and per-download audit. D.6
+adds care plans, clinical tasks, and unsigned-note worklists. D.7 adds the clinical SOAP/chart UI
+surfaces without moving business rules into Vue components.
 
 ## Key tables
 
@@ -31,6 +32,13 @@ adds the clinical SOAP/chart UI surfaces without moving business rules into Vue 
 - `documents` - tenant-owned clinical document metadata with `patient_id`, nullable
   `encounter_id`, category/title/original filename, private `storage_path`, MIME/size,
   uploader/upload timestamp, portal share flags, timestamps, and soft deletes.
+- `care_plans` - tenant-owned patient care plans with title, active/completed/cancelled status,
+  started/ended dates, creator, and timestamps.
+- `care_plan_goals` - tenant-owned goals attached to a care plan with clinician-authored
+  description, nullable target date, and open/met/not_met status.
+- `clinical_tasks` - tenant-owned tasks with nullable patient/care-plan/encounter links, title,
+  nullable description, same-tenant staff assignee, due date, priority, status, completion time,
+  and index `(tenant_id, assigned_to, status, due_at)`.
 
 ## Key services / classes
 
@@ -68,6 +76,14 @@ adds the clinical SOAP/chart UI surfaces without moving business rules into Vue 
 - `Events\DocumentChanged` - app-layer audit glue writes document upload/share/unshare/delete.
 - Document controllers - staff upload/download/share/unshare/delete and portal list/download
   endpoints; all access streams through controllers, never public URLs.
+- `Models\CarePlan`, `CarePlanGoal`, `ClinicalTask` - tenant-owned care plan/task records with
+  same-tenant reference guards; care plans/tasks are read-logged patient data when applicable.
+- `Services\CarePlanService` - creates plans/goals and enforces active -> completed/cancelled plan
+  transitions plus open -> met/not_met goal transitions; writes clinical audit events.
+- `Services\ClinicalTaskService` - creates tasks, guards assignment and compatible patient links,
+  enforces open/in_progress/done/cancelled lifecycle, and writes clinical audit events.
+- `Services\UnsignedNotesWorklist` - returns draft notes older than a threshold, ordered by age;
+  clinicians see their own drafts, `note.supervise` users see tenant-team drafts.
 - `Http\Controllers\NoteEditorController` - Inertia note editor surface; server-enforces
   `note.write`/`note.sign`, saves drafts, signs, and starts amendments through
   `ClinicalNoteService`.
@@ -116,6 +132,13 @@ adds the clinical SOAP/chart UI surfaces without moving business rules into Vue 
   fail-closed.
 - Upload/share/unshare/delete write patient-scoped document audit events. Every staff or portal
   download writes a patient-scoped `read` audit row for resource `document`.
+- Care plans/goals/tasks are clinician-authored storage only; no generated clinical content.
+- Care plan and task writes require `note.write`; task assignees must be same-tenant staff.
+- Care-plan status transitions are active -> completed/cancelled only. Goal transitions are
+  open -> met/not_met only. Clinical-task transitions are open -> in_progress/done/cancelled and
+  in_progress -> done/cancelled; done/cancelled are terminal.
+- `note.supervise` is the supervisor boundary for unsigned-note worklists; without it, users only
+  see aged draft notes authored by their own staff profile.
 - Clinical UI routes remain server-enforced: `patient.view` for chart/note display, `note.write`
   for drafts/amendments, and `note.sign` for signing. Vue components may hide actions but do not
   own authorization, validation, or state transitions.
@@ -123,20 +146,20 @@ adds the clinical SOAP/chart UI surfaces without moving business rules into Vue 
   later edits even if a client sends the request directly.
 - Amendment history returns the full original-to-latest version chain; the original remains
   visible.
-- Chart views write patient-scoped read audit rows. Allergy data is first-class and prominent in
-  the response/UI; vitals props carry raw documented values only, with no flags, scores, ranges,
-  or interpretation fields.
+- Chart views write patient-scoped read audit rows and now return real care plans with goals.
+  Allergy data is first-class and prominent in the response/UI; vitals props carry raw documented
+  values only, with no flags, scores, ranges, or interpretation fields.
 - Day-board -> Document opens an encounter plus draft note and redirects to the note editor; the
   observed open -> document -> sign path is 3 clicks.
 
 ## Status
 
 **Phase D in progress.** D.1 encounters, D.2 SOAP notes, D.3 clinical lists/allergy hard-stop,
-D.4 clinical documents, and D.7 clinical UI are registered and covered by feature and architecture
-tests. Local `composer check` is green: 205 tests / 1013 assertions. Local `cmd /c npm run build`
-is green for the clinical pages.
+D.4 clinical documents, D.6 care plans/tasks/worklist, and D.7 clinical UI are registered and
+covered by feature and architecture tests. Local `composer check` is green: 210 tests / 1045
+assertions. Local `cmd /c npm run build` is green for the clinical pages.
 
 ## Open items
 
-- Execute only the next pasted Phase D gate; D.5/D.6 are not present in this repo unless separately
+- Execute only the next pasted Phase D gate; D.5 is not present in this repo unless separately
   pasted and completed.

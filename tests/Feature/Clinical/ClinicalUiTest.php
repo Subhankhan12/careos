@@ -10,6 +10,7 @@ use Modules\Clinical\Models\ClinicalNote;
 use Modules\Clinical\Models\Document;
 use Modules\Clinical\Models\Encounter;
 use Modules\Clinical\Models\NoteTemplate;
+use Modules\Clinical\Services\CarePlanService;
 use Modules\Clinical\Services\ClinicalListService;
 use Modules\Clinical\Services\ClinicalNoteService;
 use Modules\Clinical\Services\EncounterService;
@@ -295,6 +296,12 @@ test('patient chart is RBAC gated read logged and returns raw clinical sections'
     $patient = d7Patient();
     $encounter = d7Encounter($doctor, $patient);
     d7Draft($doctor, $encounter);
+    app(CarePlanService::class)->create($patient, $encounter->practitioner, $doctor, [
+        'title' => 'Recovery plan',
+        'started_on' => '2026-07-09',
+    ], [
+        ['description' => 'Clinician-authored goal', 'target_date' => '2026-08-01'],
+    ]);
     $lists = app(ClinicalListService::class);
     $lists->recordAllergy($patient, $encounter->practitioner, $doctor, [
         'substance' => 'Latex',
@@ -341,11 +348,13 @@ test('patient chart is RBAC gated read logged and returns raw clinical sections'
             ->missing('vitals.0.score')
             ->missing('vitals.0.interpretation')
             ->has('documents', 1)
-            ->has('carePlans')
+            ->has('carePlans', 1)
+            ->where('carePlans.0.title', 'Recovery plan')
+            ->where('carePlans.0.goals.0.description', 'Clinician-authored goal')
             ->has('referrals')
             ->has('recalls'));
 
-    expect(d7ReadRows($tenant->id, $patient->id))->toHaveCount(1)
+    expect(d7ReadRows($tenant->id, $patient->id))->toHaveCount(2)
         ->and(app(AuditService::class)->verifyChain($tenant->id)['ok'])->toBeTrue();
 
     $unprivileged = d7User($tenant, '');

@@ -13,7 +13,7 @@ class ClinicalRecordChanged
         public readonly string $action,
         public readonly string $resourceType,
         public readonly string $resourceId,
-        public readonly string $patientId,
+        public readonly ?string $patientId,
         public readonly User $actor,
         public readonly array $context = [],
         public readonly ?string $reason = null,

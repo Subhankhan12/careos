@@ -193,6 +193,7 @@
                 "care": "Care"
             },
             "carePlans": "Care plans",
+            "carePlanGoals": "Goals",
             "referrals": "Referrals",
             "recalls": "Recalls"
         }

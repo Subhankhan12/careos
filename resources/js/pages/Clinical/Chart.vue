@@ -29,7 +29,14 @@ const props = defineProps<{
     vitals: Array<{ id: string; recorded_at: string; systolic: number | null; diastolic: number | null; heart_rate: number | null; temperature_c: string | null; spo2: number | null; weight_g: number | null; height_mm: number | null; extra: Record<string, unknown> | null }>;
     medications: Array<{ id: string; name: string; dose_text: string | null; route: string | null; frequency_text: string | null; status: string; started_on: string; ended_on: string | null }>;
     documents: Array<{ id: string; category: string; title: string; original_filename: string; uploaded_at: string; shared_with_patient: boolean; download_url: string }>;
-    carePlans: Array<Record<string, unknown>>;
+    carePlans: Array<{
+        id: string;
+        title: string;
+        status: string;
+        started_on: string;
+        ended_on: string | null;
+        goals: Array<{ id: string; description: string; target_date: string | null; status: string }>;
+    }>;
     referrals: Array<Record<string, unknown>>;
     recalls: Array<Record<string, unknown>>;
 }>();
@@ -138,10 +145,21 @@ function rawVital(vital: typeof props.vitals[number]): string {
                         <p v-if="documents.length === 0" class="text-sm text-ink-muted">{{ t('clinical.chart.empty') }}</p>
                     </section>
 
-                    <section v-if="activeTab === 'care'" class="grid gap-4 md:grid-cols-3">
-                        <div class="rounded-md border border-line p-4">
+                    <section v-if="activeTab === 'care'" class="grid gap-4 lg:grid-cols-3">
+                        <div class="space-y-3 rounded-md border border-line p-4 lg:col-span-2">
                             <p class="font-semibold text-ink">{{ t('clinical.chart.carePlans') }}</p>
-                            <p class="mt-2 text-sm text-ink-muted">{{ carePlans.length || t('clinical.chart.empty') }}</p>
+                            <div v-for="plan in carePlans" :key="plan.id" class="rounded-md border border-line p-3">
+                                <p class="font-semibold text-ink">{{ plan.title }}</p>
+                                <p class="text-sm text-ink-muted">{{ plan.status }} | {{ plan.started_on }} | {{ plan.ended_on || '-' }}</p>
+                                <div class="mt-3 space-y-2">
+                                    <p class="text-xs font-semibold uppercase text-ink-subtle">{{ t('clinical.chart.carePlanGoals') }}</p>
+                                    <p v-for="goal in plan.goals" :key="goal.id" class="text-sm text-ink-muted">
+                                        {{ goal.description }} | {{ goal.status }} | {{ goal.target_date || '-' }}
+                                    </p>
+                                    <p v-if="plan.goals.length === 0" class="text-sm text-ink-muted">{{ t('clinical.chart.empty') }}</p>
+                                </div>
+                            </div>
+                            <p v-if="carePlans.length === 0" class="text-sm text-ink-muted">{{ t('clinical.chart.empty') }}</p>
                         </div>
                         <div class="rounded-md border border-line p-4">
                             <p class="font-semibold text-ink">{{ t('clinical.chart.referrals') }}</p>

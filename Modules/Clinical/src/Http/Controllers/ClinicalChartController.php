@@ -6,6 +6,8 @@ use Illuminate\Support\Facades\Gate;
 use Inertia\Inertia;
 use Inertia\Response;
 use Modules\Clinical\Models\Allergy;
+use Modules\Clinical\Models\CarePlan;
+use Modules\Clinical\Models\CarePlanGoal;
 use Modules\Clinical\Models\ClinicalNote;
 use Modules\Clinical\Models\Document;
 use Modules\Clinical\Models\Encounter;
@@ -129,7 +131,12 @@ class ClinicalChartController
                     'download_url' => route('clinical.documents.download', $document->id),
                 ])
                 ->all(),
-            'carePlans' => [],
+            'carePlans' => CarePlan::query()
+                ->where('patient_id', $record->id)
+                ->orderByDesc('started_on')
+                ->get()
+                ->map(fn (CarePlan $carePlan): array => $this->carePlanSummary($carePlan))
+                ->all(),
             'referrals' => [],
             'recalls' => [],
             'actions' => [
@@ -163,6 +170,33 @@ class ClinicalChartController
                     'signed_at' => $version->signed_at?->toDateTimeString(),
                     'amendment_reason' => $version->amendment_reason,
                     'edit_url' => route('clinical.notes.edit', $version->id),
+                ])
+                ->all(),
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function carePlanSummary(CarePlan $carePlan): array
+    {
+        $carePlan->auditRead(['surface' => 'clinical_chart']);
+
+        return [
+            'id' => $carePlan->id,
+            'title' => $carePlan->title,
+            'status' => $carePlan->status,
+            'started_on' => $carePlan->started_on->toDateString(),
+            'ended_on' => $carePlan->ended_on?->toDateString(),
+            'goals' => CarePlanGoal::query()
+                ->where('care_plan_id', $carePlan->id)
+                ->orderBy('created_at')
+                ->get()
+                ->map(fn (CarePlanGoal $goal): array => [
+                    'id' => $goal->id,
+                    'description' => $goal->description,
+                    'target_date' => $goal->target_date?->toDateString(),
+                    'status' => $goal->status,
                 ])
                 ->all(),
         ];

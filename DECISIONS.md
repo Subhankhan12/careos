@@ -121,3 +121,8 @@ references the old ID.
   `tenants/{tenant}/clinical-documents/{patient}/{ulid}` private storage path. No user filename is
   used to derive storage paths, no public URL is exposed, and every staff or portal download must
   pass through RBAC/tenant/portal-share checks and write a patient-scoped read audit row (P0D.G4).
+- **D-038 - Unsigned-note worklists are own-drafts by default, supervisor-wide by permission.**
+  `UnsignedNotesWorklist` returns aged draft notes ordered oldest-first. Clinicians without
+  `note.supervise` see only drafts authored by their own staff profile; `note.supervise` users
+  see tenant-team drafts. The starter `org_admin` role receives `note.supervise`; doctor/nurse do
+  not by default (P0D.G6).
