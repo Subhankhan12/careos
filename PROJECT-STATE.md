@@ -3,15 +3,15 @@
 Short, factual snapshot of where the project stands. Updated at consolidations and after gates
 (per the MEMORY PROTOCOL in AGENTS.md).
 
-- **Current phase:** Phase E - Nursing wedge - **IN PROGRESS**. Latest gate: P0E.G1 service
-  agreements. Next: Gate E.2.
-- **Commits:** 44 on `main` after P0E.G1 (nursing service agreements).
+- **Current phase:** Phase E - Nursing wedge - **IN PROGRESS**. Latest gate: P0E.G2 planned
+  visits from RRULE recurrence. Next: Gate E.3.
+- **Commits:** 45 on `main` after P0E.G2 (planned visits from RRULE recurrence).
   Phase A = 11 (P0A.G1-G8, P0A.GM, P0A.GF, P0A.GF3), pushed to `origin/main`
   (https://github.com/Subhankhan12/careos).
 - **Verified quality (from actual output):** `composer check` green - Pint `passed`,
-  PHPStan level 5 `[OK] No errors`, Pest **229 passed / 1247 assertions**; latest frontend build
-  remains the Phase D `cmd /c npm run build` green result (E.1 has no frontend changes). CI was
-  green on MySQL 8 + Redis for Phase D; P0E.G1 CI is checked after push.
+  PHPStan level 5 `[OK] No errors`, Pest **235 passed / 1280 assertions**; latest frontend build
+  remains the Phase D `cmd /c npm run build` green result (E.2 has no frontend changes). CI was
+  green on MySQL 8 + Redis for Phase D; P0E.G2 CI is checked after push.
 - **Stack (verified):** Laravel 12.63.0 on PHP 8.2.12; DEV DB = `careos` on XAMPP MariaDB
   10.4.32 (127.0.0.1:3306); Redis-compatible server on 127.0.0.1:6379 with Predis (`PONG`);
   queue/cache use Redis and Horizon is installed/guarded. Local Windows PHP lacks `pcntl`, so
@@ -191,4 +191,18 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
     reception does not receive it.
   - Agreement lifecycle changes are audited patient-scoped; reading an agreement writes a
     patient-scoped `read` audit row.
-- **Next action:** Execute only Gate E.2 when pasted.
+  - Planned visit generation uses `simshaun/recurr` for RFC 5545 RRULE expansion, not hand-rolled
+    parsing. PHP 8.2 pins Recurr `^5.0` because v6 requires PHP 8.4.
+  - `visit_plans` define agreement-service recurrence, timezone, local arrival window, duration,
+    date bounds, and active flag.
+  - `planned_visits` are concrete tenant-owned occurrences with local scheduled date, UTC window
+    timestamps, qualification, lifecycle status, optional assigned Scheduling resource, and
+    cancellation reason.
+  - `VisitPlanGenerator::materialize()` computes in the plan timezone, stores UTC, and is
+    idempotent via unique `(tenant_id, visit_plan_id, scheduled_date)` plus upsert.
+  - DST correctness is tested across Europe/Zurich spring-forward and fall-back: local 09:00 stays
+    09:00 while the stored UTC hour shifts.
+  - Single-occurrence cancellation keeps the RRULE unchanged and is not resurrected by
+    re-materialization; materialization/cancellation are audited.
+  - `nursing:materialize-visits` exists and is tested; scheduling the command is deferred.
+- **Next action:** Execute only Gate E.3 when pasted.

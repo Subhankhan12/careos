@@ -147,3 +147,10 @@ references the old ID.
   enforced (`draft -> active/ended`, `active -> suspended/ended`, `suspended -> active/ended`,
   `ended` terminal), and `agreement.manage` belongs to org-admin plus a new coordinator starter
   role (P0E.G1).
+- **D-042 - Planned nursing visits use Recurr for RRULE expansion and store UTC windows.**
+  CareOS uses `simshaun/recurr` for RFC 5545 RRULE parsing instead of hand-rolled recurrence
+  code. The current PHP 8.2 stack pins the compatible `^5.0` line because Recurr v6 requires PHP
+  8.4. Visit generation expands local wall-clock occurrences in the plan timezone, stores
+  arrival windows as UTC instants, and uses the unique `(tenant_id, visit_plan_id,
+  scheduled_date)` key plus upsert so materialization is idempotent without resurrecting
+  cancelled occurrences (P0E.G2).

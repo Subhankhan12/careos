@@ -23,6 +23,7 @@ use Modules\Clinical\Events\EncounterClosed;
 use Modules\Clinical\Events\EncounterOpened;
 use Modules\Clinical\Models\ClinicalNote;
 use Modules\Clinical\Models\Encounter;
+use Modules\Nursing\Events\PlannedVisitChanged;
 use Modules\Nursing\Events\ServiceAgreementChanged;
 use Modules\People\Models\Credential;
 use Modules\Platform\Models\FeatureFlag;
@@ -244,6 +245,25 @@ class AppServiceProvider extends ServiceProvider
                     'branch_id' => $agreement->branch_id,
                     'funding_type' => $agreement->funding_type,
                     'status' => $agreement->status,
+                    ...$event->context,
+                ],
+            ]);
+        });
+        Event::listen(PlannedVisitChanged::class, function (PlannedVisitChanged $event): void {
+            $visit = $event->visit;
+
+            $this->auditChange($event->action, [
+                'actor_type' => $event->actor !== null ? 'user' : 'system',
+                'actor_id' => $event->actor !== null ? (string) $event->actor->getKey() : null,
+                'patient_id' => $visit->patient_id,
+                'resource_type' => 'planned_visit',
+                'resource_id' => $visit->id,
+                'reason' => $event->reason,
+                'context' => [
+                    'visit_plan_id' => $visit->visit_plan_id,
+                    'scheduled_date' => $visit->scheduled_date->toDateString(),
+                    'status' => $visit->status,
+                    'assigned_resource_id' => $visit->assigned_resource_id,
                     ...$event->context,
                 ],
             ]);
