@@ -23,6 +23,7 @@ use Modules\Clinical\Events\EncounterClosed;
 use Modules\Clinical\Events\EncounterOpened;
 use Modules\Clinical\Models\ClinicalNote;
 use Modules\Clinical\Models\Encounter;
+use Modules\Nursing\Events\IncidentReported;
 use Modules\Nursing\Events\NurseSyncActionProcessed;
 use Modules\Nursing\Events\PlannedVisitChanged;
 use Modules\Nursing\Events\ServiceAgreementChanged;
@@ -288,6 +289,26 @@ class AppServiceProvider extends ServiceProvider
                     'status' => $visit->status,
                     'location_source' => $visitEvent->location_source,
                     'distance_meters' => $visitEvent->distance_meters,
+                    ...$event->context,
+                ],
+            ]);
+        });
+        Event::listen(IncidentReported::class, function (IncidentReported $event): void {
+            $incident = $event->incident;
+
+            $this->auditChange('incident.reported', [
+                'actor_type' => 'user',
+                'actor_id' => (string) $event->actor->getKey(),
+                'patient_id' => $incident->patient_id,
+                'resource_type' => 'incident',
+                'resource_id' => $incident->id,
+                'context' => [
+                    'visit_id' => $incident->visit_id,
+                    'reported_by_resource_id' => $incident->reported_by_resource_id,
+                    'category' => $incident->category,
+                    'severity' => $incident->severity,
+                    'severity_source' => 'reporter_selected',
+                    'system_assessed_severity' => false,
                     ...$event->context,
                 ],
             ]);

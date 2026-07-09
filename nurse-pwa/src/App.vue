@@ -8,6 +8,7 @@ import {
     autosaveVisitNote,
     queueTaskDone,
     queueTaskNotDone,
+    queueIncidentReport,
     queueVisitPhoto,
     queueVisitSignature,
     queueVisitVitals,
@@ -28,6 +29,10 @@ const notDoneReasons = reactive<Record<string, string>>({});
 const noteBody = ref('');
 const signatureCanvas = ref<HTMLCanvasElement | null>(null);
 const signatureDrawing = ref(false);
+const incidentOccurredAt = ref(new Date().toISOString().slice(0, 16));
+const incidentCategory = ref<'fall' | 'medication' | 'behaviour' | 'safety' | 'other'>('other');
+const incidentSeverity = ref<'low' | 'medium' | 'high'>('low');
+const incidentDescription = ref('');
 const rawVitals = reactive({
     systolic: null as number | null,
     diastolic: null as number | null,
@@ -129,6 +134,17 @@ async function queueSignatureFromCanvas(visit: VisitSummary): Promise<void> {
         mime_type: 'image/png',
         size_bytes: data.length,
     });
+    await refreshPending();
+}
+
+async function queueIncident(visit: VisitSummary): Promise<void> {
+    await queueIncidentReport(visit, {
+        occurred_at: new Date(incidentOccurredAt.value).toISOString(),
+        category: incidentCategory.value,
+        severity: incidentSeverity.value,
+        description: incidentDescription.value,
+    });
+    incidentDescription.value = '';
     await refreshPending();
 }
 
@@ -370,6 +386,41 @@ onUnmounted(() => {
                             {{ t('visits.queueSignature') }}
                         </button>
                     </section>
+
+                    <section class="entry-panel">
+                        <h4>{{ t('visits.incident') }}</h4>
+                        <div class="grid-fields">
+                            <label>
+                                <span>{{ t('visits.incidentOccurredAt') }}</span>
+                                <input v-model="incidentOccurredAt" type="datetime-local" />
+                            </label>
+                            <label>
+                                <span>{{ t('visits.incidentCategory') }}</span>
+                                <select v-model="incidentCategory">
+                                    <option value="fall">{{ t('visits.incidentFall') }}</option>
+                                    <option value="medication">{{ t('visits.incidentMedication') }}</option>
+                                    <option value="behaviour">{{ t('visits.incidentBehaviour') }}</option>
+                                    <option value="safety">{{ t('visits.incidentSafety') }}</option>
+                                    <option value="other">{{ t('visits.incidentOther') }}</option>
+                                </select>
+                            </label>
+                            <label>
+                                <span>{{ t('visits.incidentSeverity') }}</span>
+                                <select v-model="incidentSeverity">
+                                    <option value="low">{{ t('visits.incidentLow') }}</option>
+                                    <option value="medium">{{ t('visits.incidentMedium') }}</option>
+                                    <option value="high">{{ t('visits.incidentHigh') }}</option>
+                                </select>
+                            </label>
+                        </div>
+                        <label>
+                            <span>{{ t('visits.incidentDescription') }}</span>
+                            <textarea v-model="incidentDescription" />
+                        </label>
+                        <button type="button" @click="queueIncident(selectedVisit)">
+                            {{ t('visits.queueIncident') }}
+                        </button>
+                    </section>
                 </article>
             </div>
         </section>
@@ -403,6 +454,7 @@ label {
 }
 
 input,
+select,
 textarea,
 button {
     min-height: 44px;
@@ -412,6 +464,10 @@ button {
 }
 
 input {
+    padding: 0 12px;
+}
+
+select {
     padding: 0 12px;
 }
 

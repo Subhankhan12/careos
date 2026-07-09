@@ -57,6 +57,13 @@ home-care visits, including who receives care, what is authorized, and who funds
   generated tenant-prefixed private disk paths and are streamed through an authorized controller.
 - `visit_vitals` - tenant-owned raw visit vitals linked to visit and patient using the D.3 vitals
   column shape plus `extra`; no interpretation fields.
+- `incidents` - tenant-owned factual incident reports. Nullable visit/patient links,
+  `reported_by_resource_id`, `occurred_at`, reporter-selected category/severity, description,
+  lifecycle status, and timestamps.
+- `timesheet_lines` - tenant-owned draft/approved pay lines derived from actual visit proof events.
+  `resource_id`, `visit_id`, work date, actual `started_at` / nullable `ended_at`, nullable
+  computed `minutes`, optional `travel_minutes`, JSON discrepancy flags, approval metadata, and
+  timestamps. Unique `(tenant_id, visit_id)`. DB triggers block UPDATE/DELETE once approved.
 
 ## Key services / classes
 
@@ -102,7 +109,13 @@ home-care visits, including who receives care, what is authorized, and who funds
   note persistence, and human-review conflict rows.
 - `Models\VisitTask`, `VisitNote`, `VisitAttachment`, and `VisitVital` - tenant-owned visit
   execution rows for offline task outcomes, nurse notes, private files, and raw vitals.
+- `Models\Incident` and `TimesheetLine` - tenant-owned E.8 incident and actual-timesheet records
+  with same-tenant guards; approved timesheet lines are immutable at model and DB-trigger level.
+- `Services\TimesheetService` - derives draft timesheet lines from completed visits' actual
+  check-in/check-out events, flags discrepancies, and gates approval through `timesheet.approve`.
 - `Events\NurseSyncActionProcessed` - app-layer audit glue records `nurse_sync.*` actions.
+- `Events\IncidentReported` - app-layer audit glue records `incident.reported` with patient_id and
+  explicit reporter-selected severity context.
 - `Events\ServiceAgreementChanged` - app-layer audit glue records `service_agreement.*` actions.
 - `Events\PlannedVisitChanged` - app-layer audit glue records `planned_visit.materialized` and
   `planned_visit.cancelled`.
@@ -194,13 +207,25 @@ home-care visits, including who receives care, what is authorized, and who funds
   local disk under a tenant-prefixed generated path, and exposes only controller-streamed downloads.
 - Nurse visit notes are observational visit documentation, not signed/locked SOAP clinical notes.
   Clinician countersigning is deferred.
+- Incident reports are factual reporter-authored records. CareOS stores the selected severity but
+  never assesses severity for the reporter, advises action, or escalates based on clinical
+  judgment. Offline `incident_report` sync actions are idempotent by `client_action_uuid`.
+- Timesheet minutes come only from actual `visit_events` check-in/check-out `occurred_at` values,
+  never from the plan or schedule. Missing checkout creates a draft line with null end/minutes and
+  `missing_check_out` instead of guessing.
+- Timesheet discrepancy flags are explainable for approvers: `missing_check_out`,
+  `manual_location`, and `duration_deviation` beyond tenant setting
+  `nursing.timesheet.duration_deviation_minutes` (default 15).
+- Draft timesheet lines remain editable. Approval requires `timesheet.approve` and then locks the
+  row at both model and database-trigger level; raw UPDATE/DELETE of approved rows is blocked.
+- Starter RBAC grants `timesheet.approve` to org-admin and coordinator roles.
 
 ## Status
 
 **Phase E IN PROGRESS.** P0E.G1 service agreements, P0E.G2 planned visits from RRULE recurrence,
-P0E.G3 dispatcher assignment, P0E.G4 proof-of-visit, P0E.G5 nurse PWA encrypted day-pack sync, and
-P0E.G6 offline action queue/conflict policy, and P0E.G7 offline visit execution are registered
-with tests and app-layer audit/read logging.
+P0E.G3 dispatcher assignment, P0E.G4 proof-of-visit, P0E.G5 nurse PWA encrypted day-pack sync,
+P0E.G6 offline action queue/conflict policy, P0E.G7 offline visit execution, and P0E.G8 incidents
+and actual-timesheets are registered with tests and app-layer audit/read logging.
 
 ## Open items
 

@@ -135,6 +135,16 @@ class Visit extends Model
         return $this->hasMany(VisitVital::class);
     }
 
+    public function incidents(): HasMany
+    {
+        return $this->hasMany(Incident::class);
+    }
+
+    public function timesheetLines(): HasMany
+    {
+        return $this->hasMany(TimesheetLine::class);
+    }
+
     private function assertTenantReferences(): void
     {
         if ($this->planned_visit_id !== null && ! PlannedVisit::query()->whereKey($this->planned_visit_id)->exists()) {

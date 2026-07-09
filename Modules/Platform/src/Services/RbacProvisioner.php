@@ -30,6 +30,7 @@ class RbacProvisioner
         'appointment.manage' => 'Manage appointments',
         'agreement.manage' => 'Manage nursing service agreements',
         'dispatch.manage' => 'Assign and unassign nursing planned visits',
+        'timesheet.approve' => 'Approve nursing timesheets',
         'encounter.manage' => 'Manage clinical encounters',
         'note.write' => 'Write clinical note drafts',
         'note.sign' => 'Sign clinical notes',
@@ -52,13 +53,16 @@ class RbacProvisioner
             'permissions' => [
                 'admin.manage', 'patient.view', 'patient.edit', 'patient.merge',
                 'appointment.manage', 'agreement.manage', 'dispatch.manage', 'encounter.manage',
-                'note.write', 'note.sign', 'note.supervise', 'allergy.override', 'ai.manage',
-                'billing.view', 'audit.view',
+                'timesheet.approve', 'note.write', 'note.sign', 'note.supervise', 'allergy.override',
+                'ai.manage', 'billing.view', 'audit.view',
             ],
         ],
         'coordinator' => [
             'name' => 'Nursing Coordinator',
-            'permissions' => ['patient.view', 'appointment.manage', 'agreement.manage', 'dispatch.manage'],
+            'permissions' => [
+                'patient.view', 'appointment.manage', 'agreement.manage', 'dispatch.manage',
+                'timesheet.approve',
+            ],
         ],
         'doctor' => [
             'name' => 'Doctor',

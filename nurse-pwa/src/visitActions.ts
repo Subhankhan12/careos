@@ -17,6 +17,13 @@ export interface LocalAttachmentPayload {
     size_bytes: number;
 }
 
+export interface IncidentReportPayload {
+    occurred_at: string;
+    category: 'fall' | 'medication' | 'behaviour' | 'safety' | 'other';
+    description: string;
+    severity: 'low' | 'medium' | 'high';
+}
+
 function baseVisitPayload(visit: VisitSummary): Record<string, unknown> {
     const clientVisitUuid = clientVisitUuidFor(visit);
 
@@ -87,5 +94,15 @@ export async function queueVisitSignature(
     return enqueueOutboxAction('visit_signature', {
         ...baseVisitPayload(visit),
         ...attachment,
+    });
+}
+
+export async function queueIncidentReport(
+    visit: VisitSummary,
+    incident: IncidentReportPayload,
+): Promise<OutboxEntry> {
+    return enqueueOutboxAction('incident_report', {
+        ...baseVisitPayload(visit),
+        ...incident,
     });
 }

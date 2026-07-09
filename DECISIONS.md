@@ -184,3 +184,9 @@ references the old ID.
   stores offline nurse visit documentation in `visit_notes` and syncs it idempotently through the
   nurse outbox. It is patient/visit scoped and audited, but it is not a `clinical_note` and does
   not use D.2 sign-and-lock semantics. Clinician countersigning is deferred (P0E.G7).
+- **D-048 - Nursing timesheets use actual proof events; incidents keep reporter-selected severity.**
+  Timesheet minutes are derived from visit proof `check_in` / `check_out` event times only, never
+  from planned or scheduled duration. Missing checkout, manual proof, and duration deviation are
+  flagged for human review rather than guessed or auto-corrected; approved lines become immutable.
+  Incident severity is stored exactly as selected by the reporter. CareOS does not assess incident
+  severity, advise action, or escalate based on clinical judgment (P0E.G8).

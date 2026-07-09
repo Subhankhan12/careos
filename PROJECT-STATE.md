@@ -3,16 +3,17 @@
 Short, factual snapshot of where the project stands. Updated at consolidations and after gates
 (per the MEMORY PROTOCOL in AGENTS.md).
 
-- **Current phase:** Phase E - Nursing wedge - **IN PROGRESS**. Latest gate: P0E.G7 visit execution
-  in the offline Nurse PWA. Next: Gate E.8.
-- **Commits:** 49 on `main` after P0E.G6 (offline action queue + conflict resolution).
+- **Current phase:** Phase E - Nursing wedge - **IN PROGRESS**. Latest gate: P0E.G8 incidents and
+  actual-timesheets. Next: wait for Gate E.9.
+- **Commits:** 52 on `main` after P0E.G8 (incidents + timesheets from actuals).
   Phase A = 11 (P0A.G1-G8, P0A.GM, P0A.GF, P0A.GF3), pushed to `origin/main`
   (https://github.com/Subhankhan12/careos).
 - **Verified quality (from actual output):** `composer check` green - Pint `passed`,
-  PHPStan level 5 `[OK] No errors`, Pest **264 passed / 1470 assertions**; `cmd /c npm run build`
+  PHPStan level 5 `[OK] No errors`, Pest **271 passed / 1507 assertions**; `cmd /c npm run build`
   green (`vite build`, 669 modules transformed); `cmd /c npm run test:pwa` green
-  (**14 passed / 14**); `cmd /c npm run build:pwa` green (43 modules transformed, Workbox service
-  worker generated). CI was green on MySQL 8 + Redis for Phase D; P0E.G6 CI is checked after push.
+  (**15 passed / 15**); `cmd /c npm run build:pwa` green (43 modules transformed, Workbox service
+  worker generated). CI was green on MySQL 8 + Redis for Phase D; latest Phase E CI is checked
+  after push.
 - **Stack (verified):** Laravel 12.63.0 on PHP 8.2.12; DEV DB = `careos` on XAMPP MariaDB
   10.4.32 (127.0.0.1:3306); Redis-compatible server on 127.0.0.1:6379 with Predis (`PONG`);
   queue/cache use Redis and Horizon is installed/guarded. Local Windows PHP lacks `pcntl`, so
@@ -258,4 +259,12 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
 - The Nurse PWA now queues task actions, raw vitals, note autosaves, photos, and signatures offline
   into the encrypted outbox; Vitest asserts no plaintext note/photo/signature content is stored in
   IndexedDB and reloads preserve queued actions.
-- **Next action:** Execute only Gate E.8 when pasted.
+- Incidents are tenant-owned factual reports, can be queued offline through the encrypted outbox,
+  replay idempotently by `client_action_uuid`, and write patient-scoped `incident.reported` audit
+  rows. Severity is reporter-selected; the system never assesses severity or advises action.
+- Timesheet lines are generated from actual proof-of-visit check-in/check-out event times, never
+  planned duration. Missing checkout, manual-location proof, and duration deviations are flagged
+  for approver review rather than guessed or auto-corrected.
+- Approved timesheet lines are immutable at both model level and DB-trigger level while drafts
+  remain editable. Approval requires `timesheet.approve` (org-admin/coordinator starter roles).
+- **Next action:** Wait for Gate E.9.

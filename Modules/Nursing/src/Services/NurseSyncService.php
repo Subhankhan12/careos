@@ -12,7 +12,9 @@ use InvalidArgumentException;
 use Modules\Clinical\Models\ClinicalTask;
 use Modules\Clinical\Models\Vital;
 use Modules\Clinical\Services\ClinicalTaskService;
+use Modules\Nursing\Events\IncidentReported;
 use Modules\Nursing\Events\NurseSyncActionProcessed;
+use Modules\Nursing\Models\Incident;
 use Modules\Nursing\Models\NurseSyncAction;
 use Modules\Nursing\Models\PlannedVisit;
 use Modules\Nursing\Models\SyncConflict;
@@ -109,6 +111,7 @@ class NurseSyncService
                 'visit_note' => $this->visitNote($nurse, $resource, $action, $payload),
                 'visit_photo' => $this->visitAttachment($nurse, $resource, $action, $payload, VisitAttachment::TYPE_PHOTO),
                 'visit_signature' => $this->visitAttachment($nurse, $resource, $action, $payload, VisitAttachment::TYPE_SIGNATURE),
+                'incident_report' => $this->incidentReport($nurse, $resource, $action, $payload),
                 default => $this->ambiguous($nurse, $resource, $action, $payload, self::CODE_AMBIGUOUS_CONFLICT),
             };
         });
@@ -564,6 +567,46 @@ class NurseSyncService
         return $this->recordLedger($nurse, $resource, $action, $ledgerPayload, $visit, NurseSyncAction::STATUS_ACCEPTED, self::CODE_ACCEPTED, [
             'visit_attachment_id' => $attachment->id,
             'type' => $type,
+        ], $visit->patient_id);
+    }
+
+    /**
+     * @param  array<string, mixed>  $action
+     * @param  array<string, mixed>  $payload
+     * @return array<string, mixed>
+     */
+    private function incidentReport(User $nurse, Resource $resource, array $action, array $payload): array
+    {
+        $visit = $this->visit($payload);
+
+        if (! $visit instanceof Visit) {
+            return $this->recordLedger($nurse, $resource, $action, $payload, null, NurseSyncAction::STATUS_REJECTED, self::CODE_VISIT_NOT_FOUND, [], null);
+        }
+
+        if ($visit->resource_id !== $resource->id) {
+            return $this->recordLedger($nurse, $resource, $action, $payload, $visit, NurseSyncAction::STATUS_REJECTED, self::CODE_SCHEDULE_CHANGED, [
+                'server_state' => $this->serverState($visit, $this->plannedVisitFor($visit)),
+            ], $visit->patient_id);
+        }
+
+        $incident = Incident::query()->create([
+            'visit_id' => $visit->id,
+            'patient_id' => $visit->patient_id,
+            'reported_by_resource_id' => $resource->id,
+            'occurred_at' => (string) ($payload['occurred_at'] ?? $action['device_timestamp']),
+            'category' => (string) ($payload['category'] ?? Incident::CATEGORY_OTHER),
+            'description' => (string) ($payload['description'] ?? ''),
+            'severity' => (string) ($payload['severity'] ?? Incident::SEVERITY_LOW),
+            'status' => Incident::STATUS_OPEN,
+        ]);
+
+        Event::dispatch(new IncidentReported($incident, $nurse, [
+            'client_action_uuid' => (string) $action['client_uuid'],
+            'severity_source' => 'reporter_selected',
+        ]));
+
+        return $this->recordLedger($nurse, $resource, $action, $payload, $visit, NurseSyncAction::STATUS_ACCEPTED, self::CODE_ACCEPTED, [
+            'incident_id' => $incident->id,
         ], $visit->patient_id);
     }
 

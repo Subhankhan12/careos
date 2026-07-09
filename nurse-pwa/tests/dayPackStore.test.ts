@@ -16,6 +16,7 @@ import { createIdleWipeScheduler } from '../src/idle';
 import type { DayPack } from '../src/types';
 import {
     autosaveVisitNote,
+    queueIncidentReport,
     queueTaskDone,
     queueTaskNotDone,
     queueVisitPhoto,
@@ -145,6 +146,33 @@ describe('offline visit execution actions', () => {
         await expect(loadOutboxForReplay()).resolves.toMatchObject([
             { type: 'visit_photo' },
             { type: 'visit_signature' },
+        ]);
+    });
+
+    test('incident reports queue offline with reporter-selected severity', async () => {
+        const visit = pack().visits[0];
+        const knownIncident = 'Loose rug documented by nurse';
+
+        await setSessionToken(sessionToken);
+        await queueIncidentReport(visit, {
+            occurred_at: '2026-08-03T07:15:00.000Z',
+            category: 'safety',
+            severity: 'high',
+            description: knownIncident,
+        });
+
+        const raw = await rawIndexedDbPayload();
+
+        expect(raw).not.toContain(knownIncident);
+        await expect(loadOutboxForReplay()).resolves.toMatchObject([
+            {
+                type: 'incident_report',
+                payload: {
+                    category: 'safety',
+                    severity: 'high',
+                    description: knownIncident,
+                },
+            },
         ]);
     });
 });
