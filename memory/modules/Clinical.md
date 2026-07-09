@@ -9,7 +9,7 @@ visible superseding amendments. D.3 adds structured clinical lists and a determi
 hard-stop. D.4 adds private clinical documents with portal sharing and per-download audit. D.5
 adds referrals and deterministic recalls. D.6 adds care plans, clinical tasks, and unsigned-note
 worklists. D.7 adds the clinical SOAP/chart UI surfaces without moving business rules into Vue
-components.
+components. D.8 adds governed clinical agents through app-layer AiCore integration.
 
 ## Key tables
 
@@ -105,9 +105,13 @@ components.
   `ClinicalNoteService`.
 - `Http\Controllers\ClinicalChartController` - Inertia patient chart surface; authorizes
   `patient.view`, read-logs the chart view, and returns encounters, notes/version history,
-  allergies, raw vitals, medications, documents, and empty later-domain sections.
+  allergies, raw vitals, medications, documents, care plans, referrals, recalls, and an optional
+  AI summary draft prop.
 - `Http\Controllers\OpenEncounterFromAppointmentController` - day-board integration that opens an
   encounter and draft note through Clinical/Scheduling services, then redirects to the note editor.
+- App-layer `ClinicalSummaryDraftController` / `ClinicalSummaryInsertController` compose Clinical
+  with AiCore: draft generation runs through AiCore and insertion is an explicit clinician action
+  into an editable note after source validation.
 - Vue pages: `resources/js/pages/Clinical/NoteEditor.vue` and
   `resources/js/pages/Clinical/Chart.vue`.
 - Vue components: `SoapEditor`, `VersionHistory`, `AllergyBanner`, and `Timeline` are
@@ -179,13 +183,20 @@ components.
   props carry raw documented values only, with no flags, scores, ranges, or interpretation fields.
 - Day-board -> Document opens an encounter plus draft note and redirects to the note editor; the
   observed open -> document -> sign path is 3 clicks.
+- D.8 Summary agent reads only the requested patient's signed notes, problems, medications, and
+  vitals in range; every returned line carries a source resolving to that patient's real row/field.
+- Summary agent refuses interpretive/diagnostic/triage requests and never writes to the clinical
+  record. Clinician insertion is a separate server-side action and revalidates all sources.
+- D.8 Follow-up agent drafts wording only for D.5 recall recipients selected by deterministic
+  rules; no recipient selection, advice, symptom guidance, or urgency inference lives in the agent.
 
 ## Status
 
 **Phase D in progress.** D.1 encounters, D.2 SOAP notes, D.3 clinical lists/allergy hard-stop,
-D.4 clinical documents, D.5 referrals/recalls, D.6 care plans/tasks/worklist, and D.7 clinical UI
-are registered and covered by feature and architecture tests. Local `composer check` is green:
-215 tests / 1080 assertions. Local `cmd /c npm run build` is green for the clinical pages.
+D.4 clinical documents, D.5 referrals/recalls, D.6 care plans/tasks/worklist, D.7 clinical UI, and
+D.8 clinical agents are registered and covered by feature and architecture tests. Local
+`composer check` is green: 221 tests / 1144 assertions. Local `cmd /c npm run build` is green for
+the clinical pages.
 
 ## Open items
 

@@ -1,5 +1,7 @@
 <?php
 
+use App\Http\Controllers\ClinicalSummaryDraftController;
+use App\Http\Controllers\ClinicalSummaryInsertController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 use Modules\Clinical\Http\Controllers\ClinicalChartController;
@@ -69,6 +71,10 @@ Route::middleware('auth')->group(function () {
         ->name('clinical.notes.show');
     Route::get('/clinical/chart/{patient}', ClinicalChartController::class)
         ->name('clinical.chart');
+    Route::post('/clinical/chart/{patient}/summary-draft', [ClinicalSummaryDraftController::class, 'store'])
+        ->name('clinical.summary.draft');
+    Route::post('/clinical/chart/{patient}/summary-insert', [ClinicalSummaryInsertController::class, 'store'])
+        ->name('clinical.summary.insert');
     Route::post('/clinical/encounters/{encounter}/notes', [NoteEditorController::class, 'store'])
         ->name('clinical.notes.store');
     Route::get('/clinical/notes/{note}/edit', [NoteEditorController::class, 'edit'])

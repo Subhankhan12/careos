@@ -2,6 +2,8 @@
 
 namespace App\Providers;
 
+use App\AiCore\Tools\ClinicalSummaryTool;
+use App\AiCore\Tools\DraftRecallMessageTool;
 use App\AiCore\Tools\FillFromWaitlistTool;
 use App\AiCore\Tools\SuggestSlotsTool;
 use App\Audit\AuthAuditSubscriber;
@@ -49,6 +51,8 @@ class AppServiceProvider extends ServiceProvider
         $this->app->afterResolving(ToolRegistry::class, function (ToolRegistry $registry): void {
             $registry->register($this->app->make(FillFromWaitlistTool::class));
             $registry->register($this->app->make(SuggestSlotsTool::class));
+            $registry->register($this->app->make(ClinicalSummaryTool::class));
+            $registry->register($this->app->make(DraftRecallMessageTool::class));
         });
     }
 

@@ -195,7 +195,12 @@
             "carePlans": "Care plans",
             "carePlanGoals": "Goals",
             "referrals": "Referrals",
-            "recalls": "Recalls"
+            "recalls": "Recalls",
+            "aiSummary": {
+                "title": "AI summary draft",
+                "status": "Status: {status}",
+                "insert": "Insert into note"
+            }
         }
     }
 }

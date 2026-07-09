@@ -38,6 +38,18 @@ class PromptRegistry
                 'Answer only from tenant-approved KB content. If not covered, escalate to a human.',
                 true,
             ),
+            'clinical.summary:1' => new PromptVersion(
+                'clinical.summary',
+                1,
+                'Create extractive source-linked clinical record summaries only. Refuse interpretation, diagnosis, triage, and unsourced statements.',
+                true,
+            ),
+            'clinical.recall_follow_up:1' => new PromptVersion(
+                'clinical.recall_follow_up',
+                1,
+                'Draft recall outreach wording only from clinician templates and deterministic recall records. Do not select recipients or give medical advice.',
+                true,
+            ),
         ];
     }
 

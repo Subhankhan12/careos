@@ -64,7 +64,8 @@ patient-scoped `read` rows for the clinical chart and note-editor surfaces. P0D.
 patient-scoped care-plan/task lifecycle actions (`care_plan.*`, `care_plan_goal.*`,
 `clinical_task.*`) and care-plan chart read logging. P0D.G5 added patient-scoped referral and
 recall lifecycle actions (`referral.*`, `recall.*`) plus chart read logging for referrals and
-recalls.
+recalls. P0D.G8 added AiCore ledger/action audit rows for clinical Summary/Follow-up agent paths
+and patient-scoped read logging for Summary source rows.
 
 ## Open items
 

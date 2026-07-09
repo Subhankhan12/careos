@@ -152,10 +152,12 @@ class ClinicalChartController
                 ->get()
                 ->map(fn (Recall $recall): array => $this->recallSummary($recall))
                 ->all(),
+            'aiSummary' => $this->aiSummaryDraft($record),
             'actions' => [
                 'can_view' => Gate::allows('patient.view'),
                 'can_write_notes' => Gate::allows('note.write'),
                 'can_sign_notes' => Gate::allows('note.sign'),
+                'summary_draft_url' => route('clinical.summary.draft', $record->id),
             ],
         ]);
     }
@@ -251,6 +253,36 @@ class ClinicalChartController
             'rule_name' => $rule->name,
             'due_on' => $recall->due_on->toDateString(),
             'status' => $recall->status,
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    private function aiSummaryDraft(Patient $patient): ?array
+    {
+        $draft = session('clinical_summary_draft');
+
+        if (! is_array($draft)) {
+            return null;
+        }
+
+        if (($draft['patient_id'] ?? null) !== $patient->id) {
+            return null;
+        }
+
+        $lines = $draft['lines'] ?? [];
+        if (! is_array($lines)) {
+            $lines = [];
+        }
+
+        return [
+            'status' => (string) ($draft['status'] ?? ''),
+            'label' => (string) ($draft['label'] ?? ''),
+            'human_handoff' => (bool) ($draft['human_handoff'] ?? true),
+            'action_id' => $draft['action_id'] ?? null,
+            'lines' => $lines,
+            'insert_url' => route('clinical.summary.insert', $patient->id),
         ];
     }
 

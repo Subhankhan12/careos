@@ -3,13 +3,12 @@
 Short, factual snapshot of where the project stands. Updated at consolidations and after gates
 (per the MEMORY PROTOCOL in AGENTS.md).
 
-- **Current phase:** Phase D - Clinical core - **in progress**. Latest gate: D.5 referrals/recalls
-  backfill after D.6/D.7.
-- **Commits:** 41 on `main` after P0D.G5 (referrals + deterministic recalls engine).
+- **Current phase:** Phase D - Clinical core - **in progress**. Latest gate: D.8 clinical agents.
+- **Commits:** 42 on `main` after P0D.G8 (Summary + Follow-up agents).
   Phase A = 11 (P0A.G1-G8, P0A.GM, P0A.GF, P0A.GF3), pushed to `origin/main`
   (https://github.com/Subhankhan12/careos).
 - **Verified quality (from actual output):** `composer check` green - Pint `passed`,
-  PHPStan level 5 `[OK] No errors`, Pest **215 passed / 1080 assertions**; `cmd /c npm run build`
+  PHPStan level 5 `[OK] No errors`, Pest **221 passed / 1144 assertions**; `cmd /c npm run build`
   green (Vite production build, 667 modules transformed). CI is green on MySQL 8 +
   Redis for latest pushed Phase C gate commit `c46301e`.
 - **Stack (verified):** Laravel 12.63.0 on PHP 8.2.12; DEV DB = `careos` on XAMPP MariaDB
@@ -164,4 +163,12 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
     without interpretation flags/scores.
   - The day-board Document action opens the encounter and draft note through server services,
     then redirects to the note editor; the honest open -> document -> sign path is 3 clicks.
+  - Clinical Summary Agent runs under AiCore at an explicit `suggest` ceiling. It is extractive
+    only, reads the requested patient's signed notes/problems/medications/vitals, validates every
+    line against a real source row/field, refuses interpretive/diagnostic requests, and never
+    writes to the record.
+  - Clinical Follow-up Agent runs under AiCore at an explicit `suggest` ceiling. It drafts recall
+    outreach wording only from deterministic D.5 recall rows plus clinician-authored templates;
+    it never selects recipients, gives advice, or marks delivery-ready without `comms.email`
+    consent.
 - **Next action:** Execute only the next pasted Phase D gate.

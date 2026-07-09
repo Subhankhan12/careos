@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Head, Link } from '@inertiajs/vue3';
+import { Head, Link, useForm } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import AppLayout from '@/Layouts/AppLayout.vue';
@@ -51,9 +51,27 @@ const props = defineProps<{
         notes: string | null;
     }>;
     recalls: Array<{ id: string; rule_id: string; rule_name: string; due_on: string; status: string }>;
+    aiSummary: {
+        status: string;
+        label: string;
+        human_handoff: boolean;
+        action_id: string | null;
+        insert_url: string;
+        lines: Array<{
+            text: string;
+            source: { type: string; id: string; section?: string; label: string; url: string | null };
+        }>;
+    } | null;
+    actions: {
+        can_view: boolean;
+        can_write_notes: boolean;
+        can_sign_notes: boolean;
+        summary_draft_url: string;
+    };
 }>();
 
 const activeTab = ref('timeline');
+const summaryInsertForm = useForm({ action_id: props.aiSummary?.action_id ?? '' });
 
 const tabs = computed(() => [
     { key: 'timeline', label: t('clinical.chart.tabs.timeline') },
@@ -84,6 +102,15 @@ function rawVital(vital: typeof props.vitals[number]): string {
         vital.height_mm !== null ? `${vital.height_mm} mm` : null,
     ].filter(Boolean).join(' | ');
 }
+
+function insertSummary(): void {
+    if (!props.aiSummary?.action_id) {
+        return;
+    }
+
+    summaryInsertForm.action_id = props.aiSummary.action_id;
+    summaryInsertForm.post(props.aiSummary.insert_url);
+}
 </script>
 
 <template>
@@ -97,6 +124,35 @@ function rawVital(vital: typeof props.vitals[number]): string {
             </Card>
 
             <AllergyBanner :allergies="allergies" />
+
+            <Card v-if="aiSummary" class="space-y-4">
+                <div class="flex flex-col justify-between gap-3 sm:flex-row">
+                    <div>
+                        <p class="text-xs font-semibold uppercase text-brand-700">{{ aiSummary.label }}</p>
+                        <p class="mt-1 font-semibold text-ink">{{ t('clinical.chart.aiSummary.title') }}</p>
+                        <p class="text-sm text-ink-muted">{{ t('clinical.chart.aiSummary.status', { status: aiSummary.status }) }}</p>
+                    </div>
+                    <button
+                        v-if="actions.can_write_notes"
+                        type="button"
+                        class="inline-flex items-center justify-center rounded-md bg-brand-700 px-3 py-2 text-sm font-semibold text-white hover:bg-brand-800 disabled:cursor-not-allowed disabled:opacity-60"
+                        :disabled="summaryInsertForm.processing || !aiSummary.action_id"
+                        @click="insertSummary"
+                    >
+                        {{ t('clinical.chart.aiSummary.insert') }}
+                    </button>
+                </div>
+                <div class="space-y-3">
+                    <div v-for="line in aiSummary.lines" :key="`${line.source.type}-${line.source.id}-${line.source.section || 'row'}`" class="rounded-md border border-line p-3">
+                        <p class="text-sm text-ink">{{ line.text }}</p>
+                        <Link v-if="line.source.url" :href="line.source.url" class="mt-2 inline-flex text-xs font-semibold text-brand-700 hover:text-brand-900">
+                            {{ line.source.label }}
+                        </Link>
+                        <p v-else class="mt-2 text-xs font-semibold text-ink-subtle">{{ line.source.label }}</p>
+                    </div>
+                    <p v-if="aiSummary.lines.length === 0" class="text-sm text-ink-muted">{{ t('clinical.chart.empty') }}</p>
+                </div>
+            </Card>
 
             <Card>
                 <Tabs v-model:active="activeTab" :tabs="tabs">

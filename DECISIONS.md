@@ -133,3 +133,10 @@ references the old ID.
   selects recipients. Referrals to another CareOS tenant are not implemented by widening tenant
   scope; external referrals are provider-name records until explicit cross-tenant share objects
   are designed (P0D.G5).
+- **D-040 - Clinical agents are suggest-only, extractive/template-bound, and source-validated.**
+  Summary output may contain only existing patient-record content and every line must resolve to
+  that patient's signed note SOAP field or clinical-list row; unsourced lines are rejected and
+  interpretive/diagnostic requests are refused. Follow-up drafts may use only deterministic
+  recall rows selected by `RecallEngine` plus clinician-authored templates, never selecting
+  recipients or adding medical advice. Both clinical tools have explicit `suggest` ceilings even
+  beyond the clinical category cap (P0D.G8).

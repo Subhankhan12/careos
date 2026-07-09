@@ -45,6 +45,14 @@ triage, symptom assessment, or dosing logic anywhere.
   waitlist fills and books only after approval via Scheduling's `WaitlistService`.
 - `App\AiCore\Tools\SuggestSlotsTool` - governed Scheduler Agent tool that proposes available
   slots from Scheduling's safe slot finder and never books.
+- `App\AiCore\Agents\ClinicalSummaryAgent` / `Tools\ClinicalSummaryTool` - governed clinical
+  Summary agent path. It is extractive/source-linked only, refuses interpretive requests, and is
+  capped at `suggest`.
+- `App\AiCore\Agents\FollowUpAgent` / `Tools\DraftRecallMessageTool` - governed clinical
+  Follow-up agent path. It drafts recall wording only from deterministic recalls plus clinician
+  templates, checks `comms.email` consent on approval, and is capped at `suggest`.
+- `App\AiCore\Support\ClinicalSummarySourceValidator` - rejects any Summary line without a source
+  resolving to that same patient's signed note SOAP field or clinical-list row.
 - `Events\AiInteractionRecorded` and `Events\AgentActionLifecycleChanged` - app-layer audit glue
   records ledger/action paths into the audit chain without AiCore depending on Audit.
 
@@ -66,14 +74,20 @@ triage, symptom assessment, or dosing logic anywhere.
   and a retrieved article has lexical support; unknown questions escalate with no answer.
 - Front-Desk medical/symptom/triage/dosing questions are refused and handed off.
 - KB retrieval never crosses tenants and ignores inactive articles.
+- Clinical Summary and Follow-up tools have explicit `suggest` ceilings; attempted approve/auto
+  settings degrade to suggest.
+- Clinical Summary never writes to the clinical record; only the clinician acceptance controller
+  can insert an already source-validated draft into an editable note.
+- Follow-up never selects recall recipients; recipients come from deterministic D.5 `RecallEngine`
+  rows, and approval without `comms.email` consent returns blocked/no-send.
 - AiCore may use Platform for tenant/settings/RBAC primitives; it does not depend on Audit or domain
   modules. Audit composition lives in `app/`.
 
 ## Status
 
-**Phase C COMPLETE / active.** The governed runtime foundation is live and now runs the first two agents:
-Scheduler Agent (waitlist fill proposals + slot suggestions) and Front-Desk Agent (tenant KB-only
-FAQ with refusal/escalation). Local `composer check` is green: 168 tests / 711 assertions.
+**Phase C COMPLETE / active; Phase D clinical agents added.** The governed runtime foundation runs
+Scheduler Agent, Front-Desk Agent, and now D.8 clinical Summary + Follow-up agents. Local
+`composer check` is green: 221 tests / 1144 assertions; `cmd /c npm run build` green.
 
 ## Open items
 
