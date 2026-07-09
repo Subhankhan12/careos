@@ -1,10 +1,13 @@
 import { beforeEach, describe, expect, test, vi } from 'vitest';
-import { currentBearerToken, login, logout, syncDayPack } from '../src/api';
+import { currentBearerToken, login, logout, nextBackoffDelayMs, syncDayPack, syncOutbox, syncOutboxWithRetry } from '../src/api';
 import {
     clearSessionKey,
     db,
+    enqueueOutboxAction,
     hasSessionKey,
     loadDayPack,
+    loadOutboxForReplay,
+    pendingOutboxCount,
     saveDayPack,
     setSessionToken,
     wipeLocalStore,
@@ -28,6 +31,7 @@ function pack(): DayPack {
                 duration_minutes: 60,
                 required_qualification: 'RN',
                 status: 'assigned',
+                nurse_resource_id: 'resource-1',
                 address: {
                     line1: '1 Care Street',
                     line2: null,
@@ -152,5 +156,121 @@ describe('wipe triggers', () => {
 
         await expect(db.encryptedRecords.count()).resolves.toBe(0);
         expect(hasSessionKey()).toBe(false);
+    });
+});
+
+describe('encrypted offline outbox', () => {
+    test('outbox persists across a reload when the same active session token is re-derived', async () => {
+        await setSessionToken(sessionToken);
+        await enqueueOutboxAction('note', {
+            visit_id: 'visit-1',
+            note_text: 'Observed note content after reload',
+        }, '2026-08-03T07:20:00Z');
+
+        clearSessionKey();
+        await setSessionToken(sessionToken);
+
+        await expect(loadOutboxForReplay()).resolves.toMatchObject([
+            {
+                type: 'note',
+                sequence: 1,
+                payload: { note_text: 'Observed note content after reload' },
+            },
+        ]);
+    });
+
+    test('outbox replay order preserves sequence order within each visit', async () => {
+        await setSessionToken(sessionToken);
+        await enqueueOutboxAction('note', { visit_id: 'visit-b', note_text: 'B1' });
+        await enqueueOutboxAction('check_in', { visit_id: 'visit-a', manual_reason: 'A1' });
+        await enqueueOutboxAction('note', { visit_id: 'visit-a', note_text: 'A2' });
+
+        const replay = await loadOutboxForReplay();
+
+        expect(replay.filter((entry) => entry.payload.visit_id === 'visit-a').map((entry) => entry.sequence))
+            .toEqual([2, 3]);
+    });
+
+    test('outbox entries are removed only after server acknowledgement', async () => {
+        vi.stubGlobal('fetch', vi.fn()
+            .mockResolvedValueOnce({
+                ok: true,
+                json: async () => ({
+                    token_type: 'Bearer',
+                    token: sessionToken,
+                    expires_at: '2026-08-03T12:00:00Z',
+                    user: { id: 1, name: 'Nora Nurse', tenant_id: 'tenant-1' },
+                }),
+            })
+            .mockResolvedValueOnce({ ok: false, status: 500 })
+            .mockResolvedValueOnce({
+                ok: true,
+                status: 200,
+                json: async () => ({
+                    results: [{ client_uuid: (await loadOutboxForReplay())[0].client_uuid, status: 'accepted', code: 'accepted', payload: {} }],
+                }),
+            }));
+
+        await login('nora@example.test', 'password');
+        const first = await enqueueOutboxAction('note', { visit_id: 'visit-1', note_text: 'Ack me' });
+        await enqueueOutboxAction('note', { visit_id: 'visit-1', note_text: 'Keep me' });
+
+        await expect(syncOutbox()).rejects.toThrow('nurse.outbox.failed');
+        await expect(pendingOutboxCount()).resolves.toBe(2);
+
+        await expect(syncOutbox()).resolves.toMatchObject([{ client_uuid: first.client_uuid }]);
+        await expect(pendingOutboxCount()).resolves.toBe(1);
+    });
+
+    test('retry loop uses exponential backoff before a successful acknowledgement', async () => {
+        vi.stubGlobal('fetch', vi.fn()
+            .mockResolvedValueOnce({
+                ok: true,
+                json: async () => ({
+                    token_type: 'Bearer',
+                    token: sessionToken,
+                    expires_at: '2026-08-03T12:00:00Z',
+                    user: { id: 1, name: 'Nora Nurse', tenant_id: 'tenant-1' },
+                }),
+            })
+            .mockResolvedValueOnce({ ok: false, status: 500 })
+            .mockResolvedValueOnce({ ok: false, status: 500 })
+            .mockResolvedValueOnce({
+                ok: true,
+                status: 200,
+                json: async () => ({
+                    results: (await loadOutboxForReplay()).map((entry) => ({
+                        client_uuid: entry.client_uuid,
+                        status: 'accepted',
+                        code: 'accepted',
+                        payload: {},
+                    })),
+                }),
+            }));
+        const sleep = vi.fn(async () => undefined);
+
+        await login('nora@example.test', 'password');
+        await enqueueOutboxAction('note', { visit_id: 'visit-1', note_text: 'Retry me' });
+
+        await expect(syncOutboxWithRetry(3, sleep)).resolves.toHaveLength(1);
+        expect(sleep).toHaveBeenNthCalledWith(1, 1000);
+        expect(sleep).toHaveBeenNthCalledWith(2, 2000);
+        expect(nextBackoffDelayMs(10)).toBe(60000);
+        await expect(pendingOutboxCount()).resolves.toBe(0);
+    });
+
+    test('outbox stores no plaintext PHI in IndexedDB', async () => {
+        const knownObservation = 'Patient said the doorbell was broken';
+
+        await setSessionToken(sessionToken);
+        await enqueueOutboxAction('note', {
+            visit_id: 'visit-1',
+            note_text: knownObservation,
+        });
+
+        const raw = await rawIndexedDbPayload();
+
+        expect(raw).not.toContain(knownObservation);
+        expect(raw).not.toContain(sessionToken);
     });
 });

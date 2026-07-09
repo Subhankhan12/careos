@@ -26,6 +26,11 @@ export const messages = {
             noAllergies: 'No active allergies in this day-pack.',
             offline: 'Offline day-pack ready',
         },
+        sync: {
+            pending: 'Pending offline actions: {count}',
+            lastSynced: 'Last synced: {time}',
+            error: 'Sync needs retry.',
+        },
     },
 };
 

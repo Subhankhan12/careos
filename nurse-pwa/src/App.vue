@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
-import { login, logout, syncDayPack } from './api';
-import { hasSessionKey, loadDayPack, wipeLocalStore } from './storage/dayPackStore';
+import { login, logout, syncDayPack, syncOutboxWithRetry } from './api';
+import { hasSessionKey, loadDayPack, pendingOutboxCount, wipeLocalStore } from './storage/dayPackStore';
 import { startIdleWipe } from './idle';
 import type { DayPack, VisitSummary } from './types';
 
@@ -13,6 +13,9 @@ const authenticated = ref(false);
 const dayPack = ref<DayPack | null>(null);
 const selectedVisitId = ref<string | null>(null);
 const statusKey = ref('visits.empty');
+const pendingCount = ref(0);
+const lastSyncedAt = ref<string | null>(null);
+const errorKey = ref<string | null>(null);
 
 const today = new Date().toISOString().slice(0, 10);
 let stopIdle: (() => void) | null = null;
@@ -35,9 +38,18 @@ async function submitLogin(): Promise<void> {
 }
 
 async function sync(): Promise<void> {
-    dayPack.value = await syncDayPack(today);
-    selectedVisitId.value = dayPack.value.visits[0]?.id ?? null;
-    statusKey.value = 'visits.offline';
+    try {
+        await syncOutboxWithRetry();
+        dayPack.value = await syncDayPack(today);
+        selectedVisitId.value = dayPack.value.visits[0]?.id ?? null;
+        statusKey.value = 'visits.offline';
+        lastSyncedAt.value = new Date().toISOString();
+        errorKey.value = null;
+    } catch {
+        errorKey.value = 'sync.error';
+    } finally {
+        pendingCount.value = await pendingOutboxCount();
+    }
 }
 
 async function signOut(): Promise<void> {
@@ -51,6 +63,7 @@ onMounted(async () => {
     if (hasSessionKey()) {
         dayPack.value = await loadDayPack();
         authenticated.value = dayPack.value !== null;
+        pendingCount.value = await pendingOutboxCount();
     }
 });
 
@@ -87,6 +100,11 @@ onUnmounted(() => {
             </header>
 
             <p class="status">{{ t(statusKey) }}</p>
+            <p class="status">
+                {{ t('sync.pending', { count: pendingCount }) }}
+                <span v-if="lastSyncedAt">{{ t('sync.lastSynced', { time: lastSyncedAt }) }}</span>
+                <span v-if="errorKey">{{ t(errorKey) }}</span>
+            </p>
 
             <div class="layout">
                 <nav class="visit-list" :aria-label="t('visits.today')">

@@ -39,6 +39,15 @@ home-care visits, including who receives care, what is authorized, and who funds
   `location_index` mirror for portable spatial indexing, nullable accuracy, source `gps/manual`,
   required manual reason for manual source, computed `distance_meters`, `recorded_by`, timestamps.
   DB triggers block UPDATE/DELETE.
+- `nurse_sync_actions` - tenant-owned idempotency ledger for offline PWA replay. Unique
+  `(tenant_id, client_action_uuid)`, nullable `visit_id`, `nurse_resource_id`, action type,
+  device sequence/timestamp, status/result code, client payload, and prior result payload.
+- `visit_observations` - tenant-owned nurse-authored note/observation content from offline sync.
+  Unique `(tenant_id, client_action_uuid)`, linked visit/patient/resource, note text, flagged
+  review state/reason, and device timestamp.
+- `sync_conflicts` - tenant-owned human-review queue for ambiguous offline conflicts. Nullable
+  `visit_id`, `nurse_resource_id`, action type, client payload, server state, reason, status
+  (`open/resolved`), resolver, and timestamps.
 
 ## Key services / classes
 
@@ -76,6 +85,13 @@ home-care visits, including who receives care, what is authorized, and who funds
   device-token endpoints; login requires tenant staff plus completed MFA.
 - `Http\Controllers\NurseDayPackController` - `/api/nurse/day-pack` bearer-token endpoint requiring
   `nurse:day-pack` ability and returning the server-scoped day-pack.
+- `Http\Controllers\NurseSyncController` - `/api/nurse/sync` bearer-token endpoint accepting a
+  batch of encrypted-PWA outbox actions after client decryption and returning per-action results.
+- `Services\NurseSyncService` - deterministic replay service for offline actions with idempotency
+  and D-E1 conflict policy.
+- `Models\NurseSyncAction`, `VisitObservation`, and `SyncConflict` - tenant-owned sync ledger,
+  note persistence, and human-review conflict rows.
+- `Events\NurseSyncActionProcessed` - app-layer audit glue records `nurse_sync.*` actions.
 - `Events\ServiceAgreementChanged` - app-layer audit glue records `service_agreement.*` actions.
 - `Events\PlannedVisitChanged` - app-layer audit glue records `planned_visit.materialized` and
   `planned_visit.cancelled`.
@@ -140,14 +156,29 @@ home-care visits, including who receives care, what is authorized, and who funds
   revocation/expiry), and on the configurable idle timeout (default 15 minutes).
 - The PWA is read-only in E.5: it shows today's synced visits and raw documented patient data with
   prominent allergies; visit execution/offline writeback arrives later.
+- Offline PWA action replay is idempotent by `(tenant_id, client_action_uuid)`; replaying the same
+  batch returns the stored result and does not double-create visits, visit events, vitals, notes, or
+  conflicts.
+- D-E1 conflict policy: server wins schedule (cancelled/reassigned visits reject check-in,
+  check-out, task-complete, and other schedule-affecting actions with
+  `schedule_changed_server_wins`); client wins note content (notes persist and are flagged when
+  schedule changed); ambiguous actions create `sync_conflicts` rows for human review.
+- Vitals synced from the PWA are raw documented values only and include `client_action_uuid` in
+  `extra` for traceability; no interpretation/scoring is introduced.
+- `nurse_sync.accepted`, `nurse_sync.rejected`, and `nurse_sync.conflict` are audited through
+  app-layer event handling.
+- The PWA outbox is append-only until server acknowledgement, encrypted with the same AES-GCM
+  session-derived key as the day-pack, and retried with exponential backoff (`1000ms`, `2000ms`,
+  doubling to `60000ms` max).
 
 ## Status
 
 **Phase E IN PROGRESS.** P0E.G1 service agreements, P0E.G2 planned visits from RRULE recurrence,
-P0E.G3 dispatcher assignment, P0E.G4 proof-of-visit, and P0E.G5 nurse PWA encrypted day-pack sync
-are registered with tests and app-layer audit/read logging.
+P0E.G3 dispatcher assignment, P0E.G4 proof-of-visit, P0E.G5 nurse PWA encrypted day-pack sync, and
+P0E.G6 offline action queue/conflict policy are registered with tests and app-layer audit/read
+logging.
 
 ## Open items
 
-- Later Nursing gates add offline visit execution/writeback and operational workflows on top of
-  the read-only encrypted day-pack.
+- Later Nursing gates add richer visit execution UI/writeback surfaces and operational workflows on
+  top of the encrypted outbox.

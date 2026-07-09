@@ -4,6 +4,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use Modules\Nursing\Http\Controllers\NurseAuthController;
 use Modules\Nursing\Http\Controllers\NurseDayPackController;
+use Modules\Nursing\Http\Controllers\NurseSyncController;
 
 /*
 |--------------------------------------------------------------------------
@@ -27,5 +28,6 @@ Route::prefix('nurse')->group(function () {
     Route::middleware('auth:sanctum')->group(function () {
         Route::post('/logout', [NurseAuthController::class, 'logout'])->name('api.nurse.logout');
         Route::get('/day-pack', NurseDayPackController::class)->name('api.nurse.day-pack');
+        Route::post('/sync', NurseSyncController::class)->name('api.nurse.sync');
     });
 });

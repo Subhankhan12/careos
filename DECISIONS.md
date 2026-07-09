@@ -174,3 +174,9 @@ references the old ID.
   timeout wipe the local store. The server day-pack endpoint returns only today's assigned visits
   for the authenticated nurse resource plus the minimum related patient data, and writes one
   patient-scoped `read` audit row per included patient (P0E.G5).
+- **D-046 / D-E1 - Offline sync conflicts resolve by domain ownership.** Nurse PWA replay is
+  idempotent through tenant-scoped client action UUIDs. The server owns schedule truth: cancelled
+  or reassigned visits reject schedule-affecting actions with an explanatory code. The client owns
+  nurse-authored note/observation content: notes are persisted even when schedule changed and are
+  flagged for review. Ambiguous conflicts are never silently resolved; they create
+  `sync_conflicts` rows for human review (P0E.G6).

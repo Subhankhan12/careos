@@ -15,6 +15,7 @@ export interface VisitSummary {
     duration_minutes: number;
     required_qualification: string | null;
     status: string;
+    nurse_resource_id: string | null;
     address: AddressSummary;
     patient: PatientSummary;
     tasks: TaskSummary[];
@@ -76,4 +77,19 @@ export interface TaskSummary {
     due_at: string;
     priority: string;
     status: string;
+}
+
+export interface OutboxEntry {
+    client_uuid: string;
+    type: string;
+    payload: Record<string, unknown>;
+    device_timestamp: string;
+    sequence: number;
+}
+
+export interface SyncResult {
+    client_uuid: string;
+    status: string;
+    code: string;
+    payload: Record<string, unknown>;
 }

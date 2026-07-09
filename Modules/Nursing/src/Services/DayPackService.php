@@ -106,6 +106,7 @@ class DayPackService
             'duration_minutes' => $visit->duration_minutes,
             'required_qualification' => $visit->required_qualification,
             'status' => $visit->status,
+            'nurse_resource_id' => $visit->assigned_resource_id,
             'address' => $this->addressFor($patient),
             'patient' => [
                 'id' => $patient->id,

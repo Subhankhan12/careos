@@ -3,16 +3,16 @@
 Short, factual snapshot of where the project stands. Updated at consolidations and after gates
 (per the MEMORY PROTOCOL in AGENTS.md).
 
-- **Current phase:** Phase E - Nursing wedge - **IN PROGRESS**. Latest gate: P0E.G5 nurse PWA
-  scaffold + encrypted day-pack sync. Next: Gate E.6.
-- **Commits:** 48 on `main` after P0E.G5 (nurse PWA scaffold + encrypted day-pack sync).
+- **Current phase:** Phase E - Nursing wedge - **IN PROGRESS**. Latest gate: P0E.G6 offline action
+  queue + conflict resolution. Next: Gate E.7.
+- **Commits:** 49 on `main` after P0E.G6 (offline action queue + conflict resolution).
   Phase A = 11 (P0A.G1-G8, P0A.GM, P0A.GF, P0A.GF3), pushed to `origin/main`
   (https://github.com/Subhankhan12/careos).
 - **Verified quality (from actual output):** `composer check` green - Pint `passed`,
-  PHPStan level 5 `[OK] No errors`, Pest **254 passed / 1390 assertions**; `cmd /c npm run build`
+  PHPStan level 5 `[OK] No errors`, Pest **259 passed / 1426 assertions**; `cmd /c npm run build`
   green (`vite build`, 669 modules transformed); `cmd /c npm run test:pwa` green
-  (**6 passed / 6**); `cmd /c npm run build:pwa` green (42 modules transformed, Workbox service
-  worker generated). CI was green on MySQL 8 + Redis for Phase D; P0E.G5 CI is checked after push.
+  (**11 passed / 11**); `cmd /c npm run build:pwa` green (42 modules transformed, Workbox service
+  worker generated). CI was green on MySQL 8 + Redis for Phase D; P0E.G6 CI is checked after push.
 - **Stack (verified):** Laravel 12.63.0 on PHP 8.2.12; DEV DB = `careos` on XAMPP MariaDB
   10.4.32 (127.0.0.1:3306); Redis-compatible server on 127.0.0.1:6379 with Predis (`PONG`);
   queue/cache use Redis and Horizon is installed/guarded. Local Windows PHP lacks `pcntl`, so
@@ -237,4 +237,13 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
   other tenant data are unreachable.
 - PWA storage encrypts the day-pack with AES-GCM; the key is HKDF-derived from the session token and
   held only in memory. The local store is wiped on logout, 401/403 sync responses, and idle timeout.
-- **Next action:** Execute only Gate E.6 when pasted.
+- Offline nurse actions replay through `/api/nurse/sync` with tenant-scoped `client_action_uuid`
+  idempotency recorded in `nurse_sync_actions`.
+- D-E1 conflict policy is enforced: server schedule changes reject schedule-affecting actions;
+  client note content is preserved and flagged when schedule changed; ambiguous actions create
+  `sync_conflicts` rows for human review.
+- `visit_observations` stores nurse-authored offline notes with client UUID, visit/patient/resource,
+  device timestamp, and flagged review reason when applicable.
+- The PWA encrypted outbox persists in Dexie, replays entries in sequence order, clears only
+  server-acknowledged entries, and retries sync with exponential backoff.
+- **Next action:** Execute only Gate E.7 when pasted.
