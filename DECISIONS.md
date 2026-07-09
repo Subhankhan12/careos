@@ -154,3 +154,10 @@ references the old ID.
   arrival windows as UTC instants, and uses the unique `(tenant_id, visit_plan_id,
   scheduled_date)` key plus upsert so materialization is idempotent without resurrecting
   cancelled occurrences (P0E.G2).
+- **D-043 - Nursing dispatch validates deterministically and serializes on nurse resources.**
+  Visit assignment uses tenant-owned `nurse_constraints` for exact qualification, max weekly hours,
+  and max travel minutes. Travel feasibility is deterministic straight-line distance divided by
+  tenant setting `nursing.dispatch.average_speed_kmh` (default 40), not a routing API. Assignment
+  locks the planned visit, nurse resource, and candidate assigned visits with `FOR UPDATE` before
+  persisting, so overlapping concurrent contenders for one nurse serialize and only one wins
+  (P0E.G3).

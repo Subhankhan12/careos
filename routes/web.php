@@ -14,6 +14,8 @@ use Modules\Clinical\Http\Controllers\EncounterShowController;
 use Modules\Clinical\Http\Controllers\NoteEditorController;
 use Modules\Clinical\Http\Controllers\OpenEncounterFromAppointmentController;
 use Modules\Clinical\Http\Controllers\PortalDocumentController;
+use Modules\Nursing\Http\Controllers\DispatchActionController;
+use Modules\Nursing\Http\Controllers\DispatchBoardController;
 use Modules\Patients\Http\Controllers\PatientConsentController;
 use Modules\Patients\Http\Controllers\PatientIndexController;
 use Modules\Patients\Http\Controllers\PatientRegistrationController;
@@ -64,6 +66,12 @@ Route::middleware('auth')->group(function () {
         ->name('scheduling.day-board.slots');
     Route::post('/scheduling/day-board/open-encounter', OpenEncounterFromAppointmentController::class)
         ->name('scheduling.day-board.open-encounter');
+
+    Route::get('/nursing/dispatch', DispatchBoardController::class)->name('nursing.dispatch');
+    Route::post('/nursing/dispatch/assign', [DispatchActionController::class, 'assign'])
+        ->name('nursing.dispatch.assign');
+    Route::post('/nursing/dispatch/unassign', [DispatchActionController::class, 'unassign'])
+        ->name('nursing.dispatch.unassign');
 
     Route::get('/clinical/encounters/{encounter}', EncounterShowController::class)
         ->name('clinical.encounters.show');

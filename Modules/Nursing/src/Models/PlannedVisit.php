@@ -6,9 +6,12 @@ use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Carbon;
+use Modules\Audit\Concerns\LogsReads;
 use Modules\Patients\Models\Patient;
 use Modules\Platform\Concerns\BelongsToTenant;
 use Modules\Platform\Exceptions\CrossTenantReferenceException;
+use Modules\Platform\Models\User;
+use Modules\Platform\Services\TenantContext;
 use Modules\Scheduling\Models\Resource;
 
 /**
@@ -23,11 +26,15 @@ use Modules\Scheduling\Models\Resource;
  * @property string|null $required_qualification
  * @property string $status
  * @property string|null $assigned_resource_id
+ * @property Carbon|null $assigned_at
+ * @property int|null $assigned_by
  * @property string|null $cancellation_reason
+ * @property string|null $location_latitude
+ * @property string|null $location_longitude
  */
 class PlannedVisit extends Model
 {
-    use BelongsToTenant, HasUlids;
+    use BelongsToTenant, HasUlids, LogsReads;
 
     public const STATUS_PLANNED = 'planned';
 
@@ -51,7 +58,11 @@ class PlannedVisit extends Model
         'required_qualification',
         'status',
         'assigned_resource_id',
+        'assigned_at',
+        'assigned_by',
         'cancellation_reason',
+        'location_latitude',
+        'location_longitude',
     ];
 
     protected $attributes = [
@@ -62,7 +73,7 @@ class PlannedVisit extends Model
     {
         static::creating(fn (PlannedVisit $visit) => $visit->assertTenantReferences());
         static::updating(function (PlannedVisit $visit): void {
-            if ($visit->isDirty(['visit_plan_id', 'patient_id', 'assigned_resource_id'])) {
+            if ($visit->isDirty(['visit_plan_id', 'patient_id', 'assigned_resource_id', 'assigned_by'])) {
                 $visit->assertTenantReferences();
             }
         });
@@ -78,6 +89,10 @@ class PlannedVisit extends Model
             'window_start_at' => 'datetime',
             'window_end_at' => 'datetime',
             'duration_minutes' => 'integer',
+            'assigned_at' => 'datetime',
+            'assigned_by' => 'integer',
+            'location_latitude' => 'decimal:6',
+            'location_longitude' => 'decimal:6',
         ];
     }
 
@@ -94,6 +109,21 @@ class PlannedVisit extends Model
     public function assignedResource(): BelongsTo
     {
         return $this->belongsTo(Resource::class, 'assigned_resource_id');
+    }
+
+    public function assigner(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'assigned_by');
+    }
+
+    protected function auditResourceType(): string
+    {
+        return 'planned_visit';
+    }
+
+    protected function auditPatientId(): ?string
+    {
+        return $this->patient_id;
     }
 
     private function assertTenantReferences(): void
@@ -113,6 +143,13 @@ class PlannedVisit extends Model
                 'assigned_resource_id',
                 (string) $this->assigned_resource_id,
             );
+        }
+
+        if ($this->assigned_by !== null && ! User::query()
+            ->whereKey($this->assigned_by)
+            ->where('tenant_id', app(TenantContext::class)->id())
+            ->exists()) {
+            throw CrossTenantReferenceException::forAttribute('assigned_by', (string) $this->assigned_by);
         }
     }
 }

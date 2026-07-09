@@ -202,5 +202,25 @@
                 "insert": "Insert into note"
             }
         }
+    },
+    "nursing": {
+        "dispatch": {
+            "title": "Dispatch",
+            "subtitle": "Assign planned visits to nurse resources.",
+            "fields": {
+                "date": "Date",
+                "branch": "Branch"
+            },
+            "refresh": "Refresh",
+            "unassigned": "Unassigned visits",
+            "empty": "No unassigned visits.",
+            "emptyLane": "No assigned visits.",
+            "requiredQualification": "Required qualification",
+            "none": "None",
+            "selectNurse": "Select nurse",
+            "assign": "Assign",
+            "unassign": "Unassign",
+            "noConstraint": "No constraint record"
+        }
     }
 }

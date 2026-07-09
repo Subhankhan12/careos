@@ -8,6 +8,9 @@ Deliberately deferred work. Not forgotten — parked until the right phase.
   ~Dec 2026).
 - **Voice receptionist.**
 - **Route optimization** (OR-tools).
+- **Real routing/travel-time API for Nursing dispatch.** E.3 uses deterministic straight-line
+  distance / configurable average speed only; road-network routing and traffic-aware feasibility
+  are deferred.
 - **MAR** (medication administration record).
 - **E-prescription rails** per market.
 - **Lab HL7/FHIR feeds.**

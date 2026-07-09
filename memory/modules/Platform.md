@@ -17,8 +17,9 @@ enforces fail-closed tenancy.
 - `roles` (tenant-owned), `permissions` (platform catalog), `permission_role`,
   `role_user` (tenant-owned assignment: nullable `branch_id`, `abac_conditions` JSON reserved).
   Catalog includes destructive `patient.merge`, appointment/encounter management, deterministic
-  allergy override, and governed AI management. Starter `org_admin` receives all; doctor/nurse
-  receive `encounter.manage`, `note.write`, and `note.sign`; doctor/org_admin receive
+  allergy override, Nursing agreement/dispatch management, and governed AI management. Starter
+  `org_admin` receives all; coordinator receives Nursing agreement/dispatch management;
+  doctor/nurse receive `encounter.manage`, `note.write`, and `note.sign`; doctor/org_admin receive
   `allergy.override`; org_admin receives `note.supervise`; reception does not.
 - `plans` (platform; `price_minor` integer minor units, `limits`/`features` JSON),
   `feature_flags` (tenant-owned), `settings` (tenant-owned, typed value JSON).
@@ -55,6 +56,8 @@ enforces fail-closed tenancy.
   clinicians without it see only their own drafts.
 - `agreement.manage` is granted to org-admin and coordinator starter roles for nursing service
   agreements; reception is denied.
+- `dispatch.manage` is granted to org-admin and coordinator starter roles for Nursing dispatch;
+  reception is denied.
 - RBAC applies to staff `users` only; patient portal accounts do not receive staff permissions.
 - Money as integer minor units; plans store `price_minor`.
 
@@ -68,6 +71,7 @@ P0D.G2 adds `note.write` and `note.sign` to the catalog and starter clinician ro
 P0D.G3 adds `allergy.override` to the catalog and starter org-admin/doctor roles.
 P0D.G6 adds `note.supervise` to the catalog and starter org-admin roles.
 P0E.G1 adds `agreement.manage` and the `coordinator` starter role for nursing service agreements.
+P0E.G3 adds `dispatch.manage` to org-admin and coordinator starter roles for Nursing dispatch.
 
 ## Open items
 

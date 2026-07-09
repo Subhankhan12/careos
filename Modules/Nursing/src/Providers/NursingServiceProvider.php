@@ -3,6 +3,7 @@
 namespace Modules\Nursing\Providers;
 
 use Illuminate\Support\ServiceProvider;
+use Modules\Nursing\Console\AttemptVisitAssignmentCommand;
 use Modules\Nursing\Console\MaterializeVisitsCommand;
 
 class NursingServiceProvider extends ServiceProvider
@@ -13,6 +14,7 @@ class NursingServiceProvider extends ServiceProvider
 
         if ($this->app->runningInConsole()) {
             $this->commands([
+                AttemptVisitAssignmentCommand::class,
                 MaterializeVisitsCommand::class,
             ]);
         }
