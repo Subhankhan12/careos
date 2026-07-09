@@ -3,7 +3,9 @@
     "type": "module",
     "scripts": {
         "build": "vite build",
-        "dev": "vite"
+        "build:pwa": "vite build --config nurse-pwa/vite.config.ts",
+        "dev": "vite",
+        "test:pwa": "vitest run --config nurse-pwa/vitest.config.ts"
     },
     "devDependencies": {
         "@inertiajs/vue3": "^3.6.1",
@@ -12,12 +14,20 @@
         "@vitejs/plugin-vue": "^6.0.7",
         "axios": "^1.7.4",
         "concurrently": "^9.0.1",
+        "fake-indexeddb": "^6.2.5",
+        "jsdom": "^29.1.1",
         "laravel-vite-plugin": "^1.2.0",
         "tailwindcss": "^4.0.0",
         "typescript": "^6.0.3",
         "vite": "^6.0.11",
+        "vite-plugin-pwa": "^1.3.0",
+        "vitest": "^4.1.10",
         "vue": "^3.5.39",
         "vue-i18n": "^11.4.6",
         "vue-tsc": "^3.3.7"
+    },
+    "dependencies": {
+        "dexie": "^4.4.4",
+        "workbox-window": "^7.4.1"
     }
 }

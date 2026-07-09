@@ -70,9 +70,17 @@ home-care visits, including who receives care, what is authorized, and who funds
   append-only at model and DB level.
 - `Services\VisitService` - creates visits from assigned planned visits and records exactly one
   check-in plus one check-out event with GPS or reason-required manual fallback.
+- `Services\DayPackService` - builds the nurse PWA day-pack for one authenticated nurse and one
+  requested date, limited to the nurse's linked active practitioner resource assignments.
+- `Http\Controllers\NurseAuthController` - `/api/nurse/login` and `/api/nurse/logout` Sanctum
+  device-token endpoints; login requires tenant staff plus completed MFA.
+- `Http\Controllers\NurseDayPackController` - `/api/nurse/day-pack` bearer-token endpoint requiring
+  `nurse:day-pack` ability and returning the server-scoped day-pack.
 - `Events\ServiceAgreementChanged` - app-layer audit glue records `service_agreement.*` actions.
 - `Events\PlannedVisitChanged` - app-layer audit glue records `planned_visit.materialized` and
   `planned_visit.cancelled`.
+- `nurse-pwa/` - separate Vite/Vue 3/TypeScript PWA with Workbox generation, Dexie IndexedDB,
+  AES-GCM encrypted day-pack storage, and Vitest tests.
 
 ## Invariants enforced
 
@@ -116,13 +124,30 @@ home-care visits, including who receives care, what is authorized, and who funds
 - `visit_events.location` remains nullable for manual fallback. MariaDB 10.4 requires spatial
   indexes to be NOT NULL, so `location_index` is the non-null indexed mirror while `location`
   preserves the nullable business value; MySQL 8 CI verifies the same DDL.
+- Nurse PWA tokens are device-scoped Sanctum bearer tokens with `nurse:day-pack` ability; token
+  issuance requires a tenant staff user with completed MFA.
+- The day-pack endpoint is fail-closed to the current token's tenant and linked active staff
+  profile/practitioner resource. It returns only assigned visits on the requested date for that
+  nurse, never another nurse's visits or another tenant's rows.
+- Day-pack patient data is intentionally minimal: visit windows/address/tasks plus allergies,
+  active medications, active problems, active care-plan goals, and same-day open/in-progress tasks.
+- Every patient included in a day-pack sync writes a patient-scoped `read` audit row with surface
+  `nurse_day_pack`.
+- D-E2 storage posture: the PWA stores only AES-GCM ciphertext in Dexie/IndexedDB. The key is
+  derived from the current session token using HKDF, stays in JavaScript memory only, and is never
+  persisted along with the token or salt.
+- Local PWA data is wiped on logout, on any 401/403 sync response (remote wipe via token
+  revocation/expiry), and on the configurable idle timeout (default 15 minutes).
+- The PWA is read-only in E.5: it shows today's synced visits and raw documented patient data with
+  prominent allergies; visit execution/offline writeback arrives later.
 
 ## Status
 
 **Phase E IN PROGRESS.** P0E.G1 service agreements, P0E.G2 planned visits from RRULE recurrence,
-P0E.G3 dispatcher assignment, and P0E.G4 proof-of-visit are registered with tests and app-layer
-audit.
+P0E.G3 dispatcher assignment, P0E.G4 proof-of-visit, and P0E.G5 nurse PWA encrypted day-pack sync
+are registered with tests and app-layer audit/read logging.
 
 ## Open items
 
-- Later Nursing gates add EVV/offline PWA surfaces and operational workflows on top of agreements.
+- Later Nursing gates add offline visit execution/writeback and operational workflows on top of
+  the read-only encrypted day-pack.

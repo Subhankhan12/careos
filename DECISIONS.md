@@ -167,3 +167,10 @@ references the old ID.
   with a non-empty reason. Geofence distance is computed for review and audit context but never
   auto-blocks a visit, because a nurse may legitimately meet a patient away from the planned
   address (P0E.G4).
+- **D-045 / D-E2 - Nurse PWA day-packs are encrypted, session-bound, and one-day scoped.** The
+  separate `nurse-pwa/` app stores only AES-GCM ciphertext in Dexie/IndexedDB. Its key is derived
+  from the current device session token with HKDF and kept only in JavaScript memory; the token,
+  salt, and key are never persisted. Logout, any 401/403 sync response, and the configurable idle
+  timeout wipe the local store. The server day-pack endpoint returns only today's assigned visits
+  for the authenticated nurse resource plus the minimum related patient data, and writes one
+  patient-scoped `read` audit row per included patient (P0E.G5).

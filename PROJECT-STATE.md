@@ -3,16 +3,16 @@
 Short, factual snapshot of where the project stands. Updated at consolidations and after gates
 (per the MEMORY PROTOCOL in AGENTS.md).
 
-- **Current phase:** Phase E - Nursing wedge - **IN PROGRESS**. Latest gate: P0E.G4 visits +
-  GPS proof-of-visit. Next: Gate E.5.
-- **Commits:** 47 on `main` after P0E.G4 (visits + GPS proof-of-visit).
+- **Current phase:** Phase E - Nursing wedge - **IN PROGRESS**. Latest gate: P0E.G5 nurse PWA
+  scaffold + encrypted day-pack sync. Next: Gate E.6.
+- **Commits:** 48 on `main` after P0E.G5 (nurse PWA scaffold + encrypted day-pack sync).
   Phase A = 11 (P0A.G1-G8, P0A.GM, P0A.GF, P0A.GF3), pushed to `origin/main`
   (https://github.com/Subhankhan12/careos).
 - **Verified quality (from actual output):** `composer check` green - Pint `passed`,
-  PHPStan level 5 `[OK] No errors`, Pest **250 passed / 1362 assertions**; latest frontend build
-  remains P0E.G3 `cmd /c npm run build` green (`vite build`, 669 modules transformed) because
-  P0E.G4 has no frontend changes. CI was green on MySQL 8 + Redis for Phase D; P0E.G4 CI is
-  checked after push.
+  PHPStan level 5 `[OK] No errors`, Pest **254 passed / 1390 assertions**; `cmd /c npm run build`
+  green (`vite build`, 669 modules transformed); `cmd /c npm run test:pwa` green
+  (**6 passed / 6**); `cmd /c npm run build:pwa` green (42 modules transformed, Workbox service
+  worker generated). CI was green on MySQL 8 + Redis for Phase D; P0E.G5 CI is checked after push.
 - **Stack (verified):** Laravel 12.63.0 on PHP 8.2.12; DEV DB = `careos` on XAMPP MariaDB
   10.4.32 (127.0.0.1:3306); Redis-compatible server on 127.0.0.1:6379 with Predis (`PONG`);
   queue/cache use Redis and Horizon is installed/guarded. Local Windows PHP lacks `pcntl`, so
@@ -226,4 +226,15 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
     there is no continuous/background tracking or route capture; manual fallback requires a reason.
   - Geofence distance uses `ST_Distance_Sphere` against the planned visit target coordinate and
     flags distant events for review in audit context without blocking the visit transition.
-- **Next action:** Execute only Gate E.5 when pasted.
+- Nurse PWA scaffold exists as a separate `nurse-pwa/` Vite/Vue/TS app with Dexie encrypted storage,
+  Workbox service worker generation, its own `build:pwa` and `test:pwa` scripts, and CI steps.
+- Nurse device auth issues Sanctum bearer tokens through `/api/nurse/login` only for tenant staff
+  who have completed MFA; `/api/nurse/logout` revokes the bearer token.
+- `/api/nurse/day-pack` returns only the authenticated nurse's assigned visits for the requested
+  date, plus address, allergies, active medications, active problems, active care-plan goals, and
+  same-day task data for those patients.
+- Day-pack sync writes one patient-scoped `read` audit row per included patient; other nurse and
+  other tenant data are unreachable.
+- PWA storage encrypts the day-pack with AES-GCM; the key is HKDF-derived from the session token and
+  held only in memory. The local store is wiped on logout, 401/403 sync responses, and idle timeout.
+- **Next action:** Execute only Gate E.6 when pasted.

@@ -1,6 +1,8 @@
 /.phpunit.cache
 /node_modules
+/nurse-pwa/node_modules
 /public/build
+/public/nurse-pwa
 /public/hot
 /public/storage
 /storage/*.key

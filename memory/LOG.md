@@ -50,3 +50,4 @@ One line per completed gate. Newest at bottom. Format: `<commit> P<phase>.G<n>: 
 - `(pending)` P0E.G2: Planned visits from RRULE recurrence - Recurr-backed visit plans, DST-correct materialization, idempotent upsert, cancellation exceptions; 235 tests / 1280 assertions.
 - `(pending)` P0E.G3: Dispatcher board + validated concurrency-safe assignment - nurse constraints, locked assign/unassign, parallel hammer, Inertia board; 243 tests / 1331 assertions; npm build green.
 - `(pending)` P0E.G4: Visits + GPS proof-of-visit - visit execution records, append-only check-in/out events, manual fallback reason, geofence review flag; 250 tests / 1362 assertions.
+- `(pending)` P0E.G5: Nurse PWA scaffold + encrypted day-pack sync - Sanctum nurse device tokens, scoped day-pack API/read audits, Dexie AES-GCM storage with wipe triggers; 254 tests / 1390 assertions; npm build + build:pwa + test:pwa green.

@@ -72,6 +72,12 @@ jobs:
       - name: Build frontend assets
         run: npm run build
 
+      - name: Test nurse PWA
+        run: npm run test:pwa
+
+      - name: Build nurse PWA
+        run: npm run build:pwa
+
       - name: Copy .env
         run: cp .env.example .env
 
