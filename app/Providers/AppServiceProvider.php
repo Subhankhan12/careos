@@ -15,6 +15,7 @@ use Modules\Audit\Contracts\AuditContext;
 use Modules\Audit\Services\AuditService;
 use Modules\Clinical\Events\ClinicalNoteAmended;
 use Modules\Clinical\Events\ClinicalNoteSigned;
+use Modules\Clinical\Events\ClinicalRecordChanged;
 use Modules\Clinical\Events\EncounterClosed;
 use Modules\Clinical\Events\EncounterOpened;
 use Modules\Clinical\Models\ClinicalNote;
@@ -194,6 +195,17 @@ class AppServiceProvider extends ServiceProvider
                 'supersedes_id' => $event->original->id,
                 'amendment_id' => $event->amendment->id,
             ], $event->reason);
+        });
+        Event::listen(ClinicalRecordChanged::class, function (ClinicalRecordChanged $event): void {
+            $this->auditChange($event->action, [
+                'actor_type' => 'user',
+                'actor_id' => (string) $event->actor->getKey(),
+                'patient_id' => $event->patientId,
+                'resource_type' => $event->resourceType,
+                'resource_id' => $event->resourceId,
+                'reason' => $event->reason,
+                'context' => $event->context,
+            ]);
         });
 
         // AiCore ledger/action events. This app-layer glue keeps AiCore from

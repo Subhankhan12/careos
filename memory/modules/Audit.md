@@ -56,7 +56,8 @@ P0B.G6 surfaces `PatientAccessReport` in the patient 360 UI and verifies the 360
 existing patient-scoped `read` event.
 P0D.G1 added patient-scoped `encounter.opened` and `encounter.closed` actions plus encounter read
 logging. P0D.G2 added patient-scoped `note.signed` and `note.amended` actions plus clinical-note
-read logging.
+read logging. P0D.G3 added patient-scoped `problem.added`, `allergy.added`, `vital.recorded`,
+`medication.added`, and `allergy.override` actions plus clinical-list read logging.
 
 ## Open items
 

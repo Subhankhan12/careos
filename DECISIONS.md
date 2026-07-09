@@ -110,3 +110,9 @@ references the old ID.
   note is signed it is frozen at both the Eloquent and DB-trigger levels; later corrections are
   visible superseding note versions with mandatory amendment reasons, never destructive edits
   (P0D.G2).
+- **D-036 - Allergy hard-stops are exact-match deterministic rules only.** Medication recording
+  blocks only when the normalized requested `substance_key` exactly equals an active documented
+  allergy `substance_key` for the same patient. CareOS does not perform fuzzy matching,
+  drug-class inference, interaction checking, dose calculation, or clinical decision support in
+  this rule; those remain deferred medical-device territory. A clinician with `allergy.override`
+  may override only with a reason, and the override is audited (P0D.G3).

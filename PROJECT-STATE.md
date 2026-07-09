@@ -3,12 +3,12 @@
 Short, factual snapshot of where the project stands. Updated at consolidations and after gates
 (per the MEMORY PROTOCOL in AGENTS.md).
 
-- **Current phase:** Phase D - Clinical core - **in progress**. Latest gate: D.2 SOAP notes.
-- **Commits:** 36 on `main` after P0D.G2 (SOAP clinical notes).
+- **Current phase:** Phase D - Clinical core - **in progress**. Latest gate: D.3 clinical lists.
+- **Commits:** 37 on `main` after P0D.G3 (structured lists + deterministic allergy hard-stop).
   Phase A = 11 (P0A.G1-G8, P0A.GM, P0A.GF, P0A.GF3), pushed to `origin/main`
   (https://github.com/Subhankhan12/careos).
 - **Verified quality (from actual output):** `composer check` green - Pint `passed`,
-  PHPStan level 5 `[OK] No errors`, Pest **186 passed / 800 assertions**; `cmd /c npm run build`
+  PHPStan level 5 `[OK] No errors`, Pest **193 passed / 840 assertions**; `cmd /c npm run build`
   green at P0C.C (Vite production build, 655 modules transformed). CI is green on MySQL 8 +
   Redis for latest pushed Phase C gate commit `c46301e`.
 - **Stack (verified):** Laravel 12.63.0 on PHP 8.2.12; DEV DB = `careos` on XAMPP MariaDB
@@ -125,4 +125,13 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
   - Note templates provide SOAP prefills and required sections; `note.write` / `note.sign` are
     clinician-gated (org-admin/doctor/nurse, not reception).
   - `note.signed` and `note.amended` audit events are written and chain-verified.
-- **Next action:** Execute only Gate D.3 when pasted.
+  - Problems, allergies, vitals, and medications are tenant-owned clinical lists with
+    patient-scoped audit/read logging.
+  - Allergy hard-stop is deterministic exact-match only: active documented allergy
+    `substance_key` equals requested medication `substance_key` after lowercase/trim
+    normalization. No fuzzy/class/interaction/dose/CDS logic exists.
+  - `MedicationService::record()` rejects active allergy conflicts before writing; override
+    requires `allergy.override`, a non-empty reason, and writes `allergy.override` audit context.
+  - Vitals and medications store documented raw/free-text values only; no interpretation, score,
+    flag, or derived fields are present.
+- **Next action:** Execute only Gate D.4 when pasted.

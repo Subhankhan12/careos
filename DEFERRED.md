@@ -48,3 +48,7 @@ Deliberately deferred work. Not forgotten — parked until the right phase.
 - **Validate patient name search parity before production.** Dev MariaDB 10.4 uses plain FULLTEXT
   while MySQL 8 CI/prod uses `WITH PARSER ngram` - patient name search tokenizes differently
   across environments (P0B.G3).
+- **Drug interaction / allergy class / dose / CDS engines are medical-device territory.**
+  Drug-interaction checking, allergy class inference, dose calculation, and clinical decision
+  support require a partner-first licensed drug database and a funded regulatory track; do not
+  build these in-house as CareOS deterministic clinical-list logic (P0D.G3).
