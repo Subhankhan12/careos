@@ -12,6 +12,8 @@ Deliberately deferred work. Not forgotten — parked until the right phase.
   distance / configurable average speed only; road-network routing and traffic-aware feasibility
   are deferred.
 - **MAR** (medication administration record).
+- **Clinician countersigning for nurse observational visit notes.** E.7 stores nurse visit notes as
+  visit execution documentation, not signed/locked SOAP clinical notes; countersign workflow comes later.
 - **E-prescription rails** per market.
 - **Lab HL7/FHIR feeds.**
 - **Country statutory billing packs** (DE / CH / FR).

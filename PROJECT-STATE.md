@@ -3,15 +3,15 @@
 Short, factual snapshot of where the project stands. Updated at consolidations and after gates
 (per the MEMORY PROTOCOL in AGENTS.md).
 
-- **Current phase:** Phase E - Nursing wedge - **IN PROGRESS**. Latest gate: P0E.G6 offline action
-  queue + conflict resolution. Next: Gate E.7.
+- **Current phase:** Phase E - Nursing wedge - **IN PROGRESS**. Latest gate: P0E.G7 visit execution
+  in the offline Nurse PWA. Next: Gate E.8.
 - **Commits:** 49 on `main` after P0E.G6 (offline action queue + conflict resolution).
   Phase A = 11 (P0A.G1-G8, P0A.GM, P0A.GF, P0A.GF3), pushed to `origin/main`
   (https://github.com/Subhankhan12/careos).
 - **Verified quality (from actual output):** `composer check` green - Pint `passed`,
-  PHPStan level 5 `[OK] No errors`, Pest **259 passed / 1426 assertions**; `cmd /c npm run build`
+  PHPStan level 5 `[OK] No errors`, Pest **264 passed / 1470 assertions**; `cmd /c npm run build`
   green (`vite build`, 669 modules transformed); `cmd /c npm run test:pwa` green
-  (**11 passed / 11**); `cmd /c npm run build:pwa` green (42 modules transformed, Workbox service
+  (**14 passed / 14**); `cmd /c npm run build:pwa` green (43 modules transformed, Workbox service
   worker generated). CI was green on MySQL 8 + Redis for Phase D; P0E.G6 CI is checked after push.
 - **Stack (verified):** Laravel 12.63.0 on PHP 8.2.12; DEV DB = `careos` on XAMPP MariaDB
   10.4.32 (127.0.0.1:3306); Redis-compatible server on 127.0.0.1:6379 with Predis (`PONG`);
@@ -246,4 +246,16 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
   device timestamp, and flagged review reason when applicable.
 - The PWA encrypted outbox persists in Dexie, replays entries in sequence order, clears only
   server-acknowledged entries, and retries sync with exponential backoff.
-- **Next action:** Execute only Gate E.7 when pasted.
+- Visit execution sync now supports idempotent offline task completion/not-done with required
+  reasons, raw visit vitals, nurse observational notes, private photo uploads, and private patient
+  signatures through `/api/nurse/sync`.
+- Visit attachments are stored on the private local disk under generated
+  `tenants/{tenant}/nursing-attachments/{patient}/{visit}/...` paths and streamed only through an
+  authorized controller; no public URLs are exposed.
+- Visit vitals use the D.3 raw column shape (`systolic`, `diastolic`, `heart_rate`,
+  `temperature_c`, `spo2`, `weight_g`, `height_mm`, `extra`) with no flags, ranges, scores, or
+  derived interpretation fields.
+- The Nurse PWA now queues task actions, raw vitals, note autosaves, photos, and signatures offline
+  into the encrypted outbox; Vitest asserts no plaintext note/photo/signature content is stored in
+  IndexedDB and reloads preserve queued actions.
+- **Next action:** Execute only Gate E.8 when pasted.

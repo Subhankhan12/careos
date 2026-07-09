@@ -9,6 +9,7 @@ export interface DayPack {
 
 export interface VisitSummary {
     id: string;
+    execution_visit_id?: string | null;
     scheduled_date: string;
     window_start_at: string;
     window_end_at: string;
@@ -77,6 +78,8 @@ export interface TaskSummary {
     due_at: string;
     priority: string;
     status: string;
+    source?: 'visit_task' | 'clinical_task';
+    visit_id?: string;
 }
 
 export interface OutboxEntry {

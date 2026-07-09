@@ -180,3 +180,7 @@ references the old ID.
   nurse-authored note/observation content: notes are persisted even when schedule changed and are
   flagged for review. Ambiguous conflicts are never silently resolved; they create
   `sync_conflicts` rows for human review (P0E.G6).
+- **D-047 - Visit execution notes are nurse observations, not signed clinical SOAP notes.** E.7
+  stores offline nurse visit documentation in `visit_notes` and syncs it idempotently through the
+  nurse outbox. It is patient/visit scoped and audited, but it is not a `clinical_note` and does
+  not use D.2 sign-and-lock semantics. Clinician countersigning is deferred (P0E.G7).

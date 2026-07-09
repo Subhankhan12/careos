@@ -11,6 +11,8 @@ use Modules\Clinical\Models\ClinicalTask;
 use Modules\Clinical\Models\Medication;
 use Modules\Clinical\Models\Problem;
 use Modules\Nursing\Models\PlannedVisit;
+use Modules\Nursing\Models\Visit;
+use Modules\Nursing\Models\VisitTask;
 use Modules\Patients\Models\Patient;
 use Modules\Patients\Models\PatientContact;
 use Modules\People\Models\StaffProfile;
@@ -100,6 +102,7 @@ class DayPackService
 
         return [
             'id' => $visit->id,
+            'execution_visit_id' => $this->executionVisitId($visit),
             'scheduled_date' => $visit->scheduled_date->toDateString(),
             'window_start_at' => $visit->window_start_at->toIso8601String(),
             'window_end_at' => $visit->window_end_at->toIso8601String(),
@@ -236,10 +239,35 @@ class DayPackService
     }
 
     /**
-     * @return list<array{id: string, title: string, description: string|null, due_at: string, priority: string, status: string}>
+     * @return list<array{id: string, title: string, description: string|null, due_at: string, priority: string, status: string, source: string, visit_id?: string}>
      */
     private function tasksFor(Patient $patient, PlannedVisit $visit): array
     {
+        $executionVisit = Visit::query()
+            ->where('planned_visit_id', $visit->id)
+            ->latest('created_at')
+            ->first();
+
+        if ($executionVisit instanceof Visit) {
+            return VisitTask::query()
+                ->where('visit_id', $executionVisit->id)
+                ->where('status', VisitTask::STATUS_OPEN)
+                ->orderBy('created_at')
+                ->get()
+                ->map(fn (VisitTask $task): array => [
+                    'id' => $task->id,
+                    'title' => $task->description,
+                    'description' => null,
+                    'due_at' => $executionVisit->scheduled_start_at->toIso8601String(),
+                    'priority' => 'normal',
+                    'status' => $task->status,
+                    'source' => 'visit_task',
+                    'visit_id' => $executionVisit->id,
+                ])
+                ->values()
+                ->all();
+        }
+
         return ClinicalTask::query()
             ->where('patient_id', $patient->id)
             ->whereDate('due_at', $visit->scheduled_date->toDateString())
@@ -253,8 +281,17 @@ class DayPackService
                 'due_at' => $task->due_at->toIso8601String(),
                 'priority' => $task->priority,
                 'status' => $task->status,
+                'source' => 'clinical_task',
             ])
             ->values()
             ->all();
+    }
+
+    private function executionVisitId(PlannedVisit $visit): ?string
+    {
+        return Visit::query()
+            ->where('planned_visit_id', $visit->id)
+            ->latest('created_at')
+            ->value('id');
     }
 }

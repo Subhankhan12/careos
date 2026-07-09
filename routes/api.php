@@ -5,6 +5,7 @@ use Illuminate\Support\Facades\Route;
 use Modules\Nursing\Http\Controllers\NurseAuthController;
 use Modules\Nursing\Http\Controllers\NurseDayPackController;
 use Modules\Nursing\Http\Controllers\NurseSyncController;
+use Modules\Nursing\Http\Controllers\NurseVisitAttachmentController;
 
 /*
 |--------------------------------------------------------------------------
@@ -29,5 +30,7 @@ Route::prefix('nurse')->group(function () {
         Route::post('/logout', [NurseAuthController::class, 'logout'])->name('api.nurse.logout');
         Route::get('/day-pack', NurseDayPackController::class)->name('api.nurse.day-pack');
         Route::post('/sync', NurseSyncController::class)->name('api.nurse.sync');
+        Route::get('/attachments/{attachment}/download', NurseVisitAttachmentController::class)
+            ->name('api.nurse.attachments.download');
     });
 });

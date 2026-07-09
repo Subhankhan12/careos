@@ -48,6 +48,15 @@ home-care visits, including who receives care, what is authorized, and who funds
 - `sync_conflicts` - tenant-owned human-review queue for ambiguous offline conflicts. Nullable
   `visit_id`, `nurse_resource_id`, action type, client payload, server state, reason, status
   (`open/resolved`), resolver, and timestamps.
+- `visit_tasks` - tenant-owned visit execution checklist rows. `visit_id`, nullable
+  `agreement_service_id`, description, status (`open/done/not_done`), reason-required
+  `not_done_reason`, and nullable `completed_at`.
+- `visit_notes` - tenant-owned nurse observational notes linked to visit and patient with body,
+  author nurse resource, and `recorded_at`. These are not D.2 signed clinical notes.
+- `visit_attachments` - tenant-owned private photo/signature metadata rows. File bytes live under
+  generated tenant-prefixed private disk paths and are streamed through an authorized controller.
+- `visit_vitals` - tenant-owned raw visit vitals linked to visit and patient using the D.3 vitals
+  column shape plus `extra`; no interpretation fields.
 
 ## Key services / classes
 
@@ -91,6 +100,8 @@ home-care visits, including who receives care, what is authorized, and who funds
   and D-E1 conflict policy.
 - `Models\NurseSyncAction`, `VisitObservation`, and `SyncConflict` - tenant-owned sync ledger,
   note persistence, and human-review conflict rows.
+- `Models\VisitTask`, `VisitNote`, `VisitAttachment`, and `VisitVital` - tenant-owned visit
+  execution rows for offline task outcomes, nurse notes, private files, and raw vitals.
 - `Events\NurseSyncActionProcessed` - app-layer audit glue records `nurse_sync.*` actions.
 - `Events\ServiceAgreementChanged` - app-layer audit glue records `service_agreement.*` actions.
 - `Events\PlannedVisitChanged` - app-layer audit glue records `planned_visit.materialized` and
@@ -170,15 +181,27 @@ home-care visits, including who receives care, what is authorized, and who funds
 - The PWA outbox is append-only until server acknowledgement, encrypted with the same AES-GCM
   session-derived key as the day-pack, and retried with exponential backoff (`1000ms`, `2000ms`,
   doubling to `60000ms` max).
+- E.7 visit execution actions use `visit_task_done`, `visit_task_not_done`, `visit_vitals`,
+  `visit_note`, `visit_photo`, and `visit_signature`. They replay idempotently through
+  `nurse_sync_actions`, write patient-scoped audit rows, and do not duplicate domain rows on replay.
+- A `visit_task_not_done` action is rejected unless `not_done_reason` is non-empty; accepted
+  done/not-done task actions update only the addressed same-tenant visit task.
+- Visit vitals are raw documented values only. The `visit_vitals` table intentionally has no
+  flag/range/score/interpretation/derived columns, and the PWA displays raw unit-labeled inputs
+  without interpretive colors or advice.
+- Photos and signatures are stored locally in the encrypted outbox until sync. The server validates
+  MIME/size, redacts base64 file bytes from the sync ledger payload, writes bytes to the private
+  local disk under a tenant-prefixed generated path, and exposes only controller-streamed downloads.
+- Nurse visit notes are observational visit documentation, not signed/locked SOAP clinical notes.
+  Clinician countersigning is deferred.
 
 ## Status
 
 **Phase E IN PROGRESS.** P0E.G1 service agreements, P0E.G2 planned visits from RRULE recurrence,
 P0E.G3 dispatcher assignment, P0E.G4 proof-of-visit, P0E.G5 nurse PWA encrypted day-pack sync, and
-P0E.G6 offline action queue/conflict policy are registered with tests and app-layer audit/read
-logging.
+P0E.G6 offline action queue/conflict policy, and P0E.G7 offline visit execution are registered
+with tests and app-layer audit/read logging.
 
 ## Open items
 
-- Later Nursing gates add richer visit execution UI/writeback surfaces and operational workflows on
-  top of the encrypted outbox.
+- Clinician countersigning for nurse observational visit notes is deferred.

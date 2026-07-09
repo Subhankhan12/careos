@@ -14,6 +14,14 @@ import {
 } from '../src/storage/dayPackStore';
 import { createIdleWipeScheduler } from '../src/idle';
 import type { DayPack } from '../src/types';
+import {
+    autosaveVisitNote,
+    queueTaskDone,
+    queueTaskNotDone,
+    queueVisitPhoto,
+    queueVisitSignature,
+    queueVisitVitals,
+} from '../src/visitActions';
 
 const knownAllergy = 'Penicillin';
 const sessionToken = 'plain-session-token-never-persisted';
@@ -69,6 +77,76 @@ beforeEach(async () => {
     clearSessionKey();
     await db.delete();
     await db.open();
+});
+
+describe('offline visit execution actions', () => {
+    test('task and raw vitals screens queue encrypted offline actions', async () => {
+        const dayPack = pack();
+        const visit = dayPack.visits[0];
+        const task = visit.tasks[0];
+
+        await setSessionToken(sessionToken);
+        await queueTaskDone(visit, task);
+        await queueTaskNotDone(visit, task, 'Patient declined this task');
+        await queueVisitVitals(visit, {
+            heart_rate: 72,
+            spo2: 98,
+            temperature_c: 36.7,
+        });
+
+        await expect(loadOutboxForReplay()).resolves.toMatchObject([
+            { type: 'visit_task_done' },
+            { type: 'visit_task_not_done', payload: { not_done_reason: 'Patient declined this task' } },
+            { type: 'visit_vitals', payload: { heart_rate: 72, spo2: 98, temperature_c: 36.7 } },
+        ]);
+        await expect(pendingOutboxCount()).resolves.toBe(3);
+    });
+
+    test('note autosave writes to the encrypted outbox and survives reload', async () => {
+        const knownNote = 'Patient drank tea before the visit ended';
+        const visit = pack().visits[0];
+
+        await setSessionToken(sessionToken);
+        await autosaveVisitNote(visit, knownNote);
+
+        expect(await rawIndexedDbPayload()).not.toContain(knownNote);
+
+        clearSessionKey();
+        await setSessionToken(sessionToken);
+
+        await expect(loadOutboxForReplay()).resolves.toMatchObject([
+            { type: 'visit_note', payload: { body: knownNote } },
+        ]);
+    });
+
+    test('photo and signature blobs are stored encrypted with no plaintext in IndexedDB', async () => {
+        const visit = pack().visits[0];
+        const knownPhoto = btoa('plain photo content');
+        const knownSignature = btoa('plain signature content');
+
+        await setSessionToken(sessionToken);
+        await queueVisitPhoto(visit, {
+            data: `data:image/png;base64,${knownPhoto}`,
+            mime_type: 'image/png',
+            size_bytes: knownPhoto.length,
+        });
+        await queueVisitSignature(visit, {
+            data: `data:image/png;base64,${knownSignature}`,
+            mime_type: 'image/png',
+            size_bytes: knownSignature.length,
+        });
+
+        const raw = await rawIndexedDbPayload();
+
+        expect(raw).not.toContain(knownPhoto);
+        expect(raw).not.toContain(knownSignature);
+        expect(raw).not.toContain('plain photo content');
+        expect(raw).not.toContain('plain signature content');
+        await expect(loadOutboxForReplay()).resolves.toMatchObject([
+            { type: 'visit_photo' },
+            { type: 'visit_signature' },
+        ]);
+    });
 });
 
 describe('encrypted day-pack store', () => {

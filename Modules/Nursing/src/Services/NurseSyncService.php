@@ -6,6 +6,8 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use InvalidArgumentException;
 use Modules\Clinical\Models\ClinicalTask;
 use Modules\Clinical\Models\Vital;
@@ -15,7 +17,11 @@ use Modules\Nursing\Models\NurseSyncAction;
 use Modules\Nursing\Models\PlannedVisit;
 use Modules\Nursing\Models\SyncConflict;
 use Modules\Nursing\Models\Visit;
+use Modules\Nursing\Models\VisitAttachment;
+use Modules\Nursing\Models\VisitNote;
 use Modules\Nursing\Models\VisitObservation;
+use Modules\Nursing\Models\VisitTask;
+use Modules\Nursing\Models\VisitVital;
 use Modules\People\Models\StaffProfile;
 use Modules\Platform\Models\User;
 use Modules\Platform\Services\TenantContext;
@@ -33,6 +39,16 @@ class NurseSyncService
     public const CODE_AMBIGUOUS_CONFLICT = 'ambiguous_conflict_review_required';
 
     public const CODE_VISIT_NOT_FOUND = 'visit_not_found';
+
+    public const CODE_VALIDATION_FAILED = 'validation_failed';
+
+    private const MAX_ATTACHMENT_BYTES = 5_242_880;
+
+    private const ALLOWED_ATTACHMENT_MIMES = [
+        'image/jpeg',
+        'image/png',
+        'image/webp',
+    ];
 
     public function __construct(
         private readonly TenantContext $tenantContext,
@@ -87,6 +103,12 @@ class NurseSyncService
                 'task_complete' => $this->taskComplete($nurse, $resource, $action, $payload),
                 'vitals' => $this->vitals($nurse, $resource, $action, $payload),
                 'note' => $this->note($nurse, $resource, $action, $payload),
+                'visit_task_done' => $this->visitTaskDone($nurse, $resource, $action, $payload),
+                'visit_task_not_done' => $this->visitTaskNotDone($nurse, $resource, $action, $payload),
+                'visit_vitals' => $this->visitVitals($nurse, $resource, $action, $payload),
+                'visit_note' => $this->visitNote($nurse, $resource, $action, $payload),
+                'visit_photo' => $this->visitAttachment($nurse, $resource, $action, $payload, VisitAttachment::TYPE_PHOTO),
+                'visit_signature' => $this->visitAttachment($nurse, $resource, $action, $payload, VisitAttachment::TYPE_SIGNATURE),
                 default => $this->ambiguous($nurse, $resource, $action, $payload, self::CODE_AMBIGUOUS_CONFLICT),
             };
         });
@@ -206,7 +228,11 @@ class NurseSyncService
         $visit = $this->visit($payload);
         $plannedVisit = $visit instanceof Visit ? $this->plannedVisitFor($visit) : null;
 
-        if (! $visit instanceof Visit || $this->scheduleChanged($plannedVisit, $visit, $resource)) {
+        if (! $visit instanceof Visit) {
+            return $this->recordLedger($nurse, $resource, $action, $payload, null, NurseSyncAction::STATUS_REJECTED, self::CODE_VISIT_NOT_FOUND, [], null);
+        }
+
+        if ($this->scheduleChanged($plannedVisit, $visit, $resource)) {
             return $this->rejectedSchedule($nurse, $resource, $action, $payload, $visit, $plannedVisit);
         }
 
@@ -233,7 +259,11 @@ class NurseSyncService
         $visit = $this->visit($payload);
         $plannedVisit = $visit instanceof Visit ? $this->plannedVisitFor($visit) : null;
 
-        if (! $visit instanceof Visit || $this->scheduleChanged($plannedVisit, $visit, $resource)) {
+        if (! $visit instanceof Visit) {
+            return $this->recordLedger($nurse, $resource, $action, $payload, null, NurseSyncAction::STATUS_REJECTED, self::CODE_VISIT_NOT_FOUND, [], null);
+        }
+
+        if ($this->scheduleChanged($plannedVisit, $visit, $resource)) {
             return $this->rejectedSchedule($nurse, $resource, $action, $payload, $visit, $plannedVisit);
         }
 
@@ -330,6 +360,211 @@ class NurseSyncService
             ],
             $visit->patient_id,
         );
+    }
+
+    /**
+     * @param  array<string, mixed>  $action
+     * @param  array<string, mixed>  $payload
+     * @return array<string, mixed>
+     */
+    private function visitTaskDone(User $nurse, Resource $resource, array $action, array $payload): array
+    {
+        $visit = $this->visit($payload);
+        $plannedVisit = $visit instanceof Visit ? $this->plannedVisitFor($visit) : null;
+
+        if (! $visit instanceof Visit) {
+            return $this->recordLedger($nurse, $resource, $action, $payload, null, NurseSyncAction::STATUS_REJECTED, self::CODE_VISIT_NOT_FOUND, [], null);
+        }
+
+        if ($this->scheduleChanged($plannedVisit, $visit, $resource)) {
+            return $this->rejectedSchedule($nurse, $resource, $action, $payload, $visit, $plannedVisit);
+        }
+
+        $task = $this->visitTask($payload, $visit);
+        if (! $task instanceof VisitTask) {
+            return $this->recordLedger($nurse, $resource, $action, $payload, $visit, NurseSyncAction::STATUS_REJECTED, self::CODE_VISIT_NOT_FOUND, [], $visit->patient_id);
+        }
+
+        $task->forceFill([
+            'status' => VisitTask::STATUS_DONE,
+            'not_done_reason' => null,
+            'completed_at' => (string) $action['device_timestamp'],
+        ])->save();
+
+        return $this->recordLedger($nurse, $resource, $action, $payload, $visit, NurseSyncAction::STATUS_ACCEPTED, self::CODE_ACCEPTED, [
+            'visit_task_id' => $task->id,
+        ], $visit->patient_id);
+    }
+
+    /**
+     * @param  array<string, mixed>  $action
+     * @param  array<string, mixed>  $payload
+     * @return array<string, mixed>
+     */
+    private function visitTaskNotDone(User $nurse, Resource $resource, array $action, array $payload): array
+    {
+        $visit = $this->visit($payload);
+        $plannedVisit = $visit instanceof Visit ? $this->plannedVisitFor($visit) : null;
+
+        if (! $visit instanceof Visit) {
+            return $this->recordLedger($nurse, $resource, $action, $payload, null, NurseSyncAction::STATUS_REJECTED, self::CODE_VISIT_NOT_FOUND, [], null);
+        }
+
+        if ($this->scheduleChanged($plannedVisit, $visit, $resource)) {
+            return $this->rejectedSchedule($nurse, $resource, $action, $payload, $visit, $plannedVisit);
+        }
+
+        $reason = trim((string) ($payload['not_done_reason'] ?? ''));
+        if ($reason === '') {
+            return $this->recordLedger($nurse, $resource, $action, $payload, $visit, NurseSyncAction::STATUS_REJECTED, self::CODE_VALIDATION_FAILED, [
+                'field' => 'not_done_reason',
+                'message' => 'A not-done visit task requires a reason.',
+            ], $visit->patient_id);
+        }
+
+        $task = $this->visitTask($payload, $visit);
+        if (! $task instanceof VisitTask) {
+            return $this->recordLedger($nurse, $resource, $action, $payload, $visit, NurseSyncAction::STATUS_REJECTED, self::CODE_VISIT_NOT_FOUND, [], $visit->patient_id);
+        }
+
+        $task->forceFill([
+            'status' => VisitTask::STATUS_NOT_DONE,
+            'not_done_reason' => $reason,
+            'completed_at' => (string) $action['device_timestamp'],
+        ])->save();
+
+        return $this->recordLedger($nurse, $resource, $action, $payload, $visit, NurseSyncAction::STATUS_ACCEPTED, self::CODE_ACCEPTED, [
+            'visit_task_id' => $task->id,
+        ], $visit->patient_id);
+    }
+
+    /**
+     * @param  array<string, mixed>  $action
+     * @param  array<string, mixed>  $payload
+     * @return array<string, mixed>
+     */
+    private function visitVitals(User $nurse, Resource $resource, array $action, array $payload): array
+    {
+        $visit = $this->visit($payload);
+        $plannedVisit = $visit instanceof Visit ? $this->plannedVisitFor($visit) : null;
+
+        if (! $visit instanceof Visit) {
+            return $this->recordLedger($nurse, $resource, $action, $payload, null, NurseSyncAction::STATUS_REJECTED, self::CODE_VISIT_NOT_FOUND, [], null);
+        }
+
+        if ($this->scheduleChanged($plannedVisit, $visit, $resource)) {
+            return $this->rejectedSchedule($nurse, $resource, $action, $payload, $visit, $plannedVisit);
+        }
+
+        $vital = VisitVital::query()->create([
+            'visit_id' => $visit->id,
+            'patient_id' => $visit->patient_id,
+            'recorded_at' => (string) $action['device_timestamp'],
+            'systolic' => $payload['systolic'] ?? null,
+            'diastolic' => $payload['diastolic'] ?? null,
+            'heart_rate' => $payload['heart_rate'] ?? null,
+            'temperature_c' => $payload['temperature_c'] ?? null,
+            'spo2' => $payload['spo2'] ?? null,
+            'weight_g' => $payload['weight_g'] ?? null,
+            'height_mm' => $payload['height_mm'] ?? null,
+            'extra' => [
+                'source' => 'nurse_pwa',
+                'client_action_uuid' => (string) $action['client_uuid'],
+                ...((array) ($payload['extra'] ?? [])),
+            ],
+        ]);
+
+        return $this->recordLedger($nurse, $resource, $action, $payload, $visit, NurseSyncAction::STATUS_ACCEPTED, self::CODE_ACCEPTED, [
+            'visit_vital_id' => $vital->id,
+        ], $visit->patient_id);
+    }
+
+    /**
+     * @param  array<string, mixed>  $action
+     * @param  array<string, mixed>  $payload
+     * @return array<string, mixed>
+     */
+    private function visitNote(User $nurse, Resource $resource, array $action, array $payload): array
+    {
+        $visit = $this->visit($payload);
+
+        if (! $visit instanceof Visit) {
+            return $this->recordLedger($nurse, $resource, $action, $payload, null, NurseSyncAction::STATUS_REJECTED, self::CODE_VISIT_NOT_FOUND, [], null);
+        }
+
+        $note = VisitNote::query()->create([
+            'visit_id' => $visit->id,
+            'patient_id' => $visit->patient_id,
+            'body' => (string) ($payload['body'] ?? $payload['note_text'] ?? ''),
+            'author_resource_id' => $resource->id,
+            'recorded_at' => (string) $action['device_timestamp'],
+        ]);
+
+        return $this->recordLedger($nurse, $resource, $action, $payload, $visit, NurseSyncAction::STATUS_ACCEPTED, self::CODE_ACCEPTED, [
+            'visit_note_id' => $note->id,
+        ], $visit->patient_id);
+    }
+
+    /**
+     * @param  array<string, mixed>  $action
+     * @param  array<string, mixed>  $payload
+     * @return array<string, mixed>
+     */
+    private function visitAttachment(User $nurse, Resource $resource, array $action, array $payload, string $type): array
+    {
+        $visit = $this->visit($payload);
+        $plannedVisit = $visit instanceof Visit ? $this->plannedVisitFor($visit) : null;
+        $ledgerPayload = $this->attachmentLedgerPayload($payload);
+
+        if (! $visit instanceof Visit) {
+            return $this->recordLedger($nurse, $resource, $action, $ledgerPayload, null, NurseSyncAction::STATUS_REJECTED, self::CODE_VISIT_NOT_FOUND, [], null);
+        }
+
+        if ($this->scheduleChanged($plannedVisit, $visit, $resource)) {
+            return $this->rejectedSchedule($nurse, $resource, $action, $ledgerPayload, $visit, $plannedVisit);
+        }
+
+        $mime = (string) ($payload['mime_type'] ?? '');
+        $bytes = $this->attachmentBytes((string) ($payload['data'] ?? ''));
+
+        if (! in_array($mime, self::ALLOWED_ATTACHMENT_MIMES, true) || strlen($bytes) === 0 || strlen($bytes) > self::MAX_ATTACHMENT_BYTES) {
+            return $this->recordLedger($nurse, $resource, $action, $ledgerPayload, $visit, NurseSyncAction::STATUS_REJECTED, self::CODE_VALIDATION_FAILED, [
+                'field' => 'attachment',
+                'message' => 'Attachment type or size is not allowed.',
+            ], $visit->patient_id);
+        }
+
+        $extensions = [
+            'image/jpeg' => 'jpg',
+            'image/png' => 'png',
+            'image/webp' => 'webp',
+        ];
+        $extension = $extensions[$mime];
+        $path = sprintf(
+            'tenants/%s/nursing-attachments/%s/%s/%s.%s',
+            $visit->tenant_id,
+            $visit->patient_id,
+            $visit->id,
+            (string) Str::ulid(),
+            $extension,
+        );
+
+        Storage::disk('local')->put($path, $bytes);
+
+        $attachment = VisitAttachment::query()->create([
+            'visit_id' => $visit->id,
+            'patient_id' => $visit->patient_id,
+            'type' => $type,
+            'storage_path' => $path,
+            'mime_type' => $mime,
+            'size_bytes' => strlen($bytes),
+            'captured_at' => (string) $action['device_timestamp'],
+        ]);
+
+        return $this->recordLedger($nurse, $resource, $action, $ledgerPayload, $visit, NurseSyncAction::STATUS_ACCEPTED, self::CODE_ACCEPTED, [
+            'visit_attachment_id' => $attachment->id,
+            'type' => $type,
+        ], $visit->patient_id);
     }
 
     /**
@@ -444,6 +679,23 @@ class NurseSyncService
     /**
      * @param  array<string, mixed>  $payload
      */
+    private function visitTask(array $payload, Visit $visit): ?VisitTask
+    {
+        $taskId = (string) ($payload['visit_task_id'] ?? $payload['task_id'] ?? '');
+        if ($taskId === '') {
+            return null;
+        }
+
+        return VisitTask::query()
+            ->whereKey($taskId)
+            ->where('visit_id', $visit->id)
+            ->lockForUpdate()
+            ->first();
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     */
     private function plannedVisit(array $payload): ?PlannedVisit
     {
         if (! isset($payload['planned_visit_id'])) {
@@ -487,6 +739,29 @@ class NurseSyncService
         }
 
         return $payload['manual_reason'] ?? null;
+    }
+
+    private function attachmentBytes(string $data): string
+    {
+        if (str_contains($data, ',')) {
+            $data = substr($data, (int) strpos($data, ',') + 1);
+        }
+
+        $decoded = base64_decode($data, true);
+
+        return $decoded === false ? '' : $decoded;
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     * @return array<string, mixed>
+     */
+    private function attachmentLedgerPayload(array $payload): array
+    {
+        unset($payload['data']);
+        $payload['data_redacted'] = true;
+
+        return $payload;
     }
 
     private function staffIdFor(Resource $resource): string
