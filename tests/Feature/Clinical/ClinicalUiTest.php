@@ -421,3 +421,80 @@ test('day-board document action opens an encounter creates a draft note and redi
         ->and($note->status)->toBe(ClinicalNote::STATUS_DRAFT)
         ->and($note->subjective)->toBe('Template subjective');
 });
+
+test('full consult loop from day board through signed note amendment and chart history', function () {
+    $tenant = d7Tenant('alpha');
+    d7Ctx()->set($tenant);
+    $doctor = d7User($tenant, 'doctor');
+    $branch = d7Branch();
+    $patient = d7Patient();
+    $practitioner = d7Practitioner($branch, $doctor);
+    $service = d7Service();
+    $resource = d7Resource($branch, $practitioner);
+    $appointment = d7Book($service, $patient, $branch, $resource, $doctor);
+    d7Template(['name' => 'Default SOAP']);
+
+    $this->actingAs($doctor)
+        ->get(route('scheduling.day-board', ['branch_id' => $branch->id, 'date' => '2026-07-13']))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('Scheduling/DayBoard')
+            ->where('appointments.0.id', $appointment->id));
+
+    $this->actingAs($doctor)
+        ->post(route('scheduling.day-board.open-encounter'), ['appointment_id' => $appointment->id])
+        ->assertRedirect();
+
+    $encounter = Encounter::query()->where('appointment_id', $appointment->id)->firstOrFail();
+    $note = ClinicalNote::query()->where('encounter_id', $encounter->id)->firstOrFail();
+
+    $this->actingAs($doctor)
+        ->patch(route('clinical.notes.update', $note->id), [
+            'subjective' => 'Documented subjective for the full loop.',
+            'objective' => 'Documented objective for the full loop.',
+            'assessment' => 'Documented assessment for the full loop.',
+            'plan' => 'Documented plan for the full loop.',
+        ])
+        ->assertRedirect(route('clinical.notes.edit', $note->id));
+
+    $this->actingAs($doctor)
+        ->post(route('clinical.notes.sign', $note->id))
+        ->assertRedirect(route('clinical.notes.edit', $note->id));
+
+    $signed = $note->refresh();
+
+    $this->actingAs($doctor)
+        ->get(route('clinical.chart', $patient->id))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('Clinical/Chart')
+            ->has('notes', 1)
+            ->where('notes.0.id', $signed->id)
+            ->where('notes.0.status', ClinicalNote::STATUS_SIGNED)
+            ->where('notes.0.versions.0.id', $signed->id));
+
+    $this->actingAs($doctor)
+        ->post(route('clinical.notes.amend', $signed->id), ['reason' => 'Clarify documented wording'])
+        ->assertRedirect();
+
+    $amendment = ClinicalNote::query()->where('supersedes_id', $signed->id)->firstOrFail();
+
+    $this->actingAs($doctor)
+        ->get(route('clinical.chart', $patient->id))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('Clinical/Chart')
+            ->has('notes', 1)
+            ->has('notes.0.versions', 2)
+            ->where('notes.0.versions.0.id', $signed->id)
+            ->where('notes.0.versions.0.status', ClinicalNote::STATUS_SIGNED)
+            ->where('notes.0.versions.1.id', $amendment->id)
+            ->where('notes.0.versions.1.amendment_reason', 'Clarify documented wording'));
+
+    expect($appointment->refresh()->status)->toBe(Appointment::STATUS_IN_PROGRESS)
+        ->and($encounter->refresh()->status)->toBe(Encounter::STATUS_OPEN)
+        ->and($signed->refresh()->subjective)->toBe('Documented subjective for the full loop.')
+        ->and($signed->status)->toBe(ClinicalNote::STATUS_SIGNED)
+        ->and($amendment->version)->toBe(2)
+        ->and(app(AuditService::class)->verifyChain($tenant->id)['ok'])->toBeTrue();
+});

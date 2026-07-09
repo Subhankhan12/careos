@@ -189,15 +189,17 @@ components. D.8 adds governed clinical agents through app-layer AiCore integrati
   record. Clinician insertion is a separate server-side action and revalidates all sources.
 - D.8 Follow-up agent drafts wording only for D.5 recall recipients selected by deterministic
   rules; no recipient selection, advice, symptom guidance, or urgency inference lives in the agent.
+- D.C full consult loop test proves day-board -> open encounter -> SOAP draft -> sign -> chart
+  signed note -> amend with reason -> chart shows both versions -> audit chain verifies.
 
 ## Status
 
-**Phase D in progress.** D.1 encounters, D.2 SOAP notes, D.3 clinical lists/allergy hard-stop,
-D.4 clinical documents, D.5 referrals/recalls, D.6 care plans/tasks/worklist, D.7 clinical UI, and
-D.8 clinical agents are registered and covered by feature and architecture tests. Local
-`composer check` is green: 221 tests / 1144 assertions. Local `cmd /c npm run build` is green for
-the clinical pages.
+**Phase D COMPLETE.** D.1 encounters, D.2 SOAP notes, D.3 clinical lists/allergy hard-stop,
+D.4 clinical documents, D.5 referrals/recalls, D.6 care plans/tasks/worklist, D.7 clinical UI,
+D.8 clinical agents, and D.C full-loop consolidation are registered and covered by feature and
+architecture tests. Local `composer check` is green: 222 tests / 1202 assertions. Local
+`cmd /c npm run build` is green for the clinical pages.
 
 ## Open items
 
-- Execute only the next pasted Phase D gate.
+- Next phase: Phase E - Nursing wedge (home care, dispatch, offline-first nurse PWA).

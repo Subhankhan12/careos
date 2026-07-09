@@ -3,17 +3,20 @@
 Short, factual snapshot of where the project stands. Updated at consolidations and after gates
 (per the MEMORY PROTOCOL in AGENTS.md).
 
-- **Current phase:** Phase D - Clinical core - **in progress**. Latest gate: D.8 clinical agents.
-- **Commits:** 42 on `main` after P0D.G8 (Summary + Follow-up agents).
+- **Current phase:** Phase D - Clinical core - **COMPLETE**. Next: Phase E - Nursing wedge
+  (home care, dispatch, offline-first nurse PWA).
+- **Commits:** 43 on `main` after P0D.C (Phase D consolidation).
   Phase A = 11 (P0A.G1-G8, P0A.GM, P0A.GF, P0A.GF3), pushed to `origin/main`
   (https://github.com/Subhankhan12/careos).
 - **Verified quality (from actual output):** `composer check` green - Pint `passed`,
-  PHPStan level 5 `[OK] No errors`, Pest **221 passed / 1144 assertions**; `cmd /c npm run build`
-  green (Vite production build, 667 modules transformed). CI is green on MySQL 8 +
-  Redis for latest pushed Phase C gate commit `c46301e`.
+  PHPStan level 5 `[OK] No errors`, Pest **222 passed / 1202 assertions**; `cmd /c npm run build`
+  green (Vite production build, 667 modules transformed). CI is green on MySQL 8 + Redis for
+  latest pushed Phase D gate commit `d09b6b1`; P0D.C CI is checked after push.
 - **Stack (verified):** Laravel 12.63.0 on PHP 8.2.12; DEV DB = `careos` on XAMPP MariaDB
-  10.4.32 (127.0.0.1:3306); Redis-compatible server on 127.0.0.1:6379 with Predis; queue/cache
-  use Redis + Horizon; sessions remain database; Fortify + Sanctum.
+  10.4.32 (127.0.0.1:3306); Redis-compatible server on 127.0.0.1:6379 with Predis (`PONG`);
+  queue/cache use Redis and Horizon is installed/guarded. Local Windows PHP lacks `pcntl`, so
+  `php artisan horizon` exits after startup locally; CI Linux installs `pcntl`/`posix`. Sessions
+  remain database; Fortify + Sanctum.
 - **Proven in Phase A:**
   - Fail-closed multi-tenancy (TenantContext + BelongsToTenant; no-context queries throw).
   - Fortify auth + **mandatory TOTP MFA** + tenant identification (suspended tenants denied).
@@ -171,4 +174,7 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
     outreach wording only from deterministic D.5 recall rows plus clinician-authored templates;
     it never selects recipients, gives advice, or marks delivery-ready without `comms.email`
     consent.
-- **Next action:** Execute only the next pasted Phase D gate.
+  - Full consult loop is covered end to end: day-board -> open encounter -> SOAP draft -> sign ->
+    chart shows signed note -> amend with reason -> chart shows both versions -> audit chain
+    verifies.
+- **Next action:** Execute only the next pasted Phase E gate.
