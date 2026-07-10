@@ -1,39 +1,37 @@
 <?php
 
 use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
     public function up(): void
     {
-        DB::unprepared(<<<'SQL'
-CREATE TABLE visit_events (
-    id CHAR(26) NOT NULL,
-    tenant_id CHAR(26) NOT NULL,
-    visit_id CHAR(26) NOT NULL,
-    type VARCHAR(32) NOT NULL,
-    occurred_at DATETIME(6) NOT NULL,
-    received_at DATETIME(6) NOT NULL,
-    location POINT /*!80003 SRID 4326 */ NULL,
-    location_index POINT /*!80003 SRID 4326 */ NOT NULL,
-    accuracy_meters DECIMAL(8, 2) NULL,
-    location_source VARCHAR(20) NOT NULL,
-    manual_reason TEXT NULL,
-    distance_meters DECIMAL(10, 2) NULL,
-    recorded_by BIGINT UNSIGNED NOT NULL,
-    created_at TIMESTAMP NULL,
-    updated_at TIMESTAMP NULL,
-    PRIMARY KEY (id),
-    CONSTRAINT visit_events_tenant_id_foreign FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE,
-    CONSTRAINT visit_events_visit_id_foreign FOREIGN KEY (visit_id) REFERENCES visits(id) ON DELETE CASCADE,
-    CONSTRAINT visit_events_recorded_by_foreign FOREIGN KEY (recorded_by) REFERENCES users(id) ON DELETE RESTRICT,
-    UNIQUE KEY visit_events_type_once (tenant_id, visit_id, type),
-    KEY visit_events_visit_idx (tenant_id, visit_id),
-    KEY visit_events_recorded_by_idx (tenant_id, recorded_by),
-    SPATIAL INDEX visit_events_location_spatial (location_index)
-)
-SQL);
+        Schema::create('visit_events', function (Blueprint $table): void {
+            $table->ulid('id')->primary();
+            $table->char('tenant_id', 26);
+            $table->ulid('visit_id');
+            $table->string('type', 32);
+            $table->dateTime('occurred_at', 6);
+            $table->dateTime('received_at', 6);
+            $table->geometry('location', 'point')->nullable();
+            $table->geometry('location_index', 'point');
+            $table->decimal('accuracy_meters', 8, 2)->nullable();
+            $table->string('location_source', 20);
+            $table->text('manual_reason')->nullable();
+            $table->decimal('distance_meters', 10, 2)->nullable();
+            $table->foreignId('recorded_by')->constrained('users')->restrictOnDelete();
+            $table->timestamps();
+
+            $table->foreign('tenant_id')->references('id')->on('tenants')->cascadeOnDelete();
+            $table->foreign('visit_id')->references('id')->on('visits')->cascadeOnDelete();
+            $table->unique(['tenant_id', 'visit_id', 'type'], 'visit_events_type_once');
+            $table->index(['tenant_id', 'visit_id'], 'visit_events_visit_idx');
+            $table->index(['tenant_id', 'recorded_by'], 'visit_events_recorded_by_idx');
+            $table->spatialIndex('location_index', 'visit_events_location_spatial');
+        });
 
         DB::unprepared(<<<'SQL'
 CREATE TRIGGER visit_events_no_update BEFORE UPDATE ON visit_events
@@ -56,6 +54,6 @@ SQL);
     {
         DB::unprepared('DROP TRIGGER IF EXISTS visit_events_no_update');
         DB::unprepared('DROP TRIGGER IF EXISTS visit_events_no_delete');
-        DB::unprepared('DROP TABLE IF EXISTS visit_events');
+        Schema::dropIfExists('visit_events');
     }
 };

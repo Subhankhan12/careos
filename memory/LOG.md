@@ -55,3 +55,4 @@ One line per completed gate. Newest at bottom. Format: `<commit> P<phase>.G<n>: 
 - `(pending)` P0E.G7: Visit execution in the Nurse PWA - offline task outcomes, raw visit vitals, nurse notes, private photos/signatures via encrypted outbox; 264 tests / 1470 assertions; npm build + build:pwa + test:pwa green.
 - `(pending)` P0E.G8: Incidents + timesheets from actuals - offline incident reports with reporter-selected severity, actual check-in/out timesheet generation, discrepancy flags, approved-line immutability; 271 tests / 1507 assertions; npm build + build:pwa + test:pwa green.
 - `(pending)` P0E.G9: Dispatch agent - validator-bound nursing assignment/replan proposals under AiCore approval governance; 277 tests / 1546 assertions.
+- `(pending)` P0E.C: Phase E consolidation - airplane-mode offline visit loop test added; 278 tests / 1586 assertions; npm build + build:pwa + test:pwa green.

@@ -49,7 +49,13 @@ return new class extends Migration
                 'ALTER TABLE patients ADD FULLTEXT INDEX patients_name_fulltext (first_name, last_name) WITH PARSER ngram'
             );
         } catch (QueryException $exception) {
-            if (! str_contains($exception->getMessage(), "Function 'ngram' is not defined")) {
+            $message = strtolower($exception->getMessage());
+
+            if (
+                ! str_contains($message, 'ngram')
+                && ! str_contains($message, 'parser')
+                && ! str_contains($message, 'plugin')
+            ) {
                 throw $exception;
             }
 

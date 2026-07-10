@@ -2,8 +2,9 @@
 
 ## Purpose
 
-Tenant-owned nursing/home-care wedge. E.1 adds service agreements: the contract behind recurring
-home-care visits, including who receives care, what is authorized, and who funds it.
+Tenant-owned nursing/home-care wedge: service agreements, recurrence-generated planned visits,
+validated dispatch, proof-of-visit, offline-first nurse PWA sync, incidents, actual-timesheets,
+and validator-bound dispatch agent proposals.
 
 ## Key tables
 
@@ -224,14 +225,20 @@ home-care visits, including who receives care, what is authorized, and who funds
 - Dispatch agent proposals are accepted only if `AssignmentValidator` returns no reasons. The agent
   never assigns while pending, never bypasses the E.3 locked assignment path, and refuses clinically
   framed prioritization requests.
+- Phase E exit is proven by `airplane mode: full offline visit syncs and produces a timesheet line`.
+  The test logs a nurse in, syncs a day-pack with patient read audit, replays an offline visit outbox
+  through the real sync API, verifies one completed visit with one vitals row, note, photo,
+  signature, and two visit events, generates a timesheet line from actual check-in/out times, and
+  replays the same batch with no duplicates. Browser transport-level offline is deferred because
+  Playwright is not installed; PWA Vitest covers encrypted Dexie/outbox offline persistence.
 
 ## Status
 
-**Phase E IN PROGRESS.** P0E.G1 service agreements, P0E.G2 planned visits from RRULE recurrence,
+**Phase E COMPLETE.** P0E.G1 service agreements, P0E.G2 planned visits from RRULE recurrence,
 P0E.G3 dispatcher assignment, P0E.G4 proof-of-visit, P0E.G5 nurse PWA encrypted day-pack sync,
 P0E.G6 offline action queue/conflict policy, P0E.G7 offline visit execution, P0E.G8 incidents
-and actual-timesheets, and P0E.G9 dispatch agent proposals are registered with tests and
-app-layer audit/read logging.
+and actual-timesheets, P0E.G9 dispatch agent proposals, and P0E.C airplane-mode consolidation are
+registered with tests and app-layer audit/read logging.
 
 ## Open items
 

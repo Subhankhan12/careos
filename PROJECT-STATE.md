@@ -3,16 +3,15 @@
 Short, factual snapshot of where the project stands. Updated at consolidations and after gates
 (per the MEMORY PROTOCOL in AGENTS.md).
 
-- **Current phase:** Phase E - Nursing wedge - **IN PROGRESS**. Latest gate: P0E.G9 Dispatch
-  agent. Next: wait for Gate E.10 or Phase E consolidation.
-- **Commits:** 53 on `main` after P0E.G9 (Dispatch agent).
+- **Current phase:** Phase E - Nursing wedge - **COMPLETE**. Latest gate: P0E.C consolidation.
+  Next: Phase F - Billing engine + EU-Generic market pack (the reconcile-to-the-unit gate).
+- **Commits:** 54 on `main` after P0E.C (Phase E consolidation).
   Phase A = 11 (P0A.G1-G8, P0A.GM, P0A.GF, P0A.GF3), pushed to `origin/main`
   (https://github.com/Subhankhan12/careos).
 - **Verified quality (from actual output):** `composer check` green - Pint `passed`,
-  PHPStan level 5 `[OK] No errors`, Pest **277 passed / 1546 assertions**. Latest gate did not
-  touch UI/PWA assets; prior `cmd /c npm run build`, `cmd /c npm run test:pwa`, and
-  `cmd /c npm run build:pwa` were green at P0E.G8. CI was green on MySQL 8 + Redis for Phase D;
-  latest Phase E CI is checked after push.
+  PHPStan level 5 `[OK] No errors`, Pest **278 passed / 1586 assertions**. `cmd /c npm run build`
+  green, `cmd /c npm run test:pwa` green (**15 passed**), and `cmd /c npm run build:pwa` green.
+  Latest Phase E CI is checked after push.
 - **Stack (verified):** Laravel 12.63.0 on PHP 8.2.12; DEV DB = `careos` on XAMPP MariaDB
   10.4.32 (127.0.0.1:3306); Redis-compatible server on 127.0.0.1:6379 with Predis (`PONG`);
   queue/cache use Redis and Horizon is installed/guarded. Local Windows PHP lacks `pcntl`, so
@@ -178,7 +177,7 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
   - Full consult loop is covered end to end: day-board -> open encounter -> SOAP draft -> sign ->
     chart shows signed note -> amend with reason -> chart shows both versions -> audit chain
     verifies.
-- **Proven in Phase E so far:**
+- **Proven in Phase E:**
   - Nursing module registered with fail-closed tenant-owned `service_agreements` and
     `agreement_services`.
   - Service agreements link patient, branch, funding/authorization metadata, authorized hours,
@@ -272,4 +271,15 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
   `VisitAssignmentService::assign()`.
 - Dispatch agent is logistics-only and refuses clinically framed prioritization requests such as
   "which patient is sickest?" with handoff and no `agent_action`.
-- **Next action:** Wait for Gate E.10 or Phase E consolidation.
+- Phase E exit criterion is covered by the CI-runnable test
+  `airplane mode: full offline visit syncs and produces a timesheet line`: nurse logs in, syncs
+  a one-patient day-pack with read audit, replays offline check-in/task/vitals/note/photo/signature/
+  check-out in sequence through `/api/nurse/sync`, verifies exactly one set of server rows, verifies
+  audit chain, generates a timesheet line from actual check-in/out times, and replays the same batch
+  again with no duplicates.
+- Honest local harness note: Playwright/browser `context.setOffline(true)` is not installed in this
+  repo. The airplane-mode consolidation proof is a Laravel API end-to-end test plus the existing
+  PWA Vitest encryption/offline-persistence suite. Local Windows PHP also lacks `pcntl`, so
+  `php artisan horizon` exits after startup; Redis itself is live (`PONG`) and the Redis queue
+  round-trip plus Horizon dashboard guard pass in the suite.
+- **Next action:** Phase F - Billing engine + EU-Generic market pack (the reconcile-to-the-unit gate).
