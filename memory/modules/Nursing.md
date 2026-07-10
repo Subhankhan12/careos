@@ -113,6 +113,8 @@ home-care visits, including who receives care, what is authorized, and who funds
   with same-tenant guards; approved timesheet lines are immutable at model and DB-trigger level.
 - `Services\TimesheetService` - derives draft timesheet lines from completed visits' actual
   check-in/check-out events, flags discrepancies, and gates approval through `timesheet.approve`.
+- App-layer AiCore `DispatchAgent` tools propose Nursing assignments/replans through
+  `NursingDispatchProposalEngine`; approved proposals execute through `VisitAssignmentService`.
 - `Events\NurseSyncActionProcessed` - app-layer audit glue records `nurse_sync.*` actions.
 - `Events\IncidentReported` - app-layer audit glue records `incident.reported` with patient_id and
   explicit reporter-selected severity context.
@@ -219,13 +221,17 @@ home-care visits, including who receives care, what is authorized, and who funds
 - Draft timesheet lines remain editable. Approval requires `timesheet.approve` and then locks the
   row at both model and database-trigger level; raw UPDATE/DELETE of approved rows is blocked.
 - Starter RBAC grants `timesheet.approve` to org-admin and coordinator roles.
+- Dispatch agent proposals are accepted only if `AssignmentValidator` returns no reasons. The agent
+  never assigns while pending, never bypasses the E.3 locked assignment path, and refuses clinically
+  framed prioritization requests.
 
 ## Status
 
 **Phase E IN PROGRESS.** P0E.G1 service agreements, P0E.G2 planned visits from RRULE recurrence,
 P0E.G3 dispatcher assignment, P0E.G4 proof-of-visit, P0E.G5 nurse PWA encrypted day-pack sync,
-P0E.G6 offline action queue/conflict policy, P0E.G7 offline visit execution, and P0E.G8 incidents
-and actual-timesheets are registered with tests and app-layer audit/read logging.
+P0E.G6 offline action queue/conflict policy, P0E.G7 offline visit execution, P0E.G8 incidents
+and actual-timesheets, and P0E.G9 dispatch agent proposals are registered with tests and
+app-layer audit/read logging.
 
 ## Open items
 

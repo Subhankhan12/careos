@@ -53,6 +53,13 @@ triage, symptom assessment, or dosing logic anywhere.
   templates, checks `comms.email` consent on approval, and is capped at `suggest`.
 - `App\AiCore\Support\ClinicalSummarySourceValidator` - rejects any Summary line without a source
   resolving to that same patient's signed note SOAP field or clinical-list row.
+- `App\AiCore\Agents\DispatchAgent` / `Tools\NursingProposeAssignmentsTool` /
+  `Tools\NursingReplanDayTool` - governed Nursing dispatch agent path. It proposes visit-to-nurse
+  assignments and replans only after deterministic Nursing validator acceptance, creates approval
+  queue items, and executes assignments only on human approval.
+- `App\AiCore\Support\NursingDispatchProposalEngine` - app-layer composition that binds dispatch
+  proposals to Nursing's `AssignmentValidator` without adding cross-module dependencies inside
+  AiCore.
 - `Events\AiInteractionRecorded` and `Events\AgentActionLifecycleChanged` - app-layer audit glue
   records ledger/action paths into the audit chain without AiCore depending on Audit.
 
@@ -80,14 +87,23 @@ triage, symptom assessment, or dosing logic anywhere.
   can insert an already source-validated draft into an editable note.
 - Follow-up never selects recall recipients; recipients come from deterministic D.5 `RecallEngine`
   rows, and approval without `comms.email` consent returns blocked/no-send.
+- Nursing Dispatch tools require `dispatch.manage`, are operational, and have explicit `approve`
+  autonomy ceilings; attempted `auto` settings degrade to `approve`.
+- Nursing Dispatch proposals are logistics-only: qualification codes, time windows, straight-line
+  travel, and hour caps. Clinically framed prioritization requests are refused with human handoff,
+  write `ai_interactions`, and create no `agent_actions`.
+- Invalid Nursing Dispatch proposals are rejected before approval queue creation and recorded as
+  `invalid_proposal`; pending proposals do not assign anything. Approval executes through
+  `VisitAssignmentService::assign()`.
 - AiCore may use Platform for tenant/settings/RBAC primitives; it does not depend on Audit or domain
   modules. Audit composition lives in `app/`.
 
 ## Status
 
-**Phase C COMPLETE / active; Phase D clinical agents added.** The governed runtime foundation runs
-Scheduler Agent, Front-Desk Agent, and now D.8 clinical Summary + Follow-up agents. Local
-`composer check` is green: 221 tests / 1144 assertions; `cmd /c npm run build` green.
+**Phase C COMPLETE / active; Phase D clinical agents and Phase E Dispatch agent added.** The
+governed runtime foundation runs Scheduler Agent, Front-Desk Agent, D.8 clinical Summary +
+Follow-up agents, and E.9 Nursing Dispatch proposals. Local `composer check` is green:
+277 tests / 1546 assertions.
 
 ## Open items
 

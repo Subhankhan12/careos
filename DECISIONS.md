@@ -190,3 +190,10 @@ references the old ID.
   flagged for human review rather than guessed or auto-corrected; approved lines become immutable.
   Incident severity is stored exactly as selected by the reporter. CareOS does not assess incident
   severity, advise action, or escalate based on clinical judgment (P0E.G8).
+- **D-049 - Dispatch agent proposals are validator-bound and approval-only.** The Nursing Dispatch
+  agent is operational/logistics-only and may reason only about qualification, time windows,
+  straight-line travel, and hour caps. Every proposed assignment/replan is re-run through the
+  deterministic `AssignmentValidator` before an approval action exists; invalid proposals are
+  logged and rejected before surfacing. Pending proposals assign nothing, and approval executes
+  only through `VisitAssignmentService::assign()` under the E.3 locking discipline. Clinically
+  framed prioritization requests are refused with handoff (P0E.G9).

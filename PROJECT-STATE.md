@@ -3,17 +3,16 @@
 Short, factual snapshot of where the project stands. Updated at consolidations and after gates
 (per the MEMORY PROTOCOL in AGENTS.md).
 
-- **Current phase:** Phase E - Nursing wedge - **IN PROGRESS**. Latest gate: P0E.G8 incidents and
-  actual-timesheets. Next: wait for Gate E.9.
-- **Commits:** 52 on `main` after P0E.G8 (incidents + timesheets from actuals).
+- **Current phase:** Phase E - Nursing wedge - **IN PROGRESS**. Latest gate: P0E.G9 Dispatch
+  agent. Next: wait for Gate E.10 or Phase E consolidation.
+- **Commits:** 53 on `main` after P0E.G9 (Dispatch agent).
   Phase A = 11 (P0A.G1-G8, P0A.GM, P0A.GF, P0A.GF3), pushed to `origin/main`
   (https://github.com/Subhankhan12/careos).
 - **Verified quality (from actual output):** `composer check` green - Pint `passed`,
-  PHPStan level 5 `[OK] No errors`, Pest **271 passed / 1507 assertions**; `cmd /c npm run build`
-  green (`vite build`, 669 modules transformed); `cmd /c npm run test:pwa` green
-  (**15 passed / 15**); `cmd /c npm run build:pwa` green (43 modules transformed, Workbox service
-  worker generated). CI was green on MySQL 8 + Redis for Phase D; latest Phase E CI is checked
-  after push.
+  PHPStan level 5 `[OK] No errors`, Pest **277 passed / 1546 assertions**. Latest gate did not
+  touch UI/PWA assets; prior `cmd /c npm run build`, `cmd /c npm run test:pwa`, and
+  `cmd /c npm run build:pwa` were green at P0E.G8. CI was green on MySQL 8 + Redis for Phase D;
+  latest Phase E CI is checked after push.
 - **Stack (verified):** Laravel 12.63.0 on PHP 8.2.12; DEV DB = `careos` on XAMPP MariaDB
   10.4.32 (127.0.0.1:3306); Redis-compatible server on 127.0.0.1:6379 with Predis (`PONG`);
   queue/cache use Redis and Horizon is installed/guarded. Local Windows PHP lacks `pcntl`, so
@@ -267,4 +266,10 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
   for approver review rather than guessed or auto-corrected.
 - Approved timesheet lines are immutable at both model level and DB-trigger level while drafts
   remain editable. Approval requires `timesheet.approve` (org-admin/coordinator starter roles).
-- **Next action:** Wait for Gate E.9.
+- Dispatch agent runs under AiCore governance with `nursing.propose_assignments` and
+  `nursing.replan_day` tools capped at `approve`; pending proposals assign nothing, invalid
+  proposals are rejected before the approval queue, and approval executes through
+  `VisitAssignmentService::assign()`.
+- Dispatch agent is logistics-only and refuses clinically framed prioritization requests such as
+  "which patient is sickest?" with handoff and no `agent_action`.
+- **Next action:** Wait for Gate E.10 or Phase E consolidation.

@@ -50,6 +50,18 @@ class PromptRegistry
                 'Draft recall outreach wording only from clinician templates and deterministic recall records. Do not select recipients or give medical advice.',
                 true,
             ),
+            'nursing.dispatch_assignments:1' => new PromptVersion(
+                'nursing.dispatch_assignments',
+                1,
+                'Propose nursing visit-to-nurse assignments from logistics constraints only. Re-validate with deterministic assignment rules and require human approval before assignment.',
+                true,
+            ),
+            'nursing.dispatch_replan:1' => new PromptVersion(
+                'nursing.dispatch_replan',
+                1,
+                'Propose day-of nursing replans from logistics constraints only. Re-validate with deterministic assignment rules and require human approval before assignment.',
+                true,
+            ),
         ];
     }
 
