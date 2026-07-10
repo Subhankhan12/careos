@@ -2,8 +2,8 @@
 
 ## Status
 
-Phase F active. P0F.G4 added invoices, gapless numbering, issued-document immutability, and
-credit notes.
+Phase F active. P0F.G5 added append-only payments, allocations, reversals, and refunds against
+invoices. P0F.G4 added invoices, gapless numbering, issued-document immutability, and credit notes.
 
 ## Key classes
 
@@ -38,6 +38,17 @@ credit notes.
   charges invoiced, and writes patient-scoped audit events.
 - `Modules\Billing\Services\InvoicePdfRenderer`: renders the EU-Generic VAT invoice artifact to
   private tenant-prefixed local storage.
+- `Modules\Billing\Models\Payment`: tenant-owned append-only money-received record; nullable
+  `patient_id` (payer may differ from patient), method, positive `amount_minor`, currency,
+  `received_on`. Model + DB triggers block UPDATE/DELETE.
+- `Modules\Billing\Models\Refund`: tenant-owned append-only refund row referencing a payment with a
+  required reason; never a negative payment and never an edit. Model + DB triggers block UPDATE/DELETE.
+- `Modules\Billing\Models\PaymentAllocation`: tenant-owned append-only allocation of a payment to an
+  invoice; positive `amount_minor` for allocations, exact negative for reversals via
+  `reverses_allocation_id`. Model + DB triggers block UPDATE/DELETE.
+- `Modules\Billing\Services\PaymentService`: records payments, allocates to invoices, reverses
+  allocations, and refunds; derives `unallocated(payment)`/`openBalance(invoice)` by exact integer
+  arithmetic; refreshes the `invoice_balances` projection; writes patient-scoped audit events.
 
 ## Invariants
 
@@ -89,6 +100,32 @@ credit notes.
   reference original invoice lines, and leave the original invoice document unchanged. Full credits
   may update only the mutable `invoice_balances` projection for the original.
 
+- Payments, refunds, and payment_allocations are append-only at model and DB-trigger level (raw
+  UPDATE/DELETE both `SIGNAL SQLSTATE '45000'`). De-allocation is a reversal ROW, never a delete;
+  corrections are new rows, never mutations.
+- Allocation `amount_minor` is signed: allocations positive, reversals the exact negative of the
+  allocation they reference. Applied amount is the net `SUM(amount_minor)`, always exact.
+- `unallocated(payment) = amount_minor - net allocations - refunds`; `openBalance(invoice) =
+  total_minor - net allocations to that invoice`. Both derived by integer arithmetic, never
+  stored-and-drifting. The `invoice_balances` projection is refreshed to the derived open balance and
+  status (issued/partially_paid/paid); the frozen `invoices` row is NEVER touched.
+- `PaymentService::allocate()` refuses to exceed the invoice open balance OR the payment remainder
+  (both enforced), only targets invoices whose balance status is `issued`/`partially_paid`, and
+  requires matching payment/invoice currency. It serializes concurrent allocations with `FOR UPDATE`
+  locks on the payment row then the `invoice_balances` row inside one transaction, so concurrent
+  allocations can never overshoot; the parallel hammer (6 processes, one invoice, one payable slot)
+  proves exactly one winner and a never-negative open balance.
+- D-F6 refund rule: refunds may draw only on the payment's unallocated remainder. Refunding money
+  already allocated to an invoice requires reversing that allocation first (an explicit, audited
+  step), so an invoice balance and a refund can never silently disagree.
+- Overpayment is never silently absorbed: a remainder simply stays unallocated on the payment,
+  visible via `unallocated()`, available for later allocation or refund.
+- `billing.manage` gates record/allocate/reverse/refund; all flows are patient-scoped audited
+  (`payment.recorded`/`payment.allocated`/`payment.allocation_reversed`/`payment.refunded`) and the
+  audit chain verifies.
+
 ## Open items
 
-- F.5 begins payment allocation/reconciliation against `invoice_balances`.
+- Payment/reconciliation UI surfaces are backend-only so far; screens come in a later UI gate.
+- Partial credit notes do not reduce the original invoice's open balance (F.4 behavior); revisit if
+  partial-credit-vs-payment interaction needs reconciliation.

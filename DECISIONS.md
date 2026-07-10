@@ -222,3 +222,18 @@ references the old ID.
   instead of trigger exceptions on invoice fields. Credit notes are separate `CN`-series issued
   documents with their own gapless numbers and negative lines referencing the original invoice
   lines; the original invoice document remains untouched (P0F.G4).
+- **D-055 / D-F6 - Payments and their allocations are append-only; balances are derived, not stored.**
+  `payments`, `refunds`, and `payment_allocations` are tenant-owned and append-only at model and
+  DB-trigger levels (`SIGNAL SQLSTATE '45000'` on UPDATE/DELETE). Money movement is only ever a new
+  row: de-allocation is a reversal row carrying the exact negative of the allocation it references
+  (`reverses_allocation_id`), and a refund is a separate row referencing the payment, never a negative
+  payment. `unallocated(payment) = amount - net allocations - refunds` and `openBalance(invoice) =
+  total - net allocations` are derived by exact integer arithmetic, never stored-and-drifting; the
+  mutable `invoice_balances` projection is refreshed to the derived value while the frozen `invoices`
+  row is never touched. Allocation is guarded in BOTH directions (cannot exceed the invoice open
+  balance or the payment remainder) and serializes concurrent contenders with `FOR UPDATE` locks on
+  the payment row then the `invoice_balances` row, proven by a real-process parallel hammer.
+  Refund rule: refunds may draw only on the payment's unallocated remainder; to refund already-applied
+  money the allocation must be reversed first, so an invoice balance and a refund can never silently
+  disagree. Overpayment is never absorbed or auto-applied; the remainder stays visibly unallocated
+  (P0F.G5).

@@ -4,12 +4,12 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
 (per the MEMORY PROTOCOL in AGENTS.md).
 
 - **Current phase:** Phase F - Billing engine + EU-Generic market pack - in progress. Latest gate:
-  P0F.G4 invoices. Next: Gate F.5.
-- **Commits:** 58 on `main` after P0F.G4.
+  P0F.G5 payments + append-only allocations. Next: Gate F.6.
+- **Commits:** 59 on `main` after P0F.G5.
   Phase A = 11 (P0A.G1-G8, P0A.GM, P0A.GF, P0A.GF3), pushed to `origin/main`
   (https://github.com/Subhankhan12/careos).
 - **Verified quality (from actual output):** `composer check` green - Pint `passed`,
-  PHPStan level 5 `[OK] No errors`, Pest **307 passed / 1742 assertions**. Latest frontend/PWA
+  PHPStan level 5 `[OK] No errors`, Pest **319 passed / 1811 assertions**. Latest frontend/PWA
   verification remains Phase E consolidation: `cmd /c npm run build` green,
   `cmd /c npm run test:pwa` green (**15 passed**), and `cmd /c npm run build:pwa` green.
   Latest Phase E CI is checked after push; F.1 CI will run after push.
@@ -332,4 +332,17 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
     lines referencing original invoice lines, and leave the original invoice document untouched.
   - Invoice artifacts are written to private tenant-prefixed local storage under
     `tenants/{tenant}/billing/invoices/...`; no public URL is exposed.
-- **Next action:** Gate F.5.
+  - Payments, refunds, and payment allocations are tenant-owned and append-only at model and
+    DB-trigger level; raw UPDATE/DELETE on all three throw. De-allocation is a reversal ROW (exact
+    negative of the allocation), never a delete; refunds are separate rows, never negative payments.
+  - `PaymentService::unallocated(payment)` and `openBalance(invoice)` are derived by exact integer
+    arithmetic over the append-only rows (net of reversals and refunds); never stored-and-drifting.
+  - Allocation cannot exceed the invoice open balance OR the payment unallocated remainder (both
+    enforced); allocations serialize on `FOR UPDATE` locks (payment row then `invoice_balances` row)
+    so concurrent allocations never overshoot. The parallel hammer (6 real processes, one invoice,
+    one payable slot) yields exactly one winner and a never-negative open balance.
+  - Allocation updates the invoice open balance/status (issued/partially_paid/paid) only through the
+    `invoice_balances` projection; the frozen legal `invoices` row is never touched.
+  - Refunds may draw only on a payment's unallocated remainder (D-F6); refunding allocated money
+    requires reversing the allocation first. Overpayment remainders stay visibly unallocated.
+- **Next action:** Gate F.6.
