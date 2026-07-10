@@ -2,7 +2,7 @@
 
 ## Status
 
-Phase F active. P0F.G2 added charge capture with price snapshots.
+Phase F active. P0F.G3 added deterministic charge validation with golden-file coverage.
 
 ## Key classes
 
@@ -19,6 +19,11 @@ Phase F active. P0F.G2 added charge capture with price snapshots.
 - `Modules\Billing\Services\ChargeCaptureService`: captures encounter/visit/manual charges,
   enforces documentation-required items, computes integer line totals, cancels draft/validated
   charges with a reason, and writes patient-scoped audit events.
+- `Modules\Billing\Models\ChargeViolation`: tenant-owned persisted validation failure linked to
+  a charge, with rule, reason code, message, and JSON context.
+- `Modules\Billing\Services\ChargeValidator`: consumes catalog-version JSON rules for a
+  patient/period or explicit charge set, persists current violations, transitions clean charges to
+  `validated`, and writes patient-scoped audit events.
 
 ## Invariants
 
@@ -38,7 +43,18 @@ Phase F active. P0F.G2 added charge capture with price snapshots.
 - `line_total_minor = quantity * unit_price_minor`; VAT is later computed per line using the
   snapshotted `vat_rate_bp`, round-half-up, never from floats or rounded subtotal sums.
 - Invoiced charges are not directly cancellable; F.4 credit-note mechanics will correct them.
+- Charge validation is deterministic and re-runnable. A clean draft charge becomes `validated`;
+  a charge with violations remains or returns to `draft`.
+- Supported validation rules and reason codes:
+  `MAX_QUANTITY_PER_PERIOD` -> `MAX_QUANTITY_PER_PERIOD_EXCEEDED`,
+  `INCOMPATIBLE_CODES` -> `INCOMPATIBLE_CODES_SAME_DATE`,
+  `REQUIRES_CODE` -> `REQUIRED_CODE_MISSING`,
+  `DOCUMENTATION_REQUIRED` -> `DOCUMENTATION_REQUIRED_MISSING`.
+- Documentation-required validation rechecks current source state at validation time: signed
+  encounter note or completed visit. It does not trust the earlier capture-time state.
+- Golden fixtures in `tests/Fixtures/billing/golden/` freeze exact catalog-version behavior and
+  are loaded as a complete set by `ChargeValidationTest`.
 
 ## Open items
 
-- F.3 begins invoice draft/validation rule work.
+- F.4 begins invoice draft, finalization, and credit-note work.

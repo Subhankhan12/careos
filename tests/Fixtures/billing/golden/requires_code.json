@@ -1,0 +1,29 @@
+{
+  "catalog_version": 1,
+  "rules": [
+    {
+      "type": "REQUIRES_CODE",
+      "code": "ADDON",
+      "requires": "BASE"
+    }
+  ],
+  "charges": [
+    {
+      "key": "addon-missing-base",
+      "code": "ADDON",
+      "service_date": "2026-04-01",
+      "quantity": 1
+    }
+  ],
+  "expected": {
+    "validated": [],
+    "violations": [
+      {
+        "charge": "addon-missing-base",
+        "rule": "REQUIRES_CODE",
+        "reason_code": "REQUIRED_CODE_MISSING",
+        "message": "Code ADDON requires code BASE on the same service date."
+      }
+    ]
+  }
+}

@@ -1,0 +1,42 @@
+{
+  "catalog_version": 1,
+  "rules": [
+    {
+      "type": "MAX_QUANTITY_PER_PERIOD",
+      "code": "HOME",
+      "max": 2,
+      "period": "day"
+    }
+  ],
+  "charges": [
+    {
+      "key": "home-one",
+      "code": "HOME",
+      "service_date": "2026-04-01",
+      "quantity": 2
+    },
+    {
+      "key": "home-two",
+      "code": "HOME",
+      "service_date": "2026-04-01",
+      "quantity": 1
+    }
+  ],
+  "expected": {
+    "validated": [],
+    "violations": [
+      {
+        "charge": "home-one",
+        "rule": "MAX_QUANTITY_PER_PERIOD",
+        "reason_code": "MAX_QUANTITY_PER_PERIOD_EXCEEDED",
+        "message": "Code HOME exceeds maximum quantity 2 per day."
+      },
+      {
+        "charge": "home-two",
+        "rule": "MAX_QUANTITY_PER_PERIOD",
+        "reason_code": "MAX_QUANTITY_PER_PERIOD_EXCEEDED",
+        "message": "Code HOME exceeds maximum quantity 2 per day."
+      }
+    ]
+  }
+}

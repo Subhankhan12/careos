@@ -210,3 +210,8 @@ references the old ID.
   `quantity * unit_price_minor`. VAT is computed later per line from the snapshotted line total
   and `vat_rate_bp` using round-half-up; invoice code must never round a summed subtotal or use
   floats (P0F.G2).
+- **D-053 / D-F4 - Billing validation behavior is catalog-versioned and golden-file locked.**
+  Charge validation consumes the tariff catalog version's deterministic JSON rules and returns
+  distinct reason codes for every violation. Existing catalog-version behavior is frozen by JSON
+  golden files that assert exact validated/violation output; changing behavior for an existing
+  catalog version must deliberately update the golden fixture (P0F.G3).

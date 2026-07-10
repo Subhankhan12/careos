@@ -1,0 +1,43 @@
+{
+  "catalog_version": 1,
+  "rules": [
+    {
+      "type": "INCOMPATIBLE_CODES",
+      "codes": [
+        "A",
+        "B"
+      ]
+    }
+  ],
+  "charges": [
+    {
+      "key": "code-a",
+      "code": "A",
+      "service_date": "2026-04-01",
+      "quantity": 1
+    },
+    {
+      "key": "code-b",
+      "code": "B",
+      "service_date": "2026-04-01",
+      "quantity": 1
+    }
+  ],
+  "expected": {
+    "validated": [],
+    "violations": [
+      {
+        "charge": "code-a",
+        "rule": "INCOMPATIBLE_CODES",
+        "reason_code": "INCOMPATIBLE_CODES_SAME_DATE",
+        "message": "Codes A and B cannot both be billed on the same service date."
+      },
+      {
+        "charge": "code-b",
+        "rule": "INCOMPATIBLE_CODES",
+        "reason_code": "INCOMPATIBLE_CODES_SAME_DATE",
+        "message": "Codes A and B cannot both be billed on the same service date."
+      }
+    ]
+  }
+}

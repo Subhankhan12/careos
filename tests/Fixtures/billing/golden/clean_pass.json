@@ -1,0 +1,25 @@
+{
+  "catalog_version": 1,
+  "rules": [
+    {
+      "type": "MAX_QUANTITY_PER_PERIOD",
+      "code": "HOME",
+      "max": 2,
+      "period": "day"
+    }
+  ],
+  "charges": [
+    {
+      "key": "home-clean",
+      "code": "HOME",
+      "service_date": "2026-04-01",
+      "quantity": 2
+    }
+  ],
+  "expected": {
+    "validated": [
+      "home-clean"
+    ],
+    "violations": []
+  }
+}

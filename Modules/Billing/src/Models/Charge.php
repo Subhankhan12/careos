@@ -5,6 +5,7 @@ namespace Modules\Billing\Models;
 use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon;
 use InvalidArgumentException;
 use Modules\Clinical\Models\Encounter;
@@ -146,6 +147,11 @@ class Charge extends Model
     public function creator(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');
+    }
+
+    public function violations(): HasMany
+    {
+        return $this->hasMany(ChargeViolation::class);
     }
 
     public function isManual(): bool

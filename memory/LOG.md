@@ -58,3 +58,4 @@ One line per completed gate. Newest at bottom. Format: `<commit> P<phase>.G<n>: 
 - `(pending)` P0E.C: Phase E consolidation - airplane-mode offline visit loop test added; 278 tests / 1586 assertions; npm build + build:pwa + test:pwa green.
 - `(pending)` P0F.G1: Billing effective-dated tariff catalogs - module registration, integer minor-unit prices, basis-point VAT, EU-Generic starter seed, resolver by service date; 285 tests / 1626 assertions.
 - `(pending)` P0F.G2: Charge capture with price snapshots - charges from encounters/visits/manual capture, documentation-required guard, cancellation rules, patient-scoped audit; 290 tests / 1658 assertions.
+- `(pending)` P0F.G3: Deterministic charge validation - rule engine, persisted violations, idempotent validated/draft transitions, golden-file behavior locks; 301 tests / 1688 assertions.

@@ -4,12 +4,12 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
 (per the MEMORY PROTOCOL in AGENTS.md).
 
 - **Current phase:** Phase F - Billing engine + EU-Generic market pack - in progress. Latest gate:
-  P0F.G2 charge capture. Next: Gate F.3.
-- **Commits:** 56 on `main` after P0F.G2.
+  P0F.G3 charge validation. Next: Gate F.4.
+- **Commits:** 57 on `main` after P0F.G3.
   Phase A = 11 (P0A.G1-G8, P0A.GM, P0A.GF, P0A.GF3), pushed to `origin/main`
   (https://github.com/Subhankhan12/careos).
 - **Verified quality (from actual output):** `composer check` green - Pint `passed`,
-  PHPStan level 5 `[OK] No errors`, Pest **290 passed / 1658 assertions**. Latest frontend/PWA
+  PHPStan level 5 `[OK] No errors`, Pest **301 passed / 1688 assertions**. Latest frontend/PWA
   verification remains Phase E consolidation: `cmd /c npm run build` green,
   `cmd /c npm run test:pwa` green (**15 passed**), and `cmd /c npm run build:pwa` green.
   Latest Phase E CI is checked after push; F.1 CI will run after push.
@@ -308,4 +308,15 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
     cancelled and must be corrected later through credit-note mechanics.
   - Charge capture/cancellation are audited patient-scoped and tenant chain verification remains
     valid.
-- **Next action:** Gate F.3.
+  - `ChargeValidator` validates draft/validated charges against the resolved catalog version's
+    deterministic JSON rules before invoicing.
+  - Validation rule types are explicit and explainable: max quantity per period, incompatible
+    same-date codes, required same-date base code, and documentation-required rechecks.
+  - Violations are persisted in tenant-owned `charge_violations` rows with distinct reason codes;
+    clean charges transition from `draft` to `validated`, failed charges stay `draft`, and
+    validation is idempotent/re-runnable.
+  - Validation writes patient-scoped `charge.validated` and `charge.violation` audit events only
+    for new state changes.
+  - Golden files under `tests/Fixtures/billing/golden/` freeze exact behavior for catalog versions;
+    the runner loads every JSON fixture and asserts exact expected validated/violation output.
+- **Next action:** Gate F.4.

@@ -1,0 +1,32 @@
+{
+  "catalog_version": 1,
+  "rules": [
+    {
+      "type": "DOCUMENTATION_REQUIRED",
+      "codes": [
+        "DOC"
+      ]
+    }
+  ],
+  "charges": [
+    {
+      "key": "doc-reopened",
+      "code": "DOC",
+      "service_date": "2026-04-01",
+      "quantity": 1,
+      "requires_service_documentation": true,
+      "source": "visit_reopened"
+    }
+  ],
+  "expected": {
+    "validated": [],
+    "violations": [
+      {
+        "charge": "doc-reopened",
+        "rule": "DOCUMENTATION_REQUIRED",
+        "reason_code": "DOCUMENTATION_REQUIRED_MISSING",
+        "message": "Code DOC requires a signed encounter note or completed visit."
+      }
+    ]
+  }
+}
