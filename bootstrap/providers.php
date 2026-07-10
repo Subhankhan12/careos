@@ -5,6 +5,7 @@ use App\Providers\FortifyServiceProvider;
 use App\Providers\HorizonServiceProvider;
 use Modules\AiCore\Providers\AiCoreServiceProvider;
 use Modules\Audit\Providers\AuditServiceProvider;
+use Modules\Billing\Providers\BillingServiceProvider;
 use Modules\Clinical\Providers\ClinicalServiceProvider;
 use Modules\Nursing\Providers\NursingServiceProvider;
 use Modules\Patients\Providers\PatientsServiceProvider;
@@ -18,6 +19,7 @@ return [
     HorizonServiceProvider::class,
     AiCoreServiceProvider::class,
     AuditServiceProvider::class,
+    BillingServiceProvider::class,
     ClinicalServiceProvider::class,
     NursingServiceProvider::class,
     PatientsServiceProvider::class,

@@ -40,7 +40,8 @@
             "Modules\\Patients\\": "Modules/Patients/src/",
             "Modules\\Scheduling\\": "Modules/Scheduling/src/",
             "Modules\\Clinical\\": "Modules/Clinical/src/",
-            "Modules\\Nursing\\": "Modules/Nursing/src/"
+            "Modules\\Nursing\\": "Modules/Nursing/src/",
+            "Modules\\Billing\\": "Modules/Billing/src/"
         }
     },
     "autoload-dev": {

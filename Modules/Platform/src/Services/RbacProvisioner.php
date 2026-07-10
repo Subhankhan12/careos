@@ -38,6 +38,7 @@ class RbacProvisioner
         'allergy.override' => 'Override deterministic allergy hard-stops',
         'ai.manage' => 'Manage governed AI actions',
         'billing.view' => 'View billing',
+        'billing.manage' => 'Manage billing tariffs and billable items',
         'audit.view' => 'View the audit log',
         'admin.manage' => 'Manage tenant settings and users',
     ];
@@ -54,7 +55,7 @@ class RbacProvisioner
                 'admin.manage', 'patient.view', 'patient.edit', 'patient.merge',
                 'appointment.manage', 'agreement.manage', 'dispatch.manage', 'encounter.manage',
                 'timesheet.approve', 'note.write', 'note.sign', 'note.supervise', 'allergy.override',
-                'ai.manage', 'billing.view', 'audit.view',
+                'ai.manage', 'billing.view', 'billing.manage', 'audit.view',
             ],
         ],
         'coordinator' => [
@@ -84,7 +85,7 @@ class RbacProvisioner
         ],
         'billing' => [
             'name' => 'Billing',
-            'permissions' => ['billing.view'],
+            'permissions' => ['billing.view', 'billing.manage'],
         ],
     ];
 

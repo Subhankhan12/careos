@@ -197,3 +197,8 @@ references the old ID.
   logged and rejected before surfacing. Pending proposals assign nothing, and approval executes
   only through `VisitAssignmentService::assign()` under the E.3 locking discipline. Clinically
   framed prioritization requests are refused with handoff (P0E.G9).
+- **D-050 / D-F1 - Tariff catalogs are effective-dated and money-safe.** Billable items live in
+  tenant-owned versioned tariff catalogs. A service date resolves to the catalog version active on
+  that date, so historical work bills at the historical price even if entered later. Catalog
+  versions for the same tenant/key must not overlap. Prices are integer minor units and VAT rates
+  are integer basis points; floats are not used for billing values (P0F.G1).

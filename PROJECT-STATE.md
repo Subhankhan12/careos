@@ -3,15 +3,16 @@
 Short, factual snapshot of where the project stands. Updated at consolidations and after gates
 (per the MEMORY PROTOCOL in AGENTS.md).
 
-- **Current phase:** Phase E - Nursing wedge - **COMPLETE**. Latest gate: P0E.C consolidation.
-  Next: Phase F - Billing engine + EU-Generic market pack (the reconcile-to-the-unit gate).
-- **Commits:** 54 on `main` after P0E.C (Phase E consolidation).
+- **Current phase:** Phase F - Billing engine + EU-Generic market pack - in progress. Latest gate:
+  P0F.G1 tariff catalogs. Next: Gate F.2.
+- **Commits:** 55 on `main` after P0F.G1.
   Phase A = 11 (P0A.G1-G8, P0A.GM, P0A.GF, P0A.GF3), pushed to `origin/main`
   (https://github.com/Subhankhan12/careos).
 - **Verified quality (from actual output):** `composer check` green - Pint `passed`,
-  PHPStan level 5 `[OK] No errors`, Pest **278 passed / 1586 assertions**. `cmd /c npm run build`
-  green, `cmd /c npm run test:pwa` green (**15 passed**), and `cmd /c npm run build:pwa` green.
-  Latest Phase E CI is checked after push.
+  PHPStan level 5 `[OK] No errors`, Pest **285 passed / 1626 assertions**. Latest frontend/PWA
+  verification remains Phase E consolidation: `cmd /c npm run build` green,
+  `cmd /c npm run test:pwa` green (**15 passed**), and `cmd /c npm run build:pwa` green.
+  Latest Phase E CI is checked after push; F.1 CI will run after push.
 - **Stack (verified):** Laravel 12.63.0 on PHP 8.2.12; DEV DB = `careos` on XAMPP MariaDB
   10.4.32 (127.0.0.1:3306); Redis-compatible server on 127.0.0.1:6379 with Predis (`PONG`);
   queue/cache use Redis and Horizon is installed/guarded. Local Windows PHP lacks `pcntl`, so
@@ -282,4 +283,17 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
   PWA Vitest encryption/offline-persistence suite. Local Windows PHP also lacks `pcntl`, so
   `php artisan horizon` exits after startup; Redis itself is live (`PONG`) and the Redis queue
   round-trip plus Horizon dashboard guard pass in the suite.
-- **Next action:** Phase F - Billing engine + EU-Generic market pack (the reconcile-to-the-unit gate).
+- **Proven in Phase F so far:**
+  - Billing module registered with fail-closed tenant-owned `tariff_catalogs` and `tariff_items`.
+  - Tariff catalog versions are effective-dated, unique by `(tenant_id, key, version)`, and
+    guarded against overlapping date ranges for the same tenant/key.
+  - Tariff items store money as integer minor units (`unit_price_minor`) and VAT rates as integer
+    basis points (`vat_rate_bp`), never floats.
+  - `TariffResolver::resolve(tenant, code, serviceDate)` returns the active catalog item valid on
+    the service date, preserving historical prices across version boundaries and throwing a
+    distinct no-coverage exception when no active version applies.
+  - EU-Generic starter catalog seeding is tenant-scoped/idempotent and uses tenant currency
+    settings (default `EUR`).
+  - `billing.manage` is in the RBAC catalog for org-admin and billing starter roles; reception
+    does not receive it.
+- **Next action:** Gate F.2.
