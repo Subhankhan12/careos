@@ -1,6 +1,6 @@
 <?php
 
-arch('Platform does not depend on Audit, AiCore, People, Patients, Scheduling, Clinical, Nursing, or Billing')
+arch('Platform does not depend on Audit, AiCore, People, Patients, Scheduling, Clinical, Nursing, Billing, or Comms')
     ->expect('Modules\Platform')
     ->not->toUse([
         'Modules\Audit',
@@ -11,9 +11,10 @@ arch('Platform does not depend on Audit, AiCore, People, Patients, Scheduling, C
         'Modules\Clinical',
         'Modules\Nursing',
         'Modules\Billing',
+        'Modules\Comms',
     ]);
 
-arch('Audit does not depend on Platform, AiCore, People, Patients, Scheduling, Clinical, Nursing, or Billing')
+arch('Audit does not depend on Platform, AiCore, People, Patients, Scheduling, Clinical, Nursing, Billing, or Comms')
     ->expect('Modules\Audit')
     ->not->toUse([
         'Modules\Platform',
@@ -24,9 +25,10 @@ arch('Audit does not depend on Platform, AiCore, People, Patients, Scheduling, C
         'Modules\Clinical',
         'Modules\Nursing',
         'Modules\Billing',
+        'Modules\Comms',
     ]);
 
-arch('AiCore may depend on Platform but not Audit, People, Patients, Scheduling, Clinical, Nursing, or Billing')
+arch('AiCore may depend on Platform but not Audit, People, Patients, Scheduling, Clinical, Nursing, Billing, or Comms')
     ->expect('Modules\AiCore')
     ->not->toUse([
         'Modules\Audit',
@@ -36,9 +38,10 @@ arch('AiCore may depend on Platform but not Audit, People, Patients, Scheduling,
         'Modules\Clinical',
         'Modules\Nursing',
         'Modules\Billing',
+        'Modules\Comms',
     ]);
 
-arch('People does not depend on Audit, AiCore, Patients, Scheduling, Clinical, Nursing, or Billing')
+arch('People does not depend on Audit, AiCore, Patients, Scheduling, Clinical, Nursing, Billing, or Comms')
     ->expect('Modules\People')
     ->not->toUse([
         'Modules\Audit',
@@ -48,9 +51,10 @@ arch('People does not depend on Audit, AiCore, Patients, Scheduling, Clinical, N
         'Modules\Clinical',
         'Modules\Nursing',
         'Modules\Billing',
+        'Modules\Comms',
     ]);
 
-arch('Patients does not depend on Audit models, AiCore, Scheduling, Clinical, Nursing, or Billing')
+arch('Patients does not depend on Audit models, AiCore, Scheduling, Clinical, Nursing, Billing, or Comms')
     ->expect('Modules\Patients')
     ->not->toUse([
         'Modules\Audit\Models',
@@ -59,9 +63,10 @@ arch('Patients does not depend on Audit models, AiCore, Scheduling, Clinical, Nu
         'Modules\Clinical',
         'Modules\Nursing',
         'Modules\Billing',
+        'Modules\Comms',
     ]);
 
-arch('Scheduling does not depend on Audit models, AiCore, Clinical, Nursing, or Billing')
+arch('Scheduling does not depend on Audit models, AiCore, Clinical, Nursing, Billing, or Comms')
     ->expect('Modules\Scheduling')
     ->not->toUse([
         'Modules\Audit\Models',
@@ -69,27 +74,38 @@ arch('Scheduling does not depend on Audit models, AiCore, Clinical, Nursing, or 
         'Modules\Clinical',
         'Modules\Nursing',
         'Modules\Billing',
+        'Modules\Comms',
     ]);
 
-arch('Clinical may use care modules but not Audit models, AiCore, Nursing, or Billing')
+arch('Clinical may use care modules but not Audit models, AiCore, Nursing, Billing, or Comms')
     ->expect('Modules\Clinical')
     ->not->toUse([
         'Modules\Audit\Models',
         'Modules\AiCore',
         'Modules\Nursing',
         'Modules\Billing',
+        'Modules\Comms',
     ]);
 
-arch('Nursing may use care modules but not Audit models, AiCore, or Billing')
+arch('Nursing may use care modules but not Audit models, AiCore, Billing, or Comms')
     ->expect('Modules\Nursing')
     ->not->toUse([
         'Modules\Audit\Models',
         'Modules\AiCore',
         'Modules\Billing',
+        'Modules\Comms',
     ]);
 
-arch('Billing may use care modules but not Audit models or AiCore')
+arch('Billing may use care modules but not Audit models, AiCore, or Comms')
     ->expect('Modules\Billing')
+    ->not->toUse([
+        'Modules\Audit\Models',
+        'Modules\AiCore',
+        'Modules\Comms',
+    ]);
+
+arch('Comms may use care modules but not Audit models or AiCore')
+    ->expect('Modules\Comms')
     ->not->toUse([
         'Modules\Audit\Models',
         'Modules\AiCore',

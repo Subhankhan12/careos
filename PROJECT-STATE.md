@@ -3,14 +3,14 @@
 Short, factual snapshot of where the project stands. Updated at consolidations and after gates
 (per the MEMORY PROTOCOL in AGENTS.md).
 
-- **Current phase:** Phase F COMPLETE - Billing engine + EU-Generic market pack. Consolidated at
-  P0F.C with the phase exit criterion passing: the simulated month reconciles to the unit (all six
-  invariants ok, delta_minor === 0). Next: Phase G - Comms, telehealth & patient portal completion.
-- **Commits:** 63 on `main` after P0F.C.
+- **Current phase:** Phase G - Comms, telehealth & patient portal completion - in progress. Latest
+  gate: P0G.G1 secure threads. Next: Gate G.2 notification engine. (Phase F COMPLETE at P0F.C: the
+  simulated month reconciles to the unit, all six invariants delta_minor === 0.)
+- **Commits:** 64 on `main` after P0G.G1.
   Phase A = 11 (P0A.G1-G8, P0A.GM, P0A.GF, P0A.GF3), pushed to `origin/main`
   (https://github.com/Subhankhan12/careos).
 - **Verified quality (from actual output):** `composer check` green - Pint `passed`,
-  PHPStan level 5 `[OK] No errors`, Pest **359 passed / 2136 assertions**. `npm run build` green,
+  PHPStan level 5 `[OK] No errors`, Pest **371 passed / 2202 assertions**. `npm run build` green,
   `npm run test:pwa` green (**15 passed**), `npm run build:pwa` green. CI (MySQL 8 + Redis 7)
   check-run `success` for the latest pushed commit at consolidation time (P0F.G8 `e483d8e`); the
   P0F.C run is checked after push. Redis live (`PONG`); dev DB `careos` on MariaDB 10.4.32 at 3306. `composer.json` sets
@@ -397,4 +397,16 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
   - The Billing agent refuses clinically framed questions (appropriateness, alternatives, patient
     condition) with human handoff, `refused` ledger rows, and no agent action; reads are
     patient-scoped read-logged; budget gate and kill switch degrade to manual.
-- **Next action:** Phase G - Comms, telehealth & patient portal completion. Await Gate G.1.
+- **Proven in Phase G so far:**
+  - Comms module registered (autoload, provider, architecture boundary tests: Comms may use care
+    modules but never Audit models or AiCore; no module may use Comms).
+  - Secure threads: patient threads always carry and include their patient; internal threads can
+    never reference or contain a patient (model guards + DB XOR check on participants).
+  - Messages are append-only at model and DB-trigger level; corrections are new messages — what was
+    communicated is evidence and is never rewritten.
+  - Staff thread actions require `comms.manage` (org_admin + reception starter roles). Patient access
+    is fail-closed on three checks: own thread + active participant + active portal account with
+    `portal.access` consent.
+  - Reading a patient thread writes a patient-scoped `read` audit row; posting/closing/participant
+    changes are audited and the chain verifies.
+- **Next action:** Gate G.2 - notification engine.

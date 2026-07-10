@@ -7,6 +7,7 @@ use Modules\AiCore\Providers\AiCoreServiceProvider;
 use Modules\Audit\Providers\AuditServiceProvider;
 use Modules\Billing\Providers\BillingServiceProvider;
 use Modules\Clinical\Providers\ClinicalServiceProvider;
+use Modules\Comms\Providers\CommsServiceProvider;
 use Modules\Nursing\Providers\NursingServiceProvider;
 use Modules\Patients\Providers\PatientsServiceProvider;
 use Modules\People\Providers\PeopleServiceProvider;
@@ -21,6 +22,7 @@ return [
     AuditServiceProvider::class,
     BillingServiceProvider::class,
     ClinicalServiceProvider::class,
+    CommsServiceProvider::class,
     NursingServiceProvider::class,
     PatientsServiceProvider::class,
     PeopleServiceProvider::class,

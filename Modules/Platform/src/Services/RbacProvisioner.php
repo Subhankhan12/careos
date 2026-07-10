@@ -37,6 +37,7 @@ class RbacProvisioner
         'note.supervise' => 'Supervise unsigned clinical notes worklist',
         'allergy.override' => 'Override deterministic allergy hard-stops',
         'ai.manage' => 'Manage governed AI actions',
+        'comms.manage' => 'Manage secure messaging threads',
         'billing.view' => 'View billing',
         'billing.manage' => 'Manage billing tariffs and billable items',
         'audit.view' => 'View the audit log',
@@ -55,7 +56,7 @@ class RbacProvisioner
                 'admin.manage', 'patient.view', 'patient.edit', 'patient.merge',
                 'appointment.manage', 'agreement.manage', 'dispatch.manage', 'encounter.manage',
                 'timesheet.approve', 'note.write', 'note.sign', 'note.supervise', 'allergy.override',
-                'ai.manage', 'billing.view', 'billing.manage', 'audit.view',
+                'ai.manage', 'comms.manage', 'billing.view', 'billing.manage', 'audit.view',
             ],
         ],
         'coordinator' => [
@@ -81,7 +82,7 @@ class RbacProvisioner
         ],
         'reception' => [
             'name' => 'Reception',
-            'permissions' => ['patient.view', 'appointment.manage'],
+            'permissions' => ['patient.view', 'appointment.manage', 'comms.manage'],
         ],
         'billing' => [
             'name' => 'Billing',

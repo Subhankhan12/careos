@@ -289,3 +289,12 @@ references the old ID.
   (treatment appropriateness, alternatives, patient condition) are refused with human handoff,
   `refused` ledger rows, and no agent action; all reads are patient-scoped read-logged with surface
   `billing_agent` (P0F.G8).
+- **D-059 - Thread messages are append-only communications evidence.** What was communicated to a
+  patient (or internally about care) can decide disputes about instructions, consent, and follow-up:
+  `messages` rows are immutable at model and DB-trigger levels (`SIGNAL SQLSTATE '45000'` on
+  UPDATE/DELETE) and corrections are NEW messages that leave the original standing — the same posture
+  as `audit_events` and the financial ledgers. Threads themselves stay mutable (status,
+  last_message_at); membership history is preserved via `removed_at`, never deletes. Internal staff
+  threads are structurally patient-free: the thread guard rejects a `patient_id` on internal threads
+  and the participant guard rejects patient participants on them, so internal clinical discussion can
+  never leak into a patient-visible surface (P0G.G1).

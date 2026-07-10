@@ -41,7 +41,8 @@
             "Modules\\Scheduling\\": "Modules/Scheduling/src/",
             "Modules\\Clinical\\": "Modules/Clinical/src/",
             "Modules\\Nursing\\": "Modules/Nursing/src/",
-            "Modules\\Billing\\": "Modules/Billing/src/"
+            "Modules\\Billing\\": "Modules/Billing/src/",
+            "Modules\\Comms\\": "Modules/Comms/src/"
         }
     },
     "autoload-dev": {
