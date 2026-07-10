@@ -68,6 +68,12 @@ triage, symptom assessment, or dosing logic anywhere.
   billing suggestion to real documented text (signed encounter note SOAP sections or completed-visit
   `visit_notes`) and resolves every code through `TariffResolver` at the service date; unsourced or
   unresolvable suggestions throw before the approval queue.
+- `App\AiCore\Agents\InboxAgent` / `Tools\DraftReplyTool` / `Tools\ClassifyDocumentTool` - governed
+  Inbox agent path (P0G.G6). DRAFT-ONLY, ceiling `suggest` on both tools; drafting never posts and
+  classification never files without human confirmation; the patient match is never auto-applied.
+- `App\AiCore\Support\InboxDraftEngine` - grounds every draft line in exactly three sources (thread
+  history, active KB articles, the patient's own admin facts recomputed live) and throws in code on
+  any unsourced/unresolvable claim; ungroundable asks are handoffs, never guesses.
 - `Events\AiInteractionRecorded` and `Events\AgentActionLifecycleChanged` - app-layer audit glue
   records ledger/action paths into the audit chain without AiCore depending on Audit.
 
@@ -115,6 +121,12 @@ triage, symptom assessment, or dosing logic anywhere.
 - Billing agent refuses clinically framed questions (treatment appropriateness, alternatives,
   patient condition) with human handoff, writes a `refused` `ai_interactions` row, and creates no
   `agent_actions`. Reads are patient-scoped read-logged with surface `billing_agent`.
+- Inbox agent (D-065/D-G5): `comms.draft_reply` requires `comms.manage`, `comms.classify_document`
+  requires `note.write`; both ceilings are `suggest` (auto/approve degrade). Clinical patient
+  messages are refused BEFORE any tool runs: zero draft content anywhere, handoff note, thread
+  flagged (`clinician_attention_at`), `refused` ledger row. A sent draft posts through
+  `ThreadService` with `ai_assisted=true` and the HUMAN as author; classification files only the
+  CATEGORY via `DocumentService::reclassify` and never moves a document between patients.
 - AiCore may use Platform for tenant/settings/RBAC primitives; it does not depend on Audit or domain
   modules. Audit composition lives in `app/`.
 

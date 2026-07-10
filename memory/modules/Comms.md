@@ -92,6 +92,11 @@ append-only messages.
   `PortalTelehealthController` (session list + on-demand token via the three-way gate; token only in
   the response). Patient unread analog: `threadsForPatient` / `patientUnreadCount` / `markPatientRead`.
 
+- G.6: `threads.clinician_attention_at/reason` is the staff-facing electric-fence flag; the inbox
+  shows pending AI drafts via `Contracts\InboxDraftProvider` (implemented in app/ per D-017 so Comms
+  never depends on AiCore) with explicit send through `comms.inbox.send-draft` -> ApprovalQueue.
+  Messages posted from AI drafts carry `ai_assisted=true`, staff-visible only.
+
 ## Open items
 
 - G.2 notification engine; G.3 unified inbox UI (adds `thread_reads` + `assigned_to`); G.4 telehealth;

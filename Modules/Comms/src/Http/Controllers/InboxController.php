@@ -6,6 +6,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 use Inertia\Inertia;
 use Inertia\Response;
+use Modules\Comms\Contracts\InboxDraftProvider;
 use Modules\Comms\Models\Message;
 use Modules\Comms\Models\Thread;
 use Modules\Comms\Services\ThreadService;
@@ -19,6 +20,8 @@ use Modules\Platform\Models\User;
  */
 class InboxController
 {
+    public function __construct(private readonly InboxDraftProvider $drafts) {}
+
     public function __invoke(Request $request, ThreadService $threads): Response
     {
         Gate::authorize('comms.manage');
@@ -63,6 +66,9 @@ class InboxController
                     'ai_assisted' => $message->ai_assisted,
                     'sent_at' => $message->sent_at->toDateTimeString(),
                 ])->all(),
+                'clinician_attention_at' => $thread->clinician_attention_at?->toDateTimeString(),
+                'clinician_attention_reason' => $thread->clinician_attention_reason,
+                'aiDraft' => $this->drafts->pendingDraftFor($thread),
             ];
         }
 
@@ -77,6 +83,8 @@ class InboxController
                 'replyUrl' => route('comms.inbox.reply'),
                 'statusUrl' => route('comms.inbox.status'),
                 'assignUrl' => route('comms.inbox.assign'),
+                'aiDraftUrl' => route('comms.inbox.ai-draft'),
+                'sendDraftUrl' => route('comms.inbox.send-draft'),
             ],
         ]);
     }

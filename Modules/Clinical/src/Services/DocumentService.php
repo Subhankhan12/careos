@@ -118,6 +118,33 @@ class DocumentService
         return $document;
     }
 
+    /**
+     * Deterministic filing: only the CATEGORY changes here, ever. The G.6
+     * Inbox agent may SUGGEST a category and a patient match, but a human
+     * confirms, this service performs the change, and a document is never
+     * moved between patients by this path — a misfiled document in a patient
+     * chart is a serious harm, so the patient match has no autonomy.
+     */
+    public function reclassify(Document $document, string $category, User $actor): Document
+    {
+        $this->authorizeWrite($actor);
+        $this->assertDocumentInTenant($document);
+
+        if (! in_array($category, Document::categories(), true)) {
+            throw new InvalidArgumentException('Unsupported document category.');
+        }
+
+        $previous = $document->category;
+        $document->forceFill(['category' => $category])->save();
+
+        Event::dispatch(new DocumentChanged($document->refresh(), $actor, 'document.reclassified', [
+            'previous_category' => $previous,
+            'category' => $category,
+        ]));
+
+        return $document;
+    }
+
     public function unshareFromPatient(Document $document, User $actor): Document
     {
         $this->authorizeWrite($actor);

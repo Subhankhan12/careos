@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\ClinicalSummaryDraftController;
 use App\Http\Controllers\ClinicalSummaryInsertController;
+use App\Http\Controllers\Comms\InboxAgentController;
 use App\Http\Controllers\Portal\PortalHomeController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
@@ -79,6 +80,8 @@ Route::middleware('auth')->group(function () {
     Route::post('/comms/inbox/reply', [InboxActionController::class, 'reply'])->name('comms.inbox.reply');
     Route::post('/comms/inbox/status', [InboxActionController::class, 'status'])->name('comms.inbox.status');
     Route::post('/comms/inbox/assign', [InboxActionController::class, 'assign'])->name('comms.inbox.assign');
+    Route::post('/comms/inbox/ai-draft', [InboxAgentController::class, 'draft'])->name('comms.inbox.ai-draft');
+    Route::post('/comms/inbox/send-draft', [InboxAgentController::class, 'sendDraft'])->name('comms.inbox.send-draft');
 
     Route::get('/nursing/dispatch', DispatchBoardController::class)->name('nursing.dispatch');
     Route::post('/nursing/dispatch/assign', [DispatchActionController::class, 'assign'])

@@ -30,6 +30,8 @@ use Modules\Platform\Models\User;
  * @property int $created_by
  * @property int|null $assigned_to
  * @property Carbon|null $last_message_at
+ * @property Carbon|null $clinician_attention_at
+ * @property string|null $clinician_attention_reason
  */
 class Thread extends Model
 {
@@ -56,6 +58,8 @@ class Thread extends Model
         'created_by',
         'assigned_to',
         'last_message_at',
+        'clinician_attention_at',
+        'clinician_attention_reason',
     ];
 
     protected $attributes = [
@@ -79,6 +83,7 @@ class Thread extends Model
     {
         return [
             'last_message_at' => 'datetime',
+            'clinician_attention_at' => 'datetime',
         ];
     }
 

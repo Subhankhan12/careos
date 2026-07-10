@@ -25,10 +25,13 @@ const props = defineProps<{
     activeThread:
         | (ThreadSummary & {
               messages: Array<{ id: string; author_type: string; body: string; ai_assisted: boolean; sent_at: string }>;
+              clinician_attention_at: string | null;
+              clinician_attention_reason: string | null;
+              aiDraft: { action_id: string; body: string; lines: Array<{ text: string; source: Record<string, string> }> } | null;
           })
         | null;
     staff: Array<{ id: number; name: string }>;
-    actions: { replyUrl: string; statusUrl: string; assignUrl: string };
+    actions: { replyUrl: string; statusUrl: string; assignUrl: string; aiDraftUrl: string; sendDraftUrl: string };
 }>();
 
 const filters = reactive({ ...props.filters });
@@ -76,6 +79,22 @@ function assignToMe(): void {
         { thread_id: props.activeThread.id, assigned_to: null, assign_self: true },
         { preserveScroll: true },
     );
+}
+
+function requestAiDraft(): void {
+    if (!props.activeThread) {
+        return;
+    }
+
+    router.post(props.actions.aiDraftUrl, { thread_id: props.activeThread.id }, { preserveScroll: true });
+}
+
+function sendAiDraft(): void {
+    if (!props.activeThread?.aiDraft) {
+        return;
+    }
+
+    router.post(props.actions.sendDraftUrl, { action_id: props.activeThread.aiDraft.action_id }, { preserveScroll: true });
 }
 </script>
 
@@ -183,6 +202,30 @@ function assignToMe(): void {
                             <p class="whitespace-pre-line text-sm">{{ message.body }}</p>
                         </li>
                     </ol>
+
+                    <p
+                        v-if="activeThread.clinician_attention_at"
+                        class="mb-3 rounded bg-red-50 px-2 py-1 text-xs text-red-700"
+                    >
+                        {{ t('comms.inbox.clinicianAttention') }} · {{ activeThread.clinician_attention_reason }}
+                    </p>
+
+                    <div v-if="activeThread.aiDraft" class="mb-4 rounded border border-amber-300 bg-amber-50 p-3">
+                        <p class="mb-1 text-xs font-semibold text-amber-800">
+                            {{ t('comms.inbox.aiDraft.title') }}
+                        </p>
+                        <p class="mb-2 whitespace-pre-line text-sm">{{ activeThread.aiDraft.body }}</p>
+                        <p class="mb-2 text-xs text-gray-600">
+                            {{ t('comms.inbox.aiDraft.sources') }}:
+                            <span v-for="(line, index) in activeThread.aiDraft.lines" :key="index" class="mr-2">
+                                [{{ line.source.type }}{{ line.source.key ? ':' + line.source.key : '' }}]
+                            </span>
+                        </p>
+                        <Button type="button" @click="sendAiDraft">{{ t('comms.inbox.aiDraft.send') }}</Button>
+                    </div>
+                    <div v-else class="mb-3">
+                        <Button type="button" @click="requestAiDraft">{{ t('comms.inbox.aiDraft.request') }}</Button>
+                    </div>
 
                     <form class="space-y-2" @submit.prevent="sendReply">
                         <label class="block text-sm font-medium" for="inbox-reply">

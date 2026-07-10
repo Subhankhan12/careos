@@ -74,6 +74,18 @@ class PromptRegistry
                 'Explain deterministic charge-validation results in plain language. The validator decides; never issue invoices, never add or drop violations, and refuse clinical questions.',
                 true,
             ),
+            'comms.draft_reply:1' => new PromptVersion(
+                'comms.draft_reply',
+                1,
+                'Draft replies to patient messages using ONLY the thread history, active tenant KB articles, and the patient\'s own administrative facts, with source references. Never send; a human reviews and sends. Refuse to draft any reply to clinical questions and hand off to a clinician.',
+                true,
+            ),
+            'comms.classify_document:1' => new PromptVersion(
+                'comms.classify_document',
+                1,
+                'Suggest a document category and patient match for human confirmation only. Never file without confirmation; never move a document between patients.',
+                true,
+            ),
         ];
     }
 

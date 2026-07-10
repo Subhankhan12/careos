@@ -4,13 +4,13 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
 (per the MEMORY PROTOCOL in AGENTS.md).
 
 - **Current phase:** Phase G - Comms, telehealth & patient portal completion - in progress. Latest
-  gate: P0G.G5 patient portal completion. Next: Gate G.6 Inbox agent.
+  gate: P0G.G6 Inbox agent. Next: Gate G.C consolidation (after user review of G.6).
   (Phase F COMPLETE at P0F.C: the simulated month reconciles to the unit.)
-- **Commits:** 68 on `main` after P0G.G5.
+- **Commits:** 69 on `main` after P0G.G6.
   Phase A = 11 (P0A.G1-G8, P0A.GM, P0A.GF, P0A.GF3), pushed to `origin/main`
   (https://github.com/Subhankhan12/careos).
 - **Verified quality (from actual output):** `composer check` green - Pint `passed`,
-  PHPStan level 5 `[OK] No errors`, Pest **406 passed / 2579 assertions**; npm build green.
+  PHPStan level 5 `[OK] No errors`, Pest **415 passed / 2646 assertions**; npm build green.
   CI-failure root cause (P0G.G2/G3 runs): ci.yml exports QUEUE_CONNECTION=redis at the job level
   and phpunit's <env> does NOT override OS env vars, so the G.2 queue-idempotency test parked its
   job on real Redis in CI and the delivery row never appeared. Fixed in P0G.G4 by pinning
@@ -441,4 +441,11 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
     invoice_balances and read-logged private PDF streaming; NO payment processing (PSP deferred);
     telehealth join tokens issued on demand through the three-way gate; staff/patient shell
     separation re-asserted.
-- **Next action:** Gate G.6 - Inbox agent (report back to user after it).
+  - The Inbox agent is DRAFT-ONLY (D-065/D-G5): suggest ceilings on both tools (auto degrades);
+    clinical patient questions are refused before any tool runs — zero draft content, handoff note,
+    thread flagged for clinician attention, refusal ledgered. Drafts ground in exactly three sources
+    (thread history, active KB, live-recomputed patient admin facts) with in-code rejection of
+    unsourced claims; an explicit human send posts through ThreadService with ai_assisted=true;
+    document classification files only the category via DocumentService::reclassify and the patient
+    match is never auto-applied.
+- **Next action:** Gate G.C - Phase G consolidation (awaiting user review of the G.6 report).

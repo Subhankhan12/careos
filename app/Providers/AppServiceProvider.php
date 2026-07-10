@@ -2,8 +2,10 @@
 
 namespace App\Providers;
 
+use App\AiCore\Tools\ClassifyDocumentTool;
 use App\AiCore\Tools\ClinicalSummaryTool;
 use App\AiCore\Tools\DraftRecallMessageTool;
+use App\AiCore\Tools\DraftReplyTool;
 use App\AiCore\Tools\FillFromWaitlistTool;
 use App\AiCore\Tools\NursingProposeAssignmentsTool;
 use App\AiCore\Tools\NursingReplanDayTool;
@@ -12,6 +14,7 @@ use App\AiCore\Tools\SuggestChargeCodesTool;
 use App\AiCore\Tools\SuggestSlotsTool;
 use App\Audit\AuthAuditSubscriber;
 use App\Audit\PlatformAuditContext;
+use App\Comms\AgentInboxDraftProvider;
 use App\Comms\EngineAppointmentReminderChannel;
 use App\Comms\EngineDunningChannel;
 use Illuminate\Support\Facades\Event;
@@ -30,6 +33,7 @@ use Modules\Clinical\Events\EncounterClosed;
 use Modules\Clinical\Events\EncounterOpened;
 use Modules\Clinical\Models\ClinicalNote;
 use Modules\Clinical\Models\Encounter;
+use Modules\Comms\Contracts\InboxDraftProvider;
 use Modules\Nursing\Events\IncidentReported;
 use Modules\Nursing\Events\NurseSyncActionProcessed;
 use Modules\Nursing\Events\PlannedVisitChanged;
@@ -67,6 +71,10 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(EmailAppointmentReminderChannel::class, EngineAppointmentReminderChannel::class);
         $this->app->bind(EmailDunningChannel::class, EngineDunningChannel::class);
 
+        // G.6 Inbox agent draft lookup (D-017): Comms reads pending AI drafts
+        // through a contract implemented here, never depending on AiCore.
+        $this->app->bind(InboxDraftProvider::class, AgentInboxDraftProvider::class);
+
         $this->app->afterResolving(ToolRegistry::class, function (ToolRegistry $registry): void {
             $registry->register($this->app->make(FillFromWaitlistTool::class));
             $registry->register($this->app->make(SuggestSlotsTool::class));
@@ -76,6 +84,8 @@ class AppServiceProvider extends ServiceProvider
             $registry->register($this->app->make(NursingReplanDayTool::class));
             $registry->register($this->app->make(SuggestChargeCodesTool::class));
             $registry->register($this->app->make(PreflightInvoiceTool::class));
+            $registry->register($this->app->make(DraftReplyTool::class));
+            $registry->register($this->app->make(ClassifyDocumentTool::class));
         });
     }
 

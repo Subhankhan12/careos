@@ -333,3 +333,19 @@ references the old ID.
   convey the join link directly. It is deliberately NOT classified legal because nothing legally
   compels its delivery, and consent-exemption is reserved for dunning-class communications (D-F7)
   (P0G.G4).
+- **D-065 / D-G5 - The Inbox agent DRAFTS ONLY, grounded and electric-fenced.** Both tools
+  (`comms.draft_reply`, `comms.classify_document`) carry explicit `suggest` ceilings — an attempted
+  `auto`/`approve` degrades to `suggest` — and the agent NEVER sends: a pending draft posts nothing, and
+  only an explicit human send runs `execute()` with the HUMAN as actor, posting through
+  `ThreadService::postStaffMessage(..., aiAssisted: true)` so staff always see the origin while the
+  patient simply receives a message from their care team. ELECTRIC FENCE: a patient message containing a
+  clinical question (symptoms, medication, "should I come in?", "is this normal?", "is this rash getting
+  worse?") is refused BEFORE any tool runs — NO draft is produced at all, a handoff note is returned, the
+  thread is flagged for clinician attention (`threads.clinician_attention_at/reason`, audited), and the
+  refusal is ledgered. Drafts are GROUNDED in exactly three sources — the thread's own message history,
+  the tenant's ACTIVE KB articles, and the patient's own administrative facts (next appointment, invoice
+  open balance) recomputed live and compared exactly — and an unsourced or unresolvable claim throws in
+  code before any approval-queue item exists; anything ungroundable is a handoff, never a guess.
+  Document classification is a suggestion only: a human confirms, the deterministic
+  `DocumentService::reclassify` files the CATEGORY, and the patient match is NEVER auto-applied — a
+  document is never moved between patients by this path (P0G.G6).

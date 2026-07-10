@@ -319,6 +319,13 @@
             "replyPlaceholder": "Write a reply…",
             "send": "Send",
             "aiAssisted": "AI-assisted",
+            "clinicianAttention": "Needs clinician",
+            "aiDraft": {
+                "request": "Draft with AI",
+                "title": "AI-assisted draft — review before sending",
+                "sources": "Sources",
+                "send": "Send this draft"
+            },
             "author": {
                 "staff": "Care team",
                 "patient": "Patient",
