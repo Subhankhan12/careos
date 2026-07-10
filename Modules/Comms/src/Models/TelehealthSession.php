@@ -27,6 +27,7 @@ use Modules\Platform\Exceptions\CrossTenantReferenceException;
  * @property string $provider
  * @property string $room_reference
  * @property string $status
+ * @property Carbon|null $created_at
  * @property Carbon|null $started_at
  * @property Carbon|null $ended_at
  */

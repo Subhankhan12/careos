@@ -46,6 +46,7 @@ class ThreadParticipant extends Model
         'patient_id',
         'added_at',
         'removed_at',
+        'last_read_message_id',
     ];
 
     protected static function booted(): void

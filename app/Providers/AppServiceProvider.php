@@ -157,7 +157,7 @@ class AppServiceProvider extends ServiceProvider
             $appointment = $event->appointment;
 
             $this->auditChange('appointment.'.$event->toStatus, [
-                'actor_type' => 'user',
+                'actor_type' => $event->actor instanceof User ? 'user' : 'patient',
                 'actor_id' => (string) $event->actor->getKey(),
                 'patient_id' => $appointment->patient_id,
                 'resource_type' => 'appointment',

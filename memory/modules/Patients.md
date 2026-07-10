@@ -113,11 +113,23 @@ transactional service, read-logging, access-report stub, demographic duplicate d
 permissioned audited merge, snapshot-based unmerge, consent engine, portal accounts, and first
 staff-facing patient UI are in place.
 
+**P0G.G5 completed the patient portal UI**: `pages/Portal/{Login,Home,Appointments,Documents,
+Messages,Invoices,Consents,Telehealth}.vue` on a dedicated `PortalLayout` (never the staff shell);
+every page behind `portal-tenant` + `portal-auth` + `portal-consent`, so withdrawing
+`portal.access` locks the portal on the next request (tested). `PortalConsentController` lists own
+consents and withdraws via `ConsentService` (own rows only); `PortalAuthController` gained
+`showLogin` (Inertia) and `logout`. Self-booking goes through `BookingService::bookOnline` (the
+locked no-double-book path; identity from the session's portal account only); cancellation enforces
+`scheduling.portal.cancel_min_hours` (default 24) server-side and runs through the new
+`AppointmentService::cancelForPatient` (ownership fail-closed, patient actor audited). Documents
+keep the D.4 posture (shared-only, controller-streamed, read-logged; content-negotiated
+Inertia/JSON index); invoices are own-only read-only with balances from `invoice_balances` and
+read-logged private-disk PDF streaming — NO payment processing (PSP deferred).
+
 ## Open items
 
 - Dev MariaDB 10.4 uses plain FULLTEXT while MySQL 8 CI/prod uses `WITH PARSER ngram` - patient
   name search tokenizes differently across environments; validate search parity before production.
-- Portal UI screens are later; B.5 only exposes backend routes/guards/services.
 - Later gates must call `ConsentService::has()` before portal access or clinical data sharing.
 - D.4 Clinical document sharing now calls `ConsentService::has(patient, 'portal.access')` before
   exposing documents to the portal.

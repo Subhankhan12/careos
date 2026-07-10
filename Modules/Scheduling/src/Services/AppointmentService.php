@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
 use InvalidArgumentException;
+use Modules\Patients\Models\Patient;
 use Modules\Platform\Models\User;
 use Modules\Scheduling\Events\AppointmentTransitioned;
 use Modules\Scheduling\Exceptions\IllegalAppointmentTransitionException;
@@ -147,6 +148,47 @@ class AppointmentService
         ));
 
         return $result['new'];
+    }
+
+    /**
+     * Portal self-service cancellation: the PATIENT is the actor. Ownership is
+     * fail-closed (only the appointment's own patient), the transition legality
+     * and resource freeing reuse the exact staff mechanics under the same row
+     * lock, and the app-layer listener audits with actor_type=patient. The
+     * cancel-window policy is enforced by the portal controller server-side.
+     */
+    public function cancelForPatient(Appointment $appointment, Patient $patient, string $reason): Appointment
+    {
+        if ($appointment->patient_id !== $patient->id) {
+            throw new AuthorizationException('This patient cannot cancel this appointment.');
+        }
+
+        if (trim($reason) === '') {
+            throw new InvalidArgumentException('Cancellation requires a reason.');
+        }
+
+        $fromStatus = $appointment->status;
+        $this->assertLegal($fromStatus, Appointment::STATUS_CANCELLED);
+
+        $updated = DB::transaction(function () use ($appointment, $patient, $reason): Appointment {
+            $locked = Appointment::query()->whereKey($appointment->id)->lockForUpdate()->firstOrFail();
+            $this->assertLegal($locked->status, Appointment::STATUS_CANCELLED);
+
+            $locked->forceFill([
+                'status' => Appointment::STATUS_CANCELLED,
+                'status_reason' => $reason,
+                'status_changed_by' => 'patient:'.$patient->id,
+                'status_changed_at' => now(),
+            ])->save();
+
+            $locked->resourceLinks()->delete();
+
+            return $locked->refresh();
+        });
+
+        Event::dispatch(new AppointmentTransitioned($updated, $fromStatus, Appointment::STATUS_CANCELLED, $patient, $reason));
+
+        return $updated;
     }
 
     public function transition(

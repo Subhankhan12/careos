@@ -2,8 +2,10 @@
 
 use App\Http\Controllers\ClinicalSummaryDraftController;
 use App\Http\Controllers\ClinicalSummaryInsertController;
+use App\Http\Controllers\Portal\PortalHomeController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
+use Modules\Billing\Http\Controllers\PortalInvoiceController;
 use Modules\Clinical\Http\Controllers\ClinicalChartController;
 use Modules\Clinical\Http\Controllers\ClinicalNoteShowController;
 use Modules\Clinical\Http\Controllers\DocumentDeleteController;
@@ -16,6 +18,8 @@ use Modules\Clinical\Http\Controllers\OpenEncounterFromAppointmentController;
 use Modules\Clinical\Http\Controllers\PortalDocumentController;
 use Modules\Comms\Http\Controllers\InboxActionController;
 use Modules\Comms\Http\Controllers\InboxController;
+use Modules\Comms\Http\Controllers\PortalMessageController;
+use Modules\Comms\Http\Controllers\PortalTelehealthController;
 use Modules\Nursing\Http\Controllers\DispatchActionController;
 use Modules\Nursing\Http\Controllers\DispatchBoardController;
 use Modules\Patients\Http\Controllers\PatientConsentController;
@@ -23,9 +27,11 @@ use Modules\Patients\Http\Controllers\PatientIndexController;
 use Modules\Patients\Http\Controllers\PatientRegistrationController;
 use Modules\Patients\Http\Controllers\PatientShowController;
 use Modules\Patients\Http\Controllers\PortalAuthController;
+use Modules\Patients\Http\Controllers\PortalConsentController;
 use Modules\Patients\Http\Controllers\PortalInvitationController;
 use Modules\Scheduling\Http\Controllers\DayBoardActionController;
 use Modules\Scheduling\Http\Controllers\DayBoardController;
+use Modules\Scheduling\Http\Controllers\PortalAppointmentController;
 use Modules\Scheduling\Http\Controllers\PublicBookingController;
 
 Route::get('/', function () {
@@ -122,19 +128,36 @@ Route::prefix('book/{tenant:slug}')
     });
 
 Route::prefix('portal')->name('portal.')->group(function () {
-    Route::get('/login', fn () => response('Patient portal login pending UI'))->name('login');
+    Route::get('/login', [PortalAuthController::class, 'showLogin'])->name('login');
     Route::post('/accept-invite', [PortalAuthController::class, 'acceptInvite'])->name('accept-invite');
     Route::post('/login', [PortalAuthController::class, 'login'])->name('login.attempt');
+    Route::post('/logout', [PortalAuthController::class, 'logout'])->name('logout');
 
-    Route::get('/', fn () => response('Patient portal pending UI'))
-        ->middleware(['portal-tenant', 'portal-auth', 'portal-consent'])
-        ->name('home');
-    Route::get('/documents', [PortalDocumentController::class, 'index'])
-        ->middleware(['portal-tenant', 'portal-auth', 'portal-consent'])
-        ->name('documents.index');
-    Route::get('/documents/{document}', [PortalDocumentController::class, 'show'])
-        ->middleware(['portal-tenant', 'portal-auth', 'portal-consent'])
-        ->name('documents.show');
+    // Every portal page: portal tenant + patient guard + portal.access consent
+    // (fail-closed; withdrawing consent locks the portal on the next request).
+    Route::middleware(['portal-tenant', 'portal-auth', 'portal-consent'])->group(function () {
+        Route::get('/', PortalHomeController::class)->name('home');
+
+        Route::get('/appointments', [PortalAppointmentController::class, 'index'])->name('appointments');
+        Route::post('/appointments/slots', [PortalAppointmentController::class, 'slots'])->name('appointments.slots');
+        Route::post('/appointments', [PortalAppointmentController::class, 'store'])->name('appointments.store');
+        Route::post('/appointments/cancel', [PortalAppointmentController::class, 'cancel'])->name('appointments.cancel');
+
+        Route::get('/documents', [PortalDocumentController::class, 'index'])->name('documents.index');
+        Route::get('/documents/{document}', [PortalDocumentController::class, 'show'])->name('documents.show');
+
+        Route::get('/messages', [PortalMessageController::class, 'index'])->name('messages');
+        Route::post('/messages', [PortalMessageController::class, 'store'])->name('messages.store');
+
+        Route::get('/invoices', [PortalInvoiceController::class, 'index'])->name('invoices');
+        Route::get('/invoices/{invoice}/pdf', [PortalInvoiceController::class, 'download'])->name('invoices.download');
+
+        Route::get('/consents', [PortalConsentController::class, 'index'])->name('consents');
+        Route::post('/consents/withdraw', [PortalConsentController::class, 'withdraw'])->name('consents.withdraw');
+
+        Route::get('/telehealth', [PortalTelehealthController::class, 'index'])->name('telehealth');
+        Route::post('/telehealth/{session}/token', [PortalTelehealthController::class, 'token'])->name('telehealth.token');
+    });
 });
 
 Route::post('/portal/invitations', PortalInvitationController::class)

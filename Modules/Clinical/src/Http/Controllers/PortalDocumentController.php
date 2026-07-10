@@ -5,23 +5,37 @@ namespace Modules\Clinical\Http\Controllers;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
+use Inertia\Inertia;
+use Inertia\Response as InertiaResponse;
 use Modules\Clinical\Models\Document;
 use Modules\Clinical\Services\DocumentService;
 use Modules\Patients\Models\PortalAccount;
 
 class PortalDocumentController
 {
-    public function index(Request $request, DocumentService $documents): JsonResponse
+    /**
+     * Content-negotiated: JSON consumers (the Phase B/D contract) keep the
+     * exact existing shape; browsers get the G.5 Inertia page. Both expose
+     * ONLY documents explicitly shared with this patient (D.4 posture).
+     */
+    public function index(Request $request, DocumentService $documents): JsonResponse|InertiaResponse
     {
         $account = $request->user('patient');
         abort_unless($account instanceof PortalAccount, 401);
 
-        return response()->json([
-            'documents' => $documents->sharedForPortal($account)
-                ->map(fn (Document $document): array => $this->summary($document))
-                ->values()
-                ->all(),
-        ]);
+        $shared = $documents->sharedForPortal($account)
+            ->map(fn (Document $document): array => [
+                ...$this->summary($document),
+                'download_url' => route('portal.documents.show', $document->id),
+            ])
+            ->values()
+            ->all();
+
+        if ($request->wantsJson()) {
+            return response()->json(['documents' => $shared]);
+        }
+
+        return Inertia::render('Portal/Documents', ['documents' => $shared]);
     }
 
     public function show(string $document, Request $request, DocumentService $documents): Response

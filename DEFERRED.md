@@ -30,6 +30,9 @@ Deliberately deferred work. Not forgotten — parked until the right phase.
   retention design first; never switch it on without one (P0G.G4).
 - **Reverb-based telehealth presence.** Join/leave proof rows are written by the server paths; live
   presence indicators join the future realtime work (P0G.G4).
+- **Portal payment processing (Stripe/PSP).** G.5 shows invoices and open balances read-only; taking
+  payments online needs a PSP integration and reconciliation wiring into the F.5 payment ledger
+  (P0G.G5).
 - **Expanded AI prompt eval harness.** C.7 adds a minimal prompt registry eval-passed gate; richer
   offline/fixture evals come before real agent prompt rollout.
 - **Production vector search for KB RAG.** C.8 stores portable vector-as-JSON embeddings and scores

@@ -4,13 +4,13 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
 (per the MEMORY PROTOCOL in AGENTS.md).
 
 - **Current phase:** Phase G - Comms, telehealth & patient portal completion - in progress. Latest
-  gate: P0G.G4 telehealth. Next: Gate G.5 patient portal completion (after user review of G.4).
+  gate: P0G.G5 patient portal completion. Next: Gate G.6 Inbox agent.
   (Phase F COMPLETE at P0F.C: the simulated month reconciles to the unit.)
-- **Commits:** 67 on `main` after P0G.G4.
+- **Commits:** 68 on `main` after P0G.G5.
   Phase A = 11 (P0A.G1-G8, P0A.GM, P0A.GF, P0A.GF3), pushed to `origin/main`
   (https://github.com/Subhankhan12/careos).
 - **Verified quality (from actual output):** `composer check` green - Pint `passed`,
-  PHPStan level 5 `[OK] No errors`, Pest **397 passed / 2400 assertions**; npm build green.
+  PHPStan level 5 `[OK] No errors`, Pest **406 passed / 2579 assertions**; npm build green.
   CI-failure root cause (P0G.G2/G3 runs): ci.yml exports QUEUE_CONNECTION=redis at the job level
   and phpunit's <env> does NOT override OS env vars, so the G.2 queue-idempotency test parked its
   job on real Redis in CI and the delivery row never appeared. Fixed in P0G.G4 by pinning
@@ -431,4 +431,14 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
     join/leave rows append-only; keys proven absent from logs.
   - MariaDB-only integrity fix: UPDATE-able moment columns in Comms use DATETIME because MariaDB
     10.4 gives the first TIMESTAMP column implicit ON UPDATE CURRENT_TIMESTAMP (MySQL 8 unaffected).
-- **Next action:** Gate G.5 - patient portal completion (awaiting user review of the G.4 report).
+  - The patient portal is complete: 8 Inertia pages on a dedicated PortalLayout (never the staff
+    shell), all behind portal-tenant + portal-auth + portal-consent — withdrawing portal.access
+    locks the portal on the very next request (tested). Self-booking runs through
+    BookingService::bookOnline (the locked no-double-book path; identity only from the session's
+    portal account); cancellation enforces scheduling.portal.cancel_min_hours (default 24)
+    server-side via AppointmentService::cancelForPatient (ownership fail-closed, patient actor).
+    Documents remain shared-only/controller-streamed/read-logged; invoices own-only read-only with
+    invoice_balances and read-logged private PDF streaming; NO payment processing (PSP deferred);
+    telehealth join tokens issued on demand through the three-way gate; staff/patient shell
+    separation re-asserted.
+- **Next action:** Gate G.6 - Inbox agent (report back to user after it).

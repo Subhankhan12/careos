@@ -87,6 +87,11 @@ append-only messages.
   MariaDB wart fixed across Comms: UPDATE-able moment columns are DATETIME, not TIMESTAMP, because
   MariaDB 10.4 gives the first TIMESTAMP column implicit ON UPDATE CURRENT_TIMESTAMP.
 
+- G.5 portal surfaces: `PortalMessageController` (own threads via ThreadService's fail-closed patient
+  path + patient-side read markers `thread_participants.last_read_message_id`, derived unread) and
+  `PortalTelehealthController` (session list + on-demand token via the three-way gate; token only in
+  the response). Patient unread analog: `threadsForPatient` / `patientUnreadCount` / `markPatientRead`.
+
 ## Open items
 
 - G.2 notification engine; G.3 unified inbox UI (adds `thread_reads` + `assigned_to`); G.4 telehealth;

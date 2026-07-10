@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Support\Carbon;
 use LogicException;
+use Modules\Audit\Concerns\LogsReads;
 use Modules\Patients\Models\Patient;
 use Modules\Platform\Concerns\BelongsToTenant;
 use Modules\Platform\Exceptions\CrossTenantReferenceException;
@@ -37,7 +38,7 @@ use Modules\Platform\Services\SettingsService;
  */
 class Invoice extends Model
 {
-    use BelongsToTenant, HasUlids;
+    use BelongsToTenant, HasUlids, LogsReads;
 
     public const PAYER_SELF_PAY = 'self_pay';
 
@@ -160,6 +161,11 @@ class Invoice extends Model
     public function creditNotes(): HasMany
     {
         return $this->hasMany(self::class, 'credit_note_for_invoice_id');
+    }
+
+    protected function auditPatientId(): ?string
+    {
+        return $this->patient_id;
     }
 
     private function assertTenantReferences(): void

@@ -203,6 +203,94 @@
             }
         }
     },
+    "portal": {
+        "title": "Patient portal",
+        "signOut": "Sign out",
+        "nav": {
+            "home": "Home",
+            "appointments": "Appointments",
+            "documents": "Documents",
+            "messages": "Messages",
+            "invoices": "Invoices",
+            "consents": "Consents",
+            "telehealth": "Video visit"
+        },
+        "login": {
+            "title": "Patient portal sign in",
+            "email": "Email",
+            "password": "Password",
+            "submit": "Sign in",
+            "failed": "Those credentials do not match our records."
+        },
+        "home": {
+            "nextAppointment": "Next appointment",
+            "none": "No upcoming appointment.",
+            "unreadMessages": "Unread messages",
+            "outstandingBalance": "Outstanding balance"
+        },
+        "appointments": {
+            "upcoming": "Upcoming",
+            "past": "Past",
+            "empty": "Nothing here yet.",
+            "book": "Book an appointment",
+            "service": "Service",
+            "branch": "Branch",
+            "date": "Date",
+            "findSlots": "Find slots",
+            "slotsEmpty": "No free slots for this day.",
+            "bookSlot": "Book",
+            "cancel": "Cancel",
+            "cancelReason": "Reason",
+            "cancelHint": "Appointments can be cancelled online up to {hours} hours before the start."
+        },
+        "documents": {
+            "title": "Your documents",
+            "empty": "No documents have been shared with you.",
+            "download": "Download"
+        },
+        "messages": {
+            "title": "Your messages",
+            "empty": "No conversations yet.",
+            "noSelection": "Select a conversation.",
+            "reply": "Write a message…",
+            "send": "Send",
+            "unread": "{count} new",
+            "author": {
+                "staff": "Care team",
+                "patient": "You",
+                "system": "System"
+            }
+        },
+        "invoices": {
+            "title": "Your invoices",
+            "empty": "No invoices.",
+            "number": "Invoice",
+            "issued": "Issued",
+            "due": "Due",
+            "total": "Total",
+            "open": "Open",
+            "status": "Status",
+            "download": "PDF"
+        },
+        "consents": {
+            "title": "Your consents",
+            "empty": "No consents recorded.",
+            "withdraw": "Withdraw",
+            "withdrawReason": "Reason",
+            "status": {
+                "granted": "Granted",
+                "withdrawn": "Withdrawn",
+                "expired": "Expired"
+            }
+        },
+        "telehealth": {
+            "title": "Video visits",
+            "empty": "No video visit is scheduled right now.",
+            "join": "Get join code",
+            "joined": "Your join code is ready. It expires shortly — use it now.",
+            "notice": "This video visit is not recorded."
+        }
+    },
     "comms": {
         "inbox": {
             "title": "Inbox",

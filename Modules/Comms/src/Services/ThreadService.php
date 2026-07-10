@@ -269,6 +269,59 @@ class ThreadService
     }
 
     /**
+     * The patient's own threads (their patient threads only, always).
+     *
+     * @return EloquentCollection<int, Thread>
+     */
+    public function threadsForPatient(Patient $patient): EloquentCollection
+    {
+        return Thread::query()
+            ->where('type', Thread::TYPE_PATIENT)
+            ->where('patient_id', $patient->id)
+            ->orderByDesc('last_message_at')
+            ->orderByDesc('id')
+            ->get();
+    }
+
+    /**
+     * Patient-side derived unread count: care-team/system messages newer than
+     * the marker on the patient's own participant row. Never stored.
+     */
+    public function patientUnreadCount(Thread $thread, Patient $patient): int
+    {
+        $marker = ThreadParticipant::query()
+            ->where('thread_id', $thread->id)
+            ->where('patient_id', $patient->id)
+            ->whereNull('removed_at')
+            ->value('last_read_message_id');
+
+        $query = Message::query()
+            ->where('thread_id', $thread->id)
+            ->where('author_type', '!=', Message::AUTHOR_PATIENT);
+
+        if ($marker !== null) {
+            $query->where('id', '>', $marker);
+        }
+
+        return $query->count();
+    }
+
+    public function markPatientRead(Thread $thread, Patient $patient): void
+    {
+        $newestMessageId = Message::query()
+            ->where('thread_id', $thread->id)
+            ->orderByDesc('sent_at')
+            ->orderByDesc('id')
+            ->value('id');
+
+        ThreadParticipant::query()
+            ->where('thread_id', $thread->id)
+            ->where('patient_id', $patient->id)
+            ->whereNull('removed_at')
+            ->update(['last_read_message_id' => $newestMessageId, 'updated_at' => now()]);
+    }
+
+    /**
      * @param  array<string, mixed>  $attributes
      */
     private function appendMessage(Thread $thread, array $attributes, string $actorType, string $actorId): Message
