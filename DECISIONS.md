@@ -202,3 +202,11 @@ references the old ID.
   that date, so historical work bills at the historical price even if entered later. Catalog
   versions for the same tenant/key must not overlap. Prices are integer minor units and VAT rates
   are integer basis points; floats are not used for billing values (P0F.G1).
+- **D-051 / D-F2 - Charges snapshot tariff values at capture.** A charge copies the tariff code,
+  description, unit price, and VAT basis points from the resolved tariff item at capture time.
+  Later tariff edits never mutate existing charge economics and existing charges are not
+  re-resolved when read (P0F.G2).
+- **D-052 / D-F3 - Billing arithmetic is integer line-first arithmetic.** Charge line totals are
+  `quantity * unit_price_minor`. VAT is computed later per line from the snapshotted line total
+  and `vat_rate_bp` using round-half-up; invoice code must never round a summed subtotal or use
+  floats (P0F.G2).

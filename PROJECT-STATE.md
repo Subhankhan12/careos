@@ -4,12 +4,12 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
 (per the MEMORY PROTOCOL in AGENTS.md).
 
 - **Current phase:** Phase F - Billing engine + EU-Generic market pack - in progress. Latest gate:
-  P0F.G1 tariff catalogs. Next: Gate F.2.
-- **Commits:** 55 on `main` after P0F.G1.
+  P0F.G2 charge capture. Next: Gate F.3.
+- **Commits:** 56 on `main` after P0F.G2.
   Phase A = 11 (P0A.G1-G8, P0A.GM, P0A.GF, P0A.GF3), pushed to `origin/main`
   (https://github.com/Subhankhan12/careos).
 - **Verified quality (from actual output):** `composer check` green - Pint `passed`,
-  PHPStan level 5 `[OK] No errors`, Pest **285 passed / 1626 assertions**. Latest frontend/PWA
+  PHPStan level 5 `[OK] No errors`, Pest **290 passed / 1658 assertions**. Latest frontend/PWA
   verification remains Phase E consolidation: `cmd /c npm run build` green,
   `cmd /c npm run test:pwa` green (**15 passed**), and `cmd /c npm run build:pwa` green.
   Latest Phase E CI is checked after push; F.1 CI will run after push.
@@ -296,4 +296,16 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
     settings (default `EUR`).
   - `billing.manage` is in the RBAC catalog for org-admin and billing starter roles; reception
     does not receive it.
-- **Next action:** Gate F.2.
+  - Charge capture stores tenant-owned `charges` from encounters, visits, or manual capture, with
+    patient/branch/service date, one source at most, tariff pointers, and immutable price snapshot
+    columns copied from the tariff item at capture.
+  - `ChargeCaptureService` resolves tariffs at the service date, snapshots code/description/
+    unit price/VAT basis points, computes `line_total_minor = quantity * unit_price_minor`, and
+    never re-resolves existing charges after tariff edits (D-F2).
+  - Documentation-required tariff items are captured only from an encounter with a signed clinical
+    note or a completed visit; the check is deterministic and does not use AI.
+  - Draft/validated charges can be cancelled only with a reason; invoiced charges are not directly
+    cancelled and must be corrected later through credit-note mechanics.
+  - Charge capture/cancellation are audited patient-scoped and tenant chain verification remains
+    valid.
+- **Next action:** Gate F.3.
