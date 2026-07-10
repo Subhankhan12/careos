@@ -59,6 +59,15 @@ class NotificationService
             'subject' => 'Payment reminder: invoice {{invoice}}',
             'body' => "{{body}}\nInvoice: {{invoice}}\nReminder level: {{level}}",
         ],
+        // D-G4 classification: a telehealth invitation delivers a booked
+        // service (contract performance) — TRANSACTIONAL, not marketing, and
+        // not legal: it keeps the reminder-style consent gate.
+        'telehealth.invite' => [
+            'channel' => NotificationTemplate::CHANNEL_EMAIL,
+            'category' => NotificationTemplate::CATEGORY_TRANSACTIONAL,
+            'subject' => 'Your video consultation',
+            'body' => "Your care team has set up a video consultation.\nJoin here: {{join_url}}",
+        ],
     ];
 
     /**

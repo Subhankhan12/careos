@@ -25,6 +25,11 @@ Deliberately deferred work. Not forgotten — parked until the right phase.
   refresh belongs later when realtime infrastructure is introduced.
 - **Realtime inbox refresh with Reverb.** G.3's unified inbox polls/reloads on demand; websocket
   push for new messages joins the same future realtime work (P0G.G3).
+- **Telehealth recording + transcripts.** D-G2: recording is disabled at the provider level and no
+  media/recording columns exist. Enabling recording or transcripts requires a funded consent +
+  retention design first; never switch it on without one (P0G.G4).
+- **Reverb-based telehealth presence.** Join/leave proof rows are written by the server paths; live
+  presence indicators join the future realtime work (P0G.G4).
 - **Expanded AI prompt eval harness.** C.7 adds a minimal prompt registry eval-passed gate; richer
   offline/fixture evals come before real agent prompt rollout.
 - **Production vector search for KB RAG.** C.8 stores portable vector-as-JSON embeddings and scores

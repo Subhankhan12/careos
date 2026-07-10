@@ -16,8 +16,10 @@ return new class extends Migration
             $table->string('participant_type');
             $table->foreignId('staff_user_id')->nullable()->constrained('users')->restrictOnDelete();
             $table->ulid('patient_id')->nullable();
-            $table->timestamp('added_at');
-            $table->timestamp('removed_at')->nullable();
+            // DATETIME, not TIMESTAMP (MariaDB implicit ON UPDATE wart): the
+            // removal update must never mutate added_at.
+            $table->dateTime('added_at');
+            $table->dateTime('removed_at')->nullable();
             $table->timestamps();
 
             $table->foreign('tenant_id')->references('id')->on('tenants')->cascadeOnDelete();

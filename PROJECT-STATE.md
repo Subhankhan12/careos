@@ -4,17 +4,17 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
 (per the MEMORY PROTOCOL in AGENTS.md).
 
 - **Current phase:** Phase G - Comms, telehealth & patient portal completion - in progress. Latest
-  gate: P0G.G3 unified inbox. Next: Gate G.4 telehealth. (Phase F COMPLETE at P0F.C: the
-  simulated month reconciles to the unit, all six invariants delta_minor === 0.)
-- **Commits:** 66 on `main` after P0G.G3.
+  gate: P0G.G4 telehealth. Next: Gate G.5 patient portal completion (after user review of G.4).
+  (Phase F COMPLETE at P0F.C: the simulated month reconciles to the unit.)
+- **Commits:** 67 on `main` after P0G.G4.
   Phase A = 11 (P0A.G1-G8, P0A.GM, P0A.GF, P0A.GF3), pushed to `origin/main`
   (https://github.com/Subhankhan12/careos).
 - **Verified quality (from actual output):** `composer check` green - Pint `passed`,
-  PHPStan level 5 `[OK] No errors`, Pest **387 passed / 2328 assertions**; npm build green.
-  NOTE: CI for P0G.G2 (775c10b) reported FAILURE in the Quality checks step while the identical
-  code is fully green locally and P0G.G1's CI passed; job logs are admin-only so the failing test
-  is not visible anonymously. The P0G.G3 push re-runs everything in that commit and adjudicates
-  whether it was a transient runner flake (parallel-hammer timing) or systematic. `npm run build` green,
+  PHPStan level 5 `[OK] No errors`, Pest **397 passed / 2400 assertions**; npm build green.
+  CI-failure root cause (P0G.G2/G3 runs): ci.yml exports QUEUE_CONNECTION=redis at the job level
+  and phpunit's <env> does NOT override OS env vars, so the G.2 queue-idempotency test parked its
+  job on real Redis in CI and the delivery row never appeared. Fixed in P0G.G4 by pinning
+  queue.default=sync inside that one test (queue infra itself is proven by C.0's Redis round-trip). `npm run build` green,
   `npm run test:pwa` green (**15 passed**), `npm run build:pwa` green. CI (MySQL 8 + Redis 7)
   check-run `success` for the latest pushed commit at consolidation time (P0F.G8 `e483d8e`); the
   P0F.C run is checked after push. Redis live (`PONG`); dev DB `careos` on MariaDB 10.4.32 at 3306. `composer.json` sets
@@ -423,4 +423,12 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
   - Unified inbox: derived (never stored) unread counts from `thread_reads` markers vs the
     append-only message stream; filters (type/status/mine); light assignment via
     `threads.assigned_to`; opening a patient thread read-logs; all rules server-side (P0D.GU).
-- **Next action:** Gate G.4 - telehealth.
+  - Telehealth (D-G1/G2/G3): embedded provider behind a swappable adapter; metadata only (no media/
+    recording columns — schema-asserted); recording disabled at the provider (adapters refuse rooms
+    without the option; grants pin roomRecord/roomAdmin/recorder=false); tokens <= 600s, one room/
+    identity/role, never stored/logged; patient tokens fail-closed on portal account + portal.access
+    consent + being the session's patient; invitations transactional via the engine (D-064);
+    join/leave rows append-only; keys proven absent from logs.
+  - MariaDB-only integrity fix: UPDATE-able moment columns in Comms use DATETIME because MariaDB
+    10.4 gives the first TIMESTAMP column implicit ON UPDATE CURRENT_TIMESTAMP (MySQL 8 unaffected).
+- **Next action:** Gate G.5 - patient portal completion (awaiting user review of the G.4 report).

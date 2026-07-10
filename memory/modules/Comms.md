@@ -2,7 +2,11 @@
 
 ## Status
 
-Phase G active. P0G.G3 added the unified inbox UI (thread list/filters/unread badges, detail +
+Phase G active. P0G.G4 added telehealth: `TelehealthProvider` adapter (LiveKit default +
+FakeTelehealthProvider for tests), metadata-only `telehealth_sessions` + append-only
+`telehealth_participants` (leave fills `left_at` once), `TelehealthService` with recording-disabled
+room creation, short-lived single-room/identity/role tokens (no record grant), three-way patient
+gate, transactional invitations, and full audit/read-logging. P0G.G3 added the unified inbox UI (thread list/filters/unread badges, detail +
 composer, close/reopen, light assignment) on `pages/Comms/Inbox.vue` with `thread_reads` markers and
 `threads.assigned_to`. P0G.G2 added the notification engine (versioned templates, consent-aware,
 append-only deliveries) and migrated the Phase C reminder + Phase F dunning senders onto it.
@@ -71,6 +75,17 @@ append-only messages.
   type/status/scope + `thread_id` detail) and POST reply/status/assign (InboxActionController —
   all rules in ThreadService; controllers validate shape only, P0D.GU). Realtime is polling;
   Reverb deferred.
+
+- Telehealth (D-G1/G2/G3, D-061..D-064): media never on CareOS servers — schema stores room
+  reference/participants/timestamps only and a test asserts no media/recording columns exist.
+  Rooms are created with `recording_disabled => true` (adapters refuse otherwise); token grants pin
+  `roomRecord/roomAdmin/recorder = false`; TTL <= 600s; tokens never stored/logged; provider keys
+  proven absent from logs and audit rows. Patient tokens are fail-closed on active portal account +
+  portal.access consent + being the session's patient. Invitations go through the notification
+  engine as TRANSACTIONAL (reminder-style consent posture, deliberately not legal). Session
+  created/started/ended + every token issue audited; token issue patient-scoped read-logged.
+  MariaDB wart fixed across Comms: UPDATE-able moment columns are DATETIME, not TIMESTAMP, because
+  MariaDB 10.4 gives the first TIMESTAMP column implicit ON UPDATE CURRENT_TIMESTAMP.
 
 ## Open items
 

@@ -246,6 +246,11 @@ test('the dedupe key prevents double-send on retry', function () {
 });
 
 test('queueing dispatches through Horizon and stays idempotent', function () {
+    // CI exports QUEUE_CONNECTION=redis at the OS level (phpunit <env> does not
+    // override it), which would park the job unprocessed on Redis. This test
+    // asserts dispatch idempotency, not queue infrastructure (C.0 proves the
+    // real Redis round trip), so pin the sync driver explicitly.
+    config()->set('queue.default', 'sync');
     Notification::fake();
     $fx = g2Fixture();
     g2Template('legal.notice', NotificationTemplate::CATEGORY_LEGAL);

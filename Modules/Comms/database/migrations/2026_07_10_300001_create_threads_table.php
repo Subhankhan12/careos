@@ -17,7 +17,10 @@ return new class extends Migration
             $table->ulid('encounter_id')->nullable();
             $table->string('status')->default('open');
             $table->foreignId('created_by')->constrained('users')->restrictOnDelete();
-            $table->timestamp('last_message_at')->nullable();
+            // DATETIME, not TIMESTAMP: MariaDB 10.4 gives the first TIMESTAMP
+            // column implicit ON UPDATE CURRENT_TIMESTAMP, which would silently
+            // clobber this on any thread update (close/assign).
+            $table->dateTime('last_message_at')->nullable();
             $table->timestamps();
 
             $table->foreign('tenant_id')->references('id')->on('tenants')->cascadeOnDelete();

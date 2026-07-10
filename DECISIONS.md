@@ -309,3 +309,27 @@ references the old ID.
   dedupe key with a unique index makes retries idempotent. The Phase C reminder and Phase F dunning
   senders were migrated onto the engine through app-layer channel bridges (D-017) with their suites
   passing unchanged (P0G.G2).
+- **D-061 / D-G1 - Telehealth is an EMBEDDED third-party WebRTC provider (LiveKit default) behind a
+  swappable adapter.** `Modules\Comms\Contracts\TelehealthProvider` (createRoom/issueToken/endRoom) is
+  the seam; media NEVER passes through or rests on CareOS servers. CareOS stores ONLY the room
+  reference, participants, and join/leave timestamps — the schema has no media columns and a test
+  asserts none appear. Join tokens are short-lived (TTL hard-capped at <= 600s), scoped to exactly one
+  room + one identity + one role (staff and patient may publish/subscribe; nobody may record or
+  administer), issued on demand, never stored, never logged. Provider credentials come from
+  config/env only and a test proves they never reach logs or the audit trail (P0G.G4).
+- **D-062 / D-G2 - Telehealth recording is DISABLED at the provider level.** Rooms are created with an
+  explicit `recording_disabled => true` option that adapters REFUSE to create a room without; tokens
+  carry `roomRecord/roomAdmin/recorder = false`, so recording cannot be initiated by any participant —
+  not merely "we don't call the record API". Recording and transcripts are DEFERRED behind a funded
+  consent + retention design and are never enabled without one (P0G.G4).
+- **D-063 / D-G3 - The telehealth room is NOT the clinical record.** What is said in a call is
+  documented in a Phase D SOAP note like any other encounter. No transcript, no audio capture, no AI
+  listening to the call, ever — ELECTRIC FENCE. Join/leave proof rows are append-only (a leave fills
+  `left_at` exactly once; the DB trigger forbids every other change and all deletes) (P0G.G4).
+- **D-064 - Telehealth invitations are TRANSACTIONAL (D-G4 classification).** The invitation delivers a
+  service the patient already booked — contract performance, not marketing and not a statutory notice —
+  so it uses the transactional template category with the same consent posture as appointment
+  reminders: consent-gated fail-closed on `comms.email` (skip + no_consent), while staff can always
+  convey the join link directly. It is deliberately NOT classified legal because nothing legally
+  compels its delivery, and consent-exemption is reserved for dunning-class communications (D-F7)
+  (P0G.G4).
