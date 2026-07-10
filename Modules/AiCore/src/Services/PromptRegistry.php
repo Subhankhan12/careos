@@ -62,6 +62,18 @@ class PromptRegistry
                 'Propose day-of nursing replans from logistics constraints only. Re-validate with deterministic assignment rules and require human approval before assignment.',
                 true,
             ),
+            'billing.suggest_codes:1' => new PromptVersion(
+                'billing.suggest_codes',
+                1,
+                'Map documented services from signed notes or completed visits to tenant tariff codes as source-linked suggestions only. Never invent services, never set prices, and require human approval before any charge is captured.',
+                true,
+            ),
+            'billing.preflight:1' => new PromptVersion(
+                'billing.preflight',
+                1,
+                'Explain deterministic charge-validation results in plain language. The validator decides; never issue invoices, never add or drop violations, and refuse clinical questions.',
+                true,
+            ),
         ];
     }
 

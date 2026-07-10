@@ -272,3 +272,20 @@ references the old ID.
   numbers. The export is a generic ledger CSV on the private disk; DATEV-style columns arrive with the
   DE statutory pack later. Both `run` and `export` require `billing.manage` and are audited
   (`billing.reconciled`, `billing.exported`) (P0F.G7).
+- **D-058 / D-F9 - The Billing agent maps and flags; the deterministic engine decides.** The Billing
+  agent runs entirely under C.7 AiCore governance with two FINANCIAL-category tools
+  (`billing.suggest_charge_codes`, `billing.preflight_invoice`), both requiring `billing.manage` and
+  hard-capped at `approve` — a requested `auto` degrades via `AutonomyPolicy::cap()`. Code-mapping
+  suggestions exist only for a SIGNED-note encounter or a COMPLETED visit, must resolve through
+  `TariffResolver` against the catalog version valid on the service date, and every rationale must be
+  source-linked: its quoted text must literally resolve to real documented text of that patient
+  (signed note SOAP sections or visit notes) or the suggestion is rejected in code before any
+  approval-queue item exists. Agent-supplied prices are NEVER trusted — human approval captures
+  through `ChargeCaptureService`, which re-resolves the tariff itself, so an agent-claimed price
+  never reaches a charge row. Preflight EXPLAINS but the F.3 `ChargeValidator` DECIDES: reported
+  violations are copied verbatim from the validator (LLM-claimed violations are discarded), proven by
+  a seeded fuzz test (25 random charge sets, zero disagreements), and no invoice is ever issued by an
+  agent — issuing stays a human action through `IssueService`. Clinically framed questions
+  (treatment appropriateness, alternatives, patient condition) are refused with human handoff,
+  `refused` ledger rows, and no agent action; all reads are patient-scoped read-logged with surface
+  `billing_agent` (P0F.G8).

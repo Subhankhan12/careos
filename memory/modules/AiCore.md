@@ -60,6 +60,14 @@ triage, symptom assessment, or dosing logic anywhere.
 - `App\AiCore\Support\NursingDispatchProposalEngine` - app-layer composition that binds dispatch
   proposals to Nursing's `AssignmentValidator` without adding cross-module dependencies inside
   AiCore.
+- `App\AiCore\Agents\BillingAgent` / `Tools\SuggestChargeCodesTool` / `Tools\PreflightInvoiceTool` -
+  governed Billing agent path (P0F.G8). Maps documented services to tariff codes as source-linked
+  suggestions and explains deterministic F.3 validation results; both tools are FINANCIAL category
+  with explicit `approve` ceilings.
+- `App\AiCore\Support\BillingCodeSuggestionEngine` - app-layer composition that source-links every
+  billing suggestion to real documented text (signed encounter note SOAP sections or completed-visit
+  `visit_notes`) and resolves every code through `TariffResolver` at the service date; unsourced or
+  unresolvable suggestions throw before the approval queue.
 - `Events\AiInteractionRecorded` and `Events\AgentActionLifecycleChanged` - app-layer audit glue
   records ledger/action paths into the audit chain without AiCore depending on Audit.
 
@@ -95,15 +103,27 @@ triage, symptom assessment, or dosing logic anywhere.
 - Invalid Nursing Dispatch proposals are rejected before approval queue creation and recorded as
   `invalid_proposal`; pending proposals do not assign anything. Approval executes through
   `VisitAssignmentService::assign()`.
+- Billing agent tools require `billing.manage`, are FINANCIAL category (hard-capped at `approve` by
+  `AutonomyPolicy::cap()` even when `auto` is requested), and create approval-queue items; nothing is
+  captured or issued while pending or rejected.
+- Billing suggestion prices are NEVER trusted: preview prices come from the resolved tariff item and
+  approval captures through `ChargeCaptureService`, which re-resolves the tariff itself — an
+  agent-claimed `unit_price_minor` never reaches a charge row.
+- Billing preflight mirrors the deterministic F.3 `ChargeValidator` exactly: reported violations are
+  copied verbatim from the validator output; `llm_claims` in the input are counted and discarded.
+  It never issues an invoice — issuing stays human through `IssueService` (fuzz-tested, D-058).
+- Billing agent refuses clinically framed questions (treatment appropriateness, alternatives,
+  patient condition) with human handoff, writes a `refused` `ai_interactions` row, and creates no
+  `agent_actions`. Reads are patient-scoped read-logged with surface `billing_agent`.
 - AiCore may use Platform for tenant/settings/RBAC primitives; it does not depend on Audit or domain
   modules. Audit composition lives in `app/`.
 
 ## Status
 
-**Phase C COMPLETE / active; Phase D clinical agents and Phase E Dispatch agent added.** The
-governed runtime foundation runs Scheduler Agent, Front-Desk Agent, D.8 clinical Summary +
-Follow-up agents, and E.9 Nursing Dispatch proposals. Local `composer check` is green:
-277 tests / 1546 assertions.
+**Phase C COMPLETE / active; Phase D clinical agents, Phase E Dispatch agent, and Phase F Billing
+agent added.** The governed runtime foundation runs Scheduler Agent, Front-Desk Agent, D.8 clinical
+Summary + Follow-up agents, E.9 Nursing Dispatch proposals, and F.8 Billing map + preflight
+suggestions. Local `composer check` is green: 358 tests / 2073 assertions.
 
 ## Open items
 

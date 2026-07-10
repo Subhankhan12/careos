@@ -2,9 +2,11 @@
 
 ## Status
 
-Phase F active. P0F.G7 added the reconciliation engine (6 integer-arithmetic invariants), the
-append-only reconciliation_runs monthly-close artifact, and a reconciliation-gated accounting CSV
-export. P0F.G6 added staged, deterministic, pausable dunning for overdue invoices.
+Phase F active. P0F.G8 added the Billing agent under AiCore governance (map documented services to
+tariff codes + preflight validation explanations; financial category, approve-capped; see
+memory/modules/AiCore.md for the agent details). P0F.G7 added the reconciliation engine (6
+integer-arithmetic invariants), the append-only reconciliation_runs monthly-close artifact, and a
+reconciliation-gated accounting CSV export. P0F.G6 added staged, deterministic, pausable dunning for overdue invoices.
 P0F.G5 added append-only payments, allocations, reversals, and refunds against invoices.
 P0F.G4 added invoices, gapless numbering, issued-document immutability, and credit notes.
 
@@ -191,6 +193,10 @@ P0F.G4 added invoices, gapless numbering, issued-document immutability, and cred
 - `reconciliation_runs` is append-only at model + DB-trigger level; it is the monthly-close artifact.
 - Commands: `billing:reconcile {tenant} {period} {actorId}` and
   `billing:export {tenant} {period} {actorId}`.
+- The Billing agent (F.8) never bypasses the deterministic engine: suggestions capture only through
+  `ChargeCaptureService` (tariff re-resolved, agent prices ignored), preflight reports the F.3
+  `ChargeValidator` output verbatim, and no invoice is ever issued by an agent — `IssueService`
+  remains human-only (D-058).
 
 ## Open items
 

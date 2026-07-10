@@ -7,6 +7,8 @@ use App\AiCore\Tools\DraftRecallMessageTool;
 use App\AiCore\Tools\FillFromWaitlistTool;
 use App\AiCore\Tools\NursingProposeAssignmentsTool;
 use App\AiCore\Tools\NursingReplanDayTool;
+use App\AiCore\Tools\PreflightInvoiceTool;
+use App\AiCore\Tools\SuggestChargeCodesTool;
 use App\AiCore\Tools\SuggestSlotsTool;
 use App\Audit\AuthAuditSubscriber;
 use App\Audit\PlatformAuditContext;
@@ -62,6 +64,8 @@ class AppServiceProvider extends ServiceProvider
             $registry->register($this->app->make(DraftRecallMessageTool::class));
             $registry->register($this->app->make(NursingProposeAssignmentsTool::class));
             $registry->register($this->app->make(NursingReplanDayTool::class));
+            $registry->register($this->app->make(SuggestChargeCodesTool::class));
+            $registry->register($this->app->make(PreflightInvoiceTool::class));
         });
     }
 

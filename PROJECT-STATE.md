@@ -4,12 +4,13 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
 (per the MEMORY PROTOCOL in AGENTS.md).
 
 - **Current phase:** Phase F - Billing engine + EU-Generic market pack - in progress. Latest gate:
-  P0F.G7 reconciliation engine + gated accounting export. Next: Gate F.8.
-- **Commits:** 61 on `main` after P0F.G7.
+  P0F.G8 Billing agent (map + flag, approve-only, validator-mirrored). Next: Gate F.9 (or Phase F
+  consolidation, per the next pasted gate).
+- **Commits:** 62 on `main` after P0F.G8.
   Phase A = 11 (P0A.G1-G8, P0A.GM, P0A.GF, P0A.GF3), pushed to `origin/main`
   (https://github.com/Subhankhan12/careos).
 - **Verified quality (from actual output):** `composer check` green - Pint `passed`,
-  PHPStan level 5 `[OK] No errors`, Pest **347 passed / 1908 assertions**. `composer.json` sets
+  PHPStan level 5 `[OK] No errors`, Pest **358 passed / 2073 assertions**. `composer.json` sets
   `config.process-timeout: 0` because the full suite (~390s) exceeds Composer's default 300s
   process-timeout that `composer check` runs under (CI runs `composer check`). Latest frontend/PWA
   verification remains Phase E consolidation: `cmd /c npm run build` green,
@@ -368,4 +369,15 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
   - The accounting CSV export (`AccountingExportService::export`, `billing:export`) REFUSES to run
     unless the period's most recent reconciliation passed; export invoice-row totals equal the I4
     reconciled total to the unit. Generic ledger format; DATEV columns arrive with the DE pack.
-- **Next action:** Gate F.8.
+  - Billing agent runs under C.7 AiCore governance: `billing.suggest_charge_codes` and
+    `billing.preflight_invoice` are FINANCIAL-category tools requiring `billing.manage`, hard-capped
+    at `approve` (requested `auto` degrades). Suggestions must be source-linked to a signed encounter
+    note or completed-visit note text and resolve via `TariffResolver` at the service date; unsourced
+    suggestions are rejected in code before the approval queue.
+  - Agent prices are never trusted: approval captures through `ChargeCaptureService`, which
+    re-resolves the tariff; preflight reports the deterministic F.3 `ChargeValidator` violations
+    verbatim (fuzz-proven: 25 random charge sets, 0 disagreements) and never issues invoices.
+  - The Billing agent refuses clinically framed questions (appropriateness, alternatives, patient
+    condition) with human handoff, `refused` ledger rows, and no agent action; reads are
+    patient-scoped read-logged; budget gate and kill switch degrade to manual.
+- **Next action:** Gate F.9 (or Phase F consolidation, per the next pasted gate).
