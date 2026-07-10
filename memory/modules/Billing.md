@@ -2,7 +2,9 @@
 
 ## Status
 
-Phase F active. P0F.G6 added staged, deterministic, pausable dunning for overdue invoices.
+Phase F active. P0F.G7 added the reconciliation engine (6 integer-arithmetic invariants), the
+append-only reconciliation_runs monthly-close artifact, and a reconciliation-gated accounting CSV
+export. P0F.G6 added staged, deterministic, pausable dunning for overdue invoices.
 P0F.G5 added append-only payments, allocations, reversals, and refunds against invoices.
 P0F.G4 added invoices, gapless numbering, issued-document immutability, and credit notes.
 
@@ -61,6 +63,15 @@ P0F.G4 added invoices, gapless numbering, issued-document immutability, and cred
 - `Modules\Billing\Contracts\DunningChannel` + `Channels\EmailDunningChannel` +
   `Services\DunningChannelManager` + `Notifications\DunningReminderNotification`: delivery mirrors the
   Phase C reminder-channel abstraction but is NOT consent-gated.
+- `Modules\Billing\Services\ReconciliationEngine`: `check(period)` computes the six invariants in
+  integer arithmetic and returns `{period, passed, invariants:[{invariant, expected_minor,
+  actual_minor, delta_minor, ok, rows[]}]}`; `run(tenant, period, actor)` authorizes, persists the
+  append-only `reconciliation_runs` row, and audits `billing.reconciled`.
+- `Modules\Billing\Models\ReconciliationRun`: tenant-owned append-only monthly-close artifact
+  (`period`, `ran_at`, `passed`, `report` JSON, `ran_by`); model + DB triggers block UPDATE/DELETE.
+- `Modules\Billing\Services\AccountingExportService`: writes a generic ledger CSV of the period's
+  invoices/lines (VAT split by rate)/payments/allocations/credit-notes/refunds to private storage;
+  REFUSES unless the period's most recent reconciliation passed; audits `billing.exported`.
 
 ## Invariants
 
@@ -161,9 +172,30 @@ P0F.G4 added invoices, gapless numbering, issued-document immutability, and cred
   (`dunning.triggered`/`dunning.sent`). `billing:dunning-run {tenant} {actor} [--as-of] [--no-send]`
   wraps `evaluate`; scheduling it is deferred.
 
+- Reconciliation invariants (all integer arithmetic, VAT recomputed per D-F3; a single minor unit of
+  drift fails the run and reports the exact offending rows):
+  - I1: for every issued invoice/CN, `total_minor == sum(line_total) + sum(vatMinor(line_total, rate))`.
+  - I2: for every issued INV, `invoice_balances.open_balance_minor == (cancelled_by_credit_note ? 0 :
+    total_minor - net allocations)` and `0 <= open <= total` (catches a drifted projection).
+  - I3: for every payment, `amount == net_allocated + refunded + remainder`, `remainder >= 0`.
+  - I4: sum(issued non-CN invoice totals for period) == sum(invoiced charges' line total + VAT); each
+    invoiced charge appears on exactly one non-CN invoice (no double-invoiced, none lost).
+  - I5: each CN references a real same-tenant original and the total credited never exceeds it.
+  - I6: no orphan money - every allocation references an existing same-tenant payment and invoice,
+    every reversal a real non-reversed allocation, every refund an existing payment.
+- Period is `YYYY-MM`; invoices scoped by `issue_date`, payments by `received_on`. `run()` and
+  `export()` require `billing.manage`; `check()` is pure/unauthorized and relies on tenant context.
+- The accounting export is gated: `AccountingExportService::export()` throws if no reconciliation
+  exists for the period or the most recent one did not pass. Export invoice-row gross totals equal the
+  I4 reconciled total to the unit.
+- `reconciliation_runs` is append-only at model + DB-trigger level; it is the monthly-close artifact.
+- Commands: `billing:reconcile {tenant} {period} {actorId}` and
+  `billing:export {tenant} {period} {actorId}`.
+
 ## Open items
 
-- Payment/reconciliation and dunning UI surfaces are backend-only so far; screens come in a later UI gate.
+- Payment/reconciliation, dunning, and export UI surfaces are backend-only so far; screens come in a later UI gate.
+- DATEV-style export columns arrive with the DE statutory pack later; F.7 ships a generic ledger CSV.
 - Schedule `billing:dunning-run` once recurring application scheduling is finalized (deferred).
 - Partial credit notes do not reduce the original invoice's open balance (F.4 behavior); revisit if
   partial-credit-vs-payment interaction needs reconciliation.

@@ -255,3 +255,20 @@ references the old ID.
   wraps evaluate; scheduling it is deferred. Also in this gate: `composer.json` sets
   `config.process-timeout: 0` because the full suite (~407s) exceeds Composer's default 300s
   process-timeout that `composer check` (run in CI) executes under (P0F.G6).
+- **D-057 / D-F8 - Billing correctness is a set of integer invariants, checked and gated.** The
+  reconciliation engine checks six invariants for a period in EXACT integer arithmetic (VAT always
+  recomputed per D-F3, never rounding a sum): (I1) every issued invoice/CN total equals
+  `sum(line_total) + sum(per-line VAT)`; (I2) every issued INV projection `invoice_balances.open`
+  equals the derived open balance (`total − net allocations`, or 0 when cancelled by credit note) and
+  lies in `[0, total]` — this catches a drifted projection; (I3) every payment amount equals
+  `net allocated + refunded + remainder` with `remainder >= 0`; (I4) period issued non-CN invoice
+  totals equal invoiced-charge totals and every invoiced charge is on exactly one non-CN invoice (none
+  double-invoiced, none lost); (I5) every credit note references a real same-tenant original and never
+  exceeds it; (I6) no orphan money — allocations/reversals/refunds all reference real same-tenant
+  rows. A single minor unit of drift in any invariant fails the run and the report names the exact
+  offending rows. Each run persists an append-only `reconciliation_runs` monthly-close artifact
+  (model + DB triggers block UPDATE/DELETE). The accounting CSV export is GATED: it refuses to run
+  unless the period's most recent reconciliation passed — you cannot hand an accountant unreconciled
+  numbers. The export is a generic ledger CSV on the private disk; DATEV-style columns arrive with the
+  DE statutory pack later. Both `run` and `export` require `billing.manage` and are audited
+  (`billing.reconciled`, `billing.exported`) (P0F.G7).

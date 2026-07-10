@@ -4,13 +4,13 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
 (per the MEMORY PROTOCOL in AGENTS.md).
 
 - **Current phase:** Phase F - Billing engine + EU-Generic market pack - in progress. Latest gate:
-  P0F.G6 dunning (staged, deterministic, pausable). Next: Gate F.7.
-- **Commits:** 60 on `main` after P0F.G6.
+  P0F.G7 reconciliation engine + gated accounting export. Next: Gate F.8.
+- **Commits:** 61 on `main` after P0F.G7.
   Phase A = 11 (P0A.G1-G8, P0A.GM, P0A.GF, P0A.GF3), pushed to `origin/main`
   (https://github.com/Subhankhan12/careos).
 - **Verified quality (from actual output):** `composer check` green - Pint `passed`,
-  PHPStan level 5 `[OK] No errors`, Pest **330 passed / 1851 assertions**. `composer.json` now sets
-  `config.process-timeout: 0` because the full suite (~407s) exceeds Composer's default 300s
+  PHPStan level 5 `[OK] No errors`, Pest **347 passed / 1908 assertions**. `composer.json` sets
+  `config.process-timeout: 0` because the full suite (~390s) exceeds Composer's default 300s
   process-timeout that `composer check` runs under (CI runs `composer check`). Latest frontend/PWA
   verification remains Phase E consolidation: `cmd /c npm run build` green,
   `cmd /c npm run test:pwa` green (**15 passed**), and `cmd /c npm run build:pwa` green.
@@ -359,4 +359,13 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
   - Dunning delivery reuses the notification-channel abstraction but is a legal communication, NOT
     gated on comms consent (D-F7); delivery is audited. `billing:dunning-run` wraps evaluate
     (scheduling deferred).
-- **Next action:** Gate F.7.
+  - The reconciliation engine (`ReconciliationEngine::check/run`) checks six invariants (I1-I6) in
+    exact integer arithmetic (VAT per D-F3); any single-minor-unit drift fails the run and reports the
+    exact offending rows. I2 catches a drifted `invoice_balances` projection vs the derived open
+    balance; I4 proves each invoiced charge is on exactly one non-CN invoice (no double/lost).
+  - `reconciliation_runs` is the tenant-owned append-only monthly-close artifact (period, passed,
+    report JSON); model + DB triggers block UPDATE/DELETE.
+  - The accounting CSV export (`AccountingExportService::export`, `billing:export`) REFUSES to run
+    unless the period's most recent reconciliation passed; export invoice-row totals equal the I4
+    reconciled total to the unit. Generic ledger format; DATEV columns arrive with the DE pack.
+- **Next action:** Gate F.8.

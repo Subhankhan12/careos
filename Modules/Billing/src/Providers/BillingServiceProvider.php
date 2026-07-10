@@ -6,6 +6,8 @@ use Illuminate\Support\ServiceProvider;
 use Modules\Billing\Console\AttemptInvoiceIssueCommand;
 use Modules\Billing\Console\AttemptPaymentAllocationCommand;
 use Modules\Billing\Console\DunningRunCommand;
+use Modules\Billing\Console\ExportCommand;
+use Modules\Billing\Console\ReconcileCommand;
 
 class BillingServiceProvider extends ServiceProvider
 {
@@ -18,6 +20,8 @@ class BillingServiceProvider extends ServiceProvider
                 AttemptInvoiceIssueCommand::class,
                 AttemptPaymentAllocationCommand::class,
                 DunningRunCommand::class,
+                ReconcileCommand::class,
+                ExportCommand::class,
             ]);
         }
     }
