@@ -12,6 +12,7 @@ use Modules\Clinical\Models\Encounter;
 use Modules\Comms\Models\Message;
 use Modules\Comms\Models\Thread;
 use Modules\Comms\Models\ThreadParticipant;
+use Modules\Comms\Models\ThreadRead;
 use Modules\Patients\Models\Patient;
 use Modules\Patients\Models\PortalAccount;
 use Modules\Patients\Services\ConsentService;
@@ -212,6 +213,59 @@ class ThreadService
         $thread->auditRead(['surface' => 'comms_thread_portal']);
 
         return Message::query()->where('thread_id', $thread->id)->orderBy('sent_at')->orderBy('id')->get();
+    }
+
+    public function assign(Thread $thread, ?User $assignee, User $actor): Thread
+    {
+        $this->authorizeStaff($actor);
+        $this->assertSameTenant($thread, 'thread_id');
+
+        if ($assignee !== null && $assignee->tenant_id !== $this->tenantContext->id()) {
+            throw CrossTenantReferenceException::forAttribute('assigned_to', (string) $assignee->id);
+        }
+
+        $thread->forceFill(['assigned_to' => $assignee?->id])->save();
+        $this->auditThread('thread.assigned', $thread, $actor, ['assigned_to' => $assignee?->id]);
+
+        return $thread->refresh();
+    }
+
+    /**
+     * Record that the staff user has read the thread up to its newest message.
+     * Unread counts are DERIVED from this marker; nothing is stored to drift.
+     */
+    public function markRead(Thread $thread, User $staff): void
+    {
+        $newestMessageId = Message::query()
+            ->where('thread_id', $thread->id)
+            ->orderByDesc('sent_at')
+            ->orderByDesc('id')
+            ->value('id');
+
+        ThreadRead::query()->updateOrCreate(
+            ['thread_id' => $thread->id, 'staff_user_id' => $staff->id],
+            ['last_read_message_id' => $newestMessageId, 'read_at' => now()],
+        );
+    }
+
+    /**
+     * Derived unread count for one staff user: messages that arrived after the
+     * user's read marker (ULID message ids are time-ordered). Never stored.
+     */
+    public function unreadCount(Thread $thread, User $staff): int
+    {
+        $read = ThreadRead::query()
+            ->where('thread_id', $thread->id)
+            ->where('staff_user_id', $staff->id)
+            ->first();
+
+        $query = Message::query()->where('thread_id', $thread->id);
+
+        if ($read?->last_read_message_id !== null) {
+            $query->where('id', '>', $read->last_read_message_id);
+        }
+
+        return $query->count();
     }
 
     /**

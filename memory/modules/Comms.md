@@ -2,7 +2,9 @@
 
 ## Status
 
-Phase G active. P0G.G2 added the notification engine (versioned templates, consent-aware,
+Phase G active. P0G.G3 added the unified inbox UI (thread list/filters/unread badges, detail +
+composer, close/reopen, light assignment) on `pages/Comms/Inbox.vue` with `thread_reads` markers and
+`threads.assigned_to`. P0G.G2 added the notification engine (versioned templates, consent-aware,
 append-only deliveries) and migrated the Phase C reminder + Phase F dunning senders onto it.
 P0G.G1 registered the module and added secure messaging threads (patient + internal) with
 append-only messages.
@@ -62,6 +64,13 @@ append-only messages.
   edits or new versions never alter history (append-only at model + DB-trigger level).
 - Idempotency: sha256 dedupe key over (template key, channel, recipient, sorted context) with a
   unique DB index as the race backstop — a retry or double-dispatch never double-sends.
+- Unread counts are DERIVED per staff user from the append-only message stream vs the
+  `thread_reads` marker (`Message.id > last_read_message_id`, ULID time-ordering) — never stored.
+  Opening a thread in the inbox marks it read and (for patient threads) read-logs.
+- Inbox routes: GET `/comms/inbox` (InboxController, Gate `comms.manage`, filters
+  type/status/scope + `thread_id` detail) and POST reply/status/assign (InboxActionController —
+  all rules in ThreadService; controllers validate shape only, P0D.GU). Realtime is polling;
+  Reverb deferred.
 
 ## Open items
 

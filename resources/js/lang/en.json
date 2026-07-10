@@ -203,6 +203,41 @@
             }
         }
     },
+    "comms": {
+        "inbox": {
+            "title": "Inbox",
+            "subtitle": "Patient messages and internal threads.",
+            "filters": {
+                "type": "Type",
+                "all": "All",
+                "patient": "Patient",
+                "internal": "Internal",
+                "status": "Status",
+                "open": "Open",
+                "closed": "Closed",
+                "scope": "Scope",
+                "mine": "Mine",
+                "everyone": "Everyone"
+            },
+            "unread": "{count} unread",
+            "empty": "No threads match the filters.",
+            "noSelection": "Select a thread to read it.",
+            "assignedTo": "Assigned to",
+            "unassigned": "Unassigned",
+            "assignToMe": "Assign to me",
+            "close": "Close thread",
+            "reopen": "Reopen thread",
+            "reply": "Reply",
+            "replyPlaceholder": "Write a reply…",
+            "send": "Send",
+            "aiAssisted": "AI-assisted",
+            "author": {
+                "staff": "Care team",
+                "patient": "Patient",
+                "system": "System"
+            }
+        }
+    },
     "nursing": {
         "dispatch": {
             "title": "Dispatch",

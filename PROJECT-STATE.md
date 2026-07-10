@@ -4,13 +4,17 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
 (per the MEMORY PROTOCOL in AGENTS.md).
 
 - **Current phase:** Phase G - Comms, telehealth & patient portal completion - in progress. Latest
-  gate: P0G.G2 notification engine. Next: Gate G.3 unified inbox. (Phase F COMPLETE at P0F.C: the
+  gate: P0G.G3 unified inbox. Next: Gate G.4 telehealth. (Phase F COMPLETE at P0F.C: the
   simulated month reconciles to the unit, all six invariants delta_minor === 0.)
-- **Commits:** 65 on `main` after P0G.G2.
+- **Commits:** 66 on `main` after P0G.G3.
   Phase A = 11 (P0A.G1-G8, P0A.GM, P0A.GF, P0A.GF3), pushed to `origin/main`
   (https://github.com/Subhankhan12/careos).
 - **Verified quality (from actual output):** `composer check` green - Pint `passed`,
-  PHPStan level 5 `[OK] No errors`, Pest **381 passed / 2256 assertions**. `npm run build` green,
+  PHPStan level 5 `[OK] No errors`, Pest **387 passed / 2328 assertions**; npm build green.
+  NOTE: CI for P0G.G2 (775c10b) reported FAILURE in the Quality checks step while the identical
+  code is fully green locally and P0G.G1's CI passed; job logs are admin-only so the failing test
+  is not visible anonymously. The P0G.G3 push re-runs everything in that commit and adjudicates
+  whether it was a transient runner flake (parallel-hammer timing) or systematic. `npm run build` green,
   `npm run test:pwa` green (**15 passed**), `npm run build:pwa` green. CI (MySQL 8 + Redis 7)
   check-run `success` for the latest pushed commit at consolidation time (P0F.G8 `e483d8e`); the
   P0F.C run is checked after push. Redis live (`PONG`); dev DB `careos` on MariaDB 10.4.32 at 3306. `composer.json` sets
@@ -416,4 +420,7 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
   - Phase C appointment reminders and F.6 dunning now deliver through the engine via app-layer
     channel bridges (D-017); their suites pass unchanged (reminders skip without consent; dunning
     does not).
-- **Next action:** Gate G.3 - unified inbox.
+  - Unified inbox: derived (never stored) unread counts from `thread_reads` markers vs the
+    append-only message stream; filters (type/status/mine); light assignment via
+    `threads.assigned_to`; opening a patient thread read-logs; all rules server-side (P0D.GU).
+- **Next action:** Gate G.4 - telehealth.

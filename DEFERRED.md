@@ -23,6 +23,8 @@ Deliberately deferred work. Not forgotten — parked until the right phase.
   interface and email implementation only; external SMS/WhatsApp providers come later.
 - **Realtime day-board refresh with Reverb.** C.6 uses normal request/slot refreshes; websocket
   refresh belongs later when realtime infrastructure is introduced.
+- **Realtime inbox refresh with Reverb.** G.3's unified inbox polls/reloads on demand; websocket
+  push for new messages joins the same future realtime work (P0G.G3).
 - **Expanded AI prompt eval harness.** C.7 adds a minimal prompt registry eval-passed gate; richer
   offline/fixture evals come before real agent prompt rollout.
 - **Production vector search for KB RAG.** C.8 stores portable vector-as-JSON embeddings and scores

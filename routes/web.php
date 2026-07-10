@@ -14,6 +14,8 @@ use Modules\Clinical\Http\Controllers\EncounterShowController;
 use Modules\Clinical\Http\Controllers\NoteEditorController;
 use Modules\Clinical\Http\Controllers\OpenEncounterFromAppointmentController;
 use Modules\Clinical\Http\Controllers\PortalDocumentController;
+use Modules\Comms\Http\Controllers\InboxActionController;
+use Modules\Comms\Http\Controllers\InboxController;
 use Modules\Nursing\Http\Controllers\DispatchActionController;
 use Modules\Nursing\Http\Controllers\DispatchBoardController;
 use Modules\Patients\Http\Controllers\PatientConsentController;
@@ -66,6 +68,11 @@ Route::middleware('auth')->group(function () {
         ->name('scheduling.day-board.slots');
     Route::post('/scheduling/day-board/open-encounter', OpenEncounterFromAppointmentController::class)
         ->name('scheduling.day-board.open-encounter');
+
+    Route::get('/comms/inbox', InboxController::class)->name('comms.inbox');
+    Route::post('/comms/inbox/reply', [InboxActionController::class, 'reply'])->name('comms.inbox.reply');
+    Route::post('/comms/inbox/status', [InboxActionController::class, 'status'])->name('comms.inbox.status');
+    Route::post('/comms/inbox/assign', [InboxActionController::class, 'assign'])->name('comms.inbox.assign');
 
     Route::get('/nursing/dispatch', DispatchBoardController::class)->name('nursing.dispatch');
     Route::post('/nursing/dispatch/assign', [DispatchActionController::class, 'assign'])

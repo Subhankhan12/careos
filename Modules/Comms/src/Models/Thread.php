@@ -28,6 +28,7 @@ use Modules\Platform\Models\User;
  * @property string|null $encounter_id
  * @property string $status
  * @property int $created_by
+ * @property int|null $assigned_to
  * @property Carbon|null $last_message_at
  */
 class Thread extends Model
@@ -53,6 +54,7 @@ class Thread extends Model
         'encounter_id',
         'status',
         'created_by',
+        'assigned_to',
         'last_message_at',
     ];
 
@@ -93,6 +95,11 @@ class Thread extends Model
     public function creator(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');
+    }
+
+    public function assignee(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'assigned_to');
     }
 
     public function participants(): HasMany
