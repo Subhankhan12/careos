@@ -144,6 +144,11 @@ class Charge extends Model
         return $this->belongsTo(TariffItem::class);
     }
 
+    public function invoice(): BelongsTo
+    {
+        return $this->belongsTo(Invoice::class);
+    }
+
     public function creator(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');

@@ -338,7 +338,7 @@ test('draft or validated charges can be cancelled with a reason but invoiced cha
         ->and($cancelled->cancelled_reason)->toBe('Entered in error');
 
     $invoiced = $service->captureManual($fixture['patient'], $fixture['branch'], '2026-03-10', 'CANCEL', 1, $fixture['actor']);
-    $invoiced->forceFill(['status' => Charge::STATUS_INVOICED, 'invoice_id' => (string) Str::ulid()])->save();
+    $invoiced->forceFill(['status' => Charge::STATUS_INVOICED])->save();
 
     expect(fn () => $service->cancel($invoiced->refresh(), $fixture['actor'], 'No direct invoice cancel'))
         ->toThrow(InvalidArgumentException::class);

@@ -59,3 +59,4 @@ One line per completed gate. Newest at bottom. Format: `<commit> P<phase>.G<n>: 
 - `(pending)` P0F.G1: Billing effective-dated tariff catalogs - module registration, integer minor-unit prices, basis-point VAT, EU-Generic starter seed, resolver by service date; 285 tests / 1626 assertions.
 - `(pending)` P0F.G2: Charge capture with price snapshots - charges from encounters/visits/manual capture, documentation-required guard, cancellation rules, patient-scoped audit; 290 tests / 1658 assertions.
 - `(pending)` P0F.G3: Deterministic charge validation - rule engine, persisted violations, idempotent validated/draft transitions, golden-file behavior locks; 301 tests / 1688 assertions.
+- `(pending)` P0F.G4: Invoices - validated-charge issue flow, gapless locked numbering, issued invoice/line immutability, CN credit notes, private VAT invoice artifacts; 307 tests / 1742 assertions.

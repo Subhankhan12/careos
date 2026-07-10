@@ -215,3 +215,10 @@ references the old ID.
   distinct reason codes for every violation. Existing catalog-version behavior is frozen by JSON
   golden files that assert exact validated/violation output; changing behavior for an existing
   catalog version must deliberately update the golden fixture (P0F.G3).
+- **D-054 / D-F5 - Issued invoices are fully frozen; balances live separately and credit notes use
+  `CN`.** Invoice numbers are assigned only at issue time by locking the per-tenant/per-series
+  `invoice_sequences` row. After issue, the legal `invoices` row and `invoice_lines` are immutable
+  at model and DB-trigger levels; F.5 payment/open-balance changes must use `invoice_balances`
+  instead of trigger exceptions on invoice fields. Credit notes are separate `CN`-series issued
+  documents with their own gapless numbers and negative lines referencing the original invoice
+  lines; the original invoice document remains untouched (P0F.G4).

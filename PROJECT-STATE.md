@@ -4,12 +4,12 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
 (per the MEMORY PROTOCOL in AGENTS.md).
 
 - **Current phase:** Phase F - Billing engine + EU-Generic market pack - in progress. Latest gate:
-  P0F.G3 charge validation. Next: Gate F.4.
-- **Commits:** 57 on `main` after P0F.G3.
+  P0F.G4 invoices. Next: Gate F.5.
+- **Commits:** 58 on `main` after P0F.G4.
   Phase A = 11 (P0A.G1-G8, P0A.GM, P0A.GF, P0A.GF3), pushed to `origin/main`
   (https://github.com/Subhankhan12/careos).
 - **Verified quality (from actual output):** `composer check` green - Pint `passed`,
-  PHPStan level 5 `[OK] No errors`, Pest **301 passed / 1688 assertions**. Latest frontend/PWA
+  PHPStan level 5 `[OK] No errors`, Pest **307 passed / 1742 assertions**. Latest frontend/PWA
   verification remains Phase E consolidation: `cmd /c npm run build` green,
   `cmd /c npm run test:pwa` green (**15 passed**), and `cmd /c npm run build:pwa` green.
   Latest Phase E CI is checked after push; F.1 CI will run after push.
@@ -319,4 +319,17 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
     for new state changes.
   - Golden files under `tests/Fixtures/billing/golden/` freeze exact behavior for catalog versions;
     the runner loads every JSON fixture and asserts exact expected validated/violation output.
-- **Next action:** Gate F.4.
+  - Invoices are tenant-owned VAT documents generated from validated charges; invoice lines copy
+    charge snapshot economics so issued invoices are self-contained.
+  - `IssueService` assigns numbers only at issue time under `SELECT ... FOR UPDATE` on
+    `invoice_sequences`, with transaction retry for deadlocks. The parallel hammer issues 6
+    invoices concurrently and proves numbers 1..6 with no gaps or duplicates.
+  - Issued invoices and invoice lines are immutable at both model and DB-trigger levels; drafts
+    remain editable and the draft-to-issued transition is allowed.
+  - Mutable payment/balance state is separated into `invoice_balances`; the legal `invoices` row
+    remains fully frozen after issue.
+  - Credit notes use series `CN`, are new independently numbered invoice documents with negative
+    lines referencing original invoice lines, and leave the original invoice document untouched.
+  - Invoice artifacts are written to private tenant-prefixed local storage under
+    `tenants/{tenant}/billing/invoices/...`; no public URL is exposed.
+- **Next action:** Gate F.5.
