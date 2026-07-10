@@ -5,6 +5,7 @@ namespace Modules\Billing\Providers;
 use Illuminate\Support\ServiceProvider;
 use Modules\Billing\Console\AttemptInvoiceIssueCommand;
 use Modules\Billing\Console\AttemptPaymentAllocationCommand;
+use Modules\Billing\Console\DunningRunCommand;
 
 class BillingServiceProvider extends ServiceProvider
 {
@@ -16,6 +17,7 @@ class BillingServiceProvider extends ServiceProvider
             $this->commands([
                 AttemptInvoiceIssueCommand::class,
                 AttemptPaymentAllocationCommand::class,
+                DunningRunCommand::class,
             ]);
         }
     }

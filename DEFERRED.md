@@ -52,6 +52,8 @@ Deliberately deferred work. Not forgotten — parked until the right phase.
   is set up, so credential expiry status stays current outside manual command runs (P0B.G1).
 - **Schedule `nursing:materialize-visits`.** E.2 adds the idempotent horizon command for planned
   nursing visits; wire it into the scheduler when recurring application scheduling is finalized.
+- **Schedule `billing:dunning-run`.** F.6 adds the idempotent dunning evaluation command; wire it into
+  the scheduler (per tenant, daily) once recurring application scheduling is finalized (P0F.G6).
 - **Validate patient name search parity before production.** Dev MariaDB 10.4 uses plain FULLTEXT
   while MySQL 8 CI/prod uses `WITH PARSER ngram` - patient name search tokenizes differently
   across environments (P0B.G3).

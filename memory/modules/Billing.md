@@ -2,8 +2,9 @@
 
 ## Status
 
-Phase F active. P0F.G5 added append-only payments, allocations, reversals, and refunds against
-invoices. P0F.G4 added invoices, gapless numbering, issued-document immutability, and credit notes.
+Phase F active. P0F.G6 added staged, deterministic, pausable dunning for overdue invoices.
+P0F.G5 added append-only payments, allocations, reversals, and refunds against invoices.
+P0F.G4 added invoices, gapless numbering, issued-document immutability, and credit notes.
 
 ## Key classes
 
@@ -49,6 +50,17 @@ invoices. P0F.G4 added invoices, gapless numbering, issued-document immutability
 - `Modules\Billing\Services\PaymentService`: records payments, allocates to invoices, reverses
   allocations, and refunds; derives `unallocated(payment)`/`openBalance(invoice)` by exact integer
   arithmetic; refreshes the `invoice_balances` projection; writes patient-scoped audit events.
+- `Modules\Billing\Models\DunningEvent`: tenant-owned append-only record that a dunning level fired
+  for an invoice; status (`created`/`sent`) fixed at insert; unique `(tenant_id, invoice_id, level)`.
+  Model + DB triggers block UPDATE/DELETE.
+- `Modules\Billing\Services\DunningService`: `evaluate(tenant, asOf, actor, deliver)` deterministically
+  creates the staged dunning_events that should exist at an as-of date (idempotent), renders letters,
+  captures optional fee charges, and delivers; `setPaused()` toggles per-invoice dunning pause.
+- `Modules\Billing\Services\DunningLetterRenderer`: renders reminder letters to private
+  `tenants/{tenant}/billing/dunning/...` storage.
+- `Modules\Billing\Contracts\DunningChannel` + `Channels\EmailDunningChannel` +
+  `Services\DunningChannelManager` + `Notifications\DunningReminderNotification`: delivery mirrors the
+  Phase C reminder-channel abstraction but is NOT consent-gated.
 
 ## Invariants
 
@@ -124,8 +136,34 @@ invoices. P0F.G4 added invoices, gapless numbering, issued-document immutability
   (`payment.recorded`/`payment.allocated`/`payment.allocation_reversed`/`payment.refunded`) and the
   audit chain verifies.
 
+- Dunning policy lives in tenant setting `billing.dunning`: `{channel, levels:[{level, days_past_due,
+  template, fee_code?}]}`. Levels are sorted ascending by `days_past_due`; a dunning fee is an optional
+  per-level tariff `fee_code`.
+- `DunningService::evaluate()` is a pure function of invoice state at an as-of date: it creates every
+  dunning level whose threshold (`days_past_due`) is met for invoices with `series=INV`,
+  `invoice_balances.open_balance_minor > 0`, `dunning_paused = false`, and a `due_date`; levels fire in
+  ascending order (never a gap, level N needs level N-1 present) and at most once per invoice
+  (`unique(tenant, invoice, level)`). Re-running for the same as-of date creates nothing new.
+  Day-past-due is whole UTC calendar days (DST-safe); `+14 days` fires an L1 at threshold 14, `+13`
+  does not.
+- Per-invoice dunning pause is a `dunning_paused` flag on the mutable `invoice_balances` projection;
+  the frozen `invoices` row is never touched. Fully paid and fully credit-noted invoices (open 0)
+  never dun.
+- A dunning fee is a NEW draft `Charge` captured through `ChargeCaptureService::captureManual()`
+  (branch derived from the invoice's charges), appearing on a FUTURE document; the original invoice is
+  never mutated (D-F2 snapshot rule preserved). Fee capture happens only when a level newly fires, so
+  idempotent re-runs never duplicate it.
+- `dunning_events` are append-only at model and DB-trigger level; status (`created` when only rendered,
+  `sent` when delivered) is decided at insert and never updated. Delivery reuses a Billing-local
+  notification-channel abstraction mirroring Phase C.
+- D-F7: dunning delivery is a contractual/legal communication and is NOT gated on `comms.email`
+  consent (unlike appointment reminders and recall outreach); delivery is still audited
+  (`dunning.triggered`/`dunning.sent`). `billing:dunning-run {tenant} {actor} [--as-of] [--no-send]`
+  wraps `evaluate`; scheduling it is deferred.
+
 ## Open items
 
-- Payment/reconciliation UI surfaces are backend-only so far; screens come in a later UI gate.
+- Payment/reconciliation and dunning UI surfaces are backend-only so far; screens come in a later UI gate.
+- Schedule `billing:dunning-run` once recurring application scheduling is finalized (deferred).
 - Partial credit notes do not reduce the original invoice's open balance (F.4 behavior); revisit if
   partial-credit-vs-payment interaction needs reconciliation.

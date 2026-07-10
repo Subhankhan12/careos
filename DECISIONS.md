@@ -237,3 +237,21 @@ references the old ID.
   money the allocation must be reversed first, so an invoice balance and a refund can never silently
   disagree. Overpayment is never absorbed or auto-applied; the remainder stays visibly unallocated
   (P0F.G5).
+- **D-056 / D-F7 - Dunning is deterministic, append-only, pausable, and consent-exempt.** Overdue-invoice
+  reminders are driven by the tenant setting `billing.dunning` (levels with `days_past_due` thresholds,
+  per-level template text, and an optional per-level fee code). `DunningService::evaluate(tenant, asOf,
+  actor)` is a pure function of invoice state at an as-of date: it creates the append-only
+  `dunning_events` that should exist (levels whose threshold is met, in ascending order, never skipping
+  a level, at most once per invoice via `unique(tenant, invoice, level)`), so re-running for the same
+  date creates nothing. It targets only `series=INV` invoices with `invoice_balances.open_balance_minor
+  > 0`, a `due_date`, and `dunning_paused = false`; paid and fully credit-noted invoices never dun.
+  The per-invoice dispute pause is a `dunning_paused` flag on the mutable `invoice_balances` projection,
+  never on the frozen `invoices` row. A dunning fee is a NEW draft charge captured through
+  `ChargeCaptureService` (appearing on a future document) — never a mutation of the original invoice.
+  `dunning_events` are append-only at model and DB-trigger levels; status (`created`/`sent`) is fixed at
+  insert. CRITICAL LEGAL DISTINCTION: dunning is a contractual/legal communication, NOT marketing, so
+  delivery is NOT gated on `comms.email` consent (unlike appointment reminders D-030 and recall outreach
+  D-040); delivery reuses the notification-channel abstraction and is still audited. `billing:dunning-run`
+  wraps evaluate; scheduling it is deferred. Also in this gate: `composer.json` sets
+  `config.process-timeout: 0` because the full suite (~407s) exceeds Composer's default 300s
+  process-timeout that `composer check` (run in CI) executes under (P0F.G6).

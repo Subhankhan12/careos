@@ -4,12 +4,14 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
 (per the MEMORY PROTOCOL in AGENTS.md).
 
 - **Current phase:** Phase F - Billing engine + EU-Generic market pack - in progress. Latest gate:
-  P0F.G5 payments + append-only allocations. Next: Gate F.6.
-- **Commits:** 59 on `main` after P0F.G5.
+  P0F.G6 dunning (staged, deterministic, pausable). Next: Gate F.7.
+- **Commits:** 60 on `main` after P0F.G6.
   Phase A = 11 (P0A.G1-G8, P0A.GM, P0A.GF, P0A.GF3), pushed to `origin/main`
   (https://github.com/Subhankhan12/careos).
 - **Verified quality (from actual output):** `composer check` green - Pint `passed`,
-  PHPStan level 5 `[OK] No errors`, Pest **319 passed / 1811 assertions**. Latest frontend/PWA
+  PHPStan level 5 `[OK] No errors`, Pest **330 passed / 1851 assertions**. `composer.json` now sets
+  `config.process-timeout: 0` because the full suite (~407s) exceeds Composer's default 300s
+  process-timeout that `composer check` runs under (CI runs `composer check`). Latest frontend/PWA
   verification remains Phase E consolidation: `cmd /c npm run build` green,
   `cmd /c npm run test:pwa` green (**15 passed**), and `cmd /c npm run build:pwa` green.
   Latest Phase E CI is checked after push; F.1 CI will run after push.
@@ -345,4 +347,16 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
     `invoice_balances` projection; the frozen legal `invoices` row is never touched.
   - Refunds may draw only on a payment's unallocated remainder (D-F6); refunding allocated money
     requires reversing the allocation first. Overpayment remainders stay visibly unallocated.
-- **Next action:** Gate F.6.
+  - Dunning is staged, deterministic, and settings-driven (`billing.dunning`): `DunningService::
+    evaluate(tenant, asOf, actor)` creates the append-only `dunning_events` that should exist at an
+    as-of date and is idempotent on re-run; day-past-due thresholds are exact (+13 no, +14 yes).
+  - Dunning targets `series=INV` invoices with `open_balance_minor > 0`, a `due_date`, and
+    `dunning_paused = false`; levels fire ascending, once each (`unique(tenant, invoice, level)`). Paid
+    and fully credit-noted (open 0) invoices never dun. Pause lives on `invoice_balances`, never the
+    frozen invoice row.
+  - An optional per-level dunning fee is a NEW draft charge via `ChargeCaptureService`; the original
+    invoice is never mutated. `dunning_events` are append-only at model + DB-trigger level.
+  - Dunning delivery reuses the notification-channel abstraction but is a legal communication, NOT
+    gated on comms consent (D-F7); delivery is audited. `billing:dunning-run` wraps evaluate
+    (scheduling deferred).
+- **Next action:** Gate F.7.
