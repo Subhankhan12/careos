@@ -41,8 +41,13 @@ class PatientConsentController
         ]);
 
         $record = Patient::query()->whereKey($patient)->firstOrFail();
+        // Only GRANTED consents can be withdrawn (P0G.C fix): without this
+        // filter a direct POST could re-withdraw an already-withdrawn/expired
+        // consent, overwriting withdrawn_at on an audited record. Mirrors the
+        // portal path, which has always enforced it.
         $patientConsent = PatientConsent::query()
             ->where('patient_id', $record->id)
+            ->where('status', PatientConsent::STATUS_GRANTED)
             ->whereKey($consent)
             ->firstOrFail();
 

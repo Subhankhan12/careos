@@ -2,7 +2,13 @@
 
 ## Status
 
-Phase G active. P0G.G4 added telehealth: `TelehealthProvider` adapter (LiveKit default +
+**Phase G COMPLETE** (P0G.C). The staff-facing surface is FROZEN for the design pass;
+`docs/SCREENS.md` is the factual re-skin brief (22 Inertia pages + 11 nurse-PWA screens, grouped by
+area, with routes/guards/props/actions per page). Delivered: secure threads (G.1), the notification
+engine (G.2), the unified inbox (G.3), telehealth (G.4), the patient portal (G.5), and the
+draft-only Inbox agent (G.6).
+
+P0G.G4 added telehealth: `TelehealthProvider` adapter (LiveKit default +
 FakeTelehealthProvider for tests), metadata-only `telehealth_sessions` + append-only
 `telehealth_participants` (leave fills `left_at` once), `TelehealthService` with recording-disabled
 room creation, short-lived single-room/identity/role tokens (no record grant), three-way patient

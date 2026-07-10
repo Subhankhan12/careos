@@ -3,10 +3,11 @@
 Short, factual snapshot of where the project stands. Updated at consolidations and after gates
 (per the MEMORY PROTOCOL in AGENTS.md).
 
-- **Current phase:** Phase G - Comms, telehealth & patient portal completion - in progress. Latest
-  gate: P0G.G6 Inbox agent. Next: Gate G.C consolidation (after user review of G.6).
-  (Phase F COMPLETE at P0F.C: the simulated month reconciles to the unit.)
-- **Commits:** 69 on `main` after P0G.G6.
+- **Current phase:** Phase G COMPLETE - Comms, telehealth & patient portal. Consolidated at P0G.C:
+  the functional staff-facing surface is FROZEN for the design pass, and `docs/SCREENS.md` is the
+  factual re-skin brief (22 Inertia pages + 11 nurse-PWA screens with routes/guards/props/actions).
+  Next: CLAUDE DESIGN PASS across all screens, then Phase H per the master plan.
+- **Commits:** 70 on `main` after P0G.C.
   Phase A = 11 (P0A.G1-G8, P0A.GM, P0A.GF, P0A.GF3), pushed to `origin/main`
   (https://github.com/Subhankhan12/careos).
 - **Verified quality (from actual output):** `composer check` green - Pint `passed`,
@@ -448,4 +449,12 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
     unsourced claims; an explicit human send posts through ThreadService with ai_assisted=true;
     document classification files only the category via DocumentService::reclassify and the patient
     match is never auto-applied.
-- **Next action:** Gate G.C - Phase G consolidation (awaiting user review of the G.6 report).
+  - P0G.C consolidation: `docs/SCREENS.md` complete (every page: route, guards, prop shapes,
+    dispatched actions + what the server enforces — designed for controller-free re-skinning).
+    P0D.GU review across all 26 Vue files: ONE genuine violation found and fixed in the P0G.C
+    commit (the staff consent-withdraw route now requires status=granted, mirroring the portal
+    path, so an already-withdrawn/expired consent can never be re-withdrawn); everything else is
+    acceptable display logic with independent server enforcement.
+- **Next action:** CLAUDE DESIGN PASS across all screens (functional surface frozen; per P0D.GU a
+  redesign replaces .vue files only — routes, controllers, props, guards, and tests stay untouched).
+  Then Phase H per the master plan.
