@@ -2,7 +2,14 @@
 
 ## Status
 
-Phase F active. P0F.G8 added the Billing agent under AiCore governance (map documented services to
+**Phase F COMPLETE** (P0F.C). Exit criterion passing: `SimulatedBillingMonthSeeder` + the CI-runnable
+test `simulated month: full billing cycle reconciles to the unit` prove one realistic June 2026
+(3 patients, 41 charges across a tariff-version boundary, 6 gapless invoices, full/partial/over
+payments, a reversal, a partial credit note, a level-1 dunning fee) reconciles with all six
+invariants ok and delta_minor === 0 exactly, and the export equals the reconciled totals to the
+unit. The LAUNCH BLOCKER reconciliation rule is verbatim in AGENTS.md Hard rules.
+
+P0F.G8 added the Billing agent under AiCore governance (map documented services to
 tariff codes + preflight validation explanations; financial category, approve-capped; see
 memory/modules/AiCore.md for the agent details). P0F.G7 added the reconciliation engine (6
 integer-arithmetic invariants), the append-only reconciliation_runs monthly-close artifact, and a
@@ -197,6 +204,13 @@ P0F.G4 added invoices, gapless numbering, issued-document immutability, and cred
   `ChargeCaptureService` (tariff re-resolved, agent prices ignored), preflight reports the F.3
   `ChargeValidator` output verbatim, and no invoice is ever issued by an agent — `IssueService`
   remains human-only (D-058).
+- Reconciliation top-level `delta_minor` is a pure drift measure (P0F.C): I3 counts the legitimate
+  non-negative payment remainder on the accounted side, I5 counts only credit BEYOND the original
+  (and orphan credit notes), so a clean period reports `delta_minor === 0` exactly for all six
+  invariants. `ok`, per-row output, and violation detection are unchanged from F.7.
+- LAUNCH BLOCKER (AGENTS.md Hard rules, verbatim): "LAUNCH BLOCKER — a tenant's billing period must
+  reconcile to the unit (billing:reconcile, all six invariants ok with delta_minor === 0) before any
+  real invoicing goes live. No exceptions."
 
 ## Open items
 

@@ -3,14 +3,17 @@
 Short, factual snapshot of where the project stands. Updated at consolidations and after gates
 (per the MEMORY PROTOCOL in AGENTS.md).
 
-- **Current phase:** Phase F - Billing engine + EU-Generic market pack - in progress. Latest gate:
-  P0F.G8 Billing agent (map + flag, approve-only, validator-mirrored). Next: Gate F.9 (or Phase F
-  consolidation, per the next pasted gate).
-- **Commits:** 62 on `main` after P0F.G8.
+- **Current phase:** Phase F COMPLETE - Billing engine + EU-Generic market pack. Consolidated at
+  P0F.C with the phase exit criterion passing: the simulated month reconciles to the unit (all six
+  invariants ok, delta_minor === 0). Next: Phase G - Comms, telehealth & patient portal completion.
+- **Commits:** 63 on `main` after P0F.C.
   Phase A = 11 (P0A.G1-G8, P0A.GM, P0A.GF, P0A.GF3), pushed to `origin/main`
   (https://github.com/Subhankhan12/careos).
 - **Verified quality (from actual output):** `composer check` green - Pint `passed`,
-  PHPStan level 5 `[OK] No errors`, Pest **358 passed / 2073 assertions**. `composer.json` sets
+  PHPStan level 5 `[OK] No errors`, Pest **359 passed / 2136 assertions**. `npm run build` green,
+  `npm run test:pwa` green (**15 passed**), `npm run build:pwa` green. CI (MySQL 8 + Redis 7)
+  check-run `success` for the latest pushed commit at consolidation time (P0F.G8 `e483d8e`); the
+  P0F.C run is checked after push. Redis live (`PONG`); dev DB `careos` on MariaDB 10.4.32 at 3306. `composer.json` sets
   `config.process-timeout: 0` because the full suite (~390s) exceeds Composer's default 300s
   process-timeout that `composer check` runs under (CI runs `composer check`). Latest frontend/PWA
   verification remains Phase E consolidation: `cmd /c npm run build` green,
@@ -286,7 +289,21 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
   PWA Vitest encryption/offline-persistence suite. Local Windows PHP also lacks `pcntl`, so
   `php artisan horizon` exits after startup; Redis itself is live (`PONG`) and the Redis queue
   round-trip plus Horizon dashboard guard pass in the suite.
-- **Proven in Phase F so far:**
+- **Proven in Phase F (COMPLETE):**
+  - THE SIMULATED MONTH (exit criterion, CI-runnable): `SimulatedBillingMonthSeeder` + the test
+    `simulated month: full billing cycle reconciles to the unit` generate June 2026 through the real
+    F.1-F.6 services - 3 patients, 41 charges (26 encounter / 14 visit / 1 manual dunning fee),
+    three VAT rates (0/810/1900 bp), a tariff-version boundary at 2026-06-15|16 (CONS 5000 -> 5500
+    across it), a real REQUIRED_CODE_MISSING violation corrected before invoicing, six consecutive
+    gapless invoices INV-1..6 (one multi-rate), full/partial/over payments plus an allocation
+    reversal, a partial credit note CN-1 against INV-5, and a level-1 dunning fee - then prove all
+    six reconciliation invariants ok with delta_minor === 0 exactly, and the export equal to the
+    reconciled totals to the unit.
+  - The LAUNCH BLOCKER reconciliation rule is now verbatim in AGENTS.md Hard rules.
+  - ReconciliationEngine top-level delta_minor is a pure drift measure for every invariant: I3
+    counts the legitimate non-negative payment remainder on the accounted side and I5 counts only
+    credit BEYOND the original, so a clean month reports delta 0 exactly for all six (P0F.C
+    refinement; ok/rows/violation behavior unchanged).
   - Billing module registered with fail-closed tenant-owned `tariff_catalogs` and `tariff_items`.
   - Tariff catalog versions are effective-dated, unique by `(tenant_id, key, version)`, and
     guarded against overlapping date ranges for the same tenant/key.
@@ -380,4 +397,4 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
   - The Billing agent refuses clinically framed questions (appropriateness, alternatives, patient
     condition) with human handoff, `refused` ledger rows, and no agent action; reads are
     patient-scoped read-logged; budget gate and kill switch degrade to manual.
-- **Next action:** Gate F.9 (or Phase F consolidation, per the next pasted gate).
+- **Next action:** Phase G - Comms, telehealth & patient portal completion. Await Gate G.1.

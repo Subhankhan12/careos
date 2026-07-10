@@ -46,6 +46,8 @@ Market packs:
 - **i18n keys only** — no hardcoded UI strings.
 - **Cross-module contact goes through services + domain events, never cross-module Eloquent.**
   Enforced by Pest architecture tests (`tests/Architecture/ModuleBoundariesTest.php`).
+- LAUNCH BLOCKER — a tenant's billing period must reconcile to the unit (billing:reconcile, all six
+  invariants ok with delta_minor === 0) before any real invoicing goes live. No exceptions.
 
 ## UI rule (standing)
 

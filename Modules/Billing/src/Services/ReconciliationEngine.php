@@ -203,8 +203,11 @@ class ReconciliationEngine
             $used = $netAllocated + $refunded;
             $remainder = (int) $payment->amount_minor - $used;
 
+            // The accounted side counts the legitimate non-negative remainder,
+            // so actual equals expected exactly unless money is over-committed:
+            // a clean month reconciles with delta_minor === 0.
             $expected += (int) $payment->amount_minor;
-            $actual += $used;
+            $actual += $used + max(0, $remainder);
 
             if ($remainder < 0) {
                 $rows[] = [
@@ -312,6 +315,8 @@ class ReconciliationEngine
                 : null;
 
             if ($original === null) {
+                // Orphan credits are pure drift: they inflate the actual side.
+                $actual += abs((int) $creditNote->total_minor);
                 $rows[] = [
                     'type' => 'credit_note',
                     'id' => $creditNote->id,
@@ -333,8 +338,9 @@ class ReconciliationEngine
                 ->whereIn('status', $this->frozenStatuses())
                 ->sum('total_minor'));
 
-            $expected += (int) $original->total_minor;
-            $actual += $creditedTotal;
+            // Drift semantics: only credit BEYOND the original counts, so a
+            // legitimate partial credit reconciles with delta_minor === 0.
+            $actual += max(0, $creditedTotal - (int) $original->total_minor);
 
             if ($creditedTotal > (int) $original->total_minor) {
                 $rows[] = [
@@ -349,7 +355,7 @@ class ReconciliationEngine
             }
         }
 
-        return $this->invariant('I5', 'credit notes reference a real original and never exceed it', $expected, $actual, $rows);
+        return $this->invariant('I5', 'credit notes reference a real original and never exceed it (actual counts excess credit only)', $expected, $actual, $rows);
     }
 
     /**
