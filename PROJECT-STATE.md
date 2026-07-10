@@ -4,13 +4,13 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
 (per the MEMORY PROTOCOL in AGENTS.md).
 
 - **Current phase:** Phase G - Comms, telehealth & patient portal completion - in progress. Latest
-  gate: P0G.G1 secure threads. Next: Gate G.2 notification engine. (Phase F COMPLETE at P0F.C: the
+  gate: P0G.G2 notification engine. Next: Gate G.3 unified inbox. (Phase F COMPLETE at P0F.C: the
   simulated month reconciles to the unit, all six invariants delta_minor === 0.)
-- **Commits:** 64 on `main` after P0G.G1.
+- **Commits:** 65 on `main` after P0G.G2.
   Phase A = 11 (P0A.G1-G8, P0A.GM, P0A.GF, P0A.GF3), pushed to `origin/main`
   (https://github.com/Subhankhan12/careos).
 - **Verified quality (from actual output):** `composer check` green - Pint `passed`,
-  PHPStan level 5 `[OK] No errors`, Pest **371 passed / 2202 assertions**. `npm run build` green,
+  PHPStan level 5 `[OK] No errors`, Pest **381 passed / 2256 assertions**. `npm run build` green,
   `npm run test:pwa` green (**15 passed**), `npm run build:pwa` green. CI (MySQL 8 + Redis 7)
   check-run `success` for the latest pushed commit at consolidation time (P0F.G8 `e483d8e`); the
   P0F.C run is checked after push. Redis live (`PONG`); dev DB `careos` on MariaDB 10.4.32 at 3306. `composer.json` sets
@@ -409,4 +409,11 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
     `portal.access` consent.
   - Reading a patient thread writes a patient-scoped `read` audit row; posting/closing/participant
     changes are audited and the chain verifies.
-- **Next action:** Gate G.2 - notification engine.
+  - One notification engine: versioned tenant templates (+ built-in platform defaults), category
+    derived from the TEMPLATE (caller relabel rejected), consent matrix fail-closed
+    (marketing/transactional-to-patient gated on `comms.email`; legal and staff exempt), append-only
+    snapshot deliveries, sha256 dedupe with unique-index backstop, Horizon queue path.
+  - Phase C appointment reminders and F.6 dunning now deliver through the engine via app-layer
+    channel bridges (D-017); their suites pass unchanged (reminders skip without consent; dunning
+    does not).
+- **Next action:** Gate G.3 - unified inbox.

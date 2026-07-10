@@ -298,3 +298,14 @@ references the old ID.
   threads are structurally patient-free: the thread guard rejects a `patient_id` on internal threads
   and the participant guard rejects patient participants on them, so internal clinical discussion can
   never leak into a patient-visible surface (P0G.G1).
+- **D-060 / D-G4 - Consent gates patient-facing comms, EXCEPT legal/contractual communications, and the
+  category lives on the TEMPLATE.** The notification engine derives the category (transactional | legal
+  | marketing) from the versioned template — a caller-supplied category that mismatches is REJECTED, so
+  a sender can never relabel marketing as legal to dodge the consent gate. Marketing and transactional
+  messages to a patient require the channel's consent scope (`comms.email` for email), fail-closed with
+  `skipped/no_consent` delivery records; legal messages (dunning per D-F7, statutory notices) are not
+  consent-gated; staff recipients are internal and not consent-gated. Deliveries are append-only rows
+  written once at attempt with the rendered SNAPSHOT (history is never re-rendered), and a sha256
+  dedupe key with a unique index makes retries idempotent. The Phase C reminder and Phase F dunning
+  senders were migrated onto the engine through app-layer channel bridges (D-017) with their suites
+  passing unchanged (P0G.G2).

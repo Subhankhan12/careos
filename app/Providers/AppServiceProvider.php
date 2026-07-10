@@ -12,6 +12,8 @@ use App\AiCore\Tools\SuggestChargeCodesTool;
 use App\AiCore\Tools\SuggestSlotsTool;
 use App\Audit\AuthAuditSubscriber;
 use App\Audit\PlatformAuditContext;
+use App\Comms\EngineAppointmentReminderChannel;
+use App\Comms\EngineDunningChannel;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\ServiceProvider;
 use Modules\AiCore\Events\AgentActionLifecycleChanged;
@@ -19,6 +21,7 @@ use Modules\AiCore\Events\AiInteractionRecorded;
 use Modules\AiCore\Services\ToolRegistry;
 use Modules\Audit\Contracts\AuditContext;
 use Modules\Audit\Services\AuditService;
+use Modules\Billing\Channels\EmailDunningChannel;
 use Modules\Clinical\Events\ClinicalNoteAmended;
 use Modules\Clinical\Events\ClinicalNoteSigned;
 use Modules\Clinical\Events\ClinicalRecordChanged;
@@ -40,6 +43,7 @@ use Modules\Platform\Models\Setting;
 use Modules\Platform\Models\Tenant;
 use Modules\Platform\Models\User;
 use Modules\Platform\Services\TenantContext;
+use Modules\Scheduling\Channels\EmailAppointmentReminderChannel;
 use Modules\Scheduling\Events\AppointmentBooked;
 use Modules\Scheduling\Events\AppointmentReminderDeliveryRecorded;
 use Modules\Scheduling\Events\AppointmentTransitioned;
@@ -56,6 +60,12 @@ class AppServiceProvider extends ServiceProvider
         // Wire the audit context to the Platform-aware implementation. This
         // binding lives in the app layer so neither module depends on the other.
         $this->app->bind(AuditContext::class, PlatformAuditContext::class);
+
+        // G.2 notification engine bridges (D-017): Scheduling reminders and
+        // Billing dunning deliver through Comms' NotificationService without
+        // either module depending on Comms.
+        $this->app->bind(EmailAppointmentReminderChannel::class, EngineAppointmentReminderChannel::class);
+        $this->app->bind(EmailDunningChannel::class, EngineDunningChannel::class);
 
         $this->app->afterResolving(ToolRegistry::class, function (ToolRegistry $registry): void {
             $registry->register($this->app->make(FillFromWaitlistTool::class));
