@@ -349,3 +349,17 @@ references the old ID.
   Document classification is a suggestion only: a human confirms, the deterministic
   `DocumentService::reclassify` files the CATEGORY, and the patient match is NEVER auto-applied — a
   document is never moved between patients by this path (P0G.G6).
+- **D-066 - Demo/seed data is anchored with explicit dates and never moves `now()` backwards.**
+  `AuditService::verifyChain` replays a tenant's chain ordered by `occurred_at ASC, id ASC`, but
+  `prev_hash` is linked at INSERT time. A seeder that rewinds `Carbon::setTestNow()` mid-run
+  therefore writes rows whose verification order differs from their hash-link order, and the chain
+  fails. Seeders that need historical data pass business dates as explicit arguments (service
+  dates, issue/due dates, `received_on`, check-in/out device times) and leave `now()` alone; a
+  seeder that must freeze time freezes it ONCE, to a constant, for the whole run (the P0F
+  `SimulatedBillingMonthSeeder` pattern). Consequence for `DemoClinicSeeder` (P0P.G1): billing is
+  anchored to the PREVIOUS full calendar month — every date is real and in the past, the
+  tariff-version boundary sits mid-month, and the month reconciles at delta 0 — while scheduling,
+  dispatch, and the live clinical surface are anchored to the CURRENT week. `IssueService::creditNote()`
+  stamps `issue_date = now()` and takes no date argument, so the demo's partial credit note is dated
+  at seed time against the previous month's invoice — which is exactly how a clinic credits a closed
+  month, and it leaves the reconciled period's I5 legitimately empty rather than faking it (P0P.G1).

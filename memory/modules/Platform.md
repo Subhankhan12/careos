@@ -75,6 +75,29 @@ P0E.G1 adds `agreement.manage` and the `coordinator` starter role for nursing se
 P0E.G3 adds `dispatch.manage` to org-admin and coordinator starter roles for Nursing dispatch.
 P0E.G4 adds the default `nursing.visit.gps_privacy_notice` setting text for staff privacy notice.
 
+## Demo tenant (P0P.G1)
+
+`DemoClinicSeeder` provisions ONE demo tenant, **Praxis Lindenhof** (slug `praxis-lindenhof`,
+branch "Zürich Oberstrass", currency EUR, plan `eu_pro`), for design/sales/design-partner use:
+
+    php artisan db:seed --class=DemoClinicSeeder
+
+- **Idempotent by tenant slug**: if `praxis-lindenhof` exists the seeder returns immediately, so a
+  second run adds nothing anywhere in the schema (asserted table-by-table).
+- **Real provisioning path**: `Tenant::create` fires `RbacProvisioner::provisionTenant()`, which
+  seeds starter roles in Phase A system mode — provisioning stays out of the audit chain. Everything
+  after that runs as normal tenant-scoped actors, so the demo has a real 300+ row audit chain that
+  verifies.
+- **Never moves `now()` backwards.** `AuditService::verifyChain` replays ordered by `occurred_at`,
+  so a back-dated write mid-run would order rows differently from how they were hash-linked and
+  break the chain. Business dates are passed as explicit arguments instead.
+- **Time anchors**: billing sits in the PREVIOUS full calendar month (`DemoClinicSeeder::period()`),
+  which reconciles with all six invariants at delta 0; scheduling/dispatch/live clinical sit in the
+  CURRENT week. Staff role assignments use `branch_id = null` (all-branches) because a branch-scoped
+  assignment does not answer gate checks that pass no branch (`PermissionService::has`).
+- Demo logins: `<first>.<last>@praxis-lindenhof.test` / `demo-password` (MFA pre-enrolled);
+  portal accounts use `demo-portal-password`.
+
 ## Open items
 
 - ABAC condition evaluation (`abac_conditions`) not yet implemented (Phase B, needs patients/audit).

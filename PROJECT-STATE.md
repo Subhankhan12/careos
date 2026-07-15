@@ -11,7 +11,7 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
   Phase A = 11 (P0A.G1-G8, P0A.GM, P0A.GF, P0A.GF3), pushed to `origin/main`
   (https://github.com/Subhankhan12/careos).
 - **Verified quality (from actual output):** `composer check` green - Pint `passed`,
-  PHPStan level 5 `[OK] No errors`, Pest **415 passed / 2646 assertions**; npm build green.
+  PHPStan level 5 `[OK] No errors`, Pest **418 passed / 2752 assertions** (P0P.G1); npm build green.
   CI-failure root cause (P0G.G2/G3 runs): ci.yml exports QUEUE_CONNECTION=redis at the job level
   and phpunit's <env> does NOT override OS env vars, so the G.2 queue-idempotency test parked its
   job on real Redis in CI and the delivery row never appeared. Fixed in P0G.G4 by pinning
@@ -455,6 +455,23 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
     commit (the staff consent-withdraw route now requires status=granted, mirroring the portal
     path, so an already-withdrawn/expired consent can never be re-withdrawn); everything else is
     acceptable display logic with independent server enforcement.
+- **Demo tenant (P0P.G1):** `DemoClinicSeeder` seeds ONE richly-populated demo tenant for design,
+  sales, and design partners — **Praxis Lindenhof** (slug `praxis-lindenhof`, branch "Zürich
+  Oberstrass", EUR, plan `eu_pro`). Run it with
+  `php artisan db:seed --class=DemoClinicSeeder`.
+  - Idempotent by tenant slug: if the tenant exists the seeder returns immediately, so a second run
+    adds nothing anywhere in the schema (asserted table-by-table).
+  - Tenant creation goes through the real provisioning path (`Tenant::created` →
+    `RbacProvisioner::provisionTenant`, Phase A system mode, so provisioning stays out of the audit
+    chain); everything after runs as normal tenant-scoped actors, giving a 308-row audit chain that
+    verifies.
+  - Billing sits in the PREVIOUS full calendar month (`DemoClinicSeeder::period()`) and reconciles
+    with all six invariants at `delta_minor === 0`; scheduling/dispatch/live clinical sit in the
+    CURRENT week. The seeder never moves `now()` backwards — `verifyChain` replays ordered by
+    `occurred_at`, so back-dating mid-run would break the hash chain.
+  - Below-waterline and additive only: 5 factories + 1 seeder + 1 test file. No existing page props,
+    routes, or Inertia payloads were touched, so the design pass is unaffected.
+  - Demo logins `<first>.<last>@praxis-lindenhof.test` / `demo-password` (MFA pre-enrolled).
 - **Next action:** CLAUDE DESIGN PASS across all screens (functional surface frozen; per P0D.GU a
   redesign replaces .vue files only — routes, controllers, props, guards, and tests stay untouched).
   Then Phase H per the master plan.
