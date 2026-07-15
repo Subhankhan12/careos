@@ -56,6 +56,19 @@ class SettingsService
         );
     }
 
+    /**
+     * Remove a tenant's override so the key falls back to its platform default
+     * (or to the caller's $default when there is none).
+     *
+     * Distinct from `set($key, null)`: a stored null still coerces on read —
+     * `'array'` reads back as `[]`, not null — so a flag cleared by writing null
+     * would still look present. Forgetting removes the row.
+     */
+    public function forget(string $key): void
+    {
+        Setting::query()->where('key', $key)->delete();
+    }
+
     private function coerce(mixed $value, ?string $type): mixed
     {
         return match ($type) {

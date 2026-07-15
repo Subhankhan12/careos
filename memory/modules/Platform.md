@@ -98,6 +98,40 @@ branch "Zürich Oberstrass", currency EUR, plan `eu_pro`), for design/sales/desi
 - Demo logins: `<first>.<last>@praxis-lindenhof.test` / `demo-password` (MFA pre-enrolled);
   portal accounts use `demo-portal-password`.
 
+## Automation layer (P0P.G2)
+
+The unattended cadences live in `routes/console.php`. Six commands, all
+`withoutOverlapping()` + `onOneServer()`, all iterating `status = 'active'` tenants only:
+
+| Command | Cadence |
+| --- | --- |
+| `credentials:refresh-status` | daily 02:10 |
+| `nursing:materialize-visits` | daily 02:20 (rolling 8-week horizon) |
+| `clinical:evaluate-recalls` | daily 02:30 |
+| `billing:dunning-run` | daily 06:00 |
+| `billing:reconcile` | daily 06:30 (launch-blocker monitor) |
+| `appointments:dispatch-reminders` | every 15 min (enqueue only) |
+
+**PRODUCTION RUNNER — nothing fires without it:**
+
+    cron:        * * * * * cd /srv/careos && php artisan schedule:run >> /dev/null 2>&1
+    supervisor:  php artisan horizon
+
+`schedule:run` every minute is what drives all of the above; **Horizon must be running** or the
+queued side (appointment reminders, notification deliveries) never drains — the scheduler only
+ENQUEUES reminders, it does not send them.
+
+**Local Windows cannot keep Horizon alive** — this PHP has no `pcntl`, so `php artisan horizon`
+exits right after startup. Known LOCAL-only limitation (CI and Linux prod install `pcntl`/`posix`).
+Locally use `php artisan schedule:work` (or a Task Scheduler entry) plus
+`php artisan queue:work redis --queue=reminders,notifications` in place of Horizon. Nothing was
+installed for this gate.
+
+`SystemActorResolver::forPermission()` resolves the actor an unattended run acts as — see D-067
+(never a super-admin, never branch-scoped, skip rather than escalate). `SettingsService::forget()`
+removes a tenant override outright; `set($key, null)` is NOT equivalent because a stored null still
+coerces on read (`'array'` reads back as `[]`).
+
 ## Open items
 
 - ABAC condition evaluation (`abac_conditions`) not yet implemented (Phase B, needs patients/audit).

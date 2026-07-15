@@ -363,3 +363,36 @@ references the old ID.
   stamps `issue_date = now()` and takes no date argument, so the demo's partial credit note is dated
   at seed time against the previous month's invoice — which is exactly how a clinic credits a closed
   month, and it leaves the reconciled period's I5 legitimately empty rather than faking it (P0P.G1).
+- **D-067 - The automation layer runs unattended sweeps as a RESOLVED tenant actor, never as a
+  super-admin and never as nobody.** Dunning and reconciliation require an authorized actor by
+  design (`Gate::allows('billing.manage')`) — there is no "no actor" path through them, and there
+  should not be: the work is accountable. A scheduler has no logged-in user, so
+  `SystemActorResolver::forPermission()` picks the LOWEST-ID user in the tenant who ALREADY holds
+  the permission TENANT-WIDE (`PermissionService::has()` with no branch counts only all-branches
+  assignments, so a branch-scoped role is never conscripted into a tenant-wide job). A platform
+  super-admin is never chosen: super-admin bypasses every gate via `Gate::before`, so scheduling as
+  one would silently run unattended work with more authority than any tenant user has. When nobody
+  qualifies the tenant is SKIPPED, loudly, rather than escalated — a tenant with no billing manager
+  gets no dunning run, not a dunning run executed by someone who was never granted the permission.
+  Every sweep iterates `status = 'active'` tenants only; an unattended job has no business writing
+  to a suspended tenant. Recall evaluation is the exception that proves the rule: `RecallEngine`
+  takes `?User $actor` and writes its per-recall clinical audit event only when there is a real
+  human to attribute it to, so the nightly sweep passes null — putting a clinician's name on a cron
+  job would be a false entry in a clinical audit trail, which is worse than its absence. Recall
+  rows still carry their own timestamps and every later lifecycle change is audited against the
+  real person who made it (P0P.G2).
+- **D-068 - The scheduled `billing:reconcile` IS the launch-blocker monitor, and a failure leaves
+  three marks.** AGENTS.md blocks real invoicing until a period reconciles to the unit; a daily
+  all-tenant reconcile of the CURRENT period turns that from a one-off gate into a standing signal.
+  A failing run leaves: (1) the append-only `reconciliation_runs` row with `passed = false` and the
+  full report — the evidence, written by the engine itself; (2) an `error`-level log line — what a
+  log drain alerts on; (3) the `billing.reconciliation.alarm` tenant setting naming the period,
+  run id, and failing invariants — a persisted flag an admin surface can read later WITHOUT
+  scanning run history. No UI is built for it here (P.2 is below-waterline); only the signal. The
+  alarm clears ONLY when a later run for the SAME period passes — a passing August never clears a
+  broken June, because that drift is still there and still unfixed. A failing tenant never aborts
+  the sweep: every tenant is reconciled, each failure alarms independently, and the command exits
+  non-zero so the runner sees it too. `reconciliation_runs` is deliberately NOT row-idempotent —
+  it is append-only and every run adds a row, which is the point: the history shows when drift
+  appeared. It is nonetheless safe under repeated runs, because `check()` mutates no billing state
+  and `AccountingExportService` gates on the LATEST run for a period (P0P.G2).

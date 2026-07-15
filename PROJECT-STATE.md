@@ -472,6 +472,30 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
   - Below-waterline and additive only: 5 factories + 1 seeder + 1 test file. No existing page props,
     routes, or Inertia payloads were touched, so the design pass is unaffected.
   - Demo logins `<first>.<last>@praxis-lindenhof.test` / `demo-password` (MFA pre-enrolled).
+- **Automation layer (P0P.G2):** the deferred commands now run unattended. Schedule lives in
+  `routes/console.php`; every event is `withoutOverlapping()` + `onOneServer()` and iterates
+  `status = 'active'` tenants only:
+  `credentials:refresh-status` 02:10 · `nursing:materialize-visits` 02:20 (rolling 8-week horizon) ·
+  `clinical:evaluate-recalls` 02:30 · `billing:dunning-run` 06:00 · `billing:reconcile` 06:30 ·
+  `appointments:dispatch-reminders` every 15 min.
+  - **PROD RUNNER (nothing fires without it):** cron
+    `* * * * * cd /srv/careos && php artisan schedule:run >> /dev/null 2>&1`, and **Horizon under
+    supervisor** or the queued reminders/notifications never drain (the sweep only ENQUEUES).
+    Local Windows cannot keep Horizon alive (no `pcntl`) — use `php artisan schedule:work` +
+    `php artisan queue:work redis --queue=reminders,notifications`. Nothing was installed.
+  - `billing:reconcile` daily is the **launch-blocker monitor** (D-068): a failure leaves the
+    append-only `reconciliation_runs` row + an error-level log + the `billing.reconciliation.alarm`
+    tenant setting. No UI built for it (below-waterline); the alarm clears only when the SAME period
+    later passes.
+  - Unattended runs act as a resolved tenant actor (D-067): `SystemActorResolver` picks the
+    lowest-id user holding the permission tenant-wide; never a super-admin, never a branch-scoped
+    holder, and a tenant with nobody qualified is SKIPPED, not escalated. Recall evaluation passes a
+    null actor deliberately — attributing a cron job to a clinician would be a false clinical audit
+    entry.
+  - Fixed in passing: `credentials:refresh-status` was iterating ALL tenants including suspended
+    ones. `billing:dunning-run` / `billing:reconcile` required `tenantId`+`actorId` and so could not
+    run unattended at all; both args are now optional (absent = sweep active tenants), and the
+    explicit human-invoked form is unchanged.
 - **Next action:** CLAUDE DESIGN PASS across all screens (functional surface frozen; per P0D.GU a
   redesign replaces .vue files only — routes, controllers, props, guards, and tests stay untouched).
   Then Phase H per the master plan.
