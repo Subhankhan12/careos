@@ -396,3 +396,18 @@ references the old ID.
   it is append-only and every run adds a row, which is the point: the history shows when drift
   appeared. It is nonetheless safe under repeated runs, because `check()` mutates no billing state
   and `AccountingExportService` gates on the LATEST run for a period (P0P.G2).
+- **D-069 - Audit chain verification is a SCHEDULED alarm with its own append-only evidence.** The audit
+  chain is hash-linked at insert and verified by replay (`AuditService::verifyChain`), but a break is
+  invisible until somebody looks — and a break is the strongest tampering signal the system has, because
+  reaching it means going around BOTH the model guards and the DB triggers. `audit:verify-chains` (daily
+  01:30, `withoutOverlapping`, `onOneServer`) replays every ACTIVE tenant's chain and appends one
+  `integrity_checks` row per tenant per run, pass OR fail. Recording the passes matters as much as the
+  failures: it makes "the check ran and was clean on date X" provable later, and it turns a check that
+  silently stopped running into a visible ABSENCE rather than a silent nothing. A failure additionally logs
+  at ERROR level with the offending row id and exits non-zero. `integrity_checks` is itself append-only at
+  model + DB-trigger level — the result of an integrity check is evidence, and evidence that can be
+  rewritten afterwards is not evidence, least of all by whoever had a reason to rewrite it. The command
+  lives in the APPLICATION layer, not the Audit module, because it needs Platform's Tenant/TenantContext
+  and Audit may not depend on Platform (the `App\Audit\PlatformAuditContext` precedent); the
+  `IntegrityCheck` model lives in Platform because it is tenant-owned and therefore needs
+  `BelongsToTenant`, which Audit may not import (P0P.G3).

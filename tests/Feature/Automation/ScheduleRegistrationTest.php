@@ -30,6 +30,7 @@ test('every deferred command is registered on the scheduler with its intended ca
     $events = scheduledEvents();
 
     $expected = [
+        'audit:verify-chains' => '30 1 * * *',
         'credentials:refresh-status' => '10 2 * * *',
         'nursing:materialize-visits' => '20 2 * * *',
         'clinical:evaluate-recalls' => '30 2 * * *',
@@ -54,10 +55,11 @@ test('every scheduled sweep is guarded against overlapping itself', function () 
     }
 });
 
-test('the scheduler registers exactly the six intended commands and nothing else', function () {
+test('the scheduler registers exactly the intended commands and nothing else', function () {
     // Guards against a future gate quietly scheduling something unattended —
     // e.g. one of the Attempt* parallel-hammer test helpers.
     expect(array_keys(scheduledEvents()))->toEqualCanonicalizing([
+        'audit:verify-chains',
         'credentials:refresh-status',
         'nursing:materialize-visits',
         'clinical:evaluate-recalls',

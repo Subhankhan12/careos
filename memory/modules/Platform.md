@@ -132,6 +132,14 @@ installed for this gate.
 removes a tenant override outright; `set($key, null)` is NOT equivalent because a stored null still
 coerces on read (`'array'` reads back as `[]`).
 
+P0P.G3 adds `audit:verify-chains` (daily 01:30) — see D-069. It lives in `app/Console/Commands/`,
+NOT the Audit module: it needs Platform's `Tenant`/`TenantContext` and **Audit may not depend on
+Platform** (same reason `App\Audit\PlatformAuditContext` lives in the app layer). Its
+`IntegrityCheck` model lives in **Platform** for the mirror-image reason: the row is tenant-owned so
+it needs `BelongsToTenant`, which Audit may not import. `integrity_checks` is append-only at model +
+DB-trigger level, and a PASS is recorded as well as a failure — so a check that silently stops
+running shows up as an absence rather than as nothing at all.
+
 ## Open items
 
 - ABAC condition evaluation (`abac_conditions`) not yet implemented (Phase B, needs patients/audit).

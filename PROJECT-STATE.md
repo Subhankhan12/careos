@@ -496,6 +496,25 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
     ones. `billing:dunning-run` / `billing:reconcile` required `tenantId`+`actorId` and so could not
     run unattended at all; both args are now optional (absent = sweep active tenants), and the
     explicit human-invoked form is unchanged.
+- **Security & integrity (P0P.G3):** `tests/Feature/Security/` is the adversarial suite — 30 tests.
+  **No isolation or immutability holes were found; nothing needed fixing.**
+  - Cross-tenant: the attacker is a *separate tenant's org_admin* (max tenant privilege, every
+    permission); the victim is the P.1 demo tenant with real service-created data. 23 crafted
+    attempts across Patients/Clinical/Scheduling/Nursing/Comms/AiCore all fail closed (403/404),
+    with no victim string in any body. Portal patient cannot reach staff routes or another
+    patient's document; staff cannot reach portal routes.
+  - RBAC negative: the starter-role catalogue withholds each sensitive permission, and crafted
+    direct calls are refused server-side (note.sign, allergy.override, patient.merge,
+    billing.manage, agreement.manage, comms.manage, dispatch.manage).
+  - Immutability: raw `DB::update`/`DB::delete` (straight past Eloquent) is rejected by the DB
+    trigger on **all 15** protected tables. The conditional triggers are also tested on their
+    POSITIVE side — a draft invoice/note/timesheet line must still be editable, or the guard would
+    have broken the product.
+  - `audit:verify-chains` (daily 01:30) replays every active tenant's chain and appends an
+    append-only `integrity_checks` row pass or fail (D-069); a break logs at ERROR and exits
+    non-zero. Proven both ways: clean on the demo tenant, and detects a deliberately tampered chain.
+    The command lives in `app/` because Audit may not depend on Platform; `IntegrityCheck` lives in
+    Platform because it is tenant-owned.
 - **Next action:** CLAUDE DESIGN PASS across all screens (functional surface frozen; per P0D.GU a
   redesign replaces .vue files only — routes, controllers, props, guards, and tests stay untouched).
   Then Phase H per the master plan.

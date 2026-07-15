@@ -82,3 +82,13 @@ Schedule::command('appointments:dispatch-reminders')
     ->everyFifteenMinutes()
     ->withoutOverlapping(10)
     ->onOneServer();
+
+// THE TAMPER ALARM: replay every active tenant's audit hash-chain and record an
+// append-only integrity_checks row either way. A break means a row was altered
+// or removed by something that went around both the model guards and the DB
+// triggers — nobody would notice on their own, so this looks every day.
+// Early, before the day's writes, and before the billing sweeps.
+Schedule::command('audit:verify-chains')
+    ->dailyAt('01:30')
+    ->withoutOverlapping(30)
+    ->onOneServer();
