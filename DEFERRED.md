@@ -8,31 +8,15 @@ Deliberately deferred work. Not forgotten — parked until the right phase.
   ~Dec 2026).
 - **Voice receptionist.**
 - **Route optimization** (OR-tools).
-- **Real routing/travel-time API for Nursing dispatch.** E.3 uses deterministic straight-line
-  distance / configurable average speed only; road-network routing and traffic-aware feasibility
-  are deferred.
 - **MAR** (medication administration record).
 - **Clinician countersigning for nurse observational visit notes.** E.7 stores nurse visit notes as
   visit execution documentation, not signed/locked SOAP clinical notes; countersign workflow comes later.
 - **E-prescription rails** per market.
 - **Lab HL7/FHIR feeds.**
-- **Country statutory billing packs** (DE / CH / FR).
 - **US X12 claims** via clearinghouse.
 - **WhatsApp channel.**
 - **SMS / WhatsApp appointment reminder drivers.** C.5 adds the provider-free reminder channel
   interface and email implementation only; external SMS/WhatsApp providers come later.
-- **Realtime day-board refresh with Reverb.** C.6 uses normal request/slot refreshes; websocket
-  refresh belongs later when realtime infrastructure is introduced.
-- **Realtime inbox refresh with Reverb.** G.3's unified inbox polls/reloads on demand; websocket
-  push for new messages joins the same future realtime work (P0G.G3).
-- **Telehealth recording + transcripts.** D-G2: recording is disabled at the provider level and no
-  media/recording columns exist. Enabling recording or transcripts requires a funded consent +
-  retention design first; never switch it on without one (P0G.G4).
-- **Reverb-based telehealth presence.** Join/leave proof rows are written by the server paths; live
-  presence indicators join the future realtime work (P0G.G4).
-- **Portal payment processing (Stripe/PSP).** G.5 shows invoices and open balances read-only; taking
-  payments online needs a PSP integration and reconciliation wiring into the F.5 payment ledger
-  (P0G.G5).
 - **Expanded AI prompt eval harness.** C.7 adds a minimal prompt registry eval-passed gate; richer
   offline/fixture evals come before real agent prompt rollout.
 - **Production vector search for KB RAG.** C.8 stores portable vector-as-JSON embeddings and scores
@@ -71,7 +55,50 @@ Deliberately deferred work. Not forgotten — parked until the right phase.
   Drug-interaction checking, allergy class inference, dose calculation, and clinical decision
   support require a partner-first licensed drug database and a funded regulatory track; do not
   build these in-house as CareOS deterministic clinical-list logic (P0D.G3).
-- **Cross-tenant CareOS referrals require explicit share objects.** D.5 records external
-  referrals by provider name only and same-tenant internal referrals by `to_branch_id`. Never
-  widen tenant scope to send referrals to another CareOS tenant; design explicit share objects
-  before building cross-tenant referral exchange.
+
+## Parked — build when a real user/customer creates the need
+
+Demand-driven backlog. These are deliberately NOT built yet: building them speculatively would add
+surface, cost, and risk before anyone needs them. Each carries a TRIGGER — the concrete signal that
+should pull it forward. When a trigger fires, the item graduates from parked to planned; until then,
+it stays here so it is neither forgotten nor pre-built (P0P.G5).
+
+- **Phase H agents (full RAG front-desk, ops-analyst, onboarding agent).** The Phase C/D/E/F/G agents
+  are deliberately narrow (KB-only front-desk, extractive clinical summary, draft-only inbox, etc.);
+  the fuller agents are a distinct phase, not an extension of these.
+  **TRIGGER:** design partners ask for one, or a repeated manual pain a specific agent would remove.
+- **AI-credits metering & billing for AI usage.** `ai_interactions` already ledgers every call and the
+  budget gate already caps spend; turning that into metered, invoiced credits is a separate product
+  decision, not wired in.
+  **TRIGGER:** a paying customer PLUS a decision to charge for AI.
+- **Real routing for nurse travel (replace the straight-line estimate).** E.3 uses deterministic
+  straight-line distance / configurable average speed only; road-network routing and traffic-aware
+  feasibility are not built.
+  **TRIGGER:** a nurse reports the straight-line estimate is wrong in practice.
+- **Statutory market packs (DE / CH / FR billing specifics).** EU-Generic is live and reconciles to the
+  unit; per-country tariff/VAT/export specifics (e.g. DATEV columns) are packs added on demand.
+  **TRIGGER:** a signed or serious prospect in that country.
+- **Cross-tenant CareOS referrals (explicit share objects, never scope-widening).** D.5 records external
+  referrals by provider name only and same-tenant internal referrals by `to_branch_id`. Never widen
+  tenant scope to reach another CareOS tenant; design explicit share objects first.
+  **TRIGGER:** two customer tenants that need to refer to each other.
+- **Telehealth recording + transcripts.** D-G2: recording is disabled at the provider level, no
+  media/recording columns exist, and grants pin `recorder=false`. Enabling recording or transcripts
+  requires a funded consent + retention design first — never switch it on without one.
+  **TRIGGER:** a customer requirement AND a completed consent/retention design (do NOT enable without
+  both).
+- **Realtime (Laravel Reverb) for inbox / day-board.** The unified inbox (G.3), reception day-board
+  (C.6), and telehealth presence indicators (D-G2 writes join/leave rows already) all poll or refresh
+  on demand today; websocket push joins one future realtime work item.
+  **TRIGGER:** polling latency becomes a real complaint.
+- **Multi-language content (fill i18n beyond English).** The i18n scaffolding exists; the clinical/UI
+  copy is English only.
+  **TRIGGER:** a customer/market in that language PLUS a native reviewer for clinical copy — do it
+  AFTER the design pass so the strings are stable.
+- **Payment processing in the portal (PSP).** G.5 shows invoices and open balances read-only; taking
+  payments online needs a PSP integration and reconciliation wiring into the F.5 payment ledger.
+  **TRIGGER:** customers want patients to pay online PLUS a chosen PSP.
+- **Playwright transport-layer offline test.** The airplane-mode exit proof is a Laravel API
+  end-to-end test plus the PWA Vitest encryption/offline suite; browser `context.setOffline(true)` is
+  not installed in this repo.
+  **TRIGGER:** pull forward when prepping the sales demo.

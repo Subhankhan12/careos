@@ -411,3 +411,13 @@ references the old ID.
   and Audit may not depend on Platform (the `App\Audit\PlatformAuditContext` precedent); the
   `IntegrityCheck` model lives in Platform because it is tenant-owned and therefore needs
   `BelongsToTenant`, which Audit may not import (P0P.G3).
+- **D-070 — Demand-driven parked backlog: build when a real user/customer creates the need.**
+  Work that is neither in-flight nor required by anything shipped is PARKED in DEFERRED.md's
+  "Parked" section rather than built speculatively — building ahead of need adds surface, cost, and
+  risk before anyone benefits. Every parked item records a TRIGGER: the concrete signal (a design
+  partner asking, a paying customer, a nurse reporting the estimate is wrong, a country prospect,
+  a completed consent/retention design, a polling-latency complaint) that graduates it from parked
+  to planned. The list keeps the item from being forgotten without letting it be pre-built. Phase H
+  agents, AI-credits metering/billing, real nurse-travel routing, DE/CH/FR statutory packs,
+  cross-tenant referral share objects, telehealth recording+transcripts, Reverb realtime, i18n
+  content, portal PSP payment, and the Playwright offline test are all parked this way (P0P.G5).

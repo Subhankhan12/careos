@@ -515,6 +515,14 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
     non-zero. Proven both ways: clean on the demo tenant, and detects a deliberately tampered chain.
     The command lives in `app/` because Audit may not depend on Platform; `IntegrityCheck` lives in
     Platform because it is tenant-owned.
+- **Parked backlog (P0P.G5, docs only):** DEFERRED.md now carries a "Parked — build when a real
+  user/customer creates the need" section: 10 demand-driven items, each with a concrete TRIGGER that
+  pulls it forward (Phase H agents, AI-credits metering/billing, real nurse-travel routing, DE/CH/FR
+  statutory packs, cross-tenant referral share objects, telehealth recording+transcripts, Reverb
+  realtime for inbox/day-board/telehealth presence, i18n content, portal PSP payment, Playwright
+  offline test). Items that already existed as plain phase-parked bullets were MOVED into the section
+  with triggers, not duplicated; the hard medical-device/countersigning deferrals stay put. Principle
+  recorded as D-070 (build on need, never speculatively). No code/props/routes/payloads touched.
 - **Next action:** CLAUDE DESIGN PASS across all screens (functional surface frozen; per P0D.GU a
   redesign replaces .vue files only — routes, controllers, props, guards, and tests stay untouched).
   Then Phase H per the master plan.
