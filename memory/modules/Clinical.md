@@ -200,6 +200,32 @@ D.8 clinical agents, and D.C full-loop consolidation are registered and covered 
 architecture tests. Local `composer check` is green: 222 tests / 1202 assertions. Local
 `cmd /c npm run build` is green for the clinical pages.
 
+## Structured clinical orders (P0P.G11, D-076)
+
+- Labs/imaging orders: a clinician places a structured order, tracks a status lifecycle, records a
+  MANUAL result, and marks it reviewed. The electric fence holds absolutely — the system records what
+  is ordered and resulted and NEVER interprets (no range/flag/abnormal/colour/score anywhere; same
+  posture as vitals D-D3). "Reviewed by {clinician}" is a HUMAN attestation, not a system judgment.
+- Three tenant-owned tables: `orderable_items` (tenant-AUTHORED — no licensed catalog; `OrderableItemService`
+  create/deactivate + `seedStarter()` seeds a small generic editable template FBC/UE/URINALYSIS/CXR/USS-ABDO),
+  `orders` (patient/encounter/orderable_item/ordered_by/priority/clinical_note/status; statuses
+  ordered→collected→in_progress / resulted / reviewed / cancelled), `order_results` (APPEND-ONLY: DB
+  triggers block UPDATE/DELETE; raw `result_value` + optional `result_document_id` link to a D.4 document;
+  source manual/imported, only manual used).
+- `OrderService`: `place` (status ordered, transmits via LabConnectivity no-op, audited), `transition`
+  (collected/in_progress/cancelled legal changes), `recordResult` (append-only result → status resulted;
+  requires a value and/or a document), `markReviewed` (resulted→reviewed + reviewed_by/at — the human
+  attests), `chartOrders` (patient-scoped read-logs order + each result), `toReview` (resulted-not-reviewed
+  worklist, the unsigned-notes analogue). Audit via `ClinicalRecordChanged` (app-layer listener).
+- **Transmission/ingestion is a STUB interface:** `Clinical\Contracts\LabConnectivity` with the ONLY impl
+  `ManualLabConnectivity` (transmit = no-op, `ingestResult` throws — no live ingestion). Bound in
+  `ClinicalServiceProvider::register`. No HL7/FHIR client, no network. Real lab connectivity is DEFERRED
+  partner work (see DEFERRED.md; trigger = a customer's specific lab + a funded integration build).
+- RBAC `order.manage` (org_admin/doctor/nurse; reception refused). Net-new UI (additive, presentational):
+  chart Orders tab (place/result/review; results shown RAW), `Clinical/OrdersReview.vue` worklist,
+  `Clinical/OrderableItems.vue` catalog admin. No existing chart prop removed.
+
 ## Open items
 
 - Next phase: Phase E - Nursing wedge (home care, dispatch, offline-first nurse PWA).
+- Real HL7/FHIR lab connectivity is deferred (partner-driven; see DEFERRED.md).

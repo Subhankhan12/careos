@@ -35,6 +35,7 @@ class RbacProvisioner
         'note.write' => 'Write clinical note drafts',
         'note.sign' => 'Sign clinical notes',
         'note.supervise' => 'Supervise unsigned clinical notes worklist',
+        'order.manage' => 'Place and track structured clinical orders',
         'allergy.override' => 'Override deterministic allergy hard-stops',
         'ai.manage' => 'Manage governed AI actions',
         'comms.manage' => 'Manage secure messaging threads',
@@ -57,7 +58,7 @@ class RbacProvisioner
                 'admin.manage', 'patient.view', 'patient.edit', 'patient.merge',
                 'appointment.manage', 'agreement.manage', 'dispatch.manage', 'encounter.manage',
                 'timesheet.approve', 'note.write', 'note.sign', 'note.supervise', 'allergy.override',
-                'ai.manage', 'comms.manage', 'billing.view', 'billing.manage', 'audit.view',
+                'order.manage', 'ai.manage', 'comms.manage', 'billing.view', 'billing.manage', 'audit.view',
                 'data.import',
             ],
         ],
@@ -72,14 +73,14 @@ class RbacProvisioner
             'name' => 'Doctor',
             'permissions' => [
                 'patient.view', 'patient.edit', 'appointment.manage', 'encounter.manage',
-                'note.write', 'note.sign', 'allergy.override',
+                'note.write', 'note.sign', 'order.manage', 'allergy.override',
             ],
         ],
         'nurse' => [
             'name' => 'Nurse',
             'permissions' => [
                 'patient.view', 'appointment.manage', 'encounter.manage',
-                'note.write', 'note.sign',
+                'note.write', 'note.sign', 'order.manage',
             ],
         ],
         'reception' => [

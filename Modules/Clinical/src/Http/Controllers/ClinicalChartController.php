@@ -2,6 +2,7 @@
 
 namespace Modules\Clinical\Http\Controllers;
 
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -12,22 +13,28 @@ use Modules\Clinical\Models\ClinicalNote;
 use Modules\Clinical\Models\Document;
 use Modules\Clinical\Models\Encounter;
 use Modules\Clinical\Models\Medication;
+use Modules\Clinical\Models\Order;
+use Modules\Clinical\Models\OrderableItem;
+use Modules\Clinical\Models\OrderResult;
 use Modules\Clinical\Models\Problem;
 use Modules\Clinical\Models\Recall;
 use Modules\Clinical\Models\RecallRule;
 use Modules\Clinical\Models\Referral;
 use Modules\Clinical\Models\Vital;
 use Modules\Clinical\Services\ClinicalNoteService;
+use Modules\Clinical\Services\OrderService;
 use Modules\Patients\Models\Patient;
 use Modules\People\Models\StaffProfile;
+use Modules\Platform\Models\User;
 
 class ClinicalChartController
 {
-    public function __invoke(string $patient, ClinicalNoteService $notes): Response
+    public function __invoke(Request $request, string $patient, ClinicalNoteService $notes, OrderService $orders): Response
     {
         Gate::authorize('patient.view');
 
         $record = Patient::query()->whereKey($patient)->firstOrFail();
+        $actor = $request->user();
         $record->auditRead(['surface' => 'clinical_chart']);
 
         $noteRecords = ClinicalNote::query()
@@ -152,12 +159,34 @@ class ClinicalChartController
                 ->get()
                 ->map(fn (Recall $recall): array => $this->recallSummary($recall))
                 ->all(),
+            'orders' => $actor instanceof User
+                ? $orders->chartOrders($record, $actor)->map(fn (Order $order): array => $this->orderSummary($order))->all()
+                : [],
+            'orderableItems' => Gate::allows('order.manage')
+                ? OrderableItem::query()
+                    ->where('active', true)
+                    ->orderBy('category')
+                    ->orderBy('name')
+                    ->get()
+                    ->map(fn (OrderableItem $i): array => [
+                        'id' => $i->id,
+                        'category' => $i->category,
+                        'code' => $i->code,
+                        'name' => $i->name,
+                    ])
+                    ->all()
+                : [],
             'aiSummary' => $this->aiSummaryDraft($record),
             'actions' => [
                 'can_view' => Gate::allows('patient.view'),
                 'can_write_notes' => Gate::allows('note.write'),
                 'can_sign_notes' => Gate::allows('note.sign'),
+                'can_order' => Gate::allows('order.manage'),
                 'summary_draft_url' => route('clinical.summary.draft', $record->id),
+                'order_place_url' => route('clinical.orders.place'),
+                'order_transition_url' => route('clinical.orders.transition'),
+                'order_result_url' => route('clinical.orders.result'),
+                'order_review_url' => route('clinical.orders.review'),
             ],
         ]);
     }
@@ -236,6 +265,36 @@ class ClinicalChartController
             'sent_at' => $referral->sent_at?->toDateTimeString(),
             'responded_at' => $referral->responded_at?->toDateTimeString(),
             'notes' => $referral->notes,
+        ];
+    }
+
+    /**
+     * Orders are shown RAW and neutral — the result_value is displayed as
+     * entered, with NO range/flag/abnormal/colour/score. "Reviewed" is a human
+     * attestation, not a system judgment.
+     *
+     * @return array<string, mixed>
+     */
+    private function orderSummary(Order $order): array
+    {
+        return [
+            'id' => $order->id,
+            'item' => $order->orderableItem?->name,
+            'category' => $order->orderableItem?->category,
+            'priority' => $order->priority,
+            'status' => $order->status,
+            'clinical_note' => $order->clinical_note,
+            'ordered_at' => $order->ordered_at->toDateTimeString(),
+            'cancelled_reason' => $order->cancelled_reason,
+            'reviewed_at' => $order->reviewed_at?->toDateTimeString(),
+            'reviewed_by' => $order->reviewed_by,
+            'results' => $order->results->map(fn (OrderResult $r): array => [
+                'id' => $r->id,
+                'value' => $r->result_value, // raw, as entered
+                'has_document' => $r->result_document_id !== null,
+                'source' => $r->source,
+                'entered_at' => $r->entered_at->toDateTimeString(),
+            ])->all(),
         ];
     }
 

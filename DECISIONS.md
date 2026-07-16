@@ -479,3 +479,14 @@ references the old ID.
   exceptions reuse the existing lifecycle (cancel/reschedule one appointment leaves the series + rule
   intact); `end()` stops future generation without touching booked occurrences. Net-new day-board panel,
   presentational per P0D.GU (P0P.G8).
+- **D-076 — Structured clinical orders record fact, never interpretation; lab connectivity is a stub.**
+  A clinician places a structured order (`Modules\Clinical`), tracks a status lifecycle, records a MANUAL
+  result, and marks it reviewed. The electric fence is absolute: results are stored/shown RAW with NO
+  range/flag/abnormal/colour/score anywhere (same as vitals, D-D3), and "reviewed" is a HUMAN attestation,
+  never a system judgment. `order_results` is APPEND-ONLY (DB triggers block UPDATE/DELETE; corrections are
+  new rows). The orderable list is TENANT-AUTHORED — no licensed/proprietary test catalog is bundled (a
+  small generic starter template is seedable/editable). Electronic transmission + automated result
+  ingestion (HL7/FHIR) are an INTERFACE (`LabConnectivity`) with ONLY a `ManualLabConnectivity` no-op —
+  no real client is built; that is partner-and-market work, deferred (DEFERRED.md). RBAC `order.manage`
+  (org_admin/doctor/nurse). Audited + patient-scoped read-logged; net-new additive chart tab + review
+  worklist + catalog admin, presentational per P0D.GU (P0P.G11).

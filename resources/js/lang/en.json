@@ -274,6 +274,36 @@
         }
     },
     "clinical": {
+        "orders": {
+            "tab": "Orders",
+            "place": "Place order",
+            "routine": "Routine",
+            "urgent": "Urgent",
+            "reason": "Reason (documented)",
+            "recordResult": "Record result",
+            "resultValue": "Result (as entered)",
+            "markReviewed": "Mark reviewed",
+            "cancel": "Cancel",
+            "cancelReason": "Cancelled from chart",
+            "seeDocument": "See attached document",
+            "reviewedAt": "Reviewed {at}"
+        },
+        "ordersReview": {
+            "title": "Orders to review",
+            "subtitle": "Resulted orders awaiting a clinician's review. Results are shown as entered.",
+            "empty": "No orders awaiting review."
+        },
+        "orderableItems": {
+            "title": "Orderable items",
+            "subtitle": "Your practice's own list of orderable tests and studies. No licensed catalog is bundled.",
+            "add": "Add an item",
+            "category": "Category",
+            "code": "Code",
+            "name": "Name",
+            "specimen": "Specimen / modality",
+            "addButton": "Add",
+            "deactivate": "Deactivate"
+        },
         "note": {
             "title": "SOAP note",
             "chart": "Chart",

@@ -16,6 +16,9 @@ use Modules\Clinical\Http\Controllers\DocumentUploadController;
 use Modules\Clinical\Http\Controllers\EncounterShowController;
 use Modules\Clinical\Http\Controllers\NoteEditorController;
 use Modules\Clinical\Http\Controllers\OpenEncounterFromAppointmentController;
+use Modules\Clinical\Http\Controllers\OrderableItemController;
+use Modules\Clinical\Http\Controllers\OrderController;
+use Modules\Clinical\Http\Controllers\OrdersReviewController;
 use Modules\Clinical\Http\Controllers\PortalDocumentController;
 use Modules\Comms\Http\Controllers\InboxActionController;
 use Modules\Comms\Http\Controllers\InboxController;
@@ -136,6 +139,17 @@ Route::middleware('auth')->group(function () {
         ->name('clinical.notes.sign');
     Route::post('/clinical/notes/{note}/amend', [NoteEditorController::class, 'amend'])
         ->name('clinical.notes.amend');
+    // Structured clinical orders (P0P.G11): place/track/result/review + the
+    // tenant-authored orderable catalog + the "orders to review" worklist.
+    Route::post('/clinical/orders', [OrderController::class, 'place'])->name('clinical.orders.place');
+    Route::post('/clinical/orders/transition', [OrderController::class, 'transition'])->name('clinical.orders.transition');
+    Route::post('/clinical/orders/result', [OrderController::class, 'result'])->name('clinical.orders.result');
+    Route::post('/clinical/orders/mark-reviewed', [OrderController::class, 'review'])->name('clinical.orders.review');
+    Route::get('/clinical/orders/review', OrdersReviewController::class)->name('clinical.orders.worklist');
+    Route::get('/clinical/orderable-items', [OrderableItemController::class, 'index'])->name('clinical.orderable-items.index');
+    Route::post('/clinical/orderable-items', [OrderableItemController::class, 'store'])->name('clinical.orderable-items.store');
+    Route::post('/clinical/orderable-items/deactivate', [OrderableItemController::class, 'deactivate'])->name('clinical.orderable-items.deactivate');
+
     Route::post('/clinical/patients/{patient}/documents', DocumentUploadController::class)
         ->name('clinical.documents.upload');
     Route::get('/clinical/documents/{document}', DocumentDownloadController::class)

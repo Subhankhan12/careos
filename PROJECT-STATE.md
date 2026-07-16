@@ -573,6 +573,16 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
   reuse the existing lifecycle (cancel/reschedule one); `end()` stops future generation without touching
   booked ones. Net-new day-board "make recurring" panel (presentational). Recorded as D-075; 8 feature tests.
   With this, the whole P0P sequence G1–G9 is complete (G7+G8 filled the earlier gaps).
+- **Structured clinical orders (P0P.G11):** a clinician places a structured lab/imaging order
+  (`Modules\Clinical`), tracks a status lifecycle (ordered→collected→in_progress→resulted→reviewed /
+  cancelled), records a MANUAL result, and marks it reviewed. Electric fence absolute: results are stored
+  and shown RAW — no range/flag/abnormal/colour/score anywhere (same as vitals D-D3) — and "reviewed" is a
+  human attestation, never a system judgment. `order_results` is append-only (DB triggers). The orderable
+  list is TENANT-AUTHORED (no licensed catalog; seedable generic template). Electronic transmission +
+  automated ingestion (HL7/FHIR) are a STUB `LabConnectivity` interface with only a `ManualLabConnectivity`
+  no-op — no real client built; real lab connectivity is DEFERRED partner work (trigger recorded). RBAC
+  `order.manage` (org_admin/doctor/nurse). Net-new additive chart Orders tab + review worklist + catalog
+  admin. Recorded as D-076; 7 feature tests. (The P0P sequence is now G1–G11 complete.)
 - **Parked backlog (P0P.G5, docs only):** DEFERRED.md now carries a "Parked — build when a real
   user/customer creates the need" section: 10 demand-driven items, each with a concrete TRIGGER that
   pulls it forward (Phase H agents, AI-credits metering/billing, real nurse-travel routing, DE/CH/FR

@@ -102,3 +102,11 @@ it stays here so it is neither forgotten nor pre-built (P0P.G5).
   end-to-end test plus the PWA Vitest encryption/offline suite; browser `context.setOffline(true)` is
   not installed in this repo.
   **TRIGGER:** pull forward when prepping the sales demo.
+- **Real HL7/FHIR lab connectivity (electronic transmission + automated result ingestion).** P0P.G11
+  ships structured clinical orders + MANUAL results only; `Clinical\Contracts\LabConnectivity` has a
+  single `ManualLabConnectivity` (transmit is a no-op, no live ingestion). A real HL7/FHIR client is
+  partner-and-market work — no lab is connected, no proprietary/licensed test catalog is bundled (the
+  orderable list is tenant-authored). Never interpret a result even when auto-ingested (the electric
+  fence holds).
+  **TRIGGER:** a customer using a specific lab AND a funded integration build against that lab's
+  interface (plus, if any coded catalog is required, a licensed source for it).

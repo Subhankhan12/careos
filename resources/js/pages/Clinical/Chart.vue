@@ -51,6 +51,20 @@ const props = defineProps<{
         notes: string | null;
     }>;
     recalls: Array<{ id: string; rule_id: string; rule_name: string; due_on: string; status: string }>;
+    orders: Array<{
+        id: string;
+        item: string | null;
+        category: string | null;
+        priority: string;
+        status: string;
+        clinical_note: string | null;
+        ordered_at: string;
+        cancelled_reason: string | null;
+        reviewed_at: string | null;
+        reviewed_by: number | null;
+        results: Array<{ id: string; value: string | null; has_document: boolean; source: string; entered_at: string }>;
+    }>;
+    orderableItems: Array<{ id: string; category: string; code: string; name: string }>;
     aiSummary: {
         status: string;
         label: string;
@@ -66,12 +80,34 @@ const props = defineProps<{
         can_view: boolean;
         can_write_notes: boolean;
         can_sign_notes: boolean;
+        can_order: boolean;
         summary_draft_url: string;
+        order_place_url: string;
+        order_transition_url: string;
+        order_result_url: string;
+        order_review_url: string;
     };
 }>();
 
 const activeTab = ref('timeline');
 const summaryInsertForm = useForm({ action_id: props.aiSummary?.action_id ?? '' });
+
+const placeOrderForm = useForm({ patient_id: props.patient.id, orderable_item_id: props.orderableItems[0]?.id ?? '', priority: 'routine', clinical_note: '' });
+const resultForm = useForm({ order_id: '', value: '' });
+
+function placeOrder(): void {
+    placeOrderForm.post(props.actions.order_place_url, { preserveScroll: true });
+}
+function recordResult(orderId: string): void {
+    resultForm.order_id = orderId;
+    resultForm.post(props.actions.order_result_url, { preserveScroll: true, onSuccess: () => resultForm.reset('value') });
+}
+function reviewOrder(orderId: string): void {
+    useForm({ order_id: orderId }).post(props.actions.order_review_url, { preserveScroll: true });
+}
+function transitionOrder(orderId: string, status: string): void {
+    useForm({ order_id: orderId, status, reason: status === 'cancelled' ? t('clinical.orders.cancelReason') : '' }).post(props.actions.order_transition_url, { preserveScroll: true });
+}
 
 const tabs = computed(() => [
     { key: 'timeline', label: t('clinical.chart.tabs.timeline') },
@@ -80,6 +116,7 @@ const tabs = computed(() => [
     { key: 'vitals', label: t('clinical.chart.tabs.vitals') },
     { key: 'medications', label: t('clinical.chart.tabs.medications') },
     { key: 'documents', label: t('clinical.chart.tabs.documents') },
+    { key: 'orders', label: t('clinical.orders.tab') },
     { key: 'care', label: t('clinical.chart.tabs.care') },
 ]);
 
@@ -211,6 +248,44 @@ function insertSummary(): void {
                             </Link>
                         </div>
                         <p v-if="documents.length === 0" class="text-sm text-ink-muted">{{ t('clinical.chart.empty') }}</p>
+                    </section>
+
+                    <section v-if="activeTab === 'orders'" class="space-y-4">
+                        <form v-if="actions.can_order" class="grid gap-3 rounded-md border border-line p-4 sm:grid-cols-[1fr_auto_auto]" @submit.prevent="placeOrder">
+                            <select v-model="placeOrderForm.orderable_item_id" class="rounded-md border border-line bg-surface px-3 py-2 text-sm text-ink">
+                                <option v-for="item in orderableItems" :key="item.id" :value="item.id">{{ item.name }} ({{ item.category }})</option>
+                            </select>
+                            <select v-model="placeOrderForm.priority" class="rounded-md border border-line bg-surface px-3 py-2 text-sm text-ink">
+                                <option value="routine">{{ t('clinical.orders.routine') }}</option>
+                                <option value="urgent">{{ t('clinical.orders.urgent') }}</option>
+                            </select>
+                            <button type="submit" class="rounded-md bg-brand-600 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-700" :disabled="!placeOrderForm.orderable_item_id">{{ t('clinical.orders.place') }}</button>
+                            <input v-model="placeOrderForm.clinical_note" type="text" :placeholder="t('clinical.orders.reason')" class="rounded-md border border-line bg-surface px-3 py-2 text-sm text-ink sm:col-span-3" />
+                        </form>
+
+                        <div v-for="order in orders" :key="order.id" class="rounded-md border border-line p-4">
+                            <div class="flex items-center justify-between">
+                                <p class="font-semibold text-ink">{{ order.item }} <span class="text-xs text-ink-muted">({{ order.category }} · {{ order.priority }})</span></p>
+                                <span class="text-sm text-ink-muted">{{ order.status }}</span>
+                            </div>
+                            <p v-if="order.clinical_note" class="mt-1 text-sm text-ink-muted">{{ order.clinical_note }}</p>
+                            <ul v-if="order.results.length" class="mt-2 space-y-1">
+                                <li v-for="r in order.results" :key="r.id" class="text-sm text-ink">
+                                    <span class="font-mono">{{ r.value ?? (r.has_document ? t('clinical.orders.seeDocument') : '') }}</span>
+                                    <span class="ml-2 text-xs text-ink-muted">{{ r.entered_at }}</span>
+                                </li>
+                            </ul>
+                            <p v-if="order.reviewed_at" class="mt-2 text-xs text-brand-700">{{ t('clinical.orders.reviewedAt', { at: order.reviewed_at }) }}</p>
+                            <div v-if="actions.can_order" class="mt-3 flex flex-wrap items-center gap-3 text-sm">
+                                <template v-if="['ordered', 'collected', 'in_progress'].includes(order.status)">
+                                    <input v-model="resultForm.value" type="text" :placeholder="t('clinical.orders.resultValue')" class="rounded-md border border-line bg-surface px-2 py-1" />
+                                    <button type="button" class="font-medium text-brand-600 hover:text-brand-700" @click="recordResult(order.id)">{{ t('clinical.orders.recordResult') }}</button>
+                                    <button type="button" class="font-medium text-ink-muted hover:text-ink" @click="transitionOrder(order.id, 'cancelled')">{{ t('clinical.orders.cancel') }}</button>
+                                </template>
+                                <button v-if="order.status === 'resulted'" type="button" class="font-medium text-brand-600 hover:text-brand-700" @click="reviewOrder(order.id)">{{ t('clinical.orders.markReviewed') }}</button>
+                            </div>
+                        </div>
+                        <p v-if="orders.length === 0" class="text-sm text-ink-muted">{{ t('clinical.chart.empty') }}</p>
                     </section>
 
                     <section v-if="activeTab === 'care'" class="grid gap-4 lg:grid-cols-3">
