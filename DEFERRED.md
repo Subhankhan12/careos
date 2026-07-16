@@ -78,6 +78,13 @@ it stays here so it is neither forgotten nor pre-built (P0P.G5).
 - **Statutory market packs (DE / CH / FR billing specifics).** EU-Generic is live and reconciles to the
   unit; per-country tariff/VAT/export specifics (e.g. DATEV columns) are packs added on demand.
   **TRIGGER:** a signed or serious prospect in that country.
+  **CH pack — sharpened trigger (discovery):** Swiss Spitex reimbursement is probably NOT cash-pay but
+  KVG/KLV insurance (Krankenkassen) + canton/municipal contributions + patient co-pays — a distinct
+  third billing model the built EU-Generic pack does NOT cover. **TRIGGER:** discovery confirms (via
+  coordinator calls) that Spitex billing runs through KVG/Krankenkassen + canton — then build the CH
+  billing/reimbursement pack when a design partner needs real Spitex billing. This is currently a
+  hypothesis (current KVG rules unverified), but it is the deferred item most likely to become the
+  real first build. See `docs/DISCOVERY.md` + `PROJECT-STATE.md` CURRENT FOCUS.
 - **Cross-tenant CareOS referrals (explicit share objects, never scope-widening).** D.5 records external
   referrals by provider name only and same-tenant internal referrals by `to_branch_id`. Never widen
   tenant scope to reach another CareOS tenant; design explicit share objects first.

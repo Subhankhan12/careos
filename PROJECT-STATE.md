@@ -3,6 +3,27 @@
 Short, factual snapshot of where the project stands. Updated at consolidations and after gates
 (per the MEMORY PROTOCOL in AGENTS.md).
 
+## CURRENT FOCUS: DISCOVERY (not building)
+
+**Read this before starting any work. The next unit of progress is NOT another gate.**
+
+- **State:** the backend is feature-complete for MVP+ (~93 gates through Phase P; the P0P sequence
+  G1–G11 is complete). The CLAUDE design pass (**Eucalyptus Glow**) is in progress across the 34
+  screens (22 Inertia pages + 11 nurse-PWA screens; see `docs/SCREENS.md`). **The next action is
+  CUSTOMER DISCOVERY — talking to Swiss Spitex coordinators and clinics — NOT a new module.** Do not
+  start building a gate unless discovery produces evidence that pulls a specific feature forward.
+- **The single riskiest assumption to test — Swiss Spitex billing is probably NOT clean cash-pay.**
+  It is largely **KVG/KLV insurance reimbursement to Krankenkassen + canton/municipal contributions
+  + patient co-pays** — a THIRD model, distinct from both US X12 claims and simple patient-pay. The
+  **CH statutory billing pack is deferred/unbuilt** (see DEFERRED.md). Therefore "our EU-Generic
+  billing fits Spitex" is **UNPROVEN and possibly false.** If coordinators confirm it, the **CH
+  billing/reimbursement pack becomes the likely real first build**, and the offline nurse PWA is the
+  wedge to get in the door — not the first thing monetized. (This is a HYPOTHESIS to confirm in the
+  first 2–3 coordinator calls, not established fact — nobody has verified current KVG rules from here.)
+- **The market-decision rule:** the **reimbursement mechanics**, heard consistently across the first
+  ~3 coordinators, decide the market (EU-cash vs CH-insurance-funded vs US-claims). Everything else is
+  prioritization. Full brief: `docs/DISCOVERY.md`; outreach: `docs/outreach-de.md`.
+
 - **Current phase:** Phase G COMPLETE - Comms, telehealth & patient portal. Consolidated at P0G.C:
   the functional staff-facing surface is FROZEN for the design pass, and `docs/SCREENS.md` is the
   factual re-skin brief (22 Inertia pages + 11 nurse-PWA screens with routes/guards/props/actions).
