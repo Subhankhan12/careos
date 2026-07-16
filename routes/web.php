@@ -35,6 +35,7 @@ use Modules\Scheduling\Http\Controllers\DayBoardActionController;
 use Modules\Scheduling\Http\Controllers\DayBoardController;
 use Modules\Scheduling\Http\Controllers\PortalAppointmentController;
 use Modules\Scheduling\Http\Controllers\PublicBookingController;
+use Modules\Scheduling\Http\Controllers\WaitlistOfferController;
 
 Route::get('/', function () {
     if (! auth()->check()) {
@@ -76,6 +77,17 @@ Route::middleware('auth')->group(function () {
         ->name('scheduling.day-board.slots');
     Route::post('/scheduling/day-board/open-encounter', OpenEncounterFromAppointmentController::class)
         ->name('scheduling.day-board.open-encounter');
+
+    // Waitlist auto-fill (P0P.G9): surface candidates for a freed slot, offer,
+    // then accept/decline. All appointment.manage-gated on the branch.
+    Route::post('/scheduling/waitlist/candidates', [WaitlistOfferController::class, 'candidates'])
+        ->name('scheduling.waitlist.candidates');
+    Route::post('/scheduling/waitlist/offer', [WaitlistOfferController::class, 'offer'])
+        ->name('scheduling.waitlist.offer');
+    Route::post('/scheduling/waitlist/offers/accept', [WaitlistOfferController::class, 'accept'])
+        ->name('scheduling.waitlist.accept');
+    Route::post('/scheduling/waitlist/offers/decline', [WaitlistOfferController::class, 'decline'])
+        ->name('scheduling.waitlist.decline');
 
     Route::get('/comms/inbox', InboxController::class)->name('comms.inbox');
     Route::post('/comms/inbox/reply', [InboxActionController::class, 'reply'])->name('comms.inbox.reply');

@@ -541,6 +541,16 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
   `Import/Upload.vue` on the current shell/tokens — NOT part of the design pass, presentational only,
   no existing page contract changed. `league/csv ^9.28` added. 9 feature tests + 1 arch test; module
   memory in `memory/modules/Import.md`; recorded as D-072.
+- **Waitlist auto-fill (P0P.G9):** the C.4 waitlist engine is now a reception loop. When a slot frees,
+  `WaitlistOfferService::candidates` surfaces matching entries (reusing `WaitlistService::matchingForSlot`);
+  `offer()` creates a time-boxed `waitlist_offers` hold (TTL `scheduling.waitlist.offer_ttl_minutes`,
+  default 30 min) and notifies the patient; `accept()` books through the EXISTING `BookingService`
+  (no-double-book) and marks the entry booked; decline/expire release the hold for the next candidate.
+  Two concurrent accepts of one freed slot resolve to exactly one booking (hammer-proven). The offer
+  notification is TRANSACTIONAL + consent-gated (`comms.email`) and composed in the APP LAYER (listener →
+  Comms `NotificationService`) since Scheduling may not depend on Comms (D-073). `scheduling:expire-waitlist-offers`
+  (every 5 min) sweeps timed-out offers. Reception UI is a net-new, additive day-board panel
+  (presentational per P0D.GU); no existing page contract changed. 9 tests (incl. the concurrent hammer).
 - **Parked backlog (P0P.G5, docs only):** DEFERRED.md now carries a "Parked — build when a real
   user/customer creates the need" section: 10 demand-driven items, each with a concrete TRIGGER that
   pulls it forward (Phase H agents, AI-credits metering/billing, real nurse-travel routing, DE/CH/FR

@@ -15,12 +15,81 @@ const props = defineProps<{
     filters: { date: string; branch_id: string };
     branches: Array<{ id: string; name: string }>;
     resources: Array<{ id: string; name: string; type: string }>;
-    appointments: Array<{ id: string; patient_id: string | null; patient: string | null; service: string | null; starts_at: string; ends_at: string; status: string; resource_ids: string[] }>;
+    appointments: Array<{ id: string; patient_id: string | null; patient: string | null; service_id: string; service: string | null; starts_at: string; ends_at: string; status: string; resource_ids: string[] }>;
     services: Array<{ id: string; name: string; duration: number }>;
     patients: Array<{ id: string; name: string; mrn: string }>;
     slotPreview: Array<{ starts_at: string; ends_at: string; resource_ids: string[] }>;
-    actions: { transitionUrl: string; quickBookUrl: string; slotsUrl: string; openEncounterUrl: string };
+    waitlistOffers: Array<{ id: string; patient: string | null; service_id: string; starts_at: string; ends_at: string; status: string; expires_at: string; booked_appointment_id: string | null }>;
+    actions: {
+        transitionUrl: string;
+        quickBookUrl: string;
+        slotsUrl: string;
+        openEncounterUrl: string;
+        waitlistCandidatesUrl: string;
+        waitlistOfferUrl: string;
+        waitlistAcceptUrl: string;
+        waitlistDeclineUrl: string;
+    };
 }>();
+
+type Candidate = {
+    waitlist_entry_id: string;
+    patient: string | null;
+    priority: number;
+    flexible: boolean;
+    desired_starts_at: string | null;
+    desired_ends_at: string | null;
+};
+
+const fill = reactive({ appointment_id: '' });
+const candidates = ref<Candidate[]>([]);
+
+const fillAppointment = computed(() => props.appointments.find((a) => a.id === fill.appointment_id) ?? null);
+
+function csrf(): string {
+    return document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content ?? '';
+}
+
+async function findCandidates(): Promise<void> {
+    const appt = fillAppointment.value;
+    if (!appt) {
+        candidates.value = [];
+        return;
+    }
+    const response = await fetch(props.actions.waitlistCandidatesUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrf(), Accept: 'application/json' },
+        body: JSON.stringify({
+            service_id: appt.service_id,
+            branch_id: filters.branch_id,
+            starts_at: appt.starts_at,
+            ends_at: appt.ends_at,
+        }),
+    });
+    const json = (await response.json()) as { candidates: Candidate[] };
+    candidates.value = json.candidates;
+}
+
+function offerToCandidate(candidate: Candidate): void {
+    const appt = fillAppointment.value;
+    if (!appt) return;
+    router.post(props.actions.waitlistOfferUrl, {
+        waitlist_entry_id: candidate.waitlist_entry_id,
+        branch_id: filters.branch_id,
+        starts_at: appt.starts_at,
+        ends_at: appt.ends_at,
+        resource_ids: appt.resource_ids,
+        source_appointment_id: appt.id,
+    }, { preserveScroll: true });
+}
+
+function acceptOffer(offerId: string): void {
+    router.post(props.actions.waitlistAcceptUrl, { offer_id: offerId }, { preserveScroll: true });
+}
+
+function declineOffer(offerId: string): void {
+    router.post(props.actions.waitlistDeclineUrl, { offer_id: offerId }, { preserveScroll: true });
+}
 
 const filters = reactive({ ...props.filters });
 const quick = reactive({
@@ -139,6 +208,85 @@ watch(() => [quick.service_id, filters.branch_id, filters.date], loadSlots);
             </Card>
 
             <ScheduleGrid :resources="resources" :appointments="appointments" @action="transition" @open-encounter="openEncounter" />
+
+            <Card :title="t('scheduling.waitlist.title')" :subtitle="t('scheduling.waitlist.subtitle')">
+                <div class="space-y-5">
+                    <div class="flex flex-col gap-3 sm:flex-row sm:items-end">
+                        <label class="block sm:w-2/3">
+                            <span class="mb-1.5 block text-sm font-medium text-ink">{{ t('scheduling.waitlist.fillSlot') }}</span>
+                            <select v-model="fill.appointment_id" class="block w-full rounded-md border border-line bg-surface px-3 py-2 text-sm text-ink shadow-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30">
+                                <option value="">{{ t('scheduling.waitlist.pickSlot') }}</option>
+                                <option v-for="appt in appointments" :key="appt.id" :value="appt.id">
+                                    {{ appt.starts_at }} · {{ appt.service }} · {{ appt.patient ?? '—' }} ({{ appt.status }})
+                                </option>
+                            </select>
+                        </label>
+                        <div class="sm:w-1/3">
+                            <Button type="button" variant="secondary" :disabled="!fill.appointment_id" @click="findCandidates">
+                                {{ t('scheduling.waitlist.findCandidates') }}
+                            </Button>
+                        </div>
+                    </div>
+
+                    <div v-if="candidates.length" class="overflow-x-auto">
+                        <table class="w-full text-left text-sm">
+                            <thead class="text-ink-muted">
+                                <tr class="border-b border-line">
+                                    <th class="py-2 pr-4 font-medium">{{ t('scheduling.waitlist.patient') }}</th>
+                                    <th class="py-2 pr-4 font-medium">{{ t('scheduling.waitlist.priority') }}</th>
+                                    <th class="py-2 pr-4 font-medium">{{ t('scheduling.waitlist.window') }}</th>
+                                    <th class="py-2"></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr v-for="candidate in candidates" :key="candidate.waitlist_entry_id" class="border-b border-line/60">
+                                    <td class="py-2 pr-4 text-ink">{{ candidate.patient }}</td>
+                                    <td class="py-2 pr-4 text-ink-muted">{{ candidate.priority }}</td>
+                                    <td class="py-2 pr-4 text-ink-muted">
+                                        <span v-if="candidate.flexible">{{ t('scheduling.waitlist.flexible') }}</span>
+                                        <span v-else>{{ candidate.desired_starts_at }} – {{ candidate.desired_ends_at }}</span>
+                                    </td>
+                                    <td class="py-2 text-right">
+                                        <button type="button" class="font-medium text-brand-600 hover:text-brand-700" @click="offerToCandidate(candidate)">
+                                            {{ t('scheduling.waitlist.offer') }}
+                                        </button>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div>
+                        <h3 class="mb-2 text-sm font-semibold text-ink">{{ t('scheduling.waitlist.openOffers') }}</h3>
+                        <p v-if="waitlistOffers.length === 0" class="text-sm text-ink-muted">{{ t('scheduling.waitlist.noOffers') }}</p>
+                        <table v-else class="w-full text-left text-sm">
+                            <thead class="text-ink-muted">
+                                <tr class="border-b border-line">
+                                    <th class="py-2 pr-4 font-medium">{{ t('scheduling.waitlist.patient') }}</th>
+                                    <th class="py-2 pr-4 font-medium">{{ t('scheduling.fields.date') }}</th>
+                                    <th class="py-2 pr-4 font-medium">{{ t('scheduling.waitlist.status') }}</th>
+                                    <th class="py-2 pr-4 font-medium">{{ t('scheduling.waitlist.expires') }}</th>
+                                    <th class="py-2"></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr v-for="offer in waitlistOffers" :key="offer.id" class="border-b border-line/60">
+                                    <td class="py-2 pr-4 text-ink">{{ offer.patient }}</td>
+                                    <td class="py-2 pr-4 text-ink-muted">{{ offer.starts_at }}</td>
+                                    <td class="py-2 pr-4 text-ink-muted">{{ offer.status }}</td>
+                                    <td class="py-2 pr-4 text-ink-muted">{{ offer.expires_at }}</td>
+                                    <td class="py-2 text-right">
+                                        <template v-if="offer.status === 'offered'">
+                                            <button type="button" class="mr-3 font-medium text-brand-600 hover:text-brand-700" @click="acceptOffer(offer.id)">{{ t('scheduling.waitlist.accept') }}</button>
+                                            <button type="button" class="font-medium text-ink-muted hover:text-ink" @click="declineOffer(offer.id)">{{ t('scheduling.waitlist.decline') }}</button>
+                                        </template>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </Card>
         </div>
     </AppLayout>
 </template>

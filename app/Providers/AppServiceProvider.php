@@ -34,11 +34,14 @@ use Modules\Clinical\Events\EncounterOpened;
 use Modules\Clinical\Models\ClinicalNote;
 use Modules\Clinical\Models\Encounter;
 use Modules\Comms\Contracts\InboxDraftProvider;
+use Modules\Comms\Models\NotificationTemplate;
+use Modules\Comms\Services\NotificationService;
 use Modules\Nursing\Events\IncidentReported;
 use Modules\Nursing\Events\NurseSyncActionProcessed;
 use Modules\Nursing\Events\PlannedVisitChanged;
 use Modules\Nursing\Events\ServiceAgreementChanged;
 use Modules\Nursing\Events\VisitEventRecorded;
+use Modules\Patients\Models\Patient;
 use Modules\People\Models\Credential;
 use Modules\Platform\Models\FeatureFlag;
 use Modules\Platform\Models\Role;
@@ -52,7 +55,9 @@ use Modules\Scheduling\Events\AppointmentBooked;
 use Modules\Scheduling\Events\AppointmentReminderDeliveryRecorded;
 use Modules\Scheduling\Events\AppointmentTransitioned;
 use Modules\Scheduling\Events\WaitlistEntryStatusChanged;
+use Modules\Scheduling\Events\WaitlistOfferLifecycleChanged;
 use Modules\Scheduling\Models\Appointment;
+use Modules\Scheduling\Models\WaitlistOffer;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -197,6 +202,51 @@ class AppServiceProvider extends ServiceProvider
                     ...$event->context,
                 ],
             ]);
+        });
+        // Waitlist auto-fill offers (P0P.G9). Audit every lifecycle change here,
+        // and — only on creation — deliver the offer to the patient through the
+        // Comms NotificationService. This composition lives in the app layer so
+        // Scheduling never depends on Comms.
+        Event::listen(WaitlistOfferLifecycleChanged::class, function (WaitlistOfferLifecycleChanged $event): void {
+            $offer = $event->offer;
+
+            $this->auditChange('waitlist_offer.'.$event->toStatus, [
+                'actor_type' => $event->actor !== null ? 'user' : 'system',
+                'actor_id' => $event->actor !== null ? (string) $event->actor->getKey() : null,
+                'patient_id' => $offer->patient_id,
+                'resource_type' => 'waitlist_offer',
+                'resource_id' => $offer->id,
+                'context' => [
+                    'from_status' => $event->fromStatus,
+                    'to_status' => $event->toStatus,
+                    'waitlist_entry_id' => $offer->waitlist_entry_id,
+                    'service_id' => $offer->service_id,
+                    'branch_id' => $offer->branch_id,
+                    'slot_starts_at' => $offer->slot_starts_at->toDateTimeString(),
+                    ...$event->context,
+                ],
+            ]);
+
+            if ($event->toStatus !== WaitlistOffer::STATUS_OFFERED) {
+                return;
+            }
+
+            $patient = Patient::query()->find($offer->patient_id);
+            if ($patient === null) {
+                return;
+            }
+
+            // Consent-gated (D-G4): the transactional template skips fail-closed
+            // without comms.email consent.
+            $this->app->make(NotificationService::class)->send(
+                'waitlist.offer',
+                $patient,
+                [
+                    'starts_at' => $offer->slot_starts_at->toDateTimeString(),
+                    'expires_at' => $offer->expires_at->toDateTimeString(),
+                ],
+                NotificationTemplate::CATEGORY_TRANSACTIONAL,
+            );
         });
         Event::listen(AppointmentReminderDeliveryRecorded::class, function (AppointmentReminderDeliveryRecorded $event): void {
             $reminder = $event->reminder;

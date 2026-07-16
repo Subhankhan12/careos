@@ -441,3 +441,14 @@ references the old ID.
   opt-in; `merge` uses the audited merge path). Uploads land on the private disk, tenant-prefixed,
   no public URL. New permission `data.import` (org_admin only by default). CSV parsing uses
   `league/csv` — never hand-rolled (P0P.G6).
+- **D-073 — Waitlist auto-fill offers are time-boxed and always book through BookingService.** A freed
+  slot is offered to a matching waitlist patient via a persisted `waitlist_offers` row with a lifecycle
+  (offered→accepted/declined/expired) and a SHORT TTL (`scheduling.waitlist.offer_ttl_minutes`, default
+  30 min) so an unresponsive patient never holds a slot indefinitely. `WaitlistOfferService::accept`
+  books exclusively through the existing `BookingService::book` (the no-double-book resource-lock path),
+  so two concurrent accepts of the same freed slot resolve to exactly one appointment (hammer-proven);
+  decline/expire release the hold and the entry stays `waiting` for the next candidate. The offer
+  notification is TRANSACTIONAL and consent-gated (`comms.email`, D-G4) and is composed in the APP LAYER
+  (a listener on `WaitlistOfferLifecycleChanged` calling the Comms `NotificationService`) because
+  Scheduling may not depend on Comms — mirroring the D-017 reminder/dunning bridges. The reception UI is
+  additive on the day-board (net-new panel + props), presentational per P0D.GU (P0P.G9).

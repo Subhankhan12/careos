@@ -37,6 +37,7 @@ test('every deferred command is registered on the scheduler with its intended ca
         'billing:dunning-run' => '0 6 * * *',
         'billing:reconcile' => '30 6 * * *',
         'appointments:dispatch-reminders' => '*/15 * * * *',
+        'scheduling:expire-waitlist-offers' => '*/5 * * * *',
     ];
 
     foreach ($expected as $command => $expression) {
@@ -66,5 +67,6 @@ test('the scheduler registers exactly the intended commands and nothing else', f
         'billing:dunning-run',
         'billing:reconcile',
         'appointments:dispatch-reminders',
+        'scheduling:expire-waitlist-offers',
     ]);
 });

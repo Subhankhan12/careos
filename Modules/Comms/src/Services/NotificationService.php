@@ -59,6 +59,15 @@ class NotificationService
             'subject' => 'Payment reminder: invoice {{invoice}}',
             'body' => "{{body}}\nInvoice: {{invoice}}\nReminder level: {{level}}",
         ],
+        // A freed-slot offer to a waitlisted patient is contract performance
+        // (fulfilling a requested booking) — TRANSACTIONAL, so it keeps the
+        // reminder-style consent gate (P0P.G9).
+        'waitlist.offer' => [
+            'channel' => NotificationTemplate::CHANNEL_EMAIL,
+            'category' => NotificationTemplate::CATEGORY_TRANSACTIONAL,
+            'subject' => 'A new appointment slot is available',
+            'body' => "A slot has opened for your requested appointment.\nWhen: {{starts_at}}\nPlease contact us to confirm before {{expires_at}}.",
+        ],
         // D-G4 classification: a telehealth invitation delivers a booked
         // service (contract performance) — TRANSACTIONAL, not marketing, and
         // not legal: it keeps the reminder-style consent gate.

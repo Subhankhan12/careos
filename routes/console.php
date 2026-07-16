@@ -83,6 +83,14 @@ Schedule::command('appointments:dispatch-reminders')
     ->withoutOverlapping(10)
     ->onOneServer();
 
+// Expire timed-out waitlist offers (P0P.G9) so a freed slot held for an
+// unresponsive patient is released back to the next matching candidate. The TTL
+// is short (scheduling.waitlist.offer_ttl_minutes, default 30), so sweep often.
+Schedule::command('scheduling:expire-waitlist-offers')
+    ->everyFiveMinutes()
+    ->withoutOverlapping(10)
+    ->onOneServer();
+
 // THE TAMPER ALARM: replay every active tenant's audit hash-chain and record an
 // append-only integrity_checks row either way. A break means a row was altered
 // or removed by something that went around both the model guards and the DB

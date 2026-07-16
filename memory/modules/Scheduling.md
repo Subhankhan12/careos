@@ -163,6 +163,26 @@ Agent tools that wrap the safe waitlist and slot-finder paths.
 - Realtime day-board refresh through Reverb is deferred; C.6 uses request/slot refreshes now.
 - Scheduler Agent proposals are governed by AiCore and capped at approve. Nothing books from the
   waitlist until the approval queue executes the tool with a human approver.
+- **Waitlist auto-fill (P0P.G9):** when a slot frees, reception offers it to a matching waitlist
+  patient in one click. New `waitlist_offers` table (BelongsToTenant) + `WaitlistOffer` model with a
+  lifecycle offered→accepted/declined/expired and a short TTL (`scheduling.waitlist.offer_ttl_minutes`,
+  default 30). `WaitlistOfferService`: `candidates()` reuses `WaitlistService::matchingForSlot`;
+  `offer()` creates a time-boxed hold (one open offer per entry) and fires `WaitlistOfferLifecycleChanged`;
+  `accept()` books through the EXISTING `BookingService::book` (no-double-book resource lock) then marks
+  the entry booked; `decline()`/`expire()`/`expireDue()` release the hold (entry stays `waiting`) so the
+  next candidate can be offered. Expiry is checked/recorded OUTSIDE the booking transaction (so the throw
+  doesn't roll it back). Concurrency proven by `WaitlistOfferHammerTest` — 6 offers on one freed slot,
+  exactly one ACCEPTED. `ExpireWaitlistOffersCommand` (`scheduling:expire-waitlist-offers`, every 5 min,
+  withoutOverlapping+onOneServer) sweeps timed-out offers per active tenant.
+- **Notify path is app-layer composed (Scheduling may not use Comms):** the app-layer listener on
+  `WaitlistOfferLifecycleChanged` audits every change (`waitlist_offer.*`) and, only on creation, sends
+  the `waitlist.offer` built-in template (TRANSACTIONAL, so consent-gated on `comms.email`; skips
+  fail-closed without consent — D-G4) through the Comms `NotificationService`. Channels: email/portal now,
+  SMS when its driver lands.
+- Reception UI is additive on the day-board (net-new, presentational): `waitlistOffers` prop + offer
+  action URLs + a "Waitlist auto-fill" panel (find candidates for a freed slot → one-click offer →
+  accept/decline; offer status visible). No existing day-board prop was removed. RBAC `appointment.manage`
+  on every offer endpoint. See D-073.
 
 ## Status
 

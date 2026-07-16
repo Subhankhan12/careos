@@ -192,6 +192,24 @@
             "book": "Book",
             "actionReason": "Updated from day-board"
         },
+        "waitlist": {
+            "title": "Waitlist auto-fill",
+            "subtitle": "When a slot frees, offer it to a matching waitlisted patient in one click.",
+            "fillSlot": "Fill a freed slot",
+            "pickSlot": "Select a slot…",
+            "findCandidates": "Find candidates",
+            "patient": "Patient",
+            "priority": "Priority",
+            "window": "Desired window",
+            "flexible": "Flexible",
+            "offer": "Offer",
+            "openOffers": "Offers",
+            "noOffers": "No offers yet.",
+            "status": "Status",
+            "expires": "Expires",
+            "accept": "Accept & book",
+            "decline": "Decline"
+        },
         "public": {
             "title": "Book an appointment",
             "emergencyNotice": "This booking form is not for emergencies. For urgent help, contact local emergency services.",

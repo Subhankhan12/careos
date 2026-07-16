@@ -12,6 +12,7 @@ use Modules\Platform\Models\Branch;
 use Modules\Scheduling\Models\Appointment;
 use Modules\Scheduling\Models\Resource;
 use Modules\Scheduling\Models\Service;
+use Modules\Scheduling\Models\WaitlistOffer;
 use Modules\Scheduling\Services\AvailableSlotFinder;
 
 class DayBoardController
@@ -71,11 +72,22 @@ class DayBoardController
             'slotPreview' => $services->first() !== null
                 ? $slots->forServiceBranchDate($services->first(), $branch->id, $date, 12)
                 : [],
+            'waitlistOffers' => WaitlistOffer::query()
+                ->where('branch_id', $branch->id)
+                ->orderByDesc('offered_at')
+                ->limit(25)
+                ->get()
+                ->map(fn (WaitlistOffer $offer): array => $this->offerSummary($offer))
+                ->all(),
             'actions' => [
                 'transitionUrl' => route('scheduling.day-board.transition'),
                 'quickBookUrl' => route('scheduling.day-board.quick-book'),
                 'slotsUrl' => route('scheduling.day-board.slots'),
                 'openEncounterUrl' => route('scheduling.day-board.open-encounter'),
+                'waitlistCandidatesUrl' => route('scheduling.waitlist.candidates'),
+                'waitlistOfferUrl' => route('scheduling.waitlist.offer'),
+                'waitlistAcceptUrl' => route('scheduling.waitlist.accept'),
+                'waitlistDeclineUrl' => route('scheduling.waitlist.decline'),
             ],
         ]);
     }
@@ -94,11 +106,31 @@ class DayBoardController
             'id' => $appointment->id,
             'patient_id' => $appointment->patient_id,
             'patient' => $patient !== null ? trim($patient->first_name.' '.$patient->last_name) : null,
+            'service_id' => $appointment->service_id,
             'service' => $service?->name,
             'starts_at' => $appointment->starts_at->toDateTimeString(),
             'ends_at' => $appointment->ends_at->toDateTimeString(),
             'status' => $appointment->status,
             'resource_ids' => $appointment->resourceLinks->pluck('resource_id')->all(),
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function offerSummary(WaitlistOffer $offer): array
+    {
+        $patient = Patient::query()->find($offer->patient_id);
+
+        return [
+            'id' => $offer->id,
+            'patient' => $patient !== null ? trim($patient->first_name.' '.$patient->last_name) : null,
+            'service_id' => $offer->service_id,
+            'starts_at' => $offer->slot_starts_at->toDateTimeString(),
+            'ends_at' => $offer->slot_ends_at->toDateTimeString(),
+            'status' => $offer->status,
+            'expires_at' => $offer->expires_at->toDateTimeString(),
+            'booked_appointment_id' => $offer->booked_appointment_id,
         ];
     }
 }
