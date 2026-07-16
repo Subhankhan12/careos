@@ -53,6 +53,7 @@ use Modules\Platform\Services\TenantContext;
 use Modules\Scheduling\Channels\EmailAppointmentReminderChannel;
 use Modules\Scheduling\Events\AppointmentBooked;
 use Modules\Scheduling\Events\AppointmentReminderDeliveryRecorded;
+use Modules\Scheduling\Events\AppointmentSeriesLifecycleChanged;
 use Modules\Scheduling\Events\AppointmentTransitioned;
 use Modules\Scheduling\Events\WaitlistEntryStatusChanged;
 use Modules\Scheduling\Events\WaitlistOfferLifecycleChanged;
@@ -199,6 +200,28 @@ class AppServiceProvider extends ServiceProvider
                     'to_status' => $event->toStatus,
                     'service_id' => $entry->service_id,
                     'branch_id' => $entry->branch_id,
+                    ...$event->context,
+                ],
+            ]);
+        });
+        // Recurring appointment series (P0P.G8). Audit create/end in the app layer
+        // so Scheduling never depends on Audit models; each individual occurrence
+        // booking is already audited via AppointmentBooked.
+        Event::listen(AppointmentSeriesLifecycleChanged::class, function (AppointmentSeriesLifecycleChanged $event): void {
+            $series = $event->series;
+
+            $this->auditChange('appointment_series.'.$event->status, [
+                'actor_type' => $event->actor !== null ? 'user' : 'system',
+                'actor_id' => $event->actor !== null ? (string) $event->actor->getKey() : null,
+                'patient_id' => $series->patient_id,
+                'resource_type' => 'appointment_series',
+                'resource_id' => $series->id,
+                'context' => [
+                    'status' => $event->status,
+                    'service_id' => $series->service_id,
+                    'branch_id' => $series->branch_id,
+                    'rrule' => $series->rrule,
+                    'timezone' => $series->timezone,
                     ...$event->context,
                 ],
             ]);

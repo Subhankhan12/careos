@@ -34,6 +34,8 @@ use Modules\Platform\Models\Branch;
  * @property Carbon|null $checked_in_at
  * @property string|null $check_in_source
  * @property string|null $check_in_code
+ * @property string|null $series_id
+ * @property Carbon|null $occurrence_date
  */
 class Appointment extends Model
 {
@@ -67,6 +69,8 @@ class Appointment extends Model
 
     protected $fillable = [
         'rescheduled_from_id',
+        'series_id',
+        'occurrence_date',
         'patient_id',
         'service_id',
         'branch_id',
@@ -112,6 +116,7 @@ class Appointment extends Model
             'ends_at' => 'datetime',
             'status_changed_at' => 'datetime',
             'checked_in_at' => 'datetime',
+            'occurrence_date' => 'date',
         ];
     }
 

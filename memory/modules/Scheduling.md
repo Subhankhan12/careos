@@ -183,6 +183,25 @@ Agent tools that wrap the safe waitlist and slot-finder paths.
   action URLs + a "Waitlist auto-fill" panel (find candidates for a freed slot → one-click offer →
   accept/decline; offer status visible). No existing day-board prop was removed. RBAC `appointment.manage`
   on every offer endpoint. See D-073.
+- **Recurring / series appointments (P0P.G8, D-075):** reception books a repeating clinic appointment in
+  one action. New `appointment_series` table (BelongsToTenant: patient/service/branch, `resource_ids` JSON,
+  `rrule`, `timezone`, `start_time`, `duration_minutes`, `starts_on`, nullable `ends_on`, `status`
+  active/ended); appointments gain nullable `series_id` FK + `occurrence_date`. `AppointmentSeriesService`:
+  `preview()` (per-date free/conflict, books nothing — via `BookingService::checkAvailability`, a read-only
+  clone of the booking checks), `create()` (builds the RFC-5545 rrule from freq/interval/byday/count|until,
+  stores the series, materializes), `materialize()` (books each occurrence through the EXISTING
+  `BookingService::book` with `series_id`+`occurrence_date`; idempotent on occurrence_date; guarded by
+  status=active), `end()` (status→ended, stops future generation, never touches booked ones).
+- **RRULE expansion reuses the E.2/DST-safe approach:** `recurr` with the series timezone yields the local
+  occurrence DATES, then the `start_time` is RE-ANCHORED in the series tz per occurrence, so 09:00 local
+  stays 09:00 across a DST boundary (tested Europe/Zurich spring-forward). Appointments store naive local
+  wall-clock (consistent with the rest of Scheduling).
+- **Conflict policy (never silently skip):** occurrences whose slot is taken are returned as a failure
+  report `{date, reason}` (reasons reuse the booking exceptions: `resource_taken`/`outside_availability`);
+  the free ones still book. `BookingService::book` gained optional `seriesId`/`occurrenceDate` params.
+  Per-occurrence exceptions reuse the existing lifecycle: cancel ONE appointment (leaves series + rule
+  intact), reschedule via the atomic reschedule. Day-board gains a net-new "make recurring" panel
+  (freq/interval/day(s)/end + dated free/conflict preview → confirm); RBAC `appointment.manage`.
 
 ## Status
 

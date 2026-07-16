@@ -227,6 +227,28 @@
             "book": "Book",
             "actionReason": "Updated from day-board"
         },
+        "series": {
+            "title": "Recurring appointment",
+            "subtitle": "Book a repeating clinic appointment in one action.",
+            "hint": "Pick a patient, service and resource above, then set the recurrence and preview the dates. Free slots are booked; conflicts are reported for you to resolve.",
+            "frequency": "Frequency",
+            "daily": "Daily",
+            "weekly": "Weekly",
+            "monthly": "Monthly",
+            "interval": "Every",
+            "startTime": "Start time",
+            "startsOn": "Starts on",
+            "end": "End",
+            "afterN": "After N",
+            "onDate": "On date",
+            "preview": "Preview dates",
+            "confirm": "Book series",
+            "date": "Date",
+            "time": "Time",
+            "availability": "Availability",
+            "free": "Free",
+            "conflict": "Conflict"
+        },
         "waitlist": {
             "title": "Waitlist auto-fill",
             "subtitle": "When a slot frees, offer it to a matching waitlisted patient in one click.",

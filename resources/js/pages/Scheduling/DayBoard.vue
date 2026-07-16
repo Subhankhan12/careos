@@ -29,8 +29,61 @@ const props = defineProps<{
         waitlistOfferUrl: string;
         waitlistAcceptUrl: string;
         waitlistDeclineUrl: string;
+        seriesPreviewUrl: string;
+        seriesStoreUrl: string;
     };
 }>();
+
+type SeriesOccurrence = { date: string; starts_at: string; free: boolean; reason: string | null };
+
+const series = reactive({
+    frequency: 'weekly',
+    interval: 1,
+    byday: [] as string[],
+    start_time: '09:00',
+    starts_on: '',
+    end_type: 'count',
+    count: 6,
+    ends_on: '',
+});
+const seriesPreview = ref<SeriesOccurrence[]>([]);
+const weekdays = ['MO', 'TU', 'WE', 'TH', 'FR', 'SA', 'SU'];
+
+function seriesPayload(): Record<string, unknown> {
+    return {
+        patient_id: quick.patient_id,
+        service_id: quick.service_id,
+        branch_id: filters.branch_id,
+        resource_ids: quick.resource_ids,
+        frequency: series.frequency,
+        interval: series.interval,
+        byday: series.byday,
+        start_time: series.start_time,
+        starts_on: series.starts_on,
+        end_type: series.end_type,
+        count: series.count,
+        ends_on: series.ends_on,
+    };
+}
+
+function toggleDay(day: string): void {
+    const i = series.byday.indexOf(day);
+    if (i >= 0) series.byday.splice(i, 1);
+    else series.byday.push(day);
+}
+
+async function previewSeries(): Promise<void> {
+    const response = await fetch(props.actions.seriesPreviewUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrf(), Accept: 'application/json' },
+        body: JSON.stringify(seriesPayload()),
+    });
+    seriesPreview.value = response.ok ? ((await response.json()).occurrences as SeriesOccurrence[]) : [];
+}
+
+function createSeries(): void {
+    router.post(props.actions.seriesStoreUrl, seriesPayload(), { preserveScroll: true });
+}
 
 type Candidate = {
     waitlist_entry_id: string;
@@ -285,6 +338,81 @@ watch(() => [quick.service_id, filters.branch_id, filters.date], loadSlots);
                             </tbody>
                         </table>
                     </div>
+                </div>
+            </Card>
+
+            <Card :title="t('scheduling.series.title')" :subtitle="t('scheduling.series.subtitle')">
+                <p class="mb-4 text-sm text-ink-muted">{{ t('scheduling.series.hint') }}</p>
+                <div class="grid gap-4 md:grid-cols-3">
+                    <label class="block text-sm">
+                        <span class="mb-1.5 block font-medium text-ink">{{ t('scheduling.series.frequency') }}</span>
+                        <select v-model="series.frequency" class="block w-full rounded-md border border-line bg-surface px-3 py-2 text-sm text-ink">
+                            <option value="daily">{{ t('scheduling.series.daily') }}</option>
+                            <option value="weekly">{{ t('scheduling.series.weekly') }}</option>
+                            <option value="monthly">{{ t('scheduling.series.monthly') }}</option>
+                        </select>
+                    </label>
+                    <label class="block text-sm">
+                        <span class="mb-1.5 block font-medium text-ink">{{ t('scheduling.series.interval') }}</span>
+                        <input v-model.number="series.interval" type="number" min="1" class="block w-full rounded-md border border-line bg-surface px-3 py-2 text-sm text-ink" />
+                    </label>
+                    <label class="block text-sm">
+                        <span class="mb-1.5 block font-medium text-ink">{{ t('scheduling.series.startTime') }}</span>
+                        <input v-model="series.start_time" type="time" class="block w-full rounded-md border border-line bg-surface px-3 py-2 text-sm text-ink" />
+                    </label>
+                    <label class="block text-sm">
+                        <span class="mb-1.5 block font-medium text-ink">{{ t('scheduling.series.startsOn') }}</span>
+                        <input v-model="series.starts_on" type="date" class="block w-full rounded-md border border-line bg-surface px-3 py-2 text-sm text-ink" />
+                    </label>
+                    <div class="text-sm">
+                        <span class="mb-1.5 block font-medium text-ink">{{ t('scheduling.series.end') }}</span>
+                        <div class="flex items-center gap-2">
+                            <select v-model="series.end_type" class="rounded-md border border-line bg-surface px-3 py-2 text-sm text-ink">
+                                <option value="count">{{ t('scheduling.series.afterN') }}</option>
+                                <option value="until">{{ t('scheduling.series.onDate') }}</option>
+                            </select>
+                            <input v-if="series.end_type === 'count'" v-model.number="series.count" type="number" min="1" class="w-20 rounded-md border border-line bg-surface px-3 py-2 text-sm text-ink" />
+                            <input v-else v-model="series.ends_on" type="date" class="rounded-md border border-line bg-surface px-3 py-2 text-sm text-ink" />
+                        </div>
+                    </div>
+                </div>
+
+                <div v-if="series.frequency === 'weekly'" class="mt-3 flex flex-wrap gap-2">
+                    <button
+                        v-for="day in weekdays"
+                        :key="day"
+                        type="button"
+                        class="rounded-md border px-3 py-1.5 text-sm"
+                        :class="series.byday.includes(day) ? 'border-brand-500 bg-brand-50 text-brand-700' : 'border-line bg-surface text-ink-muted'"
+                        @click="toggleDay(day)"
+                    >{{ day }}</button>
+                </div>
+
+                <div class="mt-4 flex gap-3">
+                    <div class="w-48"><Button type="button" variant="secondary" @click="previewSeries">{{ t('scheduling.series.preview') }}</Button></div>
+                    <div class="w-48"><Button type="button" :disabled="seriesPreview.length === 0" @click="createSeries">{{ t('scheduling.series.confirm') }}</Button></div>
+                </div>
+
+                <div v-if="seriesPreview.length" class="mt-4 overflow-x-auto">
+                    <table class="w-full text-left text-sm">
+                        <thead class="text-ink-muted">
+                            <tr class="border-b border-line">
+                                <th class="py-2 pr-4 font-medium">{{ t('scheduling.series.date') }}</th>
+                                <th class="py-2 pr-4 font-medium">{{ t('scheduling.series.time') }}</th>
+                                <th class="py-2 font-medium">{{ t('scheduling.series.availability') }}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr v-for="occ in seriesPreview" :key="occ.date" class="border-b border-line/60">
+                                <td class="py-2 pr-4 text-ink">{{ occ.date }}</td>
+                                <td class="py-2 pr-4 text-ink-muted">{{ occ.starts_at }}</td>
+                                <td class="py-2">
+                                    <span v-if="occ.free" class="text-brand-600">{{ t('scheduling.series.free') }}</span>
+                                    <span v-else class="text-danger">{{ t('scheduling.series.conflict') }} ({{ occ.reason }})</span>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
                 </div>
             </Card>
         </div>

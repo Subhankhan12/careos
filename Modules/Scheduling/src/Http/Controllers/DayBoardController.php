@@ -88,6 +88,8 @@ class DayBoardController
                 'waitlistOfferUrl' => route('scheduling.waitlist.offer'),
                 'waitlistAcceptUrl' => route('scheduling.waitlist.accept'),
                 'waitlistDeclineUrl' => route('scheduling.waitlist.decline'),
+                'seriesPreviewUrl' => route('scheduling.series.preview'),
+                'seriesStoreUrl' => route('scheduling.series.store'),
             ],
         ]);
     }

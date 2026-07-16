@@ -467,3 +467,15 @@ references the old ID.
   (in-memory only, no localStorage, idle auto-reset); code entry is rate-limited. The portal path runs
   behind portal-tenant/auth/consent and is own-appointment-only. FrontDesk may use Patients/Scheduling +
   Audit services, never Audit/AiCore models (P0P.G7).
+- **D-075 — Recurring appointment series: expand once, book each occurrence through BookingService,
+  never silently skip a conflict.** A repeating clinic appointment ("every Tuesday 09:00 for 6 weeks") is
+  a new `appointment_series` (in `Modules\Scheduling` — chosen over FrontDesk because it owns appointments +
+  BookingService + the RRULE lane) whose occurrences are ORDINARY appointments linked by `series_id`. The
+  RRULE is expanded with `recurr` in the series timezone (the E.2/DST-safe approach — the local `start_time`
+  is re-anchored per occurrence so wall-clock is preserved across DST), and EVERY occurrence is booked
+  through the existing no-double-book `BookingService::book`. Conflict policy: book all free occurrences and
+  return a failure report `{date, reason}` for the rest — NEVER silently skip and NEVER partially corrupt.
+  A read-only `BookingService::checkAvailability` powers the pre-confirm free/conflict preview. Per-occurrence
+  exceptions reuse the existing lifecycle (cancel/reschedule one appointment leaves the series + rule
+  intact); `end()` stops future generation without touching booked occurrences. Net-new day-board panel,
+  presentational per P0D.GU (P0P.G8).

@@ -563,6 +563,16 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
   patient, and rate-limited code entry. Portal path is auth+consent-gated and own-appointment-only. Recorded
   as D-074; module memory in `memory/modules/FrontDesk.md`. 11 feature tests + arch test. NOTE: gates
   **P0P.G7 fills the earlier skipped slot**; the prior `PROJECT-STATE` P0P sequence was G1→G6→G9.
+- **Recurring / series appointments (P0P.G8):** reception books a repeating clinic appointment ("every
+  Tuesday 09:00 for 6 weeks") in one action. New `appointment_series` (Scheduling); occurrences are ordinary
+  appointments (`series_id` + `occurrence_date`) booked through the EXISTING no-double-book
+  `BookingService::book`. The RRULE is expanded DST-safe (recurr + series timezone, `start_time` re-anchored
+  per occurrence — proven across Europe/Zurich spring-forward). Conflict policy: free occurrences book, taken
+  ones are RETURNED as a failure report `{date, reason}` — never silently skipped; a read-only
+  `BookingService::checkAvailability` powers the pre-confirm free/conflict preview. Per-occurrence exceptions
+  reuse the existing lifecycle (cancel/reschedule one); `end()` stops future generation without touching
+  booked ones. Net-new day-board "make recurring" panel (presentational). Recorded as D-075; 8 feature tests.
+  With this, the whole P0P sequence G1–G9 is complete (G7+G8 filled the earlier gaps).
 - **Parked backlog (P0P.G5, docs only):** DEFERRED.md now carries a "Parked — build when a real
   user/customer creates the need" section: 10 demand-driven items, each with a concrete TRIGGER that
   pulls it forward (Phase H agents, AI-credits metering/billing, real nurse-travel routing, DE/CH/FR

@@ -43,6 +43,8 @@ class BookingService
         string $source = Appointment::SOURCE_STAFF,
         ?string $notes = null,
         ?string $rescheduledFromId = null,
+        ?string $seriesId = null,
+        ?string $occurrenceDate = null,
     ): Appointment {
         return $this->createBooking(
             $serviceId,
@@ -55,6 +57,8 @@ class BookingService
             $source,
             $notes,
             $rescheduledFromId,
+            $seriesId,
+            $occurrenceDate,
         );
     }
 
@@ -96,6 +100,8 @@ class BookingService
         string $source,
         ?string $notes = null,
         ?string $rescheduledFromId = null,
+        ?string $seriesId = null,
+        ?string $occurrenceDate = null,
     ): Appointment {
         $tenantId = $this->tenantContext->id();
 
@@ -145,6 +151,8 @@ class BookingService
             $source,
             $notes,
             $rescheduledFromId,
+            $seriesId,
+            $occurrenceDate,
         ): Appointment {
             foreach ($resourceIds as $resourceId) {
                 $this->lockResource($tenantId, $resourceId);
@@ -153,6 +161,8 @@ class BookingService
 
             $appointment = Appointment::query()->create([
                 'rescheduled_from_id' => $rescheduledFromId,
+                'series_id' => $seriesId,
+                'occurrence_date' => $occurrenceDate,
                 'patient_id' => $patientId,
                 'service_id' => $service->id,
                 'branch_id' => $branchId,
@@ -316,5 +326,86 @@ SQL,
         if ($overlaps !== []) {
             throw BookingConflictException::resourceTaken($resourceId);
         }
+    }
+
+    /**
+     * Read-only availability preview for a slot — the SAME checks book() runs, but
+     * without locking or inserting. Used to show a per-occurrence free/conflict
+     * indicator before a series is confirmed. Reasons reuse the booking failures.
+     *
+     * @param  list<string>  $resourceIds
+     * @return array{free: bool, reason: string|null}
+     */
+    public function checkAvailability(string $serviceId, string $branchId, CarbonInterface|string $startsAt, array $resourceIds): array
+    {
+        $tenantId = (string) $this->tenantContext->id();
+
+        try {
+            $service = Service::query()->findOrFail($serviceId);
+
+            if (! Branch::query()->whereKey($branchId)->exists()) {
+                return ['free' => false, 'reason' => 'branch_not_found'];
+            }
+
+            if (! $service->isAvailableAtBranch($branchId)) {
+                return ['free' => false, 'reason' => 'service_not_at_branch'];
+            }
+
+            $resources = $this->resourcesFor($resourceIds, $branchId);
+            $this->assertResourceTypesMatch($service, $resources);
+
+            $starts = CarbonImmutable::parse($startsAt);
+            $ends = $starts->addMinutes($service->default_duration_minutes);
+            $heldStart = $starts->subMinutes($service->buffer_before_minutes);
+            $heldEnd = $ends->addMinutes($service->buffer_after_minutes);
+
+            foreach ($resources as $resource) {
+                $this->assertWithinAvailability($resource, $heldStart, $heldEnd);
+            }
+
+            foreach ($resources as $resource) {
+                if ($this->hasOverlap($tenantId, $resource->id, $heldStart, $heldEnd)) {
+                    return ['free' => false, 'reason' => 'resource_taken'];
+                }
+            }
+
+            return ['free' => true, 'reason' => null];
+        } catch (BookingUnavailableException) {
+            return ['free' => false, 'reason' => 'outside_availability'];
+        } catch (BookingConflictException) {
+            return ['free' => false, 'reason' => 'resource_taken'];
+        } catch (CrossTenantReferenceException) {
+            return ['free' => false, 'reason' => 'invalid_reference'];
+        } catch (\Throwable) {
+            return ['free' => false, 'reason' => 'invalid'];
+        }
+    }
+
+    private function hasOverlap(string $tenantId, string $resourceId, CarbonImmutable $heldStart, CarbonImmutable $heldEnd): bool
+    {
+        $blockingStatuses = Appointment::blockingStatuses();
+        $placeholders = implode(',', array_fill(0, count($blockingStatuses), '?'));
+        $rows = DB::select(
+            <<<SQL
+select appointment_resources.id
+from appointment_resources
+inner join appointments on appointments.id = appointment_resources.appointment_id
+inner join services on services.id = appointments.service_id
+where appointment_resources.tenant_id = ?
+  and appointment_resources.resource_id = ?
+  and appointments.status in ({$placeholders})
+  and date_sub(appointments.starts_at, interval services.buffer_before_minutes minute) < ?
+  and date_add(appointments.ends_at, interval services.buffer_after_minutes minute) > ?
+SQL,
+            [
+                $tenantId,
+                $resourceId,
+                ...$blockingStatuses,
+                $heldEnd->format('Y-m-d H:i:s'),
+                $heldStart->format('Y-m-d H:i:s'),
+            ],
+        );
+
+        return $rows !== [];
     }
 }

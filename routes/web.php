@@ -34,6 +34,7 @@ use Modules\Patients\Http\Controllers\PatientShowController;
 use Modules\Patients\Http\Controllers\PortalAuthController;
 use Modules\Patients\Http\Controllers\PortalConsentController;
 use Modules\Patients\Http\Controllers\PortalInvitationController;
+use Modules\Scheduling\Http\Controllers\AppointmentSeriesController;
 use Modules\Scheduling\Http\Controllers\DayBoardActionController;
 use Modules\Scheduling\Http\Controllers\DayBoardController;
 use Modules\Scheduling\Http\Controllers\PortalAppointmentController;
@@ -91,6 +92,16 @@ Route::middleware('auth')->group(function () {
         ->name('scheduling.waitlist.accept');
     Route::post('/scheduling/waitlist/offers/decline', [WaitlistOfferController::class, 'decline'])
         ->name('scheduling.waitlist.decline');
+
+    // Recurring / series appointments (P0P.G8): preview occurrence dates with a
+    // per-date free/conflict indicator, then book the free ones through the
+    // no-double-book engine. All appointment.manage-gated on the branch.
+    Route::post('/scheduling/series/preview', [AppointmentSeriesController::class, 'preview'])
+        ->name('scheduling.series.preview');
+    Route::post('/scheduling/series', [AppointmentSeriesController::class, 'store'])
+        ->name('scheduling.series.store');
+    Route::post('/scheduling/series/end', [AppointmentSeriesController::class, 'end'])
+        ->name('scheduling.series.end');
 
     Route::get('/comms/inbox', InboxController::class)->name('comms.inbox');
     Route::post('/comms/inbox/reply', [InboxActionController::class, 'reply'])->name('comms.inbox.reply');
