@@ -9,6 +9,41 @@
             "import": "Import"
         }
     },
+    "kiosk": {
+        "title": "Check in",
+        "verifyHint": "Please confirm your details to check in.",
+        "name": "Full name",
+        "dob": "Date of birth",
+        "code": "Check-in code",
+        "continue": "Continue",
+        "notFound": "We couldn't find your appointment. Please see reception.",
+        "tooMany": "Too many attempts. Please see reception.",
+        "confirmHint": "Please confirm your appointment.",
+        "contactTitle": "Update your contact details (optional)",
+        "phone": "Phone",
+        "email": "Email",
+        "saveContact": "Save contact details",
+        "checkInNow": "Check in",
+        "startOver": "Start over",
+        "doneTitle": "You're checked in",
+        "doneHint": "Please take a seat — we'll call you shortly."
+    },
+    "kioskAdmin": {
+        "title": "Kiosk devices",
+        "subtitle": "Provision a check-in kiosk for a branch. The token is shown once.",
+        "provision": "Provision a kiosk",
+        "branch": "Branch",
+        "name": "Device name",
+        "issue": "Issue token",
+        "issuedTitle": "Kiosk token issued",
+        "issuedHint": "Open this URL on the kiosk device now — it will not be shown again.",
+        "devices": "Devices",
+        "none": "No kiosk devices yet.",
+        "status": "Status",
+        "active": "Active",
+        "revoked": "Revoked",
+        "revoke": "Revoke"
+    },
     "import": {
         "index": {
             "title": "Patient imports",
@@ -306,6 +341,18 @@
             "cancel": "Cancel",
             "cancelReason": "Reason",
             "cancelHint": "Appointments can be cancelled online up to {hours} hours before the start."
+        },
+        "checkIn": {
+            "action": "Check in",
+            "checkedIn": "Checked in",
+            "contactTitle": "Your contact details",
+            "contactHint": "Keep your phone, email and address up to date.",
+            "phone": "Phone",
+            "email": "Email",
+            "addressLine": "Address",
+            "city": "City",
+            "postal": "Postcode",
+            "saveContact": "Save contact details"
         },
         "documents": {
             "title": "Your documents",

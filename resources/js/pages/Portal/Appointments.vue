@@ -9,7 +9,8 @@ import Card from '@/Components/Card.vue';
 const { t } = useI18n();
 
 type Slot = { starts_at: string; ends_at: string; resource_ids: string[] };
-type AppointmentRow = { id: string; service: string | null; starts_at: string; ends_at: string; status: string };
+type AppointmentRow = { id: string; service: string | null; starts_at: string; ends_at: string; status: string; checked_in?: boolean; can_check_in?: boolean };
+type Contact = { phone: string | null; email: string | null; address: { line1: string | null; line2: string | null; city: string | null; postal: string | null; country: string | null } };
 
 const props = defineProps<{
     upcoming: AppointmentRow[];
@@ -17,8 +18,27 @@ const props = defineProps<{
     services: Array<{ id: string; name: string; duration: number }>;
     branches: Array<{ id: string; name: string }>;
     cancelMinHours: number;
-    actions: { slotsUrl: string; storeUrl: string; cancelUrl: string };
+    contact: Contact;
+    actions: { slotsUrl: string; storeUrl: string; cancelUrl: string; checkInUrl: string; updateContactUrl: string };
 }>();
+
+const contactForm = reactive<Contact>({
+    phone: props.contact.phone,
+    email: props.contact.email,
+    address: { ...props.contact.address },
+});
+
+function checkIn(appointment: AppointmentRow): void {
+    router.post(props.actions.checkInUrl, { appointment_id: appointment.id }, { preserveScroll: true });
+}
+
+function saveContact(): void {
+    router.post(props.actions.updateContactUrl, {
+        phone: contactForm.phone,
+        email: contactForm.email,
+        address: contactForm.address,
+    }, { preserveScroll: true });
+}
 
 const book = reactive({
     service_id: props.services[0]?.id ?? '',
@@ -70,10 +90,18 @@ function cancel(appointment: AppointmentRow): void {
                 </p>
                 <ul v-if="upcoming.length" class="divide-y">
                     <li v-for="appointment in upcoming" :key="appointment.id" class="flex items-center justify-between py-2 text-sm">
-                        <span>{{ appointment.service ?? '—' }} · {{ appointment.starts_at }}</span>
-                        <Button type="button" @click="cancel(appointment)">
-                            {{ t('portal.appointments.cancel') }}
-                        </Button>
+                        <span>
+                            {{ appointment.service ?? '—' }} · {{ appointment.starts_at }}
+                            <span v-if="appointment.checked_in" class="ml-1 text-brand-600">· {{ t('portal.checkIn.checkedIn') }}</span>
+                        </span>
+                        <span class="flex gap-2">
+                            <Button v-if="appointment.can_check_in" type="button" @click="checkIn(appointment)">
+                                {{ t('portal.checkIn.action') }}
+                            </Button>
+                            <Button type="button" variant="secondary" @click="cancel(appointment)">
+                                {{ t('portal.appointments.cancel') }}
+                            </Button>
+                        </span>
                     </li>
                 </ul>
                 <p v-else class="text-sm text-gray-500">{{ t('portal.appointments.empty') }}</p>
@@ -122,5 +150,30 @@ function cancel(appointment: AppointmentRow): void {
                 <p v-else class="mt-3 text-sm text-gray-500">{{ t('portal.appointments.slotsEmpty') }}</p>
             </Card>
         </div>
+
+        <Card class="mt-4">
+            <h2 class="mb-2 font-semibold">{{ t('portal.checkIn.contactTitle') }}</h2>
+            <p class="mb-3 text-xs text-gray-500">{{ t('portal.checkIn.contactHint') }}</p>
+            <div class="grid gap-2 sm:grid-cols-2">
+                <label class="block text-sm">{{ t('portal.checkIn.phone') }}
+                    <input v-model="contactForm.phone" type="tel" class="mt-1 w-full rounded border px-2 py-1 text-sm" />
+                </label>
+                <label class="block text-sm">{{ t('portal.checkIn.email') }}
+                    <input v-model="contactForm.email" type="email" class="mt-1 w-full rounded border px-2 py-1 text-sm" />
+                </label>
+                <label class="block text-sm">{{ t('portal.checkIn.addressLine') }}
+                    <input v-model="contactForm.address.line1" type="text" class="mt-1 w-full rounded border px-2 py-1 text-sm" />
+                </label>
+                <label class="block text-sm">{{ t('portal.checkIn.city') }}
+                    <input v-model="contactForm.address.city" type="text" class="mt-1 w-full rounded border px-2 py-1 text-sm" />
+                </label>
+                <label class="block text-sm">{{ t('portal.checkIn.postal') }}
+                    <input v-model="contactForm.address.postal" type="text" class="mt-1 w-full rounded border px-2 py-1 text-sm" />
+                </label>
+            </div>
+            <div class="mt-3">
+                <Button type="button" @click="saveContact">{{ t('portal.checkIn.saveContact') }}</Button>
+            </div>
+        </Card>
     </PortalLayout>
 </template>

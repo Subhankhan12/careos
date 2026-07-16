@@ -452,3 +452,18 @@ references the old ID.
   (a listener on `WaitlistOfferLifecycleChanged` calling the Comms `NotificationService`) because
   Scheduling may not depend on Comms — mirroring the D-017 reminder/dunning bridges. The reception UI is
   additive on the day-board (net-new panel + props), presentational per P0D.GU (P0P.G9).
+- **D-074 — Self check-in: new `Modules\FrontDesk`, one CheckInService, two identity-verified paths,
+  check-in stored on the appointment.** Patients confirm arrival + self-update ONLY their own contact
+  fields via a shared kiosk (no login) or the authenticated portal. Check-in data lives ON the appointment
+  (`checked_in_at`/`check_in_source`/`check_in_code`) rather than a separate table — it is a 1:1 attribute
+  next to the lifecycle. Arrival always goes through the existing `AppointmentService` (a patient-actor
+  `arriveForPatient`, no staff gate — identity is verified upstream); contact edits go through the existing
+  `PatientService` (no demographic field writable); both are patient-scoped audited and idempotent. KIOSK
+  SAFETY is absolute: it shows only "confirm your appointment" + own contact fields after an EXACT
+  name+DOB+code match to exactly one today/this-branch booked appointment; an ambiguous/failed match returns
+  a generic not-found with zero PHI (never a candidate list); no clinical data and no patient browsing are
+  reachable; a successful resolve mints a short-lived `Crypt` verification handle so the branch-scoped,
+  revocable kiosk device token can never act on an arbitrary patient; the kiosk page is ephemeral
+  (in-memory only, no localStorage, idle auto-reset); code entry is rate-limited. The portal path runs
+  behind portal-tenant/auth/consent and is own-appointment-only. FrontDesk may use Patients/Scheduling +
+  Audit services, never Audit/AiCore models (P0P.G7).

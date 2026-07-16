@@ -191,6 +191,55 @@ class AppointmentService
         return $updated;
     }
 
+    /**
+     * Self check-in arrival (P0P.G7): the PATIENT is the actor. Identity is
+     * verified upstream (kiosk resolve or portal session), so there is NO staff
+     * Gate here — ownership is fail-closed instead. A booked appointment is
+     * confirmed then arrived (mirroring the reception 'arrive' path); each hop
+     * is dispatched so the app-layer listener audits with actor_type=patient.
+     */
+    public function arriveForPatient(Appointment $appointment, Patient $patient): Appointment
+    {
+        if ($appointment->patient_id !== $patient->id) {
+            throw new AuthorizationException('This patient cannot check into this appointment.');
+        }
+
+        /** @var array{appointment: Appointment, hops: list<array{0: string, 1: string}>} $result */
+        $result = DB::transaction(function () use ($appointment, $patient): array {
+            $locked = Appointment::query()->whereKey($appointment->id)->lockForUpdate()->firstOrFail();
+            $hops = [];
+
+            if ($locked->status === Appointment::STATUS_BOOKED) {
+                $this->assertLegal($locked->status, Appointment::STATUS_CONFIRMED);
+                $from = $locked->status;
+                $this->applyPatientStatus($locked, Appointment::STATUS_CONFIRMED, $patient);
+                $hops[] = [$from, Appointment::STATUS_CONFIRMED];
+            }
+
+            $this->assertLegal($locked->status, Appointment::STATUS_ARRIVED);
+            $from = $locked->status;
+            $this->applyPatientStatus($locked, Appointment::STATUS_ARRIVED, $patient);
+            $hops[] = [$from, Appointment::STATUS_ARRIVED];
+
+            return ['appointment' => $locked->refresh(), 'hops' => $hops];
+        });
+
+        foreach ($result['hops'] as [$from, $to]) {
+            Event::dispatch(new AppointmentTransitioned($result['appointment'], $from, $to, $patient, 'self check-in'));
+        }
+
+        return $result['appointment'];
+    }
+
+    private function applyPatientStatus(Appointment $appointment, string $toStatus, Patient $patient): void
+    {
+        $appointment->forceFill([
+            'status' => $toStatus,
+            'status_changed_by' => 'patient:'.$patient->id,
+            'status_changed_at' => now(),
+        ])->save();
+    }
+
     public function transition(
         Appointment $appointment,
         string $toStatus,

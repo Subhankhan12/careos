@@ -4,6 +4,7 @@ use App\Http\Middleware\HandleInertiaRequests;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
+use Modules\FrontDesk\Http\Middleware\IdentifyKioskDevice;
 use Modules\Patients\Http\Middleware\EnsurePatientPortalAuthenticated;
 use Modules\Patients\Http\Middleware\EnsurePortalConsent;
 use Modules\Patients\Http\Middleware\IdentifyTenantFromPortalSession;
@@ -29,6 +30,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'portal-tenant' => IdentifyTenantFromPortalSession::class,
             'portal-auth' => EnsurePatientPortalAuthenticated::class,
             'portal-consent' => EnsurePortalConsent::class,
+            'kiosk-device' => IdentifyKioskDevice::class,
         ]);
 
         // After the guard resolves the user: set tenant context, then enforce MFA.

@@ -44,7 +44,8 @@
             "Modules\\Nursing\\": "Modules/Nursing/src/",
             "Modules\\Billing\\": "Modules/Billing/src/",
             "Modules\\Comms\\": "Modules/Comms/src/",
-            "Modules\\Import\\": "Modules/Import/src/"
+            "Modules\\Import\\": "Modules/Import/src/",
+            "Modules\\FrontDesk\\": "Modules/FrontDesk/src/"
         }
     },
     "autoload-dev": {

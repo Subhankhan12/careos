@@ -31,6 +31,9 @@ use Modules\Platform\Models\Branch;
  * @property Carbon|null $status_changed_at
  * @property string $source
  * @property string|null $notes
+ * @property Carbon|null $checked_in_at
+ * @property string|null $check_in_source
+ * @property string|null $check_in_code
  */
 class Appointment extends Model
 {
@@ -76,6 +79,9 @@ class Appointment extends Model
         'status_changed_at',
         'source',
         'notes',
+        'checked_in_at',
+        'check_in_source',
+        'check_in_code',
     ];
 
     protected $attributes = [
@@ -105,6 +111,7 @@ class Appointment extends Model
             'starts_at' => 'datetime',
             'ends_at' => 'datetime',
             'status_changed_at' => 'datetime',
+            'checked_in_at' => 'datetime',
         ];
     }
 

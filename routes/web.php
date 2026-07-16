@@ -21,6 +21,9 @@ use Modules\Comms\Http\Controllers\InboxActionController;
 use Modules\Comms\Http\Controllers\InboxController;
 use Modules\Comms\Http\Controllers\PortalMessageController;
 use Modules\Comms\Http\Controllers\PortalTelehealthController;
+use Modules\FrontDesk\Http\Controllers\KioskCheckInController;
+use Modules\FrontDesk\Http\Controllers\KioskDeviceController;
+use Modules\FrontDesk\Http\Controllers\PortalCheckInController;
 use Modules\Import\Http\Controllers\ImportBatchController;
 use Modules\Nursing\Http\Controllers\DispatchActionController;
 use Modules\Nursing\Http\Controllers\DispatchBoardController;
@@ -142,7 +145,28 @@ Route::middleware('auth')->group(function () {
     Route::post('/imports/{batch}/mapping', [ImportBatchController::class, 'mapping'])->name('import.mapping');
     Route::post('/imports/{batch}/validate', [ImportBatchController::class, 'validateBatch'])->name('import.validate');
     Route::post('/imports/{batch}/commit', [ImportBatchController::class, 'commit'])->name('import.commit');
+
+    // Kiosk device provisioning (admin.manage enforced in the controller). The
+    // plaintext token is shown once at issue.
+    Route::get('/admin/kiosks', [KioskDeviceController::class, 'index'])->name('admin.kiosks.index');
+    Route::post('/admin/kiosks', [KioskDeviceController::class, 'issue'])->name('admin.kiosks.issue');
+    Route::post('/admin/kiosks/revoke', [KioskDeviceController::class, 'revoke'])->name('admin.kiosks.revoke');
 });
+
+// Self check-in KIOSK (P0P.G7): unauthenticated but scoped to a branch by the
+// kiosk device token. The kiosk-device middleware sets the tenant context; these
+// routes expose ONLY resolve + check-in + own-contact-update, never clinical data
+// or patient search. Code entry is rate-limited against brute-force.
+Route::prefix('kiosk/{kioskToken}')
+    ->middleware('kiosk-device')
+    ->name('kiosk.')
+    ->group(function () {
+        Route::get('/', [KioskCheckInController::class, 'page'])->name('check-in.page');
+        Route::post('/resolve', [KioskCheckInController::class, 'resolve'])
+            ->middleware('throttle:10,1')->name('resolve');
+        Route::post('/check-in', [KioskCheckInController::class, 'checkIn'])->name('check-in');
+        Route::post('/contact', [KioskCheckInController::class, 'updateContact'])->name('contact');
+    });
 
 Route::prefix('book/{tenant:slug}')
     ->middleware('throttle:20,1')
@@ -168,6 +192,10 @@ Route::prefix('portal')->name('portal.')->group(function () {
         Route::post('/appointments/slots', [PortalAppointmentController::class, 'slots'])->name('appointments.slots');
         Route::post('/appointments', [PortalAppointmentController::class, 'store'])->name('appointments.store');
         Route::post('/appointments/cancel', [PortalAppointmentController::class, 'cancel'])->name('appointments.cancel');
+
+        // Self check-in from the authenticated portal (P0P.G7).
+        Route::post('/check-in', [PortalCheckInController::class, 'checkIn'])->name('check-in');
+        Route::post('/check-in/contact', [PortalCheckInController::class, 'updateContact'])->name('check-in.contact');
 
         Route::get('/documents', [PortalDocumentController::class, 'index'])->name('documents.index');
         Route::get('/documents/{document}', [PortalDocumentController::class, 'show'])->name('documents.show');

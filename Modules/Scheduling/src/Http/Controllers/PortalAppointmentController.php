@@ -9,6 +9,7 @@ use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
 use Modules\Patients\Models\Patient;
+use Modules\Patients\Models\PatientContact;
 use Modules\Patients\Models\PortalAccount;
 use Modules\Platform\Models\Branch;
 use Modules\Platform\Services\SettingsService;
@@ -64,10 +65,13 @@ class PortalAppointmentController
             ])->all(),
             'branches' => Branch::query()->orderBy('name')->get(['id', 'name'])->all(),
             'cancelMinHours' => $this->cancelMinHours(),
+            'contact' => $this->contactSnapshot($account->patient_id),
             'actions' => [
                 'slotsUrl' => route('portal.appointments.slots'),
                 'storeUrl' => route('portal.appointments.store'),
                 'cancelUrl' => route('portal.appointments.cancel'),
+                'checkInUrl' => route('portal.check-in'),
+                'updateContactUrl' => route('portal.check-in.contact'),
             ],
         ]);
     }
@@ -180,6 +184,34 @@ class PortalAppointmentController
             'starts_at' => $appointment->starts_at->toDateTimeString(),
             'ends_at' => $appointment->ends_at->toDateTimeString(),
             'status' => $appointment->status,
+            'checked_in' => $appointment->checked_in_at !== null,
+            'can_check_in' => $appointment->checked_in_at === null
+                && $appointment->starts_at->isToday()
+                && in_array($appointment->status, [Appointment::STATUS_BOOKED, Appointment::STATUS_CONFIRMED], true),
+        ];
+    }
+
+    /**
+     * The patient's own contact fields for the portal check-in edit form. No
+     * clinical data — reads only PatientContact rows.
+     *
+     * @return array<string, mixed>
+     */
+    private function contactSnapshot(string $patientId): array
+    {
+        $contacts = PatientContact::query()->where('patient_id', $patientId)->get();
+        $address = $contacts->firstWhere('type', PatientContact::TYPE_ADDRESS);
+
+        return [
+            'phone' => $contacts->firstWhere('type', PatientContact::TYPE_PHONE)?->value,
+            'email' => $contacts->firstWhere('type', PatientContact::TYPE_EMAIL)?->value,
+            'address' => [
+                'line1' => $address?->line1,
+                'line2' => $address?->line2,
+                'city' => $address?->city,
+                'postal' => $address?->postal,
+                'country' => $address?->country,
+            ],
         ];
     }
 }

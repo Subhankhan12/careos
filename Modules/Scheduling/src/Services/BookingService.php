@@ -162,6 +162,7 @@ class BookingService
                 'booked_by' => $bookedBy !== null ? (string) $bookedBy->getKey() : null,
                 'source' => $source,
                 'notes' => $notes,
+                'check_in_code' => $this->generateCheckInCode(),
             ]);
 
             foreach ($resourceIds as $resourceId) {
@@ -250,6 +251,24 @@ class BookingService
         }
 
         throw BookingUnavailableException::outsideAvailability($resource->id);
+    }
+
+    /**
+     * A short per-appointment code the patient uses at a kiosk (P0P.G7). Not a
+     * secret and not globally unique — the kiosk still requires an exact
+     * name + date-of-birth + today + branch match, so the code only disambiguates.
+     * Ambiguous characters (0/O, 1/I) are excluded.
+     */
+    private function generateCheckInCode(): string
+    {
+        $alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+        $code = '';
+
+        for ($i = 0; $i < 6; $i++) {
+            $code .= $alphabet[random_int(0, strlen($alphabet) - 1)];
+        }
+
+        return $code;
     }
 
     private function lockResource(string $tenantId, string $resourceId): void

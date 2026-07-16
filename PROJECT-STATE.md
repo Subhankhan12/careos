@@ -551,6 +551,18 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
   Comms `NotificationService`) since Scheduling may not depend on Comms (D-073). `scheduling:expire-waitlist-offers`
   (every 5 min) sweeps timed-out offers. Reception UI is a net-new, additive day-board panel
   (presentational per P0D.GU); no existing page contract changed. 9 tests (incl. the concurrent hammer).
+- **Self check-in (P0P.G7):** new `Modules\FrontDesk` — patients confirm arrival + self-update ONLY their
+  own contact fields via a shared reception **kiosk** (no login, identity-verified) or the authenticated
+  **portal**. One `CheckInService`, two entry paths. Check-in is stored on the appointment
+  (`checked_in_at`/`check_in_source`/`check_in_code`; code generated at booking); arrival always goes
+  through the existing `AppointmentService` (patient-actor `arriveForPatient`), contact edits through the
+  existing `PatientService` — both idempotent and patient-scoped audited. Kiosk safety is absolute: exact
+  name+DOB+code match to one today/this-branch appointment, generic no-PHI not-found on failure, NO clinical
+  data or patient browsing, an ephemeral in-memory page (no localStorage, idle auto-reset), a branch-scoped
+  revocable device token that (via a short-lived `Crypt` verification handle) can never act on an arbitrary
+  patient, and rate-limited code entry. Portal path is auth+consent-gated and own-appointment-only. Recorded
+  as D-074; module memory in `memory/modules/FrontDesk.md`. 11 feature tests + arch test. NOTE: gates
+  **P0P.G7 fills the earlier skipped slot**; the prior `PROJECT-STATE` P0P sequence was G1→G6→G9.
 - **Parked backlog (P0P.G5, docs only):** DEFERRED.md now carries a "Parked — build when a real
   user/customer creates the need" section: 10 demand-driven items, each with a concrete TRIGGER that
   pulls it forward (Phase H agents, AI-credits metering/billing, real nurse-travel routing, DE/CH/FR
