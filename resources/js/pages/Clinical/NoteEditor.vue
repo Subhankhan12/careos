@@ -48,6 +48,8 @@ const props = defineProps<{
         can_write: boolean;
         can_sign: boolean;
     };
+    // ADDITIVE (P0P.G10): optional pre-expanded dot-phrases. Absent = feature off.
+    snippets?: Array<{ trigger: string; title: string; scope: string; body: string }>;
 }>();
 
 const sections = reactive({
@@ -57,6 +59,23 @@ const sections = reactive({
     plan: props.note.plan,
 });
 const amendReason = ref('');
+
+type SoapField = 'subjective' | 'objective' | 'assessment' | 'plan';
+const snippetTarget = ref<SoapField>('subjective');
+const snippetTrigger = ref('');
+
+function insertSnippet(): void {
+    if (props.note.is_read_only || !props.actions.can_write) {
+        return;
+    }
+    const match = (props.snippets ?? []).find((s) => s.trigger === snippetTrigger.value);
+    if (!match) {
+        return;
+    }
+    const current = sections[snippetTarget.value] ?? '';
+    sections[snippetTarget.value] = current ? `${current}\n${match.body}` : match.body;
+    snippetTrigger.value = '';
+}
 const autosaveState = ref('');
 let autosaveTimer: number | undefined;
 
@@ -131,6 +150,28 @@ watch(
                         <p class="text-xs text-ink-muted">{{ note.author_name }} | {{ note.signed_at || '-' }}</p>
                     </div>
                     <p class="text-sm text-ink-muted">{{ autosaveState }}</p>
+                </div>
+
+                <div v-if="!note.is_read_only && actions.can_write && (snippets?.length ?? 0) > 0" class="mb-4 flex flex-wrap items-end gap-2 rounded-md border border-line p-3">
+                    <label class="text-sm">
+                        <span class="mb-1 block text-xs font-medium text-ink-muted">{{ t('clinical.snippets.insertInto') }}</span>
+                        <select v-model="snippetTarget" class="rounded-md border border-line bg-surface px-2 py-1.5 text-sm text-ink">
+                            <option value="subjective">{{ t('clinical.note.sections.subjective') }}</option>
+                            <option value="objective">{{ t('clinical.note.sections.objective') }}</option>
+                            <option value="assessment">{{ t('clinical.note.sections.assessment') }}</option>
+                            <option value="plan">{{ t('clinical.note.sections.plan') }}</option>
+                        </select>
+                    </label>
+                    <label class="text-sm">
+                        <span class="mb-1 block text-xs font-medium text-ink-muted">{{ t('clinical.snippets.dotPhrase') }}</span>
+                        <select v-model="snippetTrigger" class="rounded-md border border-line bg-surface px-2 py-1.5 text-sm text-ink">
+                            <option value="">—</option>
+                            <option v-for="s in snippets" :key="s.trigger" :value="s.trigger">.{{ s.trigger }} — {{ s.title }} ({{ s.scope }})</option>
+                        </select>
+                    </label>
+                    <button type="button" class="rounded-md bg-brand-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-brand-700" :disabled="!snippetTrigger" @click="insertSnippet">
+                        {{ t('clinical.snippets.insert') }}
+                    </button>
                 </div>
 
                 <SoapEditor

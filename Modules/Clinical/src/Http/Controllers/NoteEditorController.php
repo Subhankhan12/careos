@@ -4,6 +4,7 @@ namespace Modules\Clinical\Http\Controllers;
 
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
@@ -11,14 +12,17 @@ use Inertia\Response;
 use Modules\Clinical\Models\ClinicalNote;
 use Modules\Clinical\Models\Encounter;
 use Modules\Clinical\Models\NoteTemplate;
+use Modules\Clinical\Models\TextSnippet;
 use Modules\Clinical\Services\ClinicalNoteService;
+use Modules\Clinical\Services\SnippetService;
 use Modules\Patients\Models\Patient;
 use Modules\People\Models\StaffProfile;
+use Modules\Platform\Models\Branch;
 use Modules\Platform\Models\User;
 
 class NoteEditorController
 {
-    public function edit(string $note, ClinicalNoteService $notes): Response
+    public function edit(string $note, Request $request, ClinicalNoteService $notes, SnippetService $snippets): Response
     {
         Gate::authorize('patient.view');
 
@@ -33,6 +37,9 @@ class NoteEditorController
             'patient' => $this->patientPayload($encounter),
             'template' => $this->templatePayload($template),
             'versions' => $notes->versionsFor($record)->map(fn (ClinicalNote $version): array => $this->versionPayload($version))->all(),
+            // ADDITIVE (P0P.G10): the current clinician's dot-phrases, pre-expanded
+            // server-side with the whitelisted non-clinical placeholders only.
+            'snippets' => $this->snippetPayload($request, $snippets, $encounter),
             'actions' => [
                 'save_url' => route('clinical.notes.update', $record->id),
                 'sign_url' => route('clinical.notes.sign', $record->id),
@@ -243,6 +250,50 @@ class NoteEditorController
     private function staffName(StaffProfile $profile): string
     {
         return $profile->display_name !== '' ? $profile->display_name : trim($profile->first_name.' '.$profile->last_name);
+    }
+
+    /**
+     * The current clinician's snippet list, each rendered with the whitelisted
+     * non-clinical placeholders. The component only inserts `body` — the server
+     * owns all (safe) substitution.
+     *
+     * @return list<array{trigger: string, title: string, scope: string, body: string}>
+     */
+    private function snippetPayload(Request $request, SnippetService $snippets, Encounter $encounter): array
+    {
+        $actor = $request->user();
+        if (! $actor instanceof User) {
+            return [];
+        }
+
+        $staff = $snippets->staffFor($actor);
+        $context = $this->snippetContext($encounter, $actor, $staff);
+
+        return $snippets->list($staff)->map(fn (TextSnippet $snippet): array => [
+            'trigger' => $snippet->trigger,
+            'title' => $snippet->title,
+            'scope' => $snippet->scope,
+            'body' => $snippets->expand($snippet, $context),
+        ])->all();
+    }
+
+    /**
+     * The FIXED whitelist placeholder context — NON-clinical only.
+     *
+     * @return array<string, string>
+     */
+    private function snippetContext(Encounter $encounter, User $actor, ?StaffProfile $staff): array
+    {
+        $patient = Patient::query()->whereKey($encounter->patient_id)->firstOrFail();
+        $branch = Branch::query()->whereKey($encounter->branch_id)->first();
+
+        return [
+            'date' => Carbon::now()->toDateString(),
+            'patient_first_name' => $patient->first_name,
+            'patient_dob' => $patient->date_of_birth->toDateString(),
+            'clinician_name' => $staff !== null ? $this->staffName($staff) : (string) $actor->name,
+            'branch_name' => $branch !== null ? $branch->name : '',
+        ];
     }
 
     private function encounterFor(ClinicalNote $note): Encounter

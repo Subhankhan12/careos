@@ -20,6 +20,7 @@ use Modules\Clinical\Http\Controllers\OrderableItemController;
 use Modules\Clinical\Http\Controllers\OrderController;
 use Modules\Clinical\Http\Controllers\OrdersReviewController;
 use Modules\Clinical\Http\Controllers\PortalDocumentController;
+use Modules\Clinical\Http\Controllers\SnippetController;
 use Modules\Comms\Http\Controllers\InboxActionController;
 use Modules\Comms\Http\Controllers\InboxController;
 use Modules\Comms\Http\Controllers\PortalMessageController;
@@ -149,6 +150,12 @@ Route::middleware('auth')->group(function () {
     Route::get('/clinical/orderable-items', [OrderableItemController::class, 'index'])->name('clinical.orderable-items.index');
     Route::post('/clinical/orderable-items', [OrderableItemController::class, 'store'])->name('clinical.orderable-items.store');
     Route::post('/clinical/orderable-items/deactivate', [OrderableItemController::class, 'deactivate'])->name('clinical.orderable-items.deactivate');
+
+    // Clinical dot-phrases / quick-text macros (P0P.G10): personal + shared.
+    Route::get('/clinical/snippets', [SnippetController::class, 'index'])->name('clinical.snippets.index');
+    Route::post('/clinical/snippets', [SnippetController::class, 'store'])->name('clinical.snippets.store');
+    Route::post('/clinical/snippets/update', [SnippetController::class, 'update'])->name('clinical.snippets.update');
+    Route::post('/clinical/snippets/delete', [SnippetController::class, 'delete'])->name('clinical.snippets.delete');
 
     Route::post('/clinical/patients/{patient}/documents', DocumentUploadController::class)
         ->name('clinical.documents.upload');

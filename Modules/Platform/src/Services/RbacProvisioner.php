@@ -35,6 +35,7 @@ class RbacProvisioner
         'note.write' => 'Write clinical note drafts',
         'note.sign' => 'Sign clinical notes',
         'note.supervise' => 'Supervise unsigned clinical notes worklist',
+        'snippet.manage.shared' => 'Manage the tenant-wide shared text-snippet library',
         'order.manage' => 'Place and track structured clinical orders',
         'allergy.override' => 'Override deterministic allergy hard-stops',
         'ai.manage' => 'Manage governed AI actions',
@@ -58,8 +59,8 @@ class RbacProvisioner
                 'admin.manage', 'patient.view', 'patient.edit', 'patient.merge',
                 'appointment.manage', 'agreement.manage', 'dispatch.manage', 'encounter.manage',
                 'timesheet.approve', 'note.write', 'note.sign', 'note.supervise', 'allergy.override',
-                'order.manage', 'ai.manage', 'comms.manage', 'billing.view', 'billing.manage', 'audit.view',
-                'data.import',
+                'snippet.manage.shared', 'order.manage', 'ai.manage', 'comms.manage', 'billing.view',
+                'billing.manage', 'audit.view', 'data.import',
             ],
         ],
         'coordinator' => [
@@ -72,8 +73,10 @@ class RbacProvisioner
         'doctor' => [
             'name' => 'Doctor',
             'permissions' => [
+                // Doctor is the clinical-lead role that also curates the shared
+                // snippet library.
                 'patient.view', 'patient.edit', 'appointment.manage', 'encounter.manage',
-                'note.write', 'note.sign', 'order.manage', 'allergy.override',
+                'note.write', 'note.sign', 'order.manage', 'snippet.manage.shared', 'allergy.override',
             ],
         ],
         'nurse' => [

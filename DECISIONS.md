@@ -490,3 +490,14 @@ references the old ID.
   no real client is built; that is partner-and-market work, deferred (DEFERRED.md). RBAC `order.manage`
   (org_admin/doctor/nurse). Audited + patient-scoped read-logged; net-new additive chart tab + review
   worklist + catalog admin, presentational per P0D.GU (P0P.G11).
+- **D-077 — Clinical dot-phrases expand only a fixed non-clinical placeholder whitelist.** Reusable text
+  snippets (`Modules\Clinical`, `text_snippets`) — PERSONAL (private to the author) or SHARED (tenant-wide,
+  `snippet.manage.shared` = org_admin + doctor). PERSONAL wins over SHARED on the same trigger.
+  `SnippetService::expand` substitutes ONLY the FIXED whitelist (date, patient_first_name, patient_dob,
+  clinician_name, branch_name) — it iterates the whitelist keys, never the caller's context, so a
+  diagnosis/medication/allergy/vital/any clinical field is STRUCTURALLY impossible to substitute; unknown
+  tokens are left literal, never guessed. No interpretation, no AI. Snippets are NOT patient data (no
+  patient-scoped read-logging; shared changes audited because they affect everyone, personal lightly
+  logged). Editor integration is ADDITIVE — a new OPTIONAL `snippets` prop on NoteEditor (pre-expanded
+  server-side) + an insert control; no existing prop/behavior changed (P0P.G10, the previously-skipped
+  gate).

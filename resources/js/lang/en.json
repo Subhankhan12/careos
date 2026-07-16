@@ -274,6 +274,27 @@
         }
     },
     "clinical": {
+        "snippets": {
+            "title": "Text snippets",
+            "subtitle": "Reusable dot-phrases you can expand while writing notes. Personal are private to you; shared are tenant-wide.",
+            "placeholders": "Available placeholders",
+            "placeholdersHint": "These non-clinical placeholders are filled in when a snippet is inserted. Nothing else is substituted.",
+            "add": "Add a snippet",
+            "scope": "Scope",
+            "personal": "Personal",
+            "shared": "Shared",
+            "trigger": "Trigger (e.g. normalexam)",
+            "name": "Title",
+            "body": "Body",
+            "addButton": "Add",
+            "personalLibrary": "Your snippets",
+            "sharedLibrary": "Shared library",
+            "empty": "None yet.",
+            "delete": "Delete",
+            "insertInto": "Insert into",
+            "dotPhrase": "Dot-phrase",
+            "insert": "Insert"
+        },
         "orders": {
             "tab": "Orders",
             "place": "Place order",

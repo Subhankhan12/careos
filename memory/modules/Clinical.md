@@ -225,6 +225,28 @@ architecture tests. Local `composer check` is green: 222 tests / 1202 assertions
   chart Orders tab (place/result/review; results shown RAW), `Clinical/OrdersReview.vue` worklist,
   `Clinical/OrderableItems.vue` catalog admin. No existing chart prop removed.
 
+## Clinical dot-phrases / quick-text macros (P0P.G10, D-077)
+
+- Reusable text snippets a clinician expands while writing SOAP notes: PERSONAL (private to the author)
+  or SHARED (tenant-wide, admin-managed). Pure internal text expansion — NO clinical interpretation, NO AI.
+- `text_snippets` (BelongsToTenant): scope personal/shared, `owner_staff_id` (set for personal, null for
+  shared), `trigger` (bare token — the '.' is UI sugar; normalized lowercase alnum), title, body, specialty,
+  active. Unique `(tenant, scope, owner_staff_id, trigger)` binds PERSONAL (per-owner); SHARED uniqueness is
+  service-enforced (MySQL NULL owner is distinct).
+- `SnippetService`: `resolveFor(staff, trigger)` — PERSONAL wins over SHARED (documented precedence);
+  `list(staff)` — the clinician's personal + all active shared (never another clinician's personal);
+  `expand(snippet, context)` — substitutes ONLY the FIXED whitelist `PLACEHOLDERS` (date, patient_first_name,
+  patient_dob, clinician_name, branch_name), leaving any other token LITERAL. It iterates the whitelist keys,
+  never the caller's context keys, so a diagnosis/medication/allergy/vital/any clinical field is
+  STRUCTURALLY impossible to substitute (tested with poisoned clinical context — nothing leaks). CRUD:
+  personal editable only by its owner; shared requires `snippet.manage.shared` (org_admin + doctor as the
+  clinical-lead role). Shared changes audited (`snippet.shared.*`, patient_id null — snippets are NOT
+  patient data); personal lightly logged.
+- Editor integration is ADDITIVE: `NoteEditor.edit()` passes a NEW optional `snippets` prop (the current
+  clinician's list, pre-expanded server-side with the whitelist context) + a snippet insert control; the
+  component only renders/inserts. NO existing NoteEditor prop or behavior changed. Net-new
+  `Clinical/Snippets.vue` management page (RBAC `note.write`; shared editing gated). i18n keys.
+
 ## Open items
 
 - Next phase: Phase E - Nursing wedge (home care, dispatch, offline-first nurse PWA).

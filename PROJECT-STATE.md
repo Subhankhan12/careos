@@ -583,6 +583,17 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
   no-op — no real client built; real lab connectivity is DEFERRED partner work (trigger recorded). RBAC
   `order.manage` (org_admin/doctor/nurse). Net-new additive chart Orders tab + review worklist + catalog
   admin. Recorded as D-076; 7 feature tests. (The P0P sequence is now G1–G11 complete.)
+- **Clinical dot-phrases / quick-text macros (P0P.G10):** reusable text snippets a clinician expands while
+  writing SOAP notes — PERSONAL (private) or SHARED (tenant-wide, `snippet.manage.shared` = org_admin +
+  doctor). `SnippetService`: `resolveFor` (PERSONAL wins over SHARED), `list` (own personal + active shared,
+  never another clinician's personal), `expand` — substitutes ONLY a FIXED non-clinical placeholder
+  whitelist (date, patient_first_name, patient_dob, clinician_name, branch_name), iterating the whitelist
+  keys not the caller's context, so a diagnosis/medication/allergy/vital/any clinical field is STRUCTURALLY
+  impossible to substitute; unknown tokens stay literal. No interpretation, no AI. Snippets are NOT patient
+  data (shared changes audited; personal lightly logged). Editor integration is ADDITIVE — a new OPTIONAL
+  `snippets` prop on NoteEditor (pre-expanded server-side) + insert control; no existing prop/behavior
+  changed. Net-new `Clinical/Snippets.vue` management page. Recorded as D-077; 6 feature tests. This closes
+  the last previously-skipped gate — **the P0P sequence G1–G11 is now complete**.
 - **Parked backlog (P0P.G5, docs only):** DEFERRED.md now carries a "Parked — build when a real
   user/customer creates the need" section: 10 demand-driven items, each with a concrete TRIGGER that
   pulls it forward (Phase H agents, AI-credits metering/billing, real nurse-travel routing, DE/CH/FR
