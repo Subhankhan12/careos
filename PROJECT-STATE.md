@@ -528,6 +528,19 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
   `eval` composer script, and `docs/AGENT-EVALS.md`). PHPStan scans app/Modules/tests/Support only,
   so eval files are outside static analysis; Pint clean. `docs/AGENT-EVALS.md` maps every locked
   property to its enforcing eval. Recorded as D-071.
+- **CSV patient import (P0P.G6):** new `Modules\Import` — onboarding/migration tooling that lets a
+  clinic move patients off their old system from an arbitrary CSV. Column mapping → **mandatory
+  dry-run** (`ImportValidator`, writes nothing: validates, parses dates via an explicit chosen
+  format, runs the existing `DuplicateDetector`) → audited **commit** (`ImportCommitter`, only through
+  the REAL `PatientService`/`PatientMergeService`, never raw inserts, so MRN/tenancy/validation/audit
+  all apply). Idempotent (batch + row status guards); one `patient.import.committed` audit event.
+  Tables `import_batches`/`import_rows` (tenant-owned, fail-closed). Duplicate policy default SKIP
+  (import_as_new / merge opt-in; merge uses the audited merge path). Uploads on the private disk,
+  tenant-prefixed, no public URL; CSV parsed with `league/csv` (never hand-rolled). New permission
+  `data.import` (org_admin only) on every controller action. Net-new admin pages `Import/Index.vue` +
+  `Import/Upload.vue` on the current shell/tokens — NOT part of the design pass, presentational only,
+  no existing page contract changed. `league/csv ^9.28` added. 9 feature tests + 1 arch test; module
+  memory in `memory/modules/Import.md`; recorded as D-072.
 - **Parked backlog (P0P.G5, docs only):** DEFERRED.md now carries a "Parked — build when a real
   user/customer creates the need" section: 10 demand-driven items, each with a concrete TRIGGER that
   pulls it forward (Phase H agents, AI-credits metering/billing, real nurse-travel routing, DE/CH/FR

@@ -25,6 +25,7 @@ function signOut(): void {
                     <Link href="/patients" class="transition hover:text-ink">{{ t('app.nav.patients') }}</Link>
                     <Link href="/patients/register" class="transition hover:text-ink">{{ t('app.nav.register') }}</Link>
                     <Link href="/scheduling/day-board" class="transition hover:text-ink">{{ t('app.nav.schedule') }}</Link>
+                    <Link href="/imports" class="transition hover:text-ink">{{ t('app.nav.import') }}</Link>
                 </nav>
                 <div class="flex items-center gap-4">
                     <span v-if="user" class="text-sm text-ink-muted">{{ user.name }}</span>

@@ -21,6 +21,7 @@ use Modules\Comms\Http\Controllers\InboxActionController;
 use Modules\Comms\Http\Controllers\InboxController;
 use Modules\Comms\Http\Controllers\PortalMessageController;
 use Modules\Comms\Http\Controllers\PortalTelehealthController;
+use Modules\Import\Http\Controllers\ImportBatchController;
 use Modules\Nursing\Http\Controllers\DispatchActionController;
 use Modules\Nursing\Http\Controllers\DispatchBoardController;
 use Modules\Patients\Http\Controllers\PatientConsentController;
@@ -119,6 +120,16 @@ Route::middleware('auth')->group(function () {
         ->name('clinical.documents.unshare');
     Route::delete('/clinical/documents/{document}', DocumentDeleteController::class)
         ->name('clinical.documents.delete');
+
+    // Onboarding/migration: generic CSV patient import (RBAC 'data.import' enforced
+    // in each controller action). Mandatory dry-run before commit.
+    Route::get('/imports', [ImportBatchController::class, 'index'])->name('import.index');
+    Route::get('/imports/create', [ImportBatchController::class, 'create'])->name('import.create');
+    Route::post('/imports', [ImportBatchController::class, 'store'])->name('import.store');
+    Route::get('/imports/{batch}', [ImportBatchController::class, 'show'])->name('import.show');
+    Route::post('/imports/{batch}/mapping', [ImportBatchController::class, 'mapping'])->name('import.mapping');
+    Route::post('/imports/{batch}/validate', [ImportBatchController::class, 'validateBatch'])->name('import.validate');
+    Route::post('/imports/{batch}/commit', [ImportBatchController::class, 'commit'])->name('import.commit');
 });
 
 Route::prefix('book/{tenant:slug}')

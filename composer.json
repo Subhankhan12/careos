@@ -13,6 +13,7 @@
         "laravel/horizon": "^5.47",
         "laravel/sanctum": "^4.3",
         "laravel/tinker": "^2.10.1",
+        "league/csv": "^9.28",
         "predis/predis": "^3.5",
         "simshaun/recurr": "^5.0"
     },
@@ -42,7 +43,8 @@
             "Modules\\Clinical\\": "Modules/Clinical/src/",
             "Modules\\Nursing\\": "Modules/Nursing/src/",
             "Modules\\Billing\\": "Modules/Billing/src/",
-            "Modules\\Comms\\": "Modules/Comms/src/"
+            "Modules\\Comms\\": "Modules/Comms/src/",
+            "Modules\\Import\\": "Modules/Import/src/"
         }
     },
     "autoload-dev": {

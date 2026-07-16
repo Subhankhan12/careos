@@ -429,3 +429,15 @@ references the old ID.
   model quality. An eval encodes CURRENT proven behavior; it LOCKS, it never changes. If authoring an
   eval reveals the behavior is actually wrong, STOP and report rather than editing the eval to pass.
   Every new agent/tool must ship with matching evals and a `docs/AGENT-EVALS.md` entry (P0P.G4).
+- **D-072 — CSV patient import: new `Modules\Import`, mandatory dry-run, real services only.** The
+  onboarding/migration importer is its own module named **Import** (chosen over `Migration` to avoid
+  confusion with database migrations). It maps arbitrary CSV columns to CareOS patient fields and
+  imports ONLY through the existing `PatientService`/`PatientMergeService` (never raw inserts), so
+  MRN generation, fail-closed tenancy, validation, and audit all apply unchanged. A dry-run
+  (`ImportValidator`) is MANDATORY and writes nothing — it validates every row, parses dates via a
+  user-selected explicit format, and runs the existing `DuplicateDetector`; a separate `commit`
+  (`ImportCommitter`) performs the import, is idempotent (batch + row status guards), audited
+  (`patient.import.committed`), and defaults the duplicate policy to SKIP (`import_as_new`/`merge`
+  opt-in; `merge` uses the audited merge path). Uploads land on the private disk, tenant-prefixed,
+  no public URL. New permission `data.import` (org_admin only by default). CSV parsing uses
+  `league/csv` — never hand-rolled (P0P.G6).

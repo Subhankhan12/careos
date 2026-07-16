@@ -5,7 +5,53 @@
         "nav": {
             "patients": "Patients",
             "register": "Register",
-            "schedule": "Schedule"
+            "schedule": "Schedule",
+            "import": "Import"
+        }
+    },
+    "import": {
+        "index": {
+            "title": "Patient imports",
+            "subtitle": "Migrate patients from a CSV export of your old system.",
+            "new": "New import",
+            "empty": "No imports yet.",
+            "filename": "File",
+            "status": "Status",
+            "rows": "Rows",
+            "created": "Created",
+            "view": "Review"
+        },
+        "upload": {
+            "title": "Import patients from CSV",
+            "subtitle": "Upload a CSV, map its columns, run a dry-run, then commit.",
+            "file": "CSV file",
+            "upload": "Upload & parse",
+            "mapTitle": "Map columns to fields",
+            "mapHint": "Map each CSV column to a CareOS patient field. Unmapped columns are ignored. First name, last name and date of birth are required.",
+            "column": "CSV column",
+            "field": "CareOS field",
+            "ignore": "— ignore —",
+            "dateFormat": "Date format",
+            "saveMapping": "Save mapping",
+            "dryRun": "Run dry-run (writes nothing)",
+            "dryRunNote": "The dry-run validates every row and detects duplicates. Nothing is written to patients until you commit.",
+            "summary": "Dry-run summary",
+            "valid": "Valid",
+            "invalid": "Invalid",
+            "duplicate": "Duplicate",
+            "ignoredColumns": "Ignored columns",
+            "rowNumber": "Row",
+            "rowStatus": "Status",
+            "rowErrors": "Errors",
+            "rowMatch": "Duplicate match",
+            "duplicatePolicy": "Duplicate policy",
+            "policySkip": "Skip duplicates",
+            "policyImportAsNew": "Import anyway as new",
+            "policyMerge": "Merge into matched patient",
+            "commit": "Commit import",
+            "committed": "Import committed.",
+            "imported": "Imported",
+            "skipped": "Skipped"
         }
     },
     "auth": {

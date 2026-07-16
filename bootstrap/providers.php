@@ -8,6 +8,7 @@ use Modules\Audit\Providers\AuditServiceProvider;
 use Modules\Billing\Providers\BillingServiceProvider;
 use Modules\Clinical\Providers\ClinicalServiceProvider;
 use Modules\Comms\Providers\CommsServiceProvider;
+use Modules\Import\Providers\ImportServiceProvider;
 use Modules\Nursing\Providers\NursingServiceProvider;
 use Modules\Patients\Providers\PatientsServiceProvider;
 use Modules\People\Providers\PeopleServiceProvider;
@@ -23,6 +24,7 @@ return [
     BillingServiceProvider::class,
     ClinicalServiceProvider::class,
     CommsServiceProvider::class,
+    ImportServiceProvider::class,
     NursingServiceProvider::class,
     PatientsServiceProvider::class,
     PeopleServiceProvider::class,

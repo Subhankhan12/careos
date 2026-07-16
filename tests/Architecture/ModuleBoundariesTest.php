@@ -110,3 +110,15 @@ arch('Comms may use care modules but not Audit models or AiCore')
         'Modules\Audit\Models',
         'Modules\AiCore',
     ]);
+
+arch('Import may use Patients + Audit services but not Audit models, AiCore, Scheduling, Clinical, Nursing, Billing, or Comms')
+    ->expect('Modules\Import')
+    ->not->toUse([
+        'Modules\Audit\Models',
+        'Modules\AiCore',
+        'Modules\Scheduling',
+        'Modules\Clinical',
+        'Modules\Nursing',
+        'Modules\Billing',
+        'Modules\Comms',
+    ]);
