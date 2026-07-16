@@ -129,6 +129,13 @@ triage, symptom assessment, or dosing logic anywhere.
   CATEGORY via `DocumentService::reclassify` and never moves a document between patients.
 - AiCore may use Platform for tenant/settings/RBAC primitives; it does not depend on Audit or domain
   modules. Audit composition lives in `app/`.
+- **Agent safety eval suite (P0P.G4, D-071):** `tests/Evals/` is a first-class named suite (`Evals`
+  phpunit testsuite; `composer eval` = `pest --testsuite=Evals`; also runs inside `composer check`'s
+  full Pest run). One file per agent + `CrossCuttingAgentEvalTest` + `Support/EvalHarness.php` (shared
+  `ev*` primitives; not a `*Test.php` file). 37 evals / 398 assertions LOCK the fence/autonomy/
+  grounding/"never trust the agent's numbers" rules as regression tests. Deterministic, mocks the LLM
+  with fixed inputs, `evNoNetwork()` guarantees no real API call. It LOCKS existing behavior — never
+  changes it. `docs/AGENT-EVALS.md` maps every locked property to its enforcing eval.
 
 ## Status
 
@@ -142,3 +149,7 @@ suggestions. Local `composer check` is green: 358 tests / 2073 assertions.
 - Future gates add UI for approval queue / KB administration and richer production-grade vector
   retrieval. All agents/tools must continue through AiCore governance.
 - Expand the prompt eval harness beyond the minimal eval-passed flag before real prompt rollout.
+  (Distinct from the P0P.G4 safety eval suite: that locks BEHAVIOR/guardrails deterministically; a
+  prompt-quality harness would score real model outputs — still deferred.)
+- New agents/tools MUST land with matching `tests/Evals/` locks (fence/autonomy/grounding/no-trust)
+  and a row in `docs/AGENT-EVALS.md`.

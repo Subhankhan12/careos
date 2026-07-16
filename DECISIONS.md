@@ -421,3 +421,11 @@ references the old ID.
   agents, AI-credits metering/billing, real nurse-travel routing, DE/CH/FR statutory packs,
   cross-tenant referral share objects, telehealth recording+transcripts, Reverb realtime, i18n
   content, portal PSP payment, and the Playwright offline test are all parked this way (P0P.G5).
+- **D-071 — Agent safety properties are locked by a dedicated eval suite.** `tests/Evals/` is a
+  first-class, named regression suite (`Evals` phpunit testsuite; `composer eval`; also inside
+  `composer check`) whose sole job is to fail loudly if any agent's electric fence, autonomy cap,
+  grounding, or "never trust the agent's numbers" rule is ever weakened. Evals are deterministic,
+  mock the LLM with fixed inputs, make no real API call (`evNoNetwork()`), and assert BEHAVIOR — not
+  model quality. An eval encodes CURRENT proven behavior; it LOCKS, it never changes. If authoring an
+  eval reveals the behavior is actually wrong, STOP and report rather than editing the eval to pass.
+  Every new agent/tool must ship with matching evals and a `docs/AGENT-EVALS.md` entry (P0P.G4).

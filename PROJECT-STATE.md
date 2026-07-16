@@ -515,6 +515,19 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
     non-zero. Proven both ways: clean on the demo tenant, and detects a deliberately tampered chain.
     The command lives in `app/` because Audit may not depend on Platform; `IntegrityCheck` lives in
     Platform because it is tenant-owned.
+- **Agent eval harness (P0P.G4):** `tests/Evals/` is a first-class named suite that LOCKS every
+  agent's safety properties as regression tests — the electric fence, autonomy caps, grounding, and
+  the "never trust the agent's numbers" rules — so a future change that weakens any of them fails
+  loudly. `Evals` phpunit testsuite; run focused with `composer eval` (= `pest --testsuite=Evals`),
+  and it also runs inside `composer check`'s full Pest run. **37 evals / 398 assertions**, all green;
+  deterministic, LLM mocked with fixed inputs, `evNoNetwork()` guarantees no real API call, asserts
+  BEHAVIOR not model quality. One file per agent + `CrossCuttingAgentEvalTest` + shared
+  `Support/EvalHarness.php`. Front-Desk 6 · Clinical Summary 4 · Follow-up 3 · Dispatch 6 · Billing 7
+  · Inbox 7 · Cross-cutting 5. The gate LOCKED existing behavior and changed NO agent behavior; no
+  production code was touched (only `tests/`, `phpunit.xml` testsuite, `tests/Pest.php` binding, the
+  `eval` composer script, and `docs/AGENT-EVALS.md`). PHPStan scans app/Modules/tests/Support only,
+  so eval files are outside static analysis; Pint clean. `docs/AGENT-EVALS.md` maps every locked
+  property to its enforcing eval. Recorded as D-071.
 - **Parked backlog (P0P.G5, docs only):** DEFERRED.md now carries a "Parked — build when a real
   user/customer creates the need" section: 10 demand-driven items, each with a concrete TRIGGER that
   pulls it forward (Phase H agents, AI-credits metering/billing, real nurse-travel routing, DE/CH/FR
