@@ -96,6 +96,7 @@ class DispatchBoardController
             'window_end_at' => $visit->window_end_at->toDateTimeString(),
             'duration_minutes' => $visit->duration_minutes,
             'required_qualification' => $visit->required_qualification,
+            'required_competencies' => $visit->required_competencies ?? [],
             'status' => $visit->status,
             'assigned_resource_id' => $visit->assigned_resource_id,
         ];

@@ -24,6 +24,7 @@ use Modules\Scheduling\Models\Resource;
  * @property Carbon $window_end_at
  * @property int $duration_minutes
  * @property string|null $required_qualification
+ * @property list<string>|null $required_competencies
  * @property string $status
  * @property string|null $assigned_resource_id
  * @property Carbon|null $assigned_at
@@ -48,6 +49,15 @@ class PlannedVisit extends Model
 
     public $incrementing = false;
 
+    /**
+     * Non-blocking soft-competency warnings surfaced by the last assignment
+     * attempt. Transient (never persisted) — set by VisitAssignmentService so the
+     * dispatcher can see advisories that did not block the assignment.
+     *
+     * @var list<string>
+     */
+    public array $assignmentWarnings = [];
+
     protected $fillable = [
         'visit_plan_id',
         'patient_id',
@@ -56,6 +66,7 @@ class PlannedVisit extends Model
         'window_end_at',
         'duration_minutes',
         'required_qualification',
+        'required_competencies',
         'status',
         'assigned_resource_id',
         'assigned_at',
@@ -89,6 +100,7 @@ class PlannedVisit extends Model
             'window_start_at' => 'datetime',
             'window_end_at' => 'datetime',
             'duration_minutes' => 'integer',
+            'required_competencies' => 'array',
             'assigned_at' => 'datetime',
             'assigned_by' => 'integer',
             'location_latitude' => 'decimal:6',

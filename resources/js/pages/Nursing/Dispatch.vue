@@ -17,6 +17,7 @@ type Visit = {
     window_end_at: string;
     duration_minutes: number;
     required_qualification: string | null;
+    required_competencies?: string[];
     status: string;
     assigned_resource_id: string | null;
 };
@@ -46,6 +47,14 @@ const assignmentError = computed(() => {
     const errors = page.props.errors as Record<string, string> | undefined;
 
     return errors?.assignment ?? null;
+});
+
+// Non-blocking soft-competency advisories from the last assignment. The dispatcher
+// was allowed to proceed; this only surfaces what they proceeded past.
+const assignmentWarnings = computed(() => {
+    const flash = page.props.flash as { assignmentWarnings?: string[] } | undefined;
+
+    return flash?.assignmentWarnings ?? null;
 });
 
 function reload(): void {
@@ -94,6 +103,13 @@ function unassign(visitId: string): void {
                 {{ assignmentError }}
             </div>
 
+            <div v-if="assignmentWarnings" class="rounded-md border border-amber-400/40 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:bg-amber-500/10 dark:text-amber-300">
+                <div class="font-medium">{{ t('nursing.dispatch.softWarningTitle') }}</div>
+                <ul class="mt-1 list-inside list-disc">
+                    <li v-for="warning in assignmentWarnings" :key="warning">{{ warning }}</li>
+                </ul>
+            </div>
+
             <div class="grid gap-6 xl:grid-cols-[minmax(280px,360px)_1fr]">
                 <Card :title="t('nursing.dispatch.unassigned')">
                     <div class="space-y-3">
@@ -105,6 +121,9 @@ function unassign(visitId: string): void {
                             </div>
                             <div class="mt-1 text-xs text-ink-muted">
                                 {{ t('nursing.dispatch.requiredQualification') }}: {{ visit.required_qualification ?? t('nursing.dispatch.none') }}
+                            </div>
+                            <div v-if="visit.required_competencies && visit.required_competencies.length" class="mt-1 text-xs text-ink-muted">
+                                {{ t('nursing.dispatch.requiredCompetencies') }}: {{ visit.required_competencies.join(', ') }}
                             </div>
                             <div class="mt-3 grid gap-2 sm:grid-cols-[1fr_auto]">
                                 <select v-model="selections[visit.id]" class="block w-full rounded-md border border-line bg-surface px-3 py-2 text-sm text-ink shadow-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30">

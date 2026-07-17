@@ -34,6 +34,7 @@ class HandleInertiaRequests extends Middleware
             ],
             'flash' => [
                 'status' => fn () => $request->session()->get('status'),
+                'assignmentWarnings' => fn () => $request->session()->get('assignmentWarnings'),
             ],
         ];
     }

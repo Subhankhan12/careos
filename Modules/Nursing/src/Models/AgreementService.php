@@ -16,6 +16,7 @@ use Modules\Scheduling\Models\Service;
  * @property string $service_id
  * @property string $planned_frequency_text
  * @property string|null $required_qualification
+ * @property list<string>|null $required_competencies
  * @property int $duration_minutes
  */
 class AgreementService extends Model
@@ -31,6 +32,7 @@ class AgreementService extends Model
         'service_id',
         'planned_frequency_text',
         'required_qualification',
+        'required_competencies',
         'duration_minutes',
     ];
 
@@ -51,6 +53,7 @@ class AgreementService extends Model
     {
         return [
             'duration_minutes' => 'integer',
+            'required_competencies' => 'array',
         ];
     }
 

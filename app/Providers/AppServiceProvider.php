@@ -36,7 +36,9 @@ use Modules\Clinical\Models\Encounter;
 use Modules\Comms\Contracts\InboxDraftProvider;
 use Modules\Comms\Models\NotificationTemplate;
 use Modules\Comms\Services\NotificationService;
+use Modules\Nursing\Events\CompetencyChanged;
 use Modules\Nursing\Events\IncidentReported;
+use Modules\Nursing\Events\NurseCompetencyChanged;
 use Modules\Nursing\Events\NurseSyncActionProcessed;
 use Modules\Nursing\Events\PlannedVisitChanged;
 use Modules\Nursing\Events\ServiceAgreementChanged;
@@ -368,6 +370,40 @@ class AppServiceProvider extends ServiceProvider
                     'scheduled_date' => $visit->scheduled_date->toDateString(),
                     'status' => $visit->status,
                     'assigned_resource_id' => $visit->assigned_resource_id,
+                    ...$event->context,
+                ],
+            ]);
+        });
+        Event::listen(CompetencyChanged::class, function (CompetencyChanged $event): void {
+            $competency = $event->competency;
+
+            // Competency definitions/enforcement are agency dispatch policy, not
+            // patient data, so these rows carry no patient_id.
+            $this->auditChange($event->action, [
+                'actor_type' => $event->actor !== null ? 'user' : 'system',
+                'actor_id' => $event->actor !== null ? (string) $event->actor->getKey() : null,
+                'resource_type' => 'competency',
+                'resource_id' => $competency->id,
+                'context' => [
+                    'code' => $competency->code,
+                    'enforcement' => $competency->enforcement,
+                    'active' => $competency->active,
+                    ...$event->context,
+                ],
+            ]);
+        });
+        Event::listen(NurseCompetencyChanged::class, function (NurseCompetencyChanged $event): void {
+            $grant = $event->grant;
+
+            $this->auditChange($event->action, [
+                'actor_type' => $event->actor !== null ? 'user' : 'system',
+                'actor_id' => $event->actor !== null ? (string) $event->actor->getKey() : null,
+                'resource_type' => 'nurse_competency',
+                'resource_id' => $grant->id,
+                'context' => [
+                    'resource_id' => $grant->resource_id,
+                    'competency_id' => $grant->competency_id,
+                    'active' => $grant->active,
                     ...$event->context,
                 ],
             ]);

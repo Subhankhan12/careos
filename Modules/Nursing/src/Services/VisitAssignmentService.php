@@ -30,7 +30,9 @@ class VisitAssignmentService
         $this->authorize($plannedVisit, $actor);
         $this->tenantContext->id();
 
-        $assigned = DB::transaction(function () use ($plannedVisit, $resource, $actor): PlannedVisit {
+        $warnings = [];
+
+        $assigned = DB::transaction(function () use ($plannedVisit, $resource, $actor, &$warnings): PlannedVisit {
             $lockedVisit = PlannedVisit::query()
                 ->whereKey($plannedVisit->id)
                 ->lockForUpdate()
@@ -71,11 +73,13 @@ class VisitAssignmentService
                 ->lockForUpdate()
                 ->get();
 
-            $reasons = $this->validator->validate($lockedVisit, $lockedResource, $candidates);
+            $result = $this->validator->evaluate($lockedVisit, $lockedResource, $candidates);
 
-            if ($reasons !== []) {
-                throw new AssignmentValidationException($reasons);
+            if (! $result->passes()) {
+                throw new AssignmentValidationException($result->blocking);
             }
+
+            $warnings = $result->warnings;
 
             $lockedVisit->forceFill([
                 'assigned_resource_id' => $lockedResource->id,
@@ -87,11 +91,16 @@ class VisitAssignmentService
             return $lockedVisit->refresh();
         }, 3);
 
-        Event::dispatch(new PlannedVisitChanged($assigned, 'planned_visit.assigned', [
+        // Surface non-blocking soft-competency advisories to the dispatcher.
+        $assigned->assignmentWarnings = $warnings;
+
+        Event::dispatch(new PlannedVisitChanged($assigned, 'planned_visit.assigned', array_filter([
             'assigned_resource_id' => $assigned->assigned_resource_id,
             'assigned_by' => $assigned->assigned_by,
             'assigned_at' => $assigned->assigned_at?->toDateTimeString(),
-        ], $actor));
+            // Trail: the dispatcher assigned despite one or more soft warnings.
+            'soft_competency_warnings' => $warnings === [] ? null : $warnings,
+        ], fn ($value): bool => $value !== null), $actor));
 
         return $assigned;
     }

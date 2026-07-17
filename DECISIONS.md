@@ -501,3 +501,31 @@ references the old ID.
   logged). Editor integration is ADDITIVE — a new OPTIONAL `snippets` prop on NoteEditor (pre-expanded
   server-side) + an insert control; no existing prop/behavior changed (P0P.G10, the previously-skipped
   gate).
+- **D-078 — Nurse competencies are tenant-authored; the AGENCY sets each one's enforcement (hard/soft);
+  the validator obeys.** Finer-grained than the RN/LPN/care-assistant qualification. TWO tenant-owned
+  tables: `competencies` (tenant's own code/name/description, `enforcement` hard|soft, active; unique
+  tenant+code; NO bundled licensed set — `CompetencyService::seedStarter()` seeds a generic EDITABLE
+  template wound_care/catheter_care/injection/dementia_care/palliative with default enforcement the
+  agency can change) and `nurse_competencies` (grant of a competency to a practitioner resource with
+  `granted_at` + nullable `expires_at`; a competency is HELD only if the grant is active AND not expired —
+  mirrors the credential-vault expiry, D-020 lineage). A visit's required competencies reuse the existing
+  requirement path: `required_competencies` JSON (codes) on `agreement_services`, copied onto each
+  generated `planned_visit` by `VisitPlanGenerator` (like `required_qualification`); the planned_visit's
+  own list is the per-occurrence authority. `AssignmentValidator::evaluate()` returns a new
+  `AssignmentValidation` value object that CLEANLY SEPARATES blocking violations from non-blocking
+  warnings; the legacy `validate()` returns only the blocking list (existing reason codes + hard-competency
+  misses intact, so the dispatch agent's "no reasons" contract is unchanged). Per required competency the
+  nurse does not hold: enforcement HARD → a BLOCKING reason `competency_missing_hard:<code>` (assignment
+  REFUSED, exactly like a qualification miss); SOFT → a NON-BLOCKING advisory `competency_missing_soft:<code>`
+  (allowed, dispatcher sees it and proceeds). A required code with NO active tenant competency definition is
+  advisory-only, never a hard block — the system never blocks on a rule the agency has not configured as
+  hard (same electric-fence posture: humans own the clinical judgment). The rule composes with
+  qualification/window/travel/hour-cap; the concurrency-safe path (`VisitAssignmentService`, FOR UPDATE,
+  parallel-hammer) is UNCHANGED — competency is just another rule inside `evaluate()`. Soft warnings are
+  surfaced to the dispatcher (transient `PlannedVisit::$assignmentWarnings`, flashed to the board) and the
+  override is recorded in the `planned_visit.assigned` audit context (`soft_competency_warnings`). New RBAC
+  `competency.manage` (org_admin + coordinator, the dispatch-owning roles; reception/nurse/doctor/billing
+  refused); definition/enforcement changes and grant/revoke audited via app-layer `CompetencyChanged` /
+  `NurseCompetencyChanged` events (patient_id null — this is agency dispatch policy, not patient data).
+  Net-new additive `Nursing/Competencies.vue` admin page + dispatch soft-warning banner; no existing
+  dispatch page contract changed (P0P.G12).

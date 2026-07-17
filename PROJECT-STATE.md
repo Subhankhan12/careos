@@ -623,6 +623,26 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
   offline test). Items that already existed as plain phase-parked bullets were MOVED into the section
   with triggers, not duplicated; the hard medical-device/countersigning deferrals stay put. Principle
   recorded as D-070 (build on need, never speculatively). No code/props/routes/payloads touched.
+- **Nurse skills / competency matching (P0P.G12):** dispatch now matches finer-grained COMPETENCIES
+  (below the RN/LPN qualification), each configurable HARD (blocks) or SOFT (warns) — the AGENCY sets
+  enforcement per competency; the system never decides which are safety-critical (electric-fence posture).
+  Extends `Modules\Nursing` (D-078). Two tenant-owned tables: `competencies` (tenant-authored code/name/
+  enforcement/active; NO licensed set; `CompetencyService::seedStarter()` = editable generic template) +
+  `nurse_competencies` (grant to a practitioner resource with optional expiry; HELD = active AND not
+  expired, mirrors credential-vault). Visit requirements reuse the existing path: `required_competencies`
+  JSON codes on `agreement_services` → copied onto each `planned_visit` by `VisitPlanGenerator`.
+  `AssignmentValidator::evaluate()` returns a new `AssignmentValidation` (blocking vs warnings);
+  legacy `validate()` = blocking only (existing reason codes + dispatch-agent contract intact). Per
+  unheld required competency: HARD → blocking `competency_missing_hard:<code>` (refused like a
+  qualification miss); SOFT → non-blocking `competency_missing_soft:<code>` (allowed + dispatcher warned);
+  unconfigured/inactive code → advisory-only. Composes with qualification/window/travel/hour-cap; the
+  concurrency-safe locked path (FOR UPDATE, parallel-hammer) is UNCHANGED. Soft warnings surface on the
+  board (transient `PlannedVisit::$assignmentWarnings` → Inertia flash) and the override is recorded in
+  the `planned_visit.assigned` audit context. New RBAC `competency.manage` (org_admin + coordinator);
+  definition/enforcement + grant/revoke audited (patient_id null). Net-new additive `Competencies.vue`
+  admin page + dispatch soft-warning banner; no existing dispatch page contract changed. 10 feature
+  tests; existing assignment/parallel-hammer/dispatch-agent suites still green. composer check green;
+  npm run build green.
 - **Next action:** CLAUDE DESIGN PASS across all screens (functional surface frozen; per P0D.GU a
   redesign replaces .vue files only — routes, controllers, props, guards, and tests stay untouched).
   Then Phase H per the master plan.

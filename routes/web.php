@@ -29,6 +29,7 @@ use Modules\FrontDesk\Http\Controllers\KioskCheckInController;
 use Modules\FrontDesk\Http\Controllers\KioskDeviceController;
 use Modules\FrontDesk\Http\Controllers\PortalCheckInController;
 use Modules\Import\Http\Controllers\ImportBatchController;
+use Modules\Nursing\Http\Controllers\CompetencyController;
 use Modules\Nursing\Http\Controllers\DispatchActionController;
 use Modules\Nursing\Http\Controllers\DispatchBoardController;
 use Modules\Patients\Http\Controllers\PatientConsentController;
@@ -119,6 +120,20 @@ Route::middleware('auth')->group(function () {
         ->name('nursing.dispatch.assign');
     Route::post('/nursing/dispatch/unassign', [DispatchActionController::class, 'unassign'])
         ->name('nursing.dispatch.unassign');
+
+    // Tenant-authored nurse competencies + per-nurse grants (competency.manage).
+    Route::get('/nursing/competencies', [CompetencyController::class, 'index'])
+        ->name('nursing.competencies.index');
+    Route::post('/nursing/competencies', [CompetencyController::class, 'store'])
+        ->name('nursing.competencies.store');
+    Route::post('/nursing/competencies/update', [CompetencyController::class, 'update'])
+        ->name('nursing.competencies.update');
+    Route::post('/nursing/competencies/grant', [CompetencyController::class, 'grant'])
+        ->name('nursing.competencies.grant');
+    Route::post('/nursing/competencies/revoke', [CompetencyController::class, 'revoke'])
+        ->name('nursing.competencies.revoke');
+    Route::post('/nursing/competencies/seed', [CompetencyController::class, 'seed'])
+        ->name('nursing.competencies.seed');
 
     Route::get('/clinical/encounters/{encounter}', EncounterShowController::class)
         ->name('clinical.encounters.show');

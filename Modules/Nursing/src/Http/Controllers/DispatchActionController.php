@@ -23,13 +23,19 @@ class DispatchActionController
         abort_unless($actor instanceof User, 403);
 
         try {
-            $assignments->assign(
+            $assigned = $assignments->assign(
                 PlannedVisit::query()->findOrFail($data['planned_visit_id']),
                 Resource::query()->findOrFail($data['resource_id']),
                 $actor,
             );
         } catch (AssignmentValidationException $exception) {
             return back()->withErrors(['assignment' => implode(', ', $exception->reasons())]);
+        }
+
+        // Non-blocking soft-competency advisories: the assignment succeeded but the
+        // dispatcher should see what they proceeded past.
+        if ($assigned->assignmentWarnings !== []) {
+            return back()->with('assignmentWarnings', $assigned->assignmentWarnings);
         }
 
         return back();

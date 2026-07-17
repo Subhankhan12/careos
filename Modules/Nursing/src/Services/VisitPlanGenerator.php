@@ -83,6 +83,9 @@ class VisitPlanGenerator
                     'window_end_at' => $windowEnd->toDateTimeString(),
                     'duration_minutes' => $visitPlan->duration_minutes,
                     'required_qualification' => $agreementService->required_qualification,
+                    'required_competencies' => $agreementService->required_competencies !== null
+                        ? json_encode($agreementService->required_competencies)
+                        : null,
                     'status' => PlannedVisit::STATUS_PLANNED,
                     'created_at' => $now,
                     'updated_at' => $now,
@@ -105,7 +108,7 @@ class VisitPlanGenerator
             DB::table('planned_visits')->upsert(
                 $rows,
                 ['tenant_id', 'visit_plan_id', 'scheduled_date'],
-                ['patient_id', 'window_start_at', 'window_end_at', 'duration_minutes', 'required_qualification', 'updated_at'],
+                ['patient_id', 'window_start_at', 'window_end_at', 'duration_minutes', 'required_qualification', 'required_competencies', 'updated_at'],
             );
 
             $createdVisits = PlannedVisit::query()

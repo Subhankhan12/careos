@@ -4,6 +4,8 @@ namespace Modules\Nursing\Services;
 
 use Carbon\CarbonInterface;
 use Illuminate\Support\Collection;
+use Modules\Nursing\Models\Competency;
+use Modules\Nursing\Models\NurseCompetency;
 use Modules\Nursing\Models\NurseConstraint;
 use Modules\Nursing\Models\PlannedVisit;
 use Modules\Platform\Services\SettingsService;
@@ -23,45 +25,138 @@ class AssignmentValidator
 
     public const REASON_NURSE_CONSTRAINT_MISSING = 'nurse_constraint_missing';
 
+    /** Distinct BLOCKING reason prefix for a HARD competency the nurse lacks. */
+    public const REASON_COMPETENCY_MISSING_HARD = 'competency_missing_hard';
+
+    /** Distinct NON-BLOCKING advisory prefix for a SOFT competency the nurse lacks. */
+    public const REASON_COMPETENCY_MISSING_SOFT = 'competency_missing_soft';
+
     public function __construct(private readonly SettingsService $settings) {}
 
     /**
+     * Backwards-compatible entry point: returns only the BLOCKING reason codes
+     * (missing/qualification/window/travel/hour-cap plus hard-competency misses).
+     * Existing callers (the assignment path, the dispatch agent) treat a non-empty
+     * result as a refusal; soft-competency warnings are intentionally excluded here.
+     *
      * @param  iterable<int, PlannedVisit>  $assignedVisits
      * @return list<string>
      */
     public function validate(PlannedVisit $visit, Resource $resource, iterable $assignedVisits): array
     {
+        return $this->evaluate($visit, $resource, $assignedVisits)->blocking;
+    }
+
+    /**
+     * Full validation separating BLOCKING violations from NON-BLOCKING warnings.
+     *
+     * @param  iterable<int, PlannedVisit>  $assignedVisits
+     */
+    public function evaluate(PlannedVisit $visit, Resource $resource, iterable $assignedVisits): AssignmentValidation
+    {
+        // Competency composes with every other rule and is independent of the
+        // nurse-constraint row, so it is evaluated first, whether or not the nurse
+        // has a constraint record.
+        [$competencyBlocking, $competencyWarnings] = $this->competencyReasons($visit, $resource);
+
+        $blocking = $competencyBlocking;
+
         $constraint = NurseConstraint::query()->where('resource_id', $resource->id)->first();
 
         if ($constraint === null) {
-            return [self::REASON_NURSE_CONSTRAINT_MISSING];
+            $blocking[] = self::REASON_NURSE_CONSTRAINT_MISSING;
+
+            return new AssignmentValidation(
+                array_values(array_unique($blocking)),
+                array_values(array_unique($competencyWarnings)),
+            );
         }
 
         $assigned = collect($assignedVisits)
             ->filter(fn (PlannedVisit $assignedVisit): bool => $assignedVisit->id !== $visit->id)
             ->values();
 
-        $reasons = [];
-
         if (! $this->qualificationSatisfied($visit, $constraint)) {
-            $reasons[] = self::REASON_QUALIFICATION;
+            $blocking[] = self::REASON_QUALIFICATION;
         }
 
         if ($this->hasWindowOverlap($visit, $assigned)) {
-            $reasons[] = self::REASON_WINDOW_OVERLAP;
+            $blocking[] = self::REASON_WINDOW_OVERLAP;
         }
 
         $travelReason = $this->travelReason($visit, $assigned, $constraint);
 
         if ($travelReason !== null) {
-            $reasons[] = $travelReason;
+            $blocking[] = $travelReason;
         }
 
         if ($this->exceedsHourCap($visit, $assigned, $constraint)) {
-            $reasons[] = self::REASON_HOUR_CAP_EXCEEDED;
+            $blocking[] = self::REASON_HOUR_CAP_EXCEEDED;
         }
 
-        return array_values(array_unique($reasons));
+        return new AssignmentValidation(
+            array_values(array_unique($blocking)),
+            array_values(array_unique($competencyWarnings)),
+        );
+    }
+
+    /**
+     * For each competency the visit requires, if the nurse does not currently HOLD
+     * it (missing, inactive, or expired), produce either a blocking reason (the
+     * agency configured the competency HARD) or a warning (configured SOFT). Each
+     * reason/advisory names the competency code. A required code with no active
+     * tenant-configured competency is advisory-only — the system never blocks on a
+     * rule the agency has not configured as hard.
+     *
+     * @return array{0: list<string>, 1: list<string>}
+     */
+    private function competencyReasons(PlannedVisit $visit, Resource $resource): array
+    {
+        $required = array_values(array_unique(array_filter(array_map(
+            fn ($code): string => mb_strtolower(trim((string) $code)),
+            $visit->required_competencies ?? [],
+        ), fn (string $code): bool => $code !== '')));
+
+        if ($required === []) {
+            return [[], []];
+        }
+
+        $heldCompetencyIds = NurseCompetency::query()
+            ->where('resource_id', $resource->id)
+            ->held()
+            ->pluck('competency_id')
+            ->all();
+
+        $definitions = Competency::query()
+            ->whereIn('code', $required)
+            ->get()
+            ->keyBy(fn (Competency $competency): string => mb_strtolower(trim($competency->code)));
+
+        $blocking = [];
+        $warnings = [];
+
+        foreach ($required as $code) {
+            $competency = $definitions->get($code);
+
+            // No active tenant-configured competency for this code → advisory only.
+            if ($competency === null || ! $competency->active) {
+                $warnings[] = self::REASON_COMPETENCY_MISSING_SOFT.':'.$code;
+
+                continue;
+            }
+
+            if (in_array($competency->id, $heldCompetencyIds, true)) {
+                continue;
+            }
+
+            if ($competency->enforcement === Competency::ENFORCEMENT_HARD) {
+                $blocking[] = self::REASON_COMPETENCY_MISSING_HARD.':'.$code;
+            } else {
+                $warnings[] = self::REASON_COMPETENCY_MISSING_SOFT.':'.$code;
+            }
+        }
+
+        return [$blocking, $warnings];
     }
 
     private function qualificationSatisfied(PlannedVisit $visit, NurseConstraint $constraint): bool

@@ -31,6 +31,17 @@ and validator-bound dispatch agent proposals.
 - `nurse_constraints` - tenant-owned nurse/resource constraints. `resource_id` (Scheduling
   practitioner resource), `qualification`, decimal `max_hours_per_week`, and
   `max_travel_minutes_between_visits`. Unique `(tenant_id, resource_id)`.
+- `competencies` - tenant-AUTHORED competency catalog (finer than qualification). `code` (tenant's
+  own), `name`, nullable `description`, `enforcement` (`hard` blocks / `soft` warns — the agency's
+  per-competency choice), `active`. Unique `(tenant_id, code)`. NO bundled licensed set;
+  `CompetencyService::seedStarter()` seeds a generic editable template.
+- `nurse_competencies` - tenant-owned grant of a competency to a practitioner `resource_id`.
+  `competency_id`, `granted_at`, nullable `expires_at`, `active`. Unique
+  `(tenant_id, resource_id, competency_id)`. HELD = active AND not expired (`scopeHeld`, mirrors
+  credential-vault expiry).
+- `agreement_services` / `planned_visits` also carry `required_competencies` (JSON codes): documented
+  on the agreement service, copied onto each generated planned visit by `VisitPlanGenerator` (like
+  `required_qualification`). The planned visit's own list is the per-occurrence authority.
 - `visits` - tenant-owned executed visit container. Nullable `planned_visit_id`, `patient_id`,
   nurse `resource_id`, `branch_id`, `scheduled_start_at`, nullable check-in/out timestamps,
   lifecycle status (`scheduled/in_progress/completed/missed/cancelled`), and per-tenant unique
@@ -85,9 +96,17 @@ and validator-bound dispatch agent proposals.
   the rule.
 - `Console\MaterializeVisitsCommand` - `nursing:materialize-visits`, horizon-based idempotent
   materialization command for active tenants/plans.
-- `Services\AssignmentValidator` - deterministic qualification/window/travel/hour-cap validation
-  returning distinct reason codes.
-- `Services\VisitAssignmentService` - `dispatch.manage`-gated locked assign/unassign workflow.
+- `Services\AssignmentValidator` - deterministic qualification/window/travel/hour-cap/competency
+  validation. `evaluate()` returns `AssignmentValidation` (blocking[] vs warnings[]); `validate()`
+  returns only the blocking list (backwards-compatible; existing reason codes intact).
+- `Services\AssignmentValidation` - value object separating BLOCKING violations from NON-BLOCKING
+  warnings (`passes()`, `hasWarnings()`).
+- `Services\CompetencyService` - `competency.manage`-gated create/update (incl. enforcement change),
+  grant/revoke (with expiry), and `seedStarter()`; fires `CompetencyChanged`/`NurseCompetencyChanged`.
+- `Models\Competency` / `NurseCompetency` - tenant-owned competency catalog + per-nurse grants.
+- `Services\VisitAssignmentService` - `dispatch.manage`-gated locked assign/unassign workflow; carries
+  soft-competency warnings back on `PlannedVisit::$assignmentWarnings` and into the assigned audit
+  context (`soft_competency_warnings`).
 - `Console\AttemptVisitAssignmentCommand` - process-level test harness used by the assignment
   parallel hammer.
 - `Http\Controllers\DispatchBoardController` and `DispatchActionController` - Inertia dispatcher
@@ -153,7 +172,17 @@ and validator-bound dispatch agent proposals.
   40); and ISO-week assigned duration cannot exceed `max_hours_per_week`.
 - Assignment is concurrency-safe: the service locks the planned visit row, nurse resource row, and
   candidate assigned visit rows with `FOR UPDATE` before persisting assignment. Parallel hammer
-  proves one winner for eight overlapping contenders.
+  proves one winner for eight overlapping contenders. Competency is just another rule inside
+  `evaluate()`; the locked path is unchanged.
+- Competency matching (P0P.G12): per required competency the nurse does not currently hold (missing,
+  inactive, or expired), enforcement HARD → blocking reason `competency_missing_hard:<code>`
+  (assignment refused, like a qualification miss); SOFT → non-blocking advisory
+  `competency_missing_soft:<code>` (allowed + dispatcher warned). A required code with no active tenant
+  competency definition is advisory-only (never a hard block) — the system enforces only the rules the
+  agency configured as hard. Enforcement is per-competency and lives on the `competencies` row (not the
+  grant). Competency definition/enforcement changes and grant/revoke are audited (patient_id null —
+  agency dispatch policy, not patient data); `competency.manage` (org_admin + coordinator) gates
+  management.
 - Assignment/unassignment writes patient-scoped `planned_visit.assigned` /
   `planned_visit.unassigned` audit events; dispatch board reads write patient-scoped read rows.
 - GPS privacy posture D-E3: proof-of-visit captures location only at check-in and check-out.
@@ -239,6 +268,10 @@ P0E.G3 dispatcher assignment, P0E.G4 proof-of-visit, P0E.G5 nurse PWA encrypted 
 P0E.G6 offline action queue/conflict policy, P0E.G7 offline visit execution, P0E.G8 incidents
 and actual-timesheets, P0E.G9 dispatch agent proposals, and P0E.C airplane-mode consolidation are
 registered with tests and app-layer audit/read logging.
+
+**P0P.G12 extension:** per-competency nurse skill matching in dispatch (tenant-authored competencies +
+per-nurse grants; hard blocks / soft warns; validator `evaluate()` separates blocking from warnings;
+`competency.manage` RBAC; additive Competencies admin page + dispatch soft-warning banner).
 
 ## Open items
 

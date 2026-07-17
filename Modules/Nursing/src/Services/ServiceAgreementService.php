@@ -59,6 +59,7 @@ class ServiceAgreementService
                     'service_id' => (string) $service['service_id'],
                     'planned_frequency_text' => (string) $service['planned_frequency_text'],
                     'required_qualification' => $service['required_qualification'] ?? null,
+                    'required_competencies' => $service['required_competencies'] ?? null,
                     'duration_minutes' => (int) $service['duration_minutes'],
                 ]);
             }

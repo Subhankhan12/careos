@@ -530,11 +530,37 @@
             "empty": "No unassigned visits.",
             "emptyLane": "No assigned visits.",
             "requiredQualification": "Required qualification",
+            "requiredCompetencies": "Required competencies",
+            "softWarningTitle": "Assigned with warnings — the nurse lacks a soft-required competency:",
             "none": "None",
             "selectNurse": "Select nurse",
             "assign": "Assign",
             "unassign": "Unassign",
             "noConstraint": "No constraint record"
+        },
+        "competencies": {
+            "title": "Nurse competencies",
+            "subtitle": "Define your own competencies, set each one's enforcement, and grant them to nurses.",
+            "add": "Add a competency",
+            "code": "Code",
+            "name": "Name",
+            "enforcement": "Enforcement",
+            "enforcementLabels": {
+                "hard": "Hard (blocks assignment)",
+                "soft": "Soft (warns only)"
+            },
+            "addButton": "Add",
+            "defined": "Defined competencies",
+            "deactivate": "Deactivate",
+            "reactivate": "Reactivate",
+            "nurses": "Nurses",
+            "grant": "Grant a competency",
+            "grantButton": "Grant",
+            "selectCompetency": "Select competency",
+            "expiryOptional": "Expiry (optional)",
+            "expires": "expires",
+            "noneHeld": "No competencies held.",
+            "seed": "Seed starter set"
         }
     }
 }
