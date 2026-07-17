@@ -591,3 +591,18 @@ references the old ID.
   migrate, and `composer test:mysql` (migrate:fresh + status + full suite against the env-configured,
   THROWAWAY database) is the documented one-step manual re-verification. All divergences + commands live
   in `docs/DB-PARITY.md` (P0P.G15).
+- **D-082 — The Spitex demo is a COMPANION tenant, honest to what's built.** `DemoSpitexSeeder` seeds
+  "Spitex Sonnengarten" (slug `spitex-sonnengarten`, Zürich Wipkingen, EUR) as a SECOND demo tenant
+  rather than extending Praxis Lindenhof: a coordinator sees an agency shaped like their own operation
+  (nurse roster with P.12 competencies incl. one expired grant, recurring RRULE home-care plans — daily
+  insulin / 3×-weekly wound care / weekly bath assist / weekly catheter care / 2×-weekly palliative — a
+  fully assigned current week, executed previous-month visits with GPS proof + tasks done/not-done +
+  multi-visit vitals trends + notes + one factual incident + timesheets from actuals, a signed+amended
+  assessment, severe allergy, care plan, P.11 manual-result orders in both worklist states, an
+  EU-Generic billing month that reconciles to the unit with 6 gapless invoices / full+partial+over
+  payments / a partial credit note / dunning L1, threads incl. one flagged-clinical, 2 KB articles, and
+  2 pending do-nothing AI approvals), while the clinic demo stays intact; both coexist. Same P.1/D-066
+  discipline: idempotent by slug, seeded through the REAL services as tenant actors (audit chain
+  verifies), `now()` never rewound, business dates explicit. HONESTY boundary: bills EU-GENERIC — the
+  CH/KVG pack is deferred pending discovery; no claims/eRx/electronic-lab data is implied, lab results
+  are manual. Stand up the demo: `php artisan db:seed --class=DemoSpitexSeeder` (P0P.G16).

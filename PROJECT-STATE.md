@@ -690,6 +690,22 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
   strict sql_mode). CI now asserts ZERO pending migrations after the from-scratch MySQL 8 migrate;
   `composer test:mysql` is the manual one-step re-verification (THROWAWAY DB). Full brief:
   `docs/DB-PARITY.md`. If a CI-only failure appears again, check the env-divergence class FIRST.
+- **Spitex demo tenant (P0P.G16):** `DemoSpitexSeeder` seeds **Spitex Sonnengarten** (slug
+  `spitex-sonnengarten`, Zürich Wipkingen, EUR) — a COMPANION home-care demo tenant next to the clinic
+  (D-082), shaped like a real agency's operating week for the coordinator conversation. **Stand up the
+  demo with ONE command: `php artisan db:seed --class=DemoSpitexSeeder`** (idempotent; logins
+  `<first>.<last>@spitex-sonnengarten.test` / `demo-password`). Contains: a 5-nurse roster with P.12
+  competencies (incl. one EXPIRED grant and one nurse with none), 5 recurring RRULE home-care plans
+  (daily insulin, 3×-weekly wound care, weekly bath assist, weekly catheter care, 2×-weekly palliative)
+  materialized + a FULLY ASSIGNED current week, ~37 executed previous-month visits with GPS proof, tasks
+  done/not-done, a 12-reading BP trend for one patient (P.13 unified series shows clinic AND visit
+  sources), notes, one factual incident, actual-based timesheets; a signed+amended assessment, severe
+  allergy, care plan, P.11 manual-result orders in both worklist states; an EU-Generic billing month
+  that RECONCILES TO THE UNIT (6 gapless invoices, full/partial/over payments, partial credit note,
+  dunning L1) — the seeder notes CH/KVG is deferred pending discovery, so the demo bills honestly;
+  threads (one flagged-clinical), 2 KB articles, 2 pending do-nothing AI approvals; P.14 reporting
+  returns non-trivial numbers incl. a real no-show. Audit chain verifies; the paired test proves
+  idempotency + reconciliation + the competency hard-block/expired-block/soft-warn demos on seeded data.
 - **Next action:** CLAUDE DESIGN PASS across all screens (functional surface frozen; per P0D.GU a
   redesign replaces .vue files only — routes, controllers, props, guards, and tests stay untouched).
   Then Phase H per the master plan.

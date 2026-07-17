@@ -73,6 +73,11 @@ Inertia pages.
 
 ## Invariants enforced
 
+- Mutable moment columns are DATETIME, never TIMESTAMP (D-081/P0P.G15): MariaDB gives the first
+  non-nullable TIMESTAMP an implicit ON UPDATE CURRENT_TIMESTAMP that MySQL 8 does not —
+  `patient_consents.granted_at` and `portal_login_tokens.expires_at` were converted after
+  withdrawal/consumption silently rewrote them on the dev engine. Locked by
+  `MutableMomentParityTest`; full brief in `docs/DB-PARITY.md`.
 - Patients and all child rows are tenant-owned and fail closed without `TenantContext`.
 - Child rows must point to a patient visible in the same tenant context.
 - MRN is unique per tenant and generated collision-safe under the tenant lock.

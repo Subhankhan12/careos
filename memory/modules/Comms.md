@@ -53,6 +53,9 @@ append-only messages.
 
 ## Invariants
 
+- Mutable moment columns are DATETIME, never TIMESTAMP (D-081/P0P.G15 — extends the existing
+  MariaDB-vs-MySQL8 DATETIME rule): `thread_reads.read_at` was the remaining first-TIMESTAMP trap
+  and is now DATETIME. Locked by `MutableMomentParityTest`; full brief in `docs/DB-PARITY.md`.
 - Comms rows are tenant-owned and fail closed via `BelongsToTenant`. Arch rule: Comms may use care
   modules but not Audit models or AiCore; no other module may use Comms (ModuleBoundariesTest).
 - Staff actions require `comms.manage` (RBAC catalog; granted to org_admin + reception starter roles).
