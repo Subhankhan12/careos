@@ -93,6 +93,11 @@
             "@lint",
             "@analyse",
             "@test"
+        ],
+        "test:mysql": [
+            "@php artisan migrate:fresh --force --no-interaction",
+            "@php artisan migrate:status --no-interaction",
+            "@test"
         ]
     },
     "extra": {

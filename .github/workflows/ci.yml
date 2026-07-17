@@ -96,5 +96,15 @@ jobs:
       - name: Run migrations
         run: php artisan migrate --force
 
+      # P0P.G15 parity gate: the service DB is a CLEAN MySQL 8 schema, so this
+      # step proves the COMPLETE migration set applies from scratch on the
+      # production engine with zero errors and zero pending migrations.
+      - name: Assert zero pending migrations (MySQL 8 from-scratch parity)
+        run: |
+          php artisan migrate:status --no-interaction | tee migrate-status.txt
+          if grep -q "Pending" migrate-status.txt; then
+            echo "::error::Pending migrations remain after migrate on MySQL 8"; exit 1
+          fi
+
       - name: Quality checks (lint, analyse, test)
         run: composer check

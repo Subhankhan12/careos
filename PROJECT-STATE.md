@@ -674,6 +674,22 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
   outstanding === I2 projection, payments === ledger sum. 10 seeded exact-number tests + arch boundary
   (Reporting never uses Audit models/AiCore/Comms/Import/FrontDesk). Recorded as D-080; module memory in
   `memory/modules/Reporting.md`.
+- **MySQL 8 full parity (P0P.G15):** deploy-readiness proven, and TWO real problems found + fixed.
+  (1) **CI had been red since P0P.G7** (8 commits, unnoticed — gates ran local checks only). Cause was
+  NOT MySQL 8: CI's job-level `CACHE_STORE=redis` beats phpunit `<env>` (P0G.G2 class), so kiosk throttle
+  counters persisted across tests in real Redis → 429s only in CI. Reproduced locally on MariaDB with
+  `CACHE_STORE=redis`; fixed by flushing the cache store per test in CheckInTest (config pin insufficient:
+  Fortify resolves the RateLimiter singleton at boot). (2) **Real engine divergence:** MariaDB's implicit
+  `ON UPDATE CURRENT_TIMESTAMP` on first non-nullable TIMESTAMP columns — 9 found; 6 harmless
+  (append-only, trigger-blocked); 3 reachable fixed to DATETIME (`patient_consents.granted_at` — consent
+  withdrawal was silently rewriting the grant moment on MariaDB only; `portal_login_tokens.expires_at`;
+  `thread_reads.read_at`), fail-first regression tests + an engine-independent information_schema guard
+  (`MutableMomentParityTest`). Sweep verified all divergence classes handled (FULLTEXT ngram fallback,
+  spatial NOT-NULL mirror + ST_Distance_Sphere, 5 CHECKs, SIGNAL-45000 triggers incl. ImmutabilitySweep
+  green ON MySQL 8, partitioning, no generated/enum cols, pinned utf8mb4/utf8mb4_unicode_ci, identical
+  strict sql_mode). CI now asserts ZERO pending migrations after the from-scratch MySQL 8 migrate;
+  `composer test:mysql` is the manual one-step re-verification (THROWAWAY DB). Full brief:
+  `docs/DB-PARITY.md`. If a CI-only failure appears again, check the env-divergence class FIRST.
 - **Next action:** CLAUDE DESIGN PASS across all screens (functional surface frozen; per P0D.GU a
   redesign replaces .vue files only — routes, controllers, props, guards, and tests stay untouched).
   Then Phase H per the master plan.

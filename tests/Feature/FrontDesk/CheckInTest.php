@@ -3,6 +3,7 @@
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Modules\Audit\Services\AuditService;
 use Modules\FrontDesk\Exceptions\CheckInException;
@@ -29,6 +30,21 @@ use Modules\Scheduling\Services\AppointmentService;
 use Modules\Scheduling\Services\BookingService;
 
 uses(RefreshDatabase::class);
+
+// CI exports CACHE_STORE=redis at the job level and phpunit's <env> does NOT
+// override OS env vars (same root cause as the P0G.G2 queue bug). With a real
+// Redis cache, the kiosk throttle counters persist ACROSS tests, so the
+// rate-limit test below exhausts the 10/min bucket for every later kiosk call
+// (429s seen only in CI, never locally where the array cache dies with each
+// test's app). Config-pinning the store per-test is NOT enough: Fortify's named
+// limiters resolve the RateLimiter singleton at boot, freezing its store.
+// Flushing the cache store per test restores the isolation the suite assumes
+// (a no-op on the local array store; in CI it clears only the dedicated cache
+// DB, never the queue DB). The rate-limit test still proves throttling within
+// its own test. Found by the P0P.G15 parity sweep.
+beforeEach(function (): void {
+    Cache::flush();
+});
 
 function fdCtx(): TenantContext
 {

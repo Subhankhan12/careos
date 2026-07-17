@@ -572,3 +572,22 @@ references the old ID.
   have no branch dimension. `reporting:summary {tenant} {from} {to}` prints the bundle as JSON with a
   D-067-resolved actor — a command, NOT a UI; dashboards are deliberately deferred until discovery says
   which metrics matter (P0P.G14).
+- **D-081 — Mutable moment columns are DATETIME everywhere; MySQL 8 parity is CI-asserted, and CI-only
+  failures are treated as env-divergence first.** The P0P.G15 sweep queried `information_schema` on the
+  dev engine and found MariaDB 10.4's implicit `ON UPDATE CURRENT_TIMESTAMP` (first non-nullable
+  TIMESTAMP column; `explicit_defaults_for_timestamp=OFF`) on NINE columns — six harmless (append-only
+  ledgers whose UPDATE is trigger-blocked: ai_interactions, integrity_checks, messages,
+  payment_allocations, reconciliation_runs, refunds) and THREE reachable divergences fixed to DATETIME:
+  `patient_consents.granted_at` (consent WITHDRAWAL silently rewrote the legally meaningful grant moment
+  on MariaDB, preserved on MySQL 8 — a real cross-engine data bug, regression-tested fail-first),
+  `portal_login_tokens.expires_at` (rewritten on consumption), `thread_reads.read_at` (masked trap).
+  `MutableMomentParityTest` locks it engine-independently: an information_schema guard fails on ANY
+  engine if a non-append-only table carries an `on update` column. Separately, the CI red streak since
+  P0P.G7 (8 commits, unnoticed because gates ran local checks) was NOT an engine bug: CI's job-level
+  `CACHE_STORE=redis` beats phpunit `<env>` (same class as the P0G.G2 queue incident), so kiosk throttle
+  counters persisted across tests in real Redis → 429s only in CI. Fix: flush the cache store per test in
+  CheckInTest (a config pin is insufficient — Fortify resolves the RateLimiter singleton at boot).
+  Verification is now explicit: CI asserts ZERO pending migrations after the from-scratch MySQL 8
+  migrate, and `composer test:mysql` (migrate:fresh + status + full suite against the env-configured,
+  THROWAWAY database) is the documented one-step manual re-verification. All divergences + commands live
+  in `docs/DB-PARITY.md` (P0P.G15).
