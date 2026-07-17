@@ -134,3 +134,16 @@ arch('FrontDesk may use Patients + Scheduling + Audit services but not Audit mod
         'Modules\Comms',
         'Modules\Import',
     ]);
+
+// Reporting is a READ-ONLY aggregation layer: it may read care modules' data
+// through their query surfaces but never writes, and never touches Audit models,
+// AiCore, Comms, Import, or FrontDesk (check-in data lives on appointments).
+arch('Reporting may read care modules but not Audit models, AiCore, Comms, Import, or FrontDesk')
+    ->expect('Modules\Reporting')
+    ->not->toUse([
+        'Modules\Audit\Models',
+        'Modules\AiCore',
+        'Modules\Comms',
+        'Modules\Import',
+        'Modules\FrontDesk',
+    ]);

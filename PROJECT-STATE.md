@@ -658,6 +658,22 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
   per-patient read-audit extended (`includes_vitals_history=true`). Tests: 5 Clinical (two-store merge,
   missing-metric-absent, raw-only, tenant isolation + patient scoping, chart prop + read-log) + 1
   day-pack + 3 PWA display + encrypted round-trip; composer check + build + build:pwa + test:pwa green.
+- **Reporting/metrics service layer (P0P.G14):** NEW `Modules\Reporting` — a tenant-scoped, READ-ONLY
+  aggregation layer (owns no tables, never writes) exposing the UNIVERSAL metric set so dashboards can be
+  wired quickly AFTER discovery says which metrics matter. NO UI (service + `reporting:summary` command
+  only; nothing frontend touched). `MetricsService`: operational (appointments total+per-status, no-shows
+  {count, scheduled, rate}, checked-in count, nursing visits completed, active patients) · financial
+  (integer minor units, F.7 definitions verbatim: invoiced total = I4, payments by received_on,
+  outstanding = I2 projection sum, aging buckets current/1-30/31-60/61-90/90+ by days past due) ·
+  throughput (encounters, signed notes, orders placed — counts only). Facts, not judgments: results are
+  numbers only (recursive shape test: no judgment keys, every leaf int|float); electric fence excludes
+  clinically-interpretive aggregates. Aggregates are not patient records → no patient read-audit (tested:
+  zero audit rows from a full summary). RBAC: NEW `reporting.view` (org_admin + coordinator) for
+  operational/throughput; existing `billing.view` for financial; summary omits the financial section
+  without it. Proven against DemoClinicSeeder's reconciled month: invoicedTotal === I4 expected,
+  outstanding === I2 projection, payments === ledger sum. 10 seeded exact-number tests + arch boundary
+  (Reporting never uses Audit models/AiCore/Comms/Import/FrontDesk). Recorded as D-080; module memory in
+  `memory/modules/Reporting.md`.
 - **Next action:** CLAUDE DESIGN PASS across all screens (functional surface frozen; per P0D.GU a
   redesign replaces .vue files only — routes, controllers, props, guards, and tests stay untouched).
   Then Phase H per the master plan.

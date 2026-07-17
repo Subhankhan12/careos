@@ -549,3 +549,26 @@ references the old ID.
   read-audit is extended with `includes_vitals_history=true`. No new storage schema (data already exists
   per-reading with timestamps). Both stores are tenant-owned so the merge is fail-closed + patient-scoped
   (P0P.G13).
+- **D-080 — Reporting is a read-only facts layer: universal aggregates, no judgments, no UI until
+  discovery.** New `Modules\Reporting` (owns NO tables, runs NO migrations, performs NO writes — proven by
+  an audit-row-count-unchanged test). `MetricsService` exposes the UNIVERSAL set every clinic wants
+  regardless of market: OPERATIONAL appointments-in-range (total + zero-filled per-status breakdown),
+  no-shows ({no_show, scheduled, rate} — denominator = ALL appointments in range, documented),
+  checked-in count (P0P.G7 `checked_in_at` moment), nursing visits completed (by `scheduled_start_at`),
+  active patients (distinct patients with any appointment/encounter/visit in range — a count, never a
+  list); FINANCIAL in integer minor units reusing the F.7 definitions VERBATIM so numbers reconcile with
+  billing (invoiced total = I4's series=INV + frozen statuses + `issue_date` in range; payments by
+  `received_on`; outstanding = point-in-time sum of the I2 `invoice_balances` projection; aging buckets
+  current/1-30/31-60/61-90/90+ by factual days past `due_date` — no "bad debt" labeling); THROUGHPUT
+  counts only (encounters, signed notes, orders placed). Facts, not judgments: results carry ONLY
+  numbers — a recursive shape test asserts no good/bad/high/low/status/grade/score/label keys and every
+  leaf is int|float; the electric fence excludes any clinically-interpretive aggregate (no "sickest
+  patients", no risk scores). Aggregates are NOT patient records → NO patient-scoped read-audit rows
+  (a metric that could resolve to a single patient must be treated as a patient read — none in this set).
+  RBAC: NEW `reporting.view` (org_admin + coordinator) gates operational + throughput; existing
+  `billing.view` gates financial; `ReportingService::summary` requires `reporting.view` and includes the
+  financial section only when the actor also holds `billing.view` (omitted otherwise). Branch filtering
+  only where the table has branch_id (appointments/visits/encounters); invoices/payments/notes/orders
+  have no branch dimension. `reporting:summary {tenant} {from} {to}` prints the bundle as JSON with a
+  D-067-resolved actor — a command, NOT a UI; dashboards are deliberately deferred until discovery says
+  which metrics matter (P0P.G14).

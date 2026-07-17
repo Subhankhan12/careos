@@ -14,6 +14,7 @@ use Modules\Nursing\Providers\NursingServiceProvider;
 use Modules\Patients\Providers\PatientsServiceProvider;
 use Modules\People\Providers\PeopleServiceProvider;
 use Modules\Platform\Providers\PlatformServiceProvider;
+use Modules\Reporting\Providers\ReportingServiceProvider;
 use Modules\Scheduling\Providers\SchedulingServiceProvider;
 
 return [
@@ -31,5 +32,6 @@ return [
     PatientsServiceProvider::class,
     PeopleServiceProvider::class,
     PlatformServiceProvider::class,
+    ReportingServiceProvider::class,
     SchedulingServiceProvider::class,
 ];

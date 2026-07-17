@@ -43,6 +43,7 @@ class RbacProvisioner
         'comms.manage' => 'Manage secure messaging threads',
         'billing.view' => 'View billing',
         'billing.manage' => 'Manage billing tariffs and billable items',
+        'reporting.view' => 'View operational reporting aggregates',
         'audit.view' => 'View the audit log',
         'admin.manage' => 'Manage tenant settings and users',
         'data.import' => 'Import patients from CSV',
@@ -62,14 +63,14 @@ class RbacProvisioner
                 'encounter.manage',
                 'timesheet.approve', 'note.write', 'note.sign', 'note.supervise', 'allergy.override',
                 'snippet.manage.shared', 'order.manage', 'ai.manage', 'comms.manage', 'billing.view',
-                'billing.manage', 'audit.view', 'data.import',
+                'billing.manage', 'reporting.view', 'audit.view', 'data.import',
             ],
         ],
         'coordinator' => [
             'name' => 'Nursing Coordinator',
             'permissions' => [
                 'patient.view', 'appointment.manage', 'agreement.manage', 'dispatch.manage',
-                'competency.manage', 'timesheet.approve',
+                'competency.manage', 'timesheet.approve', 'reporting.view',
             ],
         ],
         'doctor' => [
