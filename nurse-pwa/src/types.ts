@@ -40,7 +40,17 @@ export interface PatientSummary {
     medications: MedicationSummary[];
     problems: ProblemSummary[];
     care_plan_goals: CarePlanGoalSummary[];
+    vitals_history: VitalsHistory;
 }
+
+export interface VitalsPoint {
+    recorded_at: string;
+    value: number | string;
+    source: string;
+}
+
+/** Per-metric unified series (raw values over time only — no interpretation). */
+export type VitalsHistory = Record<string, VitalsPoint[]>;
 
 export interface AllergySummary {
     id: string;

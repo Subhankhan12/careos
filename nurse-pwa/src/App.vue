@@ -14,6 +14,7 @@ import {
     queueVisitVitals,
 } from './visitActions';
 import type { DayPack, TaskSummary, VisitSummary } from './types';
+import { buildVitalsHistoryRows } from './vitalsDisplay';
 
 const { t } = useI18n();
 const email = ref('');
@@ -49,6 +50,10 @@ let stopIdle: (() => void) | null = null;
 const selectedVisit = computed<VisitSummary | null>(() =>
     dayPack.value?.visits.find((visit) => visit.id === selectedVisitId.value) ?? null,
 );
+
+// Recent unified vitals history for the selected visit's patient — raw values over
+// time only (no bands/flags/scores), shown before the capture form.
+const recentVitals = computed(() => buildVitalsHistoryRows(selectedVisit.value?.patient.vitals_history));
 
 async function submitLogin(): Promise<void> {
     await login(email.value, password.value);
@@ -316,6 +321,21 @@ onUnmounted(() => {
                                 </div>
                             </li>
                         </ul>
+                    </section>
+
+                    <section class="vitals-history">
+                        <h4>{{ t('visits.recentVitals') }}</h4>
+                        <p v-if="recentVitals.length === 0">{{ t('visits.noRecentVitals') }}</p>
+                        <div v-for="metric in recentVitals" :key="metric.key" class="vitals-metric">
+                            <strong>{{ t('visits.vitalsMetrics.' + metric.key) }}</strong>
+                            <ul>
+                                <li v-for="(point, index) in metric.points" :key="index">
+                                    <span class="vitals-value">{{ point.value }}</span>
+                                    <span class="vitals-at">{{ point.recorded_at }}</span>
+                                    <span class="vitals-source">{{ t('visits.vitalsSource.' + point.source) }}</span>
+                                </li>
+                            </ul>
+                        </div>
                     </section>
 
                     <section class="entry-panel">

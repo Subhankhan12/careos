@@ -14,6 +14,7 @@ use App\AiCore\Tools\SuggestChargeCodesTool;
 use App\AiCore\Tools\SuggestSlotsTool;
 use App\Audit\AuthAuditSubscriber;
 use App\Audit\PlatformAuditContext;
+use App\Clinical\NursingVisitVitalsReader;
 use App\Comms\AgentInboxDraftProvider;
 use App\Comms\EngineAppointmentReminderChannel;
 use App\Comms\EngineDunningChannel;
@@ -25,6 +26,7 @@ use Modules\AiCore\Services\ToolRegistry;
 use Modules\Audit\Contracts\AuditContext;
 use Modules\Audit\Services\AuditService;
 use Modules\Billing\Channels\EmailDunningChannel;
+use Modules\Clinical\Contracts\VisitVitalsReader;
 use Modules\Clinical\Events\ClinicalNoteAmended;
 use Modules\Clinical\Events\ClinicalNoteSigned;
 use Modules\Clinical\Events\ClinicalRecordChanged;
@@ -82,6 +84,11 @@ class AppServiceProvider extends ServiceProvider
         // G.6 Inbox agent draft lookup (D-017): Comms reads pending AI drafts
         // through a contract implemented here, never depending on AiCore.
         $this->app->bind(InboxDraftProvider::class, AgentInboxDraftProvider::class);
+
+        // P0P.G13 unified vitals history: Clinical reads Nursing-captured visit
+        // vitals through this seam so the two stores merge into one series, without
+        // Clinical depending on Nursing.
+        $this->app->bind(VisitVitalsReader::class, NursingVisitVitalsReader::class);
 
         $this->app->afterResolving(ToolRegistry::class, function (ToolRegistry $registry): void {
             $registry->register($this->app->make(FillFromWaitlistTool::class));

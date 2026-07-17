@@ -9,10 +9,13 @@ use Modules\Clinical\Models\CarePlanGoal;
 use Modules\Clinical\Models\ClinicalTask;
 use Modules\Clinical\Models\Medication;
 use Modules\Clinical\Models\Problem;
+use Modules\Clinical\Models\Vital;
 use Modules\Nursing\Models\AgreementService;
 use Modules\Nursing\Models\PlannedVisit;
 use Modules\Nursing\Models\ServiceAgreement;
+use Modules\Nursing\Models\Visit;
 use Modules\Nursing\Models\VisitPlan;
+use Modules\Nursing\Models\VisitVital;
 use Modules\Patients\Models\Patient;
 use Modules\Patients\Models\PatientContact;
 use Modules\Patients\Services\PatientService;
@@ -270,6 +273,56 @@ test('nurse day-pack returns only the authenticated nurses assigned visits and r
         ->and($readRows[0]->resource_type)->toBe('patient')
         ->and($readRows[0]->resource_id)->toBe($fixture['patient']->id)
         ->and($readRows[0]->patient_id)->toBe($fixture['patient']->id);
+});
+
+test('nurse day-pack includes a unified recent vitals history and records it in the read audit', function () {
+    $fixture = e5Fixture('alpha', 'Alpha');
+
+    // One CLINIC vital and one VISIT vital for the same patient — the two stores.
+    Vital::query()->create([
+        'patient_id' => $fixture['patient']->id,
+        'recorded_at' => '2026-08-01 09:00:00',
+        'systolic' => 118,
+        'diastolic' => 76,
+        'recorded_by' => $fixture['staff']->id,
+    ]);
+    $executionVisit = Visit::query()->create([
+        'patient_id' => $fixture['patient']->id,
+        'resource_id' => $fixture['resource']->id,
+        'branch_id' => $fixture['branch']->id,
+        'scheduled_start_at' => '2026-08-02 09:00:00',
+        'status' => Visit::STATUS_COMPLETED,
+        'client_visit_uuid' => 'vitals-history-uuid',
+    ]);
+    VisitVital::query()->create([
+        'visit_id' => $executionVisit->id,
+        'patient_id' => $fixture['patient']->id,
+        'recorded_at' => '2026-08-02 15:00:00',
+        'systolic' => 131,
+        'spo2' => 96,
+    ]);
+
+    e5Ctx()->set($fixture['tenant']);
+    $token = $fixture['user']->createToken('nurse-device', ['nurse:day-pack'])->plainTextToken;
+
+    $this->withToken($token)
+        ->getJson('/api/nurse/day-pack?date=2026-08-03')
+        ->assertOk()
+        // Unified, most-recent-first, source-tagged, raw values only.
+        ->assertJsonPath('visits.0.patient.vitals_history.systolic.0.value', 131)
+        ->assertJsonPath('visits.0.patient.vitals_history.systolic.0.source', 'visit')
+        ->assertJsonPath('visits.0.patient.vitals_history.systolic.1.value', 118)
+        ->assertJsonPath('visits.0.patient.vitals_history.systolic.1.source', 'clinic')
+        ->assertJsonPath('visits.0.patient.vitals_history.spo2.0.value', 96)
+        // No interpretation leaks into the payload.
+        ->assertJsonMissingPath('visits.0.patient.vitals_history.systolic.0.flag')
+        ->assertJsonMissingPath('visits.0.patient.vitals_history.systolic.0.band');
+
+    $readRows = e5AuditRows($fixture['tenant']->id, 'read');
+
+    expect($readRows)->toHaveCount(1)
+        ->and($readRows[0]->patient_id)->toBe($fixture['patient']->id)
+        ->and(json_decode($readRows[0]->context, true)['includes_vitals_history'])->toBeTrue();
 });
 
 test('nurse device login requires credentials tenant staff and completed MFA', function () {

@@ -73,6 +73,15 @@ components. D.8 adds governed clinical agents through app-layer AiCore integrati
   documented allergies; throws on conflict.
 - `Services\ClinicalListService` - records problems, allergies, and vitals, and read-logs all
   four clinical lists for a patient.
+- `Support\VitalsSeries` (P0P.G13) - PURE, no model deps: merges a flat reading list into a
+  per-metric, time-ordered (most-recent-first), source-tagged (`clinic`|`visit`) series; a
+  null/absent metric is absent from that metric series, never zero-filled. No interpretation.
+- `Contracts\VisitVitalsReader` + `Services\VitalsHistoryService` (P0P.G13) - `VitalsHistoryService::
+  forPatient(patientId, ?perMetricLimit)` returns the UNIFIED vitals series merging the Clinical
+  `Vital` store with Nursing `visit_vitals` read through the `VisitVitalsReader` seam (impl
+  `App\Clinical\NursingVisitVitalsReader` in the app layer, since Clinical may not import Nursing).
+  Output is raw values only (`{recorded_at,value,source}`) — no bands/flags/scores/deltas. Consumed by
+  the chart (`vitalsHistory` companion prop) and the nurse PWA day-pack (recent 5/metric).
 - `Services\MedicationService` - records medications through the allergy hard-stop; override
   requires `allergy.override` plus a non-empty reason.
 - `Events\ClinicalRecordChanged` - app-layer audit glue writes clinical-list change events.

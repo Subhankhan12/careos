@@ -23,13 +23,14 @@ use Modules\Clinical\Models\Referral;
 use Modules\Clinical\Models\Vital;
 use Modules\Clinical\Services\ClinicalNoteService;
 use Modules\Clinical\Services\OrderService;
+use Modules\Clinical\Services\VitalsHistoryService;
 use Modules\Patients\Models\Patient;
 use Modules\People\Models\StaffProfile;
 use Modules\Platform\Models\User;
 
 class ClinicalChartController
 {
-    public function __invoke(Request $request, string $patient, ClinicalNoteService $notes, OrderService $orders): Response
+    public function __invoke(Request $request, string $patient, ClinicalNoteService $notes, OrderService $orders, VitalsHistoryService $vitalsHistory): Response
     {
         Gate::authorize('patient.view');
 
@@ -112,6 +113,11 @@ class ClinicalChartController
                     'extra' => $vital->extra,
                 ])
                 ->all(),
+            // Companion prop (additive): the UNIFIED per-metric series merging the
+            // Clinical `vitals` and Nursing `visit_vitals` stores, source-tagged,
+            // raw values only (no bands/flags/scores/deltas). The existing flat
+            // `vitals` list above is left untouched.
+            'vitalsHistory' => $vitalsHistory->forPatient($record->id)['metrics'],
             'medications' => Medication::query()
                 ->where('patient_id', $record->id)
                 ->orderByDesc('recorded_at')

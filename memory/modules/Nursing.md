@@ -203,6 +203,11 @@ and validator-bound dispatch agent proposals.
   nurse, never another nurse's visits or another tenant's rows.
 - Day-pack patient data is intentionally minimal: visit windows/address/tasks plus allergies,
   active medications, active problems, active care-plan goals, and same-day open/in-progress tasks.
+- Day-pack also carries a SMALL recent `vitals_history` per patient (P0P.G13): the UNIFIED per-metric
+  series (Clinical `vitals` + this module's `visit_vitals`) built by Clinical's `VitalsHistoryService`
+  (5 readings/metric, raw values + `clinic`/`visit` source only, no interpretation). It rides the D-E2
+  encrypted store; the per-patient read audit gains `includes_vitals_history=true`. The two vitals
+  stores are unified for read only — `visit_vitals` remains the nurse-captured write store.
 - Every patient included in a day-pack sync writes a patient-scoped `read` audit row with surface
   `nurse_day_pack`.
 - D-E2 storage posture: the PWA stores only AES-GCM ciphertext in Dexie/IndexedDB. The key is

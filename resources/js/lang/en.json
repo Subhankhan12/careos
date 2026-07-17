@@ -368,6 +368,31 @@
             "carePlanGoals": "Goals",
             "referrals": "Referrals",
             "recalls": "Recalls",
+            "vitalsHistory": {
+                "log": "All readings",
+                "metrics": {
+                    "systolic": "Systolic",
+                    "diastolic": "Diastolic",
+                    "heart_rate": "Heart rate",
+                    "temperature_c": "Temperature",
+                    "spo2": "SpO2",
+                    "weight_g": "Weight",
+                    "height_mm": "Height"
+                },
+                "units": {
+                    "systolic": "mmHg",
+                    "diastolic": "mmHg",
+                    "heart_rate": "bpm",
+                    "temperature_c": "°C",
+                    "spo2": "%",
+                    "weight_g": "g",
+                    "height_mm": "mm"
+                },
+                "source": {
+                    "clinic": "Clinic",
+                    "visit": "Visit"
+                }
+            },
             "aiSummary": {
                 "title": "AI summary draft",
                 "status": "Status: {status}",

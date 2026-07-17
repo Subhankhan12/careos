@@ -27,6 +27,7 @@ const props = defineProps<{
     problems: Array<{ id: string; description: string; code: string | null; status: string; recorded_at: string; resolved_at: string | null }>;
     allergies: Array<{ id: string; substance: string; reaction: string | null; severity: string; status: string; verified_at: string | null }>;
     vitals: Array<{ id: string; recorded_at: string; systolic: number | null; diastolic: number | null; heart_rate: number | null; temperature_c: string | null; spo2: number | null; weight_g: number | null; height_mm: number | null; extra: Record<string, unknown> | null }>;
+    vitalsHistory: Record<string, Array<{ recorded_at: string; value: number | string; source: string }>>;
     medications: Array<{ id: string; name: string; dose_text: string | null; route: string | null; frequency_text: string | null; status: string; started_on: string; ended_on: string | null }>;
     documents: Array<{ id: string; category: string; title: string; original_filename: string; uploaded_at: string; shared_with_patient: boolean; download_url: string }>;
     carePlans: Array<{
@@ -129,6 +130,16 @@ const encounterTimeline = computed(() =>
     })),
 );
 
+// Neutral per-metric ordering for the trend view. Units are labels only — no
+// conversion, no reference ranges, no bands. Raw values over time, that's all.
+const METRIC_KEYS = ['systolic', 'diastolic', 'heart_rate', 'temperature_c', 'spo2', 'weight_g', 'height_mm'] as const;
+
+const metricSeries = computed(() =>
+    METRIC_KEYS
+        .map((key) => ({ key, points: props.vitalsHistory?.[key] ?? [] }))
+        .filter((metric) => metric.points.length > 0),
+);
+
 function rawVital(vital: typeof props.vitals[number]): string {
     return [
         vital.systolic !== null || vital.diastolic !== null ? `${vital.systolic ?? '-'} / ${vital.diastolic ?? '-'}` : null,
@@ -223,12 +234,37 @@ function insertSummary(): void {
                         <p v-if="problems.length === 0" class="text-sm text-ink-muted">{{ t('clinical.chart.empty') }}</p>
                     </section>
 
-                    <section v-if="activeTab === 'vitals'" class="space-y-3">
-                        <div v-for="vital in vitals" :key="vital.id" class="rounded-md border border-line p-4">
-                            <p class="font-semibold text-ink">{{ vital.recorded_at }}</p>
-                            <p class="text-sm text-ink-muted">{{ rawVital(vital) || '-' }}</p>
+                    <section v-if="activeTab === 'vitals'" class="space-y-6">
+                        <!-- Per-metric trend: each metric is its own time-ordered
+                             column of raw values (clinic + visit merged). Neutral
+                             styling only — no bands, ranges, flags, arrows, or scores. -->
+                        <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                            <div v-for="metric in metricSeries" :key="metric.key" class="rounded-md border border-line p-4">
+                                <p class="text-sm font-semibold text-ink">
+                                    {{ t('clinical.chart.vitalsHistory.metrics.' + metric.key) }}
+                                    <span class="font-normal text-ink-muted">{{ t('clinical.chart.vitalsHistory.units.' + metric.key) }}</span>
+                                </p>
+                                <table class="mt-2 w-full text-left text-sm">
+                                    <tbody>
+                                        <tr v-for="(point, index) in metric.points" :key="index" class="border-t border-line/60 first:border-t-0">
+                                            <td class="py-1 pr-3 tabular-nums text-ink">{{ point.value }}</td>
+                                            <td class="py-1 pr-3 text-ink-muted">{{ point.recorded_at }}</td>
+                                            <td class="py-1 text-xs text-ink-muted">{{ t('clinical.chart.vitalsHistory.source.' + point.source) }}</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
                         </div>
-                        <p v-if="vitals.length === 0" class="text-sm text-ink-muted">{{ t('clinical.chart.empty') }}</p>
+                        <p v-if="metricSeries.length === 0" class="text-sm text-ink-muted">{{ t('clinical.chart.empty') }}</p>
+
+                        <!-- The existing per-reading log is retained below. -->
+                        <div v-if="vitals.length > 0" class="space-y-3">
+                            <p class="text-sm font-semibold text-ink">{{ t('clinical.chart.vitalsHistory.log') }}</p>
+                            <div v-for="vital in vitals" :key="vital.id" class="rounded-md border border-line p-4">
+                                <p class="font-semibold text-ink">{{ vital.recorded_at }}</p>
+                                <p class="text-sm text-ink-muted">{{ rawVital(vital) || '-' }}</p>
+                            </div>
+                        </div>
                     </section>
 
                     <section v-if="activeTab === 'medications'" class="space-y-3">

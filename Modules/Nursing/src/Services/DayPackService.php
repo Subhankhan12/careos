@@ -10,6 +10,7 @@ use Modules\Clinical\Models\CarePlanGoal;
 use Modules\Clinical\Models\ClinicalTask;
 use Modules\Clinical\Models\Medication;
 use Modules\Clinical\Models\Problem;
+use Modules\Clinical\Services\VitalsHistoryService;
 use Modules\Nursing\Models\PlannedVisit;
 use Modules\Nursing\Models\Visit;
 use Modules\Nursing\Models\VisitTask;
@@ -23,7 +24,17 @@ use Symfony\Component\HttpKernel\Exception\HttpException;
 
 class DayPackService
 {
-    public function __construct(private readonly TenantContext $tenantContext) {}
+    /**
+     * Recent vitals readings surfaced per metric on the device. Kept small to
+     * respect the day-scoped principle — this is context before capture, not a
+     * chart export.
+     */
+    private const RECENT_VITALS_PER_METRIC = 5;
+
+    public function __construct(
+        private readonly TenantContext $tenantContext,
+        private readonly VitalsHistoryService $vitalsHistory,
+    ) {}
 
     /**
      * D-E2: the offline day-pack is deliberately scoped to one nurse, one day,
@@ -75,6 +86,9 @@ class DayPackService
             $patient->auditRead([
                 'surface' => 'nurse_day_pack',
                 'date' => $date->toDateString(),
+                // The pack now carries a small recent vitals history for this
+                // patient; record that in the read trail (D-E2 posture).
+                'includes_vitals_history' => true,
             ]);
         }
 
@@ -121,6 +135,7 @@ class DayPackService
                 'medications' => $this->medicationsFor($patient),
                 'problems' => $this->problemsFor($patient),
                 'care_plan_goals' => $this->carePlanGoalsFor($patient),
+                'vitals_history' => $this->vitalsHistoryFor($patient),
             ],
             'tasks' => $this->tasksFor($patient, $visit),
         ];
@@ -186,6 +201,18 @@ class DayPackService
             ])
             ->values()
             ->all();
+    }
+
+    /**
+     * A small, recent, UNIFIED per-metric vitals history (Clinical `vitals` +
+     * Nursing `visit_vitals`) so a nurse can see prior readings before capturing
+     * new ones. Raw values over time only — no bands, flags, or scores.
+     *
+     * @return array<string, list<array{recorded_at: string, value: mixed, source: string}>>
+     */
+    private function vitalsHistoryFor(Patient $patient): array
+    {
+        return $this->vitalsHistory->forPatient($patient->id, self::RECENT_VITALS_PER_METRIC)['metrics'];
     }
 
     /**

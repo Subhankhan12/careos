@@ -26,6 +26,7 @@ import {
 
 const knownAllergy = 'Penicillin';
 const sessionToken = 'plain-session-token-never-persisted';
+const distinctiveVitalsAt = '2099-12-31 23:59:59';
 
 function pack(): DayPack {
     return {
@@ -58,6 +59,18 @@ function pack(): DayPack {
                     medications: [],
                     problems: [],
                     care_plan_goals: [],
+                    vitals_history: {
+                        systolic: [
+                            { recorded_at: distinctiveVitalsAt, value: 131, source: 'visit' },
+                            { recorded_at: '2026-08-01 09:00:00', value: 118, source: 'clinic' },
+                        ],
+                        diastolic: [{ recorded_at: '2026-08-01 09:00:00', value: 76, source: 'clinic' }],
+                        heart_rate: [],
+                        temperature_c: [],
+                        spo2: [],
+                        weight_g: [],
+                        height_mm: [],
+                    },
                 },
                 tasks: [{ id: 'task-1', title: 'Bring supplies', description: null, due_at: '2026-08-03T07:30:00Z', priority: 'normal', status: 'open' }],
             },
@@ -191,6 +204,21 @@ describe('encrypted day-pack store', () => {
         expect(raw).not.toContain(knownAllergy);
         expect(raw).not.toContain('Day Pack');
         expect(raw).not.toContain(sessionToken);
+    });
+
+    test('recent vitals history round-trips through the encrypted store with no plaintext in IndexedDB', async () => {
+        await setSessionToken(sessionToken);
+        await saveDayPack(pack());
+
+        const loaded = await loadDayPack();
+        const systolic = loaded?.visits[0].patient.vitals_history.systolic ?? [];
+
+        expect(systolic).toHaveLength(2);
+        expect(systolic[0]).toEqual({ recorded_at: distinctiveVitalsAt, value: 131, source: 'visit' });
+        expect(systolic[1].source).toBe('clinic');
+
+        // The distinctive vitals timestamp must not appear as plaintext at rest.
+        expect(await rawIndexedDbPayload()).not.toContain(distinctiveVitalsAt);
     });
 
     test('wipeLocalStore empties encrypted records and clears the in-memory key', async () => {

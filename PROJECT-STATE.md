@@ -643,6 +643,21 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
   admin page + dispatch soft-warning banner; no existing dispatch page contract changed. 10 feature
   tests; existing assignment/parallel-hammer/dispatch-agent suites still green. composer check green;
   npm run build green.
+- **Unified vitals trends (P0P.G13):** a patient's vitals are now a per-metric time series (not a text
+  list), UNIFYING the two raw stores — Clinical `vitals` (staff/encounter) + Nursing `visit_vitals`
+  (PWA) — so no reading is invisible. NO storage schema (data already per-reading with timestamps).
+  `Clinical\Support\VitalsSeries` (pure) merges a reading list into per-metric, most-recent-first,
+  source-tagged (`clinic`|`visit`) arrays; a null/absent metric is absent from that series, never
+  zero-filled. `VitalsHistoryService` (Clinical) combines the `Vital` model with Nursing visit vitals
+  read through the `VisitVitalsReader` CONTRACT — impl `App\Clinical\NursingVisitVitalsReader` lives in
+  the app layer because the boundary forbids Clinical→Nursing (arch test still green). ELECTRIC FENCE:
+  output is `{recorded_at,value,source}` only — no bands/ranges/flags/normal-abnormal/scores/arrows/
+  deltas (asserted PHP + PWA). Chart gains an additive `vitalsHistory` companion prop (flat `vitals`
+  prop untouched) rendered as neutral per-metric tables; the nurse PWA day-pack gains a small recent
+  `vitals_history` (5/metric) shown above the capture form, riding the D-E2 encrypted store with the
+  per-patient read-audit extended (`includes_vitals_history=true`). Tests: 5 Clinical (two-store merge,
+  missing-metric-absent, raw-only, tenant isolation + patient scoping, chart prop + read-log) + 1
+  day-pack + 3 PWA display + encrypted round-trip; composer check + build + build:pwa + test:pwa green.
 - **Next action:** CLAUDE DESIGN PASS across all screens (functional surface frozen; per P0D.GU a
   redesign replaces .vue files only — routes, controllers, props, guards, and tests stay untouched).
   Then Phase H per the master plan.

@@ -529,3 +529,23 @@ references the old ID.
   `NurseCompetencyChanged` events (patient_id null — this is agency dispatch policy, not patient data).
   Net-new additive `Nursing/Competencies.vue` admin page + dispatch soft-warning banner; no existing
   dispatch page contract changed (P0P.G12).
+- **D-079 — Vitals history is one UNIFIED per-metric series merged from BOTH stores; raw values only.**
+  `vitals` (Clinical, staff/encounter-captured) and `visit_vitals` (Nursing, PWA-captured) are separate
+  tables with the same D.3 shape; a history that showed only one would silently hide half a patient's
+  readings. `VitalsSeries` (pure, `Modules\Clinical\Support`, no model deps) merges a flat list of
+  readings into a per-metric, time-ordered (most-recent-first), source-tagged (`clinic`|`visit`) series;
+  a metric null/absent in a reading is simply absent from that metric's series, NEVER zero-filled.
+  `VitalsHistoryService` (Clinical) combines the Clinical `Vital` model with Nursing visit vitals read
+  through the `VisitVitalsReader` CONTRACT — because the module boundary forbids Clinical→Nursing, the
+  implementation (`App\Clinical\NursingVisitVitalsReader`, reads `Nursing\VisitVital`) lives in the app
+  layer, which may depend on both; bound in `AppServiceProvider`. The Nursing `DayPackService` (Nursing
+  MAY use Clinical) calls the same service for a SMALL recent history (5 per metric) so it stays the single
+  source of truth. ELECTRIC FENCE is absolute: the output carries ONLY `{recorded_at, value, source}` per
+  point — no band/range/flag/normal/abnormal/score/arrow/delta/min/max anywhere (asserted in PHP + PWA
+  tests). Chart: additive companion prop `vitalsHistory` (the existing flat `vitals` prop is untouched);
+  the vitals tab renders a neutral per-metric table (value+time+source). Nurse PWA: the day-pack patient
+  payload gains `vitals_history`, shown above the capture form as raw values over time; it rides the D-E2
+  encrypted store (encrypted at rest, wiped on logout/401/idle — asserted) and the existing per-patient
+  read-audit is extended with `includes_vitals_history=true`. No new storage schema (data already exists
+  per-reading with timestamps). Both stores are tenant-owned so the merge is fail-closed + patient-scoped
+  (P0P.G13).
