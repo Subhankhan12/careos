@@ -606,3 +606,23 @@ references the old ID.
   verifies), `now()` never rewound, business dates explicit. HONESTY boundary: bills EU-GENERIC — the
   CH/KVG pack is deferred pending discovery; no claims/eRx/electronic-lab data is implied, lab results
   are manual. Stand up the demo: `php artisan db:seed --class=DemoSpitexSeeder` (P0P.G16).
+- **D-083 — Eucalyptus Glow is wired as the design foundation; re-skin ONLY, the @theme tokens are the
+  single source of truth.** CLINIC.W1 (first wiring gate of the clinic-vertical delivery) establishes the
+  Eucalyptus Glow palette in `resources/css/app.css`: euca-50..900 ramp (#F7FAF5→#35462F; 400 = brand,
+  700 = interactive, 800 = hover, 900 = deep accent tile), ink #2A332A / #5A665A / #6C776C, warm surfaces
+  #F4EFE6 + #FCFAF5, hairline #DCE8D7, workflow semantics danger #B4552D / warning #C99B3F / success
+  #4E7A47 / info #5B7A8C (+ softs), plus reusable utilities `.euca-wash`, `.glass-card` (white .82→.5,
+  blur 24px, radius 20px, eucalyptus glow shadow), `.euca-tile-dark` (exactly ONE deep tile per screen),
+  `.btn-glow`, `.nav-pill-active`. Legacy `brand-*` tokens are REPOINTED onto the euca ramp so every
+  un-re-skinned screen inherits the new palette with no per-screen edits. Per P0D.GU the wiring touches
+  `.vue` / `.css` / `.json` ONLY — routes, controllers, props, guards, and TESTS are untouched, and the
+  frozen `AppShellTest` assertInertia checks (component names + props) pass unchanged. Landings are
+  PROPLESS: they render the full frame with "—" placeholders + empty states and bind ONLY to
+  already-shared Inertia props (appName / locale / auth / flash) — never inventing a backend prop; a live
+  date chip legitimately uses the client clock (presentational, not fabricated business data). Design
+  fidelity comes from RENDERING the compiled prototype bundles (`resources/prototype/*.html`, now
+  gitignored — 52 MB) with a browser and rebuilding cleanly as Vue, never lifting compiled markup. Two
+  reusable conventions land here for later gates: the segmented `CodeInput` composes one form value, and
+  vue-i18n messages must escape a literal `@` as `{'@'}` (it is the linked-message metacharacter — a raw
+  `@` throws at compile time). Wire order for the remaining clinic+shared screens follows
+  `docs/CLINIC-DELIVERY-MAP.md`. (CLINIC.W1)

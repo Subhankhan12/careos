@@ -45,29 +45,49 @@ onMounted(startEnrollment);
         <Head :title="t('auth.twoFactor.enrollTitle')" />
         <Card :title="t('auth.twoFactor.enrollTitle')" :subtitle="t('auth.twoFactor.enrollSubtitle')">
             <div v-if="ready" class="space-y-6">
-                <div>
-                    <p class="mb-3 text-sm text-ink-muted">{{ t('auth.twoFactor.enrollStep1') }}</p>
-                    <div class="inline-block rounded-lg border border-line bg-surface p-3" v-html="qrSvg" />
-                </div>
+                <!-- Step 1 — scan QR (server SVG via v-html, never an <img>). -->
+                <section class="flex gap-3">
+                    <span class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-euca-100 text-sm font-semibold text-euca-800">1</span>
+                    <div class="flex-1">
+                        <h2 class="text-sm font-semibold text-ink">{{ t('auth.twoFactor.enrollStep1') }}</h2>
+                        <div class="mt-3 inline-block rounded-xl border border-line bg-surface p-3" v-html="qrSvg" />
+                    </div>
+                </section>
 
-                <div>
-                    <h2 class="mb-1 text-sm font-semibold text-ink">{{ t('auth.twoFactor.recoveryCodesTitle') }}</h2>
-                    <p class="mb-2 text-sm text-ink-muted">{{ t('auth.twoFactor.recoveryCodesHint') }}</p>
-                    <ul class="grid grid-cols-2 gap-1 rounded-md bg-surface-muted p-3 font-mono text-sm text-ink">
-                        <li v-for="rc in recoveryCodes" :key="rc">{{ rc }}</li>
-                    </ul>
-                </div>
+                <!-- Step 2 — recovery codes (selectable text, never an image). -->
+                <section class="flex gap-3">
+                    <span class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-euca-100 text-sm font-semibold text-euca-800">2</span>
+                    <div class="flex-1">
+                        <h2 class="text-sm font-semibold text-ink">{{ t('auth.twoFactor.recoveryCodesTitle') }}</h2>
+                        <div class="mt-2 rounded-xl border border-warning/40 bg-warning-soft p-3">
+                            <p class="flex items-start gap-1.5 text-sm text-ink">
+                                <svg class="mt-0.5 h-4 w-4 shrink-0 text-warning" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                                    <path d="M12 4 21 19H3L12 4Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" />
+                                    <path d="M12 10v4M12 16.5v.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" />
+                                </svg>
+                                {{ t('auth.twoFactor.recoveryCodesHint') }}
+                            </p>
+                            <ul class="mt-3 grid grid-cols-2 gap-1 font-mono text-sm text-ink">
+                                <li v-for="rc in recoveryCodes" :key="rc">{{ rc }}</li>
+                            </ul>
+                        </div>
+                    </div>
+                </section>
 
-                <form class="space-y-4" @submit.prevent="confirm">
-                    <Input
-                        id="code"
-                        v-model="code"
-                        :label="t('auth.twoFactor.enrollStep2')"
-                        autocomplete="one-time-code"
-                        :error="error"
-                    />
-                    <Button type="submit">{{ t('auth.twoFactor.confirm') }}</Button>
-                </form>
+                <!-- Step 3 — confirm a code. -->
+                <section class="flex gap-3">
+                    <span class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-euca-100 text-sm font-semibold text-euca-800">3</span>
+                    <form class="flex-1 space-y-3" @submit.prevent="confirm">
+                        <Input
+                            id="code"
+                            v-model="code"
+                            :label="t('auth.twoFactor.enrollStep2')"
+                            autocomplete="one-time-code"
+                            :error="error"
+                        />
+                        <Button type="submit">{{ t('auth.twoFactor.confirm') }}</Button>
+                    </form>
+                </section>
             </div>
         </Card>
     </GuestLayout>

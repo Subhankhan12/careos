@@ -706,6 +706,21 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
   threads (one flagged-clinical), 2 KB articles, 2 pending do-nothing AI approvals; P.14 reporting
   returns non-trivial numbers incl. a real no-show. Audit chain verifies; the paired test proves
   idempotency + reconciliation + the competency hard-block/expired-block/soft-warn demos on seeded data.
-- **Next action:** CLAUDE DESIGN PASS across all screens (functional surface frozen; per P0D.GU a
-  redesign replaces .vue files only — routes, controllers, props, guards, and tests stay untouched).
-  Then Phase H per the master plan.
+- **Design wiring BEGUN — CLINIC vertical first (CLINIC.W1):** delivery #1 is the CLINIC vertical to a
+  paying customer, wiring the exact "Eucalyptus Glow" prototype design onto the built clinic backend
+  (`docs/CLINIC-DELIVERY-MAP.md` is the wire order; 25 wire-ready clinic+shared screens). CLINIC.W1 wired
+  the FOUNDATION every later screen inherits: the Eucalyptus Glow `@theme` tokens + utilities in
+  `resources/css/app.css` (euca-50..900 #F7FAF5→#35462F, ink/surface/hairline/semantics, `.euca-wash`
+  `.glass-card` `.euca-tile-dark` `.btn-glow` `.nav-pill-active`; legacy `brand-*` repointed onto the
+  euca ramp), the shared shell (AppLayout glass top-bar + pill nav + avatar; GuestLayout warm wash +
+  brand lockup), the shared primitives (Card/Button/Input uplift + new BrandMark/CodeInput/PageHeader/
+  StatCard), the Auth pages (Login / TwoFactorChallenge segmented / TwoFactorEnroll), and both Landings
+  (propless frames — "—" placeholders + empty states, bound only to shared props). RE-SKIN ONLY per
+  P0D.GU: no route/controller/prop/guard/test changed; `AppShellTest` auth+landing assertInertia tests
+  pass UNCHANGED. Prototype pack (`resources/prototype/`, 52 MB compiled bundles) is gitignored (the map
+  is committed). Verified: npm run build green; composer check FULLY green (Pint passed · PHPStan L5 [OK]
+  No errors · **Pest 582 passed / 4198 assertions**) with ZERO test edits; adversarial 4-dimension review
+  workflow → 0 confirmed defects. Recorded as D-083 (CLINIC.W1).
+- **Next action:** continue the `docs/CLINIC-DELIVERY-MAP.md` WIRE ORDER for the remaining clinic+shared
+  screens (Portal shell/login → lists → detail views → chart/note-editor last), same re-skin discipline
+  (P0D.GU: `.vue` only; routes/controllers/props/guards/tests frozen). Then Phase H per the master plan.

@@ -3,9 +3,13 @@
         "name": "CareOS",
         "signOut": "Sign out",
         "nav": {
+            "dashboard": "Dashboard",
             "patients": "Patients",
             "register": "Register",
             "schedule": "Schedule",
+            "scheduling": "Scheduling",
+            "nursing": "Nursing",
+            "inbox": "Inbox",
             "import": "Import"
         }
     },
@@ -92,21 +96,25 @@
     "auth": {
         "login": {
             "title": "Sign in",
-            "subtitle": "Access your CareOS workspace.",
+            "subtitle": "Staff and administrator access.",
             "email": "Email",
+            "emailPlaceholder": "you{'@'}clinic.example",
             "password": "Password",
+            "togglePassword": "Show or hide password",
             "remember": "Remember me",
             "submit": "Sign in",
+            "submitting": "Signing in…",
             "invalid": "Those credentials do not match our records."
         },
         "twoFactor": {
-            "challengeTitle": "Two-factor authentication",
-            "challengeSubtitle": "Enter the code from your authenticator app.",
+            "challengeTitle": "Two-factor check",
+            "challengeSubtitle": "Enter the 6-digit code from your authenticator app.",
             "code": "Authentication code",
             "recoveryCode": "Recovery code",
-            "useRecovery": "Use a recovery code",
-            "useCode": "Use an authentication code",
+            "useRecovery": "Use a recovery code instead",
+            "useCode": "Use an authenticator code instead",
             "verify": "Verify",
+            "verifying": "Verifying…",
             "enrollTitle": "Set up two-factor authentication",
             "enrollSubtitle": "Two-factor authentication is required for every account. Scan the QR code with your authenticator app, then confirm the generated code.",
             "enrollStep1": "Scan this QR code with your authenticator app.",
@@ -118,15 +126,44 @@
         }
     },
     "shell": {
+        "platformScope": "Platform · super-admin",
+        "search": "Search",
+        "notifications": "Notifications",
         "app": {
             "title": "Workspace",
             "welcome": "Welcome to your CareOS workspace.",
-            "empty": "Your tools will appear here as the platform is built out."
+            "empty": "Your tools will appear here as the platform is built out.",
+            "glanceTitle": "Today at a glance",
+            "glancePending": "Live figures appear here once your day is connected.",
+            "registerPatient": "Register patient",
+            "openDayBoard": "Open day-board",
+            "statPending": "Awaiting live data",
+            "kpiAppointments": "Appointments",
+            "kpiWaiting": "Waiting room",
+            "kpiUnsigned": "Unsigned notes",
+            "kpiThreads": "Open threads",
+            "scheduleTitle": "Today's schedule",
+            "scheduleEmpty": "Nothing scheduled yet — quick-book the day's first appointment.",
+            "approvalsTitle": "Pending approvals",
+            "approvalsEmpty": "All caught up.",
+            "nursingDispatch": "Nursing dispatch",
+            "unifiedInbox": "Unified inbox"
         },
         "admin": {
             "title": "Platform administration",
             "welcome": "Platform administration",
-            "empty": "Tenant and platform controls will appear here."
+            "empty": "Tenant and platform controls will appear here.",
+            "overview": "Platform overview",
+            "scopeNote": "Tenant-app links in this shared shell act only when impersonating a tenant.",
+            "pending": "Awaiting live data",
+            "kpiTenants": "Active tenants",
+            "kpiHealth": "System health",
+            "kpiAgents": "Agent actions pending",
+            "kpiNewTenants": "New tenants · 30 days",
+            "tenantsTitle": "Tenants",
+            "tenantsEmpty": "Tenant management appears here once the platform console is wired.",
+            "serviceChecks": "Service checks",
+            "recentActions": "Recent platform actions"
         }
     },
     "patients": {

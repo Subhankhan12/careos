@@ -2,11 +2,35 @@
 import { Link, router, usePage } from '@inertiajs/vue3';
 import { computed } from 'vue';
 import { useI18n } from 'vue-i18n';
+import BrandMark from '@/Components/BrandMark.vue';
 
 const { t } = useI18n();
 const page = usePage();
 
-const user = computed(() => (page.props.auth as { user: { name: string } | null }).user);
+const user = computed(
+    () => (page.props.auth as { user: { name: string; isSuperAdmin: boolean } | null }).user,
+);
+const isSuperAdmin = computed(() => user.value?.isSuperAdmin ?? false);
+
+const initials = computed(() => {
+    const name = user.value?.name?.trim() ?? '';
+    if (!name) return '';
+    const parts = name.split(/\s+/);
+    return (parts[0]?.[0] ?? '') + (parts.length > 1 ? (parts[parts.length - 1][0] ?? '') : '');
+});
+
+const nav = [
+    { key: 'app.nav.dashboard', href: '/app' },
+    { key: 'app.nav.patients', href: '/patients' },
+    { key: 'app.nav.scheduling', href: '/scheduling/day-board' },
+    { key: 'app.nav.nursing', href: '/nursing/dispatch' },
+    { key: 'app.nav.inbox', href: '/comms/inbox' },
+];
+
+function isActive(href: string): boolean {
+    const url = page.url;
+    return href === '/app' ? url === '/app' || url === '/admin' : url.startsWith(href);
+}
 
 function signOut(): void {
     router.post('/logout');
@@ -14,32 +38,88 @@ function signOut(): void {
 </script>
 
 <template>
-    <div class="min-h-full bg-surface-muted">
-        <header class="border-b border-line bg-surface">
-            <div class="mx-auto flex h-14 max-w-6xl items-center justify-between px-4">
-                <div class="flex items-center gap-2">
-                    <span class="flex h-7 w-7 items-center justify-center rounded-md bg-brand-600 text-sm font-bold text-white">C</span>
-                    <span class="font-semibold tracking-tight text-ink">{{ t('app.name') }}</span>
-                </div>
-                <nav class="hidden items-center gap-4 text-sm font-medium text-ink-muted md:flex">
-                    <Link href="/patients" class="transition hover:text-ink">{{ t('app.nav.patients') }}</Link>
-                    <Link href="/patients/register" class="transition hover:text-ink">{{ t('app.nav.register') }}</Link>
-                    <Link href="/scheduling/day-board" class="transition hover:text-ink">{{ t('app.nav.schedule') }}</Link>
-                    <Link href="/imports" class="transition hover:text-ink">{{ t('app.nav.import') }}</Link>
-                </nav>
-                <div class="flex items-center gap-4">
-                    <span v-if="user" class="text-sm text-ink-muted">{{ user.name }}</span>
-                    <button
-                        type="button"
-                        class="text-sm font-medium text-ink-muted transition hover:text-ink"
-                        @click="signOut"
-                    >
-                        {{ t('app.signOut') }}
-                    </button>
+    <div class="euca-wash relative min-h-full">
+        <header class="sticky top-0 z-30 px-4 pt-4">
+            <div class="mx-auto max-w-7xl">
+                <div class="glass-card flex h-16 items-center justify-between gap-4 px-4 sm:px-5">
+                    <!-- Identity cluster: brand + platform scope for super-admins. -->
+                    <div class="flex items-center gap-3">
+                        <BrandMark size="sm" />
+                        <div class="flex flex-col leading-tight">
+                            <span class="text-sm font-semibold tracking-tight text-ink">{{ t('app.name') }}</span>
+                            <span v-if="isSuperAdmin" class="text-xs text-ink-subtle">{{ t('shell.platformScope') }}</span>
+                        </div>
+                    </div>
+
+                    <!-- Center pill nav on an ivory well; active = gradient white pill. -->
+                    <nav class="hidden items-center gap-1 rounded-full bg-euca-50/80 p-1 md:flex">
+                        <Link
+                            v-for="item in nav"
+                            :key="item.href"
+                            :href="item.href"
+                            class="rounded-full px-3.5 py-1.5 text-sm font-medium transition"
+                            :class="isActive(item.href) ? 'nav-pill-active text-ink' : 'text-ink-muted hover:text-ink'"
+                        >
+                            {{ t(item.key) }}
+                        </Link>
+                    </nav>
+
+                    <!-- Right icon cluster + avatar + sign out. -->
+                    <div class="flex items-center gap-1.5 sm:gap-2">
+                        <button
+                            type="button"
+                            :aria-label="t('shell.search')"
+                            class="hidden h-9 w-9 items-center justify-center rounded-full text-ink-muted transition hover:bg-euca-50 hover:text-ink sm:flex"
+                        >
+                            <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                                <circle cx="11" cy="11" r="6.5" stroke="currentColor" stroke-width="1.6" />
+                                <path d="M20 20l-3.5-3.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" />
+                            </svg>
+                        </button>
+                        <button
+                            type="button"
+                            :aria-label="t('shell.notifications')"
+                            class="relative hidden h-9 w-9 items-center justify-center rounded-full text-ink-muted transition hover:bg-euca-50 hover:text-ink sm:flex"
+                        >
+                            <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                                <path
+                                    d="M6 9a6 6 0 0 1 12 0c0 5 2 6 2 6H4s2-1 2-6Z"
+                                    stroke="currentColor"
+                                    stroke-width="1.6"
+                                    stroke-linejoin="round"
+                                />
+                                <path d="M10 19a2 2 0 0 0 4 0" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" />
+                            </svg>
+                            <span class="absolute right-2 top-2 h-1.5 w-1.5 rounded-full bg-euca-600"></span>
+                        </button>
+                        <span
+                            v-if="initials"
+                            class="flex h-9 w-9 items-center justify-center rounded-full bg-euca-300 text-xs font-semibold text-euca-900"
+                            :title="user?.name"
+                        >
+                            {{ initials }}
+                        </span>
+                        <button
+                            type="button"
+                            :aria-label="t('app.signOut')"
+                            class="flex h-9 w-9 items-center justify-center rounded-full text-ink-muted transition hover:bg-euca-50 hover:text-ink"
+                            @click="signOut"
+                        >
+                            <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                                <path
+                                    d="M15 12H4m0 0 3.5-3.5M4 12l3.5 3.5M14 5h4a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2h-4"
+                                    stroke="currentColor"
+                                    stroke-width="1.6"
+                                    stroke-linecap="round"
+                                    stroke-linejoin="round"
+                                />
+                            </svg>
+                        </button>
+                    </div>
                 </div>
             </div>
         </header>
-        <main class="mx-auto max-w-6xl px-4 py-10">
+        <main class="relative z-10 mx-auto max-w-7xl px-4 py-8 sm:py-10">
             <slot />
         </main>
     </div>

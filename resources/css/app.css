@@ -8,38 +8,68 @@
 @source '../**/*.vue';
 
 /*
- * CareOS design tokens (the seed of the design system).
- * Tailwind v4 turns each token into utilities, e.g. --color-brand-600 → bg-brand-600.
+ * CareOS design tokens — "Eucalyptus Glow" (design pass DSN.G1, wired in CLINIC.W1).
+ * Soft glassmorphism over a warm botanical palette: gradient hairlines, glow primaries,
+ * one deep-eucalyptus accent tile per screen. Tokens map 1:1 to the prototype styleguide.
+ * Tailwind v4 turns each token into utilities, e.g. --color-euca-700 → bg-euca-700.
+ * Rule: sage (the euca ramp) is a FILL, never body text; text is the ink set.
  */
 @theme {
     --font-sans:
         'Inter', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol',
         'Noto Color Emoji';
 
-    /* Brand palette — clinical teal. */
-    --color-brand-50: #f0fdfa;
-    --color-brand-100: #ccfbf1;
-    --color-brand-200: #99f6e4;
-    --color-brand-300: #5eead4;
-    --color-brand-400: #2dd4bf;
-    --color-brand-500: #14b8a6;
-    --color-brand-600: #0d9488;
-    --color-brand-700: #0f766e;
-    --color-brand-800: #115e59;
-    --color-brand-900: #134e4a;
+    /* Eucalyptus ramp. */
+    --color-euca-50: #f7faf5;
+    --color-euca-100: #edf3ea;
+    --color-euca-200: #dce8d7;
+    --color-euca-300: #c6dabf;
+    --color-euca-400: #a7c4a0; /* brand */
+    --color-euca-500: #8fb287;
+    --color-euca-600: #74996c;
+    --color-euca-700: #5c7d55; /* interactive */
+    --color-euca-800: #475f42; /* hover */
+    --color-euca-900: #35462f; /* dark accent tile */
 
-    /* Semantic colors. */
-    --color-ink: #0f172a;
-    --color-ink-muted: #475569;
-    --color-ink-subtle: #94a3b8;
-    --color-surface: #ffffff;
-    --color-surface-muted: #f8fafc;
-    --color-line: #e2e8f0;
-    --color-danger: #dc2626;
-    --color-danger-soft: #fef2f2;
-    --color-success: #16a34a;
+    /*
+     * Legacy brand-* aliases repointed onto the euca ramp so every existing
+     * `bg-brand-*` / `text-brand-*` utility across the app adopts Eucalyptus Glow
+     * without touching each screen (they are re-skinned in later CLINIC gates).
+     */
+    --color-brand-50: #f7faf5;
+    --color-brand-100: #edf3ea;
+    --color-brand-200: #dce8d7;
+    --color-brand-300: #c6dabf;
+    --color-brand-400: #a7c4a0;
+    --color-brand-500: #8fb287;
+    --color-brand-600: #5c7d55;
+    --color-brand-700: #475f42;
+    --color-brand-800: #3e5239;
+    --color-brand-900: #35462f;
 
-    /* Type scale. */
+    /* Ink — the only colors used for text. */
+    --color-ink: #2a332a;
+    --color-ink-muted: #5a665a;
+    --color-ink-subtle: #6c776c;
+
+    /* Surfaces. */
+    --color-surface: #ffffff; /* glass/card base */
+    --color-surface-2: #fcfaf5; /* solid card / input well (no blur in daylight) */
+    --color-surface-paper: #f4efe6; /* warm page paper */
+    --color-surface-muted: #f7faf5; /* subtle warm-sage fill */
+    --color-line: #dce8d7; /* hairline (euca-200) */
+
+    /* Workflow semantics — status of work, never clinical values. */
+    --color-danger: #b4552d;
+    --color-danger-soft: #f3e2d9;
+    --color-warning: #c99b3f;
+    --color-warning-soft: #f5ecd8;
+    --color-success: #4e7a47;
+    --color-success-soft: #e2eedf;
+    --color-info: #5b7a8c;
+    --color-info-soft: #e6edf2;
+
+    /* Type scale (+ display sizes for the landing greeting). */
     --text-xs: 0.75rem;
     --text-sm: 0.875rem;
     --text-base: 1rem;
@@ -47,10 +77,101 @@
     --text-xl: 1.25rem;
     --text-2xl: 1.5rem;
     --text-3xl: 1.875rem;
+    --text-4xl: 2.25rem;
+    --text-5xl: 2.75rem;
 
     /* Spacing base + radii. */
     --spacing: 0.25rem;
     --radius-md: 0.5rem;
     --radius-lg: 0.75rem;
     --radius-xl: 1rem;
+    --radius-2xl: 1.25rem;
+}
+
+/*
+ * Eucalyptus Glow utilities. Kept as plain component classes (no variant needs);
+ * every color is a token or a token-derived tint — no ad-hoc palette values leak in.
+ */
+@layer components {
+    /* Warm botanical page wash: paper base + two soft sage glows + a film-grain veil. */
+    .euca-wash {
+        position: relative;
+        background-color: var(--color-surface-paper);
+        background-image:
+            radial-gradient(1100px 700px at 88% -8%, rgba(198, 218, 191, 0.5), transparent 60%),
+            radial-gradient(900px 650px at -6% 38%, rgba(237, 243, 234, 0.9), transparent 55%),
+            linear-gradient(158deg, #f4efe6 0%, #eff2e9 48%, #e9f0e3 100%);
+        background-attachment: fixed;
+    }
+
+    /* Faint film grain (SVG turbulence) — sits above the wash, below content. */
+    .euca-wash::after {
+        content: '';
+        position: fixed;
+        inset: 0;
+        pointer-events: none;
+        opacity: 0.035;
+        z-index: 0;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    }
+
+    /* Glass card: translucent white gradient, blur, bright hairline, eucalyptus glow shadow. */
+    .glass-card {
+        background-image: linear-gradient(165deg, rgba(255, 255, 255, 0.82), rgba(255, 255, 255, 0.5));
+        backdrop-filter: blur(24px);
+        -webkit-backdrop-filter: blur(24px);
+        border: 1px solid rgba(255, 255, 255, 0.6);
+        border-radius: var(--radius-2xl);
+        box-shadow:
+            0 1px 2px rgba(53, 70, 47, 0.05),
+            0 14px 40px rgba(53, 70, 47, 0.11);
+    }
+
+    /* Optional interactive lift for clickable glass cards. */
+    .glass-card-hover {
+        transition:
+            transform 0.2s ease,
+            box-shadow 0.2s ease;
+    }
+    .glass-card-hover:hover {
+        transform: translateY(-3px);
+        box-shadow:
+            0 2px 6px rgba(53, 70, 47, 0.06),
+            0 20px 50px rgba(53, 70, 47, 0.14);
+    }
+
+    /* The single deep-eucalyptus accent tile per screen (ivory text ≥ 12:1). */
+    .euca-tile-dark {
+        background-image: linear-gradient(155deg, #465e41, #35462f 70%);
+        color: var(--color-euca-50);
+        border-radius: var(--radius-2xl);
+        box-shadow:
+            inset 0 1px 0 rgba(255, 255, 255, 0.14),
+            0 16px 40px rgba(53, 70, 47, 0.32);
+    }
+
+    /* Glow primary action. */
+    .btn-glow {
+        background-image: linear-gradient(150deg, #5c7d55, #35462f);
+        color: #ffffff;
+        box-shadow:
+            inset 0 1px 0 rgba(255, 255, 255, 0.14),
+            0 10px 24px rgba(53, 70, 47, 0.22);
+        transition:
+            transform 0.15s ease,
+            box-shadow 0.15s ease,
+            opacity 0.15s ease;
+    }
+    .btn-glow:hover:not(:disabled) {
+        transform: translateY(-1px);
+    }
+    .btn-glow:active:not(:disabled) {
+        transform: scale(0.98);
+    }
+
+    /* Nav pill well + active pill (gradient white + shadow). */
+    .nav-pill-active {
+        background-image: linear-gradient(180deg, #ffffff, #f4f8f2);
+        box-shadow: 0 1px 2px rgba(53, 70, 47, 0.12);
+    }
 }
