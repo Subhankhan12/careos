@@ -8,7 +8,10 @@ use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 use Modules\Billing\Http\Controllers\AgingController;
 use Modules\Billing\Http\Controllers\CreditNoteController;
+use Modules\Billing\Http\Controllers\DunningController;
 use Modules\Billing\Http\Controllers\InvoiceController;
+use Modules\Billing\Http\Controllers\InvoiceDraftController;
+use Modules\Billing\Http\Controllers\PaymentController;
 use Modules\Billing\Http\Controllers\PortalInvoiceController;
 use Modules\Clinical\Http\Controllers\ClinicalChartController;
 use Modules\Clinical\Http\Controllers\ClinicalNoteShowController;
@@ -42,6 +45,7 @@ use Modules\Patients\Http\Controllers\PatientShowController;
 use Modules\Patients\Http\Controllers\PortalAuthController;
 use Modules\Patients\Http\Controllers\PortalConsentController;
 use Modules\Patients\Http\Controllers\PortalInvitationController;
+use Modules\Reporting\Http\Controllers\ReportingDashboardController;
 use Modules\Scheduling\Http\Controllers\AppointmentSeriesController;
 use Modules\Scheduling\Http\Controllers\DayBoardActionController;
 use Modules\Scheduling\Http\Controllers\DayBoardController;
@@ -207,6 +211,25 @@ Route::middleware('auth')->group(function () {
     Route::get('/billing/invoices/{invoice}/pdf', [InvoiceController::class, 'download'])->name('billing.invoices.download');
     Route::post('/billing/invoices/{invoice}/issue', [InvoiceController::class, 'issue'])->name('billing.invoices.issue');
     Route::post('/billing/invoices/{invoice}/credit-note', [InvoiceController::class, 'creditNote'])->name('billing.invoices.credit-note');
+
+    // Staff billing UI part 2 (CLINIC.W7): payments + allocations, new-invoice-from-
+    // charges, dunning worklist. READS gate 'billing.view', WRITES 'billing.manage' —
+    // every money movement stays inside PaymentService / IssueService / DunningService.
+    // (Static path segments are registered before their {param} siblings so no
+    // wildcard route captures /record or /new-invoice.)
+    Route::get('/billing/payments', [PaymentController::class, 'index'])->name('billing.payments.index');
+    Route::get('/billing/payments/record', [PaymentController::class, 'create'])->name('billing.payments.create');
+    Route::post('/billing/payments', [PaymentController::class, 'store'])->name('billing.payments.store');
+    Route::get('/billing/payments/{payment}', [PaymentController::class, 'show'])->name('billing.payments.show');
+    Route::post('/billing/payments/{payment}/allocate', [PaymentController::class, 'allocate'])->name('billing.payments.allocate');
+    Route::post('/billing/payments/{payment}/reverse', [PaymentController::class, 'reverse'])->name('billing.payments.reverse');
+    Route::get('/billing/new-invoice', [InvoiceDraftController::class, 'create'])->name('billing.invoices.create');
+    Route::post('/billing/new-invoice', [InvoiceDraftController::class, 'store'])->name('billing.invoices.store');
+    Route::get('/billing/dunning', [DunningController::class, 'index'])->name('billing.dunning.index');
+    Route::post('/billing/dunning/run', [DunningController::class, 'run'])->name('billing.dunning.run');
+
+    // Reporting dashboard — the thin facts-only surface over ReportingService::summary.
+    Route::get('/reporting', ReportingDashboardController::class)->name('reporting.dashboard');
 
     // Kiosk device provisioning (admin.manage enforced in the controller). The
     // plaintext token is shown once at issue.

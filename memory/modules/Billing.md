@@ -233,11 +233,40 @@ P0F.G4 added invoices, gapless numbering, issued-document immutability, and cred
   assertInertia, service-routing, gapless number, CN series + untouched original, overdue counter value,
   PDF nosniff). The reconciliation/invariant/hammer/`InvoiceTest` suite is UNTOUCHED. See [[Reporting]].
 
+## Staff billing UI part 2 (CLINIC.W7 — presentation only; completes the billing surface)
+
+- NEW `Http/Controllers/{Payment,Dunning,InvoiceDraft}Controller` (+ Reporting's dashboard, see [[Reporting]])
+  + 11 routes + 6 Inertia pages (Payments Index/Record/Show · Invoices/New · Dunning/Index · Reporting/Dashboard)
+  + a `reporting` nav entry + billing-hub cross-links from the invoices index.
+- **Payments**: `record` → PaymentService::record (method ∈ Payment::METHODS; NO PSP/card capture — records a
+  receipt); `allocate`/store-with-allocation → PaymentService::allocate; `reverse` → reverseAllocation
+  (reason required). Every allocation/reversal is an APPEND-ONLY row; the service's guards (can't exceed
+  invoice open balance or payment unallocated remainder; currency match; one reversal per allocation) are
+  caught as `InvalidArgumentException` and surfaced as `withErrors`, NEVER re-implemented. Remainder =
+  `PaymentService::unallocated`, open balance = `::openBalance` — the controller/view never sum money.
+- **New invoice from charges**: `InvoiceDraftController` lists a patient's `STATUS_VALIDATED`, `invoice_id
+  IS NULL` charges (a per-patient COUNT only, never a money sum) → `IssueService::createDraftFromCharges`
+  → `::issue` (gapless number + PDF). The view shows per-charge line totals but never a sum; the invoice
+  total is IssueService's.
+- **Dunning**: worklist = overdue invoices (`open_balance_minor > 0`, `series=INV`, `due_date < today`) with
+  their persisted `dunning_events` (max level + latest) and `dunning_paused`. The "send reminders" action
+  dispatches the ONE engine, `DunningService::evaluate($currentTenant, now(), $actor)` — idempotent (re-run
+  same day = no-op), settings-policy driven; a fee is a NEW charge; the original invoice is untouched; NOT
+  consent-gated (legal comms). No days-past-due math in the controller — the persisted level encodes it.
+- RBAC: payments/dunning read `billing.view`, writes `billing.manage`; cross-tenant `{payment}`/`{invoice}` 404.
+- Tests: `tests/Feature/Billing/BillingUiPart2Test.php` (NEW — 8 tests: RBAC matrix incl. coordinator +
+  view-only, tenant 404, record→allocation appended + invoice frozen, allocation-cannot-exceed-remainder
+  surfaced, reversal appended + reason-required + manager-only, new-invoice→gapless number, dunning
+  idempotent, reporting facts-only). The frozen payment/dunning/reconciliation/hammer suite is UNTOUCHED.
+- Adversarial 5-dimension review → verify workflow: 0 confirmed defects. With W7 the Eucalyptus Glow
+  **CLINIC delivery is complete** (W1→W7). See [[Reporting]] for the dashboard.
+
 ## Open items
 
-- Billing part 2 (flagged in D-088): New-invoice, Record-payment, Send-reminder actions; payment/dunning/
-  export UI surfaces remain backend-only. Admin "Billing & AR" DSO/net-collection/roll-forward/write-off
-  metrics are beyond the backend and bad-debt is deliberately excluded (only the factual aging table exists).
+- The billing/reporting STAFF UI is now built (W6 invoices/AR/CN + W7 payments/dunning/new-invoice/reporting).
+  Still backend-only: the camt.053 bank-import + auto-match reconciliation (Payment Reconciliation prototype),
+  AI-drafted dunning reminders + approval-escalation ladder, and the accounting-export UI. Admin "Billing & AR"
+  DSO/net-collection/roll-forward/write-off metrics are beyond the backend and bad-debt is deliberately excluded.
 - DATEV-style export columns arrive with the DE statutory pack later; F.7 ships a generic ledger CSV.
 - Schedule `billing:dunning-run` once recurring application scheduling is finalized (deferred).
 - Partial credit notes do not reduce the original invoice's open balance (F.4 behavior); revisit if

@@ -26,6 +26,7 @@ const nav = [
     { key: 'app.nav.nursing', href: '/nursing/dispatch' },
     { key: 'app.nav.inbox', href: '/comms/inbox' },
     { key: 'app.nav.billing', href: '/billing/invoices' },
+    { key: 'app.nav.reporting', href: '/reporting' },
 ];
 
 function isActive(href: string): boolean {

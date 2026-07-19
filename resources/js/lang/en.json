@@ -11,6 +11,7 @@
             "nursing": "Nursing",
             "inbox": "Inbox",
             "billing": "Billing",
+            "reporting": "Reporting",
             "import": "Import"
         }
     },
@@ -800,7 +801,10 @@
         "nav": {
             "invoices": "Invoices",
             "aging": "AR / Aging",
-            "creditNotes": "Credit notes"
+            "creditNotes": "Credit notes",
+            "payments": "Payments",
+            "dunning": "Dunning",
+            "newInvoice": "New invoice"
         },
         "status": {
             "draft": "Draft",
@@ -892,6 +896,115 @@
             "creditedTo": "Credited to",
             "linked": "Credit notes",
             "empty": "No credit notes yet."
+        },
+        "method": {
+            "bank_transfer": "Bank transfer",
+            "card": "Card",
+            "cash": "Cash",
+            "other": "Other"
+        },
+        "payments": {
+            "title": "Payments",
+            "subtitle": "{count} payments",
+            "record": "Record payment",
+            "recordHint": "Record money already received and, if you like, apply it to an invoice. CareOS does not process cards — the desk records the result.",
+            "recordConfirm": "Record payment",
+            "received": "Received",
+            "patient": "Patient",
+            "method": "Method",
+            "reference": "Reference",
+            "referencePlaceholder": "Bank reference, receipt no. …",
+            "amount": "Amount",
+            "unallocated": "Unallocated",
+            "empty": "No payments recorded yet.",
+            "forInvoice": "For invoice",
+            "openBalance": "Open balance",
+            "allocateNow": "Apply to this invoice now",
+            "allocateAmount": "Amount to apply",
+            "allocateRemainder": "Apply remainder",
+            "allocateConfirm": "Apply",
+            "noPsp": "This records a payment already received (bank transfer, cash, or a card taken at the desk). There is no online card processing.",
+            "allocations": "Allocations",
+            "invoice": "Invoice",
+            "date": "Date",
+            "reversal": "Reversal",
+            "reversedTag": "Reversed",
+            "reverse": "Reverse",
+            "reverseReason": "Reason for reversal",
+            "reverseConfirm": "Reverse allocation",
+            "noAllocations": "This payment is not applied to any invoice yet.",
+            "refunds": "Refunds",
+            "allocationRejected": "The payment was recorded, but the allocation was not applied:"
+        },
+        "newInvoice": {
+            "title": "New invoice",
+            "subtitle": "Assemble an invoice from a patient's validated charges and issue it.",
+            "forPatient": "For patient",
+            "chargeCount": "{count} charges",
+            "noneToInvoice": "No validated, un-invoiced charges to bill.",
+            "totalNote": "The invoice total, VAT, and number are set by the billing engine when you issue.",
+            "payer": "Payer",
+            "dueInDays": "Due in (days)",
+            "issue": "Issue invoice"
+        },
+        "dunning": {
+            "title": "Dunning",
+            "subtitle": "{count} overdue invoices with an open balance",
+            "run": "Send reminders",
+            "overdue": "Overdue",
+            "noReminder": "No reminder yet",
+            "invoice": "Invoice",
+            "patient": "Patient",
+            "due": "Due",
+            "balance": "Open balance",
+            "level": "Reminder level",
+            "lastReminder": "Last reminder",
+            "paused": "Paused",
+            "levelN": "Level {n}",
+            "none": "None",
+            "empty": "No overdue invoices.",
+            "footnote": "Sending reminders runs the tested dunning policy for every overdue invoice as of today; re-running the same day changes nothing. Reminders are a legal communication and are not consent-gated.",
+            "eventStatus": {
+                "created": "Prepared",
+                "sent": "Sent"
+            }
+        }
+    },
+    "reporting": {
+        "eyebrow": "Reporting",
+        "title": "Practice reporting",
+        "range": "{from} to {to}",
+        "from": "From",
+        "to": "To",
+        "apply": "Apply",
+        "operational": "Operational",
+        "appointments": "Appointments",
+        "noShows": "No-shows",
+        "ofScheduled": "{rate} of {scheduled} scheduled",
+        "checkedIn": "Checked in",
+        "activePatients": "Active patients",
+        "byStatus": "Appointments by status",
+        "visitsCompleted": "Visits completed",
+        "throughput": "Throughput",
+        "encounters": "Encounters",
+        "signedNotes": "Signed notes",
+        "ordersPlaced": "Orders placed",
+        "financial": "Financial",
+        "invoiced": "Invoiced",
+        "received": "Received",
+        "outstanding": "Outstanding",
+        "agingBucket": "Age",
+        "amount": "Amount",
+        "footnote": "Every figure is a factual count, sum, or rate for the selected period from the tested reporting service. Financial figures appear only with billing access.",
+        "apptStatus": {
+            "booked": "Booked",
+            "confirmed": "Confirmed",
+            "arrived": "Arrived",
+            "in_progress": "In progress",
+            "completed": "Completed",
+            "cancelled": "Cancelled",
+            "no_show": "No-show",
+            "rescheduled": "Rescheduled"
         }
     }
 }

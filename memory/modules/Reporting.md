@@ -74,11 +74,24 @@ modules' tenant-owned data through their Eloquent query surfaces.
 
 ## Status
 
-**P0P.G14 complete.** MetricsService (12 metrics) + ReportingService summary +
-reporting:summary command; 10 seeded exact-number tests including the F.7
-reconciliation agreement on the demo tenant.
+**P0P.G14 complete.** MetricsService (12 metrics; +`overdueBalanceMinor` added in
+CLINIC.W6) + ReportingService summary + reporting:summary command; 10 seeded
+exact-number tests including the F.7 reconciliation agreement on the demo tenant.
+
+**Reporting dashboard built (CLINIC.W7).** `Http/Controllers/ReportingDashboardController`
+(`GET /reporting`, gate `reporting.view`) renders `Reporting/Dashboard.vue` from
+`ReportingService::summary($actor, $from, $to)` verbatim — operational + throughput +
+(only with `billing.view`) financial. A date-range picker (defaults month-to-date)
+re-queries via `?from/?to`. FACTS ONLY: neutral styling, no judgment/target/trend/grade
+fields; the no_show `rate` is shown as a formatted % (a service fact). `currency` comes
+from `SettingsService`; money stays integer minor units and the view only formats. RBAC
+proven in `tests/Feature/Billing/BillingUiPart2Test.php`: coordinator (reporting.view,
+no billing.view) → operational-only, `financial` omitted; billing role (no reporting.view)
+→ 403; a recursive test asserts no judgment key leaks. See [[Billing]].
 
 ## Open items
 
-- Dashboards/UI are deliberately NOT built — post-discovery work, wired on top of
-  this layer once discovery says which metrics matter.
+- The reporting surface wires ONLY the metrics `ReportingService::summary` already returns.
+  New metrics (production-by-category, provider throughput, recall compliance, etc.) are
+  post-discovery work — add the service method first, then surface it; never invent a metric
+  in the controller/view.

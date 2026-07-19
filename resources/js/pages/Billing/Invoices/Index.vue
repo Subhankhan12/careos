@@ -29,6 +29,10 @@ const props = defineProps<{
     counters: { outstanding_minor: number; overdue_minor: number; drafts: number; paid: number; currency: string };
     agingUrl: string;
     creditNotesUrl: string;
+    paymentsUrl: string;
+    dunningUrl: string;
+    newInvoiceUrl: string;
+    canManage: boolean;
 }>();
 
 // Money is integer minor units from the server; the view only formats it.
@@ -80,6 +84,9 @@ function setStatus(status: string | null): void {
                     <p class="mt-1 text-sm text-euca-200">{{ t('billing.invoices.subtitle', { count: invoices.length }) }}</p>
                 </div>
                 <div class="flex flex-wrap gap-2">
+                    <Link v-if="canManage" :href="newInvoiceUrl" class="btn-glow">{{ t('billing.nav.newInvoice') }}</Link>
+                    <Link :href="paymentsUrl" class="rounded-xl bg-white/15 px-4 py-2 text-sm font-semibold text-euca-50 transition hover:bg-white/25">{{ t('billing.nav.payments') }}</Link>
+                    <Link :href="dunningUrl" class="rounded-xl bg-white/15 px-4 py-2 text-sm font-semibold text-euca-50 transition hover:bg-white/25">{{ t('billing.nav.dunning') }}</Link>
                     <Link :href="agingUrl" class="rounded-xl bg-white/15 px-4 py-2 text-sm font-semibold text-euca-50 transition hover:bg-white/25">{{ t('billing.nav.aging') }}</Link>
                     <Link :href="creditNotesUrl" class="rounded-xl bg-white/15 px-4 py-2 text-sm font-semibold text-euca-50 transition hover:bg-white/25">{{ t('billing.nav.creditNotes') }}</Link>
                 </div>

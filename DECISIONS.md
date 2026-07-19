@@ -733,3 +733,37 @@ references the old ID.
   letterhead / QR-reference / lifecycle-timeline / agent-provenance (not in backend); and the admin
   "Billing & AR" DSO / net-collection / roll-forward / write-off / bad-debt metrics (beyond backend, and
   bad-debt is deliberately excluded — only the factual aging-bucket table is built). (CLINIC.W6)
+- **D-089 — The billing-part-2 + reporting UI is a pure presentation layer over the frozen engines; the
+  CLINIC delivery is complete.** CLINIC.W7 (the FINAL clinic gate) adds NEW `PaymentController`
+  (record / allocate / reverse via PaymentService — every money movement an APPEND-ONLY row; over-
+  allocation and reversal rules enforced IN the service and surfaced as validation errors, never
+  re-implemented), `InvoiceDraftController` (new-invoice-from-a-patient's-validated-charges via
+  IssueService — the gapless-number + PDF path; the view never prices or sums, charges are pre-priced by
+  TariffResolver and the total is whatever IssueService computes on issue), `DunningController` (overdue
+  worklist + a "send reminders" action that dispatches the ONE idempotent, settings-policy-driven
+  `DunningService::evaluate` — a fee is a NEW charge, the original invoice is untouched, and dunning is
+  legal-comms so it is NOT consent-gated per D-F7), and `ReportingDashboardController` (the thin
+  facts-only dashboard over `ReportingService::summary`). Plus 11 routes, 6 Inertia pages (Payments
+  Index / Record / Show · Invoices/New · Dunning/Index · Reporting/Dashboard), a `reporting` nav entry,
+  and billing-hub cross-links. HARD RULE held and adversarially verified: NO financial math (money sums,
+  balances, remainders, aging, VAT, totals) is computed in ANY controller or view — a grep confirms every
+  `_minor` is a service call (`PaymentService::unallocated` / `::openBalance`) or a model-attribute
+  passthrough; the only view arithmetic is money formatting (`/100`), rate formatting (`*100` on a
+  service-returned ratio), and major→minor INPUT normalisation on submit (the service validates the
+  integer and owns all math). RBAC: payments/dunning read `billing.view`, reporting reads
+  `reporting.view`, all writes `billing.manage`; the reporting `financial` section is omitted without
+  `billing.view` (fail-closed — coordinator sees operational-only, the billing role 403s on reporting);
+  cross-tenant `{payment}`/`{invoice}` 404. FACTS-ONLY reporting: the dashboard renders only the
+  `summary` leaves in neutral styling with NO judgment/target/trend/grade fields, and a recursive test
+  asserts no judgment key leaks. Prototype fidelity with omissions FLAGGED not faked: TWINT / QR-bill
+  map to the backend's four methods (bank_transfer/card/cash/other), and PSP/card-capture /
+  terminal-approval / receipt-email (Take Payment), camt.053 bank-import + auto-match (Payment
+  Reconciliation), AI-drafted reminders + approval-escalation ladders (Invoice Overdue Reminder),
+  per-patient running-balance ledger (AR Account Detail — would be view/controller money math), and
+  every Practice-Reporting-Hub judgment metric (DSO / collection-rate / case-acceptance / recall-
+  compliance / targets / trends / provider ranking / sparklines) are all OMITTED. NEW
+  `tests/Feature/Billing/BillingUiPart2Test.php` (8 tests) only; the frozen payment / dunning /
+  reconciliation / hammer / metrics suites are UNCHANGED. An adversarial 5-dimension review → skeptic-
+  verify workflow returned 0 confirmed defects. With W7 the Eucalyptus Glow **CLINIC DELIVERY is
+  COMPLETE** (W1 foundation → W2 patients → W3 portal → W4 staff boards → W5 clinical → W6 billing p1 →
+  W7 billing p2 + reporting). (CLINIC.W7)

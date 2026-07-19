@@ -794,7 +794,29 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
   fix to a PRE-EXISTING date-bomb in `PortalUiTest` (hardcoded `2026-07-20` cancel-window appt that began
   failing on 2026-07-19 → de-hardcoded to `now()->addDays(10)`). Verified: npm build green; composer check
   FULLY green (Pint · PHPStan L5 `[OK]` · **Pest 589 passed / 4333 assertions**, 0 failed). D-088.
-- **Next action:** billing part 2 (New-invoice / Record-payment / Send-reminder, payment/dunning/export
-  surfaces) remains — but the standing focus is still **DISCOVERY**: the CH/KVG-vs-EU-generic billing
-  model must be confirmed with Spitex coordinators before the CH statutory pack (the likely real first
-  build) is committed. Then Phase H per the master plan.
+- **CLINIC.W7 — billing staff UI part 2 + reporting BUILT (FINAL clinic gate):** NEW Payment/Dunning/
+  InvoiceDraft controllers + a Reporting dashboard controller + 11 routes + 6 Inertia pages (Payments
+  Index/Record/Show · Invoices/New · Dunning/Index · Reporting/Dashboard) + a `reporting` nav entry +
+  billing-hub cross-links. Payments record/allocate/reverse go only through `PaymentService` (append-only;
+  over-allocation + reversal guards enforced in the service, surfaced as validation errors); new-invoice
+  through `IssueService` (gapless, the view never sums); dunning through the idempotent
+  `DunningService::evaluate` (legal-comms, fee = new charge, original untouched); the reporting dashboard
+  renders `ReportingService::summary` FACTS-ONLY (neutral styling, no judgment/target/trend fields,
+  financial section fail-closed without `billing.view`). NO financial math in any controller/view
+  (adversarial grep clean — every `_minor` is a service call or model-attr passthrough). RBAC:
+  payments/dunning read `billing.view`, reporting reads `reporting.view`, writes `billing.manage`;
+  cross-tenant `{payment}`/`{invoice}` 404. NEW `tests/Feature/Billing/BillingUiPart2Test.php` (9 tests)
+  only; the frozen payment/dunning/reconciliation/hammer/metrics suite is UNCHANGED. An adversarial
+  5-dimension review→verify workflow found + fixed 3 real defects (a silent record-then-allocate failure
+  now shows an error banner; new-invoice preview currency from settings not hardcoded; manage-only buttons
+  now gated). Verified: npm build green; composer check FULLY green (Pint · PHPStan L5 `[OK]` · **Pest 598
+  passed / 4503 assertions**, 0 failed). D-089.
+- **DELIVERY COMPLETE — the Eucalyptus Glow CLINIC vertical is fully built + wired (W1→W7):** shell/auth/
+  landings (W1) · patients (W2) · portal (W3) · staff boards (W4) · clinical (W5) · billing p1 —
+  invoices/AR/credit-notes (W6) · billing p2 + reporting — payments/dunning/new-invoice/reporting (W7).
+  W1–W5 were re-skin-only; W6–W7 built the billing/reporting presentation over the frozen, tested engines
+  with zero domain-logic change. All landed and green.
+- **Next action:** the standing focus is again **DISCOVERY** — the CH/KVG-vs-EU-generic billing model must
+  be confirmed with Spitex coordinators before the CH statutory pack (the likely real first NEW build) is
+  committed. Remaining billing backend-only surfaces (camt.053 reconciliation, AI dunning drafts,
+  accounting-export UI) wait on that. Then Phase H per the master plan.

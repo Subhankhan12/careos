@@ -83,6 +83,11 @@ class InvoiceController
             ],
             'agingUrl' => route('billing.aging'),
             'creditNotesUrl' => route('billing.credit-notes.index'),
+            // Billing hub cross-links to the part-2 surfaces (CLINIC.W7).
+            'paymentsUrl' => route('billing.payments.index'),
+            'dunningUrl' => route('billing.dunning.index'),
+            'newInvoiceUrl' => route('billing.invoices.create'),
+            'canManage' => Gate::allows('billing.manage'),
         ]);
     }
 
