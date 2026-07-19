@@ -397,12 +397,13 @@ test('portal cancellation enforces the cancel window policy server-side', functi
     $fx = g5Fixture();
     $setup = g5BookableSetup($fx);
 
-    // An appointment far in the future: cancellable.
+    // An appointment far in the future: cancellable. Relative to now() so the 24h
+    // cancel-window assertion below stays stable regardless of the run date.
     $far = app(BookingService::class)->bookOnline(
         $setup['service']->id,
         $fx['patient']->id,
         $setup['branch']->id,
-        '2026-07-20 10:00:00',
+        now()->addDays(10)->setTime(10, 0)->toDateTimeString(),
         [$setup['resource']->id],
     );
 
@@ -446,7 +447,7 @@ test('portal cancellation enforces the cancel window policy server-side', functi
         $setup['service']->id,
         $other->id,
         $setup['branch']->id,
-        '2026-07-20 14:00:00',
+        now()->addDays(10)->setTime(14, 0)->toDateTimeString(),
         [$setup['resource']->id],
     );
 

@@ -779,7 +779,22 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
   auth + landings (W1) · patient index/360/register (W2) · patient portal (W3) · staff boards —
   day-board/inbox/kiosk/public-booking (W4) · clinical chart/note-editor/care-plans/lab-review (W5).
   All landed and green; every gate re-skin only (P0D.GU), routes/controllers/props/guards/tests frozen.
-- **Next action:** the next unit of progress is now a BUILD, not a re-skin — the **billing/AR staff UI**
-  (Bucket-2 in `docs/CLINIC-DELIVERY-MAP.md`: the Billing domain is built and tested, the staff
-  presentation layer is not) once discovery confirms the CH/KVG-vs-EU-generic billing model — then
-  Phase H per the master plan.
+- **CLINIC.W6 — billing staff UI part 1 BUILT (first non-re-skin gate):** NEW Invoice/Aging/CreditNote
+  controllers + 8 routes + 5 Inertia pages (Invoice worklist + detail · AR/Aging · Credit-notes
+  Index+Show) + a `billing` nav entry, all reading from / dispatching to the frozen billing engine. NO
+  billing/VAT/numbering/aging math in any controller or view — writes go only through
+  `IssueService::issue`/`::creditNote` (CN = a `series=CN` Invoice, reason required, original untouched);
+  reads via `invoice_balances` (live status) + `MetricsService`; money stays integer minor units, views
+  format only. RBAC: reads `billing.view`, writes `billing.manage` (reception 403s; a view-only role gets
+  `can_manage=false`; cross-tenant `{invoice}` 404s). Reads use the typed-query idiom (no relation-property
+  traversal under PHPStan L5). Adversarial verify fixed 2 self-inflicted breaches: a client-side aging
+  recompute (`isOverdue`) removed, and the overdue roll-up moved into NEW `MetricsService::overdueBalanceMinor()`;
+  `download()` now serves `series=INV` only. NEW `tests/Feature/Billing/BillingUiTest.php` (7 tests) only;
+  the reconciliation/invariant/hammer/`InvoiceTest` suite is UNCHANGED. Bundled (user-approved) a 1-line
+  fix to a PRE-EXISTING date-bomb in `PortalUiTest` (hardcoded `2026-07-20` cancel-window appt that began
+  failing on 2026-07-19 → de-hardcoded to `now()->addDays(10)`). Verified: npm build green; composer check
+  FULLY green (Pint · PHPStan L5 `[OK]` · **Pest 589 passed / 4333 assertions**, 0 failed). D-088.
+- **Next action:** billing part 2 (New-invoice / Record-payment / Send-reminder, payment/dunning/export
+  surfaces) remains — but the standing focus is still **DISCOVERY**: the CH/KVG-vs-EU-generic billing
+  model must be confirmed with Spitex coordinators before the CH statutory pack (the likely real first
+  build) is committed. Then Phase H per the master plan.

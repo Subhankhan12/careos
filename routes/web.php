@@ -6,6 +6,9 @@ use App\Http\Controllers\Comms\InboxAgentController;
 use App\Http\Controllers\Portal\PortalHomeController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
+use Modules\Billing\Http\Controllers\AgingController;
+use Modules\Billing\Http\Controllers\CreditNoteController;
+use Modules\Billing\Http\Controllers\InvoiceController;
 use Modules\Billing\Http\Controllers\PortalInvoiceController;
 use Modules\Clinical\Http\Controllers\ClinicalChartController;
 use Modules\Clinical\Http\Controllers\ClinicalNoteShowController;
@@ -192,6 +195,18 @@ Route::middleware('auth')->group(function () {
     Route::post('/imports/{batch}/mapping', [ImportBatchController::class, 'mapping'])->name('import.mapping');
     Route::post('/imports/{batch}/validate', [ImportBatchController::class, 'validateBatch'])->name('import.validate');
     Route::post('/imports/{batch}/commit', [ImportBatchController::class, 'commit'])->name('import.commit');
+
+    // Staff billing UI (CLINIC.W6): invoice worklist + detail, AR aging, credit
+    // notes. READS gate on 'billing.view', WRITES (issue / credit note) on
+    // 'billing.manage' — all money math stays inside the tested billing services.
+    Route::get('/billing/invoices', [InvoiceController::class, 'index'])->name('billing.invoices.index');
+    Route::get('/billing/aging', AgingController::class)->name('billing.aging');
+    Route::get('/billing/credit-notes', [CreditNoteController::class, 'index'])->name('billing.credit-notes.index');
+    Route::get('/billing/credit-notes/{invoice}', [CreditNoteController::class, 'show'])->name('billing.credit-notes.show');
+    Route::get('/billing/invoices/{invoice}', [InvoiceController::class, 'show'])->name('billing.invoices.show');
+    Route::get('/billing/invoices/{invoice}/pdf', [InvoiceController::class, 'download'])->name('billing.invoices.download');
+    Route::post('/billing/invoices/{invoice}/issue', [InvoiceController::class, 'issue'])->name('billing.invoices.issue');
+    Route::post('/billing/invoices/{invoice}/credit-note', [InvoiceController::class, 'creditNote'])->name('billing.invoices.credit-note');
 
     // Kiosk device provisioning (admin.manage enforced in the controller). The
     // plaintext token is shown once at issue.

@@ -310,6 +310,20 @@ class MetricsService
     }
 
     /**
+     * FINANCIAL — the overdue portion of the outstanding balance as of a reference
+     * date: the sum of the past-due aging buckets (1-30 … 90+), excluding the
+     * not-yet-due `current` bucket. The bucketing (and its calendar-day date math)
+     * stays in {@see self::agingBuckets()}; this is only the past-due roll-up, so
+     * callers never re-derive aging themselves. Factual — no "bad debt" labeling.
+     */
+    public function overdueBalanceMinor(User $actor, CarbonInterface|string $asOf): int
+    {
+        $buckets = $this->agingBuckets($actor, $asOf);
+
+        return $buckets['days_1_30'] + $buckets['days_31_60'] + $buckets['days_61_90'] + $buckets['days_90_plus'];
+    }
+
+    /**
      * THROUGHPUT — encounters with `started_at` in the range. A count only; no
      * clinical interpretation of what happened in them.
      */

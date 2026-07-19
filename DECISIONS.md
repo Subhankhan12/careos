@@ -703,3 +703,33 @@ references the old ID.
   no prop/emit/test change. With this, all five CLINIC re-skin gates (W1 foundation → W2 patients →
   W3 portal → W4 staff boards → W5 clinical) are landed and green — the Eucalyptus Glow clinic vertical
   is fully wired. (CLINIC.W5)
+- **D-088 — The staff billing UI is a pure presentation layer over the frozen billing engine; the one
+  aggregate it needed lives in the reporting service, never a controller.** CLINIC.W6 is the FIRST build
+  gate after the W1–W5 re-skins: it adds NEW controllers (Invoice/Aging/CreditNote), 8 routes, 5 Inertia
+  pages (Invoices Index/Show · AR-Aging · CreditNotes Index/Show), and a `billing` nav entry — all
+  reading from / dispatching to the EXISTING tested engine. Hard rule held: NO billing math (invoicing,
+  numbering, VAT, reconciliation, aging) is computed in any controller or view. Writes go ONLY through
+  `IssueService::issue` / `::creditNote` (credit note = a `series=CN` Invoice row, reason required,
+  original left byte-for-byte untouched); reads route through `invoice_balances` (live lifecycle status)
+  + `MetricsService`; money stays integer minor units and views only format (`/100`). RBAC: reads gate
+  `billing.view`, writes `billing.manage` — reception (no billing perms) 403s; a view-only role sees the
+  data with `can_manage=false` and cannot issue/credit-note; cross-tenant `{invoice}` binding 404s.
+  PHPStan L5 forced the codebase's sanctioned typed-query idiom (as in `PortalInvoiceController`): NO
+  relation-property traversal (`$invoice->patient->x`, `$invoice->lines->map(...)`) because an untyped
+  `BelongsTo`/`HasMany` resolves to base `Model` under larastan — instead concretely-typed queries /
+  keyed lookups (`Patient::query`, `InvoiceBalance::query`, `InvoiceLine::query`), and explicit
+  `$x !== null ? … : …` rather than `?->  ??` (which trips `nullsafe.neverNull`). The adversarial verify
+  pass caught and fixed two self-inflicted rule breaches: (1) a client-side `isOverdue()` in the invoice
+  list reimplemented aging with a timezone-buggy date-only compare that DISAGREED with the server's
+  calendar-day buckets on any invoice due "today" east of UTC — removed; rows now show the real lifecycle
+  status only, and "overdue" is a reporting figure, not a per-invoice state; (2) the overdue counter was
+  summed from aging buckets with raw arithmetic IN the controller — the past-due roll-up moved into
+  `MetricsService::overdueBalanceMinor()` (Reporting owns aging aggregation; the controller just calls
+  it, and the test now asserts its VALUE: 0 when not yet due, = outstanding when wholly past due). Also
+  aligned `download()` to serve `series=INV` only (a credit note 404s on the invoice-PDF route). NEW
+  tests only (`tests/Feature/Billing/BillingUiTest.php`, 7 tests / 135 assertions); the frozen
+  reconciliation / invariant / hammer / `InvoiceTest` suite is UNCHANGED and green. Deferred to billing
+  part 2 and flagged (not faked): New-invoice / Record-payment / Send-reminder actions; practice
+  letterhead / QR-reference / lifecycle-timeline / agent-provenance (not in backend); and the admin
+  "Billing & AR" DSO / net-collection / roll-forward / write-off / bad-debt metrics (beyond backend, and
+  bad-debt is deliberately excluded — only the factual aging-bucket table is built). (CLINIC.W6)

@@ -10,6 +10,7 @@
             "scheduling": "Scheduling",
             "nursing": "Nursing",
             "inbox": "Inbox",
+            "billing": "Billing",
             "import": "Import"
         }
     },
@@ -792,6 +793,105 @@
             "expires": "expires",
             "noneHeld": "No competencies held.",
             "seed": "Seed starter set"
+        }
+    },
+    "billing": {
+        "eyebrow": "Billing",
+        "nav": {
+            "invoices": "Invoices",
+            "aging": "AR / Aging",
+            "creditNotes": "Credit notes"
+        },
+        "status": {
+            "draft": "Draft",
+            "issued": "Issued",
+            "partially_paid": "Partially paid",
+            "paid": "Paid",
+            "cancelled_by_credit_note": "Credit-noted",
+            "overdue": "Overdue"
+        },
+        "payerType": {
+            "self_pay": "Self-pay",
+            "private_insurance": "Private insurance"
+        },
+        "counters": {
+            "outstanding": "Outstanding",
+            "overdue": "Overdue",
+            "drafts": "Drafts",
+            "paid": "Paid"
+        },
+        "invoices": {
+            "title": "Invoices",
+            "subtitle": "{count} invoices",
+            "draftInvoice": "Draft invoice",
+            "all": "All",
+            "number": "Invoice",
+            "patient": "Patient",
+            "issued": "Issued",
+            "due": "Due",
+            "amount": "Amount",
+            "status": "Status",
+            "balanceDue": "Balance due",
+            "billedTo": "Billed to",
+            "forPatient": "For patient",
+            "empty": "No invoices yet."
+        },
+        "lines": {
+            "code": "Code",
+            "description": "Description",
+            "qty": "Qty",
+            "unit": "Unit",
+            "vat": "VAT",
+            "amount": "Amount"
+        },
+        "totals": {
+            "subtotal": "Subtotal",
+            "vat": "VAT",
+            "total": "Total"
+        },
+        "actions": {
+            "title": "Actions",
+            "issue": "Issue invoice",
+            "download": "Download PDF",
+            "creditNote": "Issue credit note",
+            "creditReason": "Reason for credit note",
+            "creditReasonPlaceholder": "Why is this invoice being credited?",
+            "creditConfirm": "Create credit note",
+            "cancel": "Cancel",
+            "viewOnly": "You have view-only access to billing."
+        },
+        "aging": {
+            "title": "Accounts receivable",
+            "asOf": "As of {date}",
+            "outstanding": "Total outstanding",
+            "invoicedMtd": "Invoiced (month to date)",
+            "collectedMtd": "Collected (month to date)",
+            "bucket": "Age",
+            "share": "Share",
+            "amount": "Amount",
+            "total": "Total outstanding",
+            "buckets": {
+                "current": "Current",
+                "days_1_30": "1-30 days",
+                "days_31_60": "31-60 days",
+                "days_61_90": "61-90 days",
+                "days_90_plus": "90+ days"
+            },
+            "footnote": "Buckets reflect open balances by days since the invoice due date. Amounts are factual and are not adjusted for expected collectability."
+        },
+        "creditNotes": {
+            "title": "Credit notes",
+            "subtitle": "{count} credit notes",
+            "badge": "Credit note",
+            "number": "Credit note",
+            "patient": "Patient",
+            "against": "Against invoice",
+            "date": "Date",
+            "amount": "Amount",
+            "totalCredit": "Total credit",
+            "creditedTo": "Credited to",
+            "linked": "Credit notes",
+            "empty": "No credit notes yet."
         }
     }
 }

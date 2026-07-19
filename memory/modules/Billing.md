@@ -212,9 +212,32 @@ P0F.G4 added invoices, gapless numbering, issued-document immutability, and cred
   reconcile to the unit (billing:reconcile, all six invariants ok with delta_minor === 0) before any
   real invoicing goes live. No exceptions."
 
+## Staff billing UI (CLINIC.W6 — presentation only, over the frozen engine)
+
+- First BUILD gate after the W1–W5 re-skins: NEW `Http/Controllers/{Invoice,Aging,CreditNote}Controller`
+  + 8 routes in the `auth` group + 5 Inertia pages (`Billing/Invoices/Index`+`Show`, `Billing/Aging`,
+  `Billing/CreditNotes/Index`+`Show`) + a `billing` nav entry, in Eucalyptus Glow.
+- READS gate `billing.view`; WRITES gate `billing.manage`. Writes go ONLY through `IssueService::issue`
+  (draft → gapless number + PDF) and `::creditNote` (reason required; CN = a `series=CN` Invoice, the
+  original left untouched). NO invoicing/VAT/numbering/aging math in any controller or view — money stays
+  integer minor units and views format `/100` only.
+- Reads use the sanctioned typed-query idiom (as in `PortalInvoiceController`): concretely-typed queries /
+  keyed lookups (`Patient`/`InvoiceBalance`/`InvoiceLine::query`), never relation-property traversal (an
+  untyped `BelongsTo`/`HasMany` resolves to base `Model` under PHPStan L5). Live status = `balance.status`.
+- Overdue is a REPORTING figure, not a per-invoice lifecycle state: `MetricsService::overdueBalanceMinor(actor, asOf)`
+  (added in W6) sums the past-due aging buckets so the controller never re-derives aging. The invoice list
+  shows the real balance status only; the AR page + the overdue counter carry the past-due story.
+- `download()` streams the PRIVATE invoice PDF (nosniff, no public URL) for `series=INV` only (a credit
+  note 404s there). Detail reads are read-audited (`auditRead` surfaces `billing_invoice`/`billing_credit_note`).
+- Tests: `tests/Feature/Billing/BillingUiTest.php` (NEW — RBAC billing/reception/view-only, tenant 404,
+  assertInertia, service-routing, gapless number, CN series + untouched original, overdue counter value,
+  PDF nosniff). The reconciliation/invariant/hammer/`InvoiceTest` suite is UNTOUCHED. See [[Reporting]].
+
 ## Open items
 
-- Payment/reconciliation, dunning, and export UI surfaces are backend-only so far; screens come in a later UI gate.
+- Billing part 2 (flagged in D-088): New-invoice, Record-payment, Send-reminder actions; payment/dunning/
+  export UI surfaces remain backend-only. Admin "Billing & AR" DSO/net-collection/roll-forward/write-off
+  metrics are beyond the backend and bad-debt is deliberately excluded (only the factual aging table exists).
 - DATEV-style export columns arrive with the DE statutory pack later; F.7 ships a generic ledger CSV.
 - Schedule `billing:dunning-run` once recurring application scheduling is finalized (deferred).
 - Partial credit notes do not reduce the original invoice's open balance (F.4 behavior); revisit if
