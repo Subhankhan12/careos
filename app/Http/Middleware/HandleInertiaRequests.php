@@ -27,6 +27,7 @@ class HandleInertiaRequests extends Middleware
         'comms.manage',
         'billing.view',
         'reporting.view',
+        'admin.manage',
     ];
 
     public function version(Request $request): ?string

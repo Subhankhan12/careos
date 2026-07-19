@@ -17,6 +17,11 @@ use Modules\Platform\Concerns\BelongsToTenant;
  * @property string $tenant_id
  * @property string $name
  * @property string $code
+ * @property string|null $address_line1
+ * @property string|null $address_line2
+ * @property string|null $city
+ * @property string|null $postal_code
+ * @property string|null $country
  * @property string $timezone
  * @property bool $active
  */

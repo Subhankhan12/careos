@@ -46,6 +46,8 @@ use Modules\Patients\Http\Controllers\PatientShowController;
 use Modules\Patients\Http\Controllers\PortalAuthController;
 use Modules\Patients\Http\Controllers\PortalConsentController;
 use Modules\Patients\Http\Controllers\PortalInvitationController;
+use Modules\Platform\Http\Controllers\SettingsController;
+use Modules\Platform\Http\Controllers\UserRoleController;
 use Modules\Reporting\Http\Controllers\ReportingDashboardController;
 use Modules\Scheduling\Http\Controllers\AppointmentSeriesController;
 use Modules\Scheduling\Http\Controllers\DayBoardActionController;
@@ -237,6 +239,14 @@ Route::middleware('auth')->group(function () {
     Route::get('/admin/kiosks', [KioskDeviceController::class, 'index'])->name('admin.kiosks.index');
     Route::post('/admin/kiosks', [KioskDeviceController::class, 'issue'])->name('admin.kiosks.issue');
     Route::post('/admin/kiosks/revoke', [KioskDeviceController::class, 'revoke'])->name('admin.kiosks.revoke');
+
+    // Practice settings + Roles & access (CLINIC.W8). Both gate admin.manage in the
+    // controller; settings write through SettingsService, role assignment through the
+    // audited RoleAssignment path — no domain logic here.
+    Route::get('/settings', [SettingsController::class, 'index'])->name('settings.index');
+    Route::post('/settings', [SettingsController::class, 'update'])->name('settings.update');
+    Route::get('/admin/roles', [UserRoleController::class, 'index'])->name('admin.roles.index');
+    Route::post('/admin/roles/assign', [UserRoleController::class, 'assign'])->name('admin.roles.assign');
 });
 
 // Self check-in KIOSK (P0P.G7): unauthenticated but scoped to a branch by the

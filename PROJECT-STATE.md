@@ -47,6 +47,16 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
   `docs/QA-AUDIT-REPORT.md` §9); the only remaining gaps are designed-but-unwired admin screens (governance / KB /
   AI-queue / settings / RBAC-UI / staff-telehealth join) — a founder scope decision, not blockers.
 
+- **CLINIC.W8 built two of those admin gaps — Settings + Roles/access.** UI-over-existing-backend (like W6/W7):
+  `/settings` (SettingsController) edits the settlement `currency` + invoice-issuer identity through the EXISTING
+  `SettingsService` (tenant profile + branches read-only; the rest listed as honest gaps); `/admin/roles`
+  (UserRoleController) assigns one of the 6 seeded role templates via the sanctioned auto-audited `RoleAssignment`
+  path (no role builder, no per-permission toggles; server Gate authoritative; a last-org_admin self-lockout guard).
+  Both admin.manage-gated + tenant-scoped, covered by 9 feature tests + the route smoke. **Still not wired** (the
+  remaining founder-scope gaps): governance dashboard, KB admin, AI approval-queue, staff-telehealth join — plus the
+  settings BACKENDS a clinic will eventually want but that don't exist yet (editable practice profile, branch CRUD,
+  opening hours, locale wiring, plan/feature-flag management). See D-094.
+
 - **Current phase:** Phase G COMPLETE - Comms, telehealth & patient portal. Consolidated at P0G.C:
   the functional staff-facing surface is FROZEN for the design pass, and `docs/SCREENS.md` is the
   factual re-skin brief (22 Inertia pages + 11 nurse-PWA screens with routes/guards/props/actions).

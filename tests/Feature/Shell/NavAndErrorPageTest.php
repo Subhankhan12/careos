@@ -52,6 +52,7 @@ test('the shell shares nav permissions so a role only sees links it can use', fu
                 'comms.manage' => true,
                 'billing.view' => false,
                 'reporting.view' => false,
+                'admin.manage' => false,
             ]));
 
     // org_admin holds every nav permission.
@@ -66,6 +67,7 @@ test('the shell shares nav permissions so a role only sees links it can use', fu
                 'comms.manage' => true,
                 'billing.view' => true,
                 'reporting.view' => true,
+                'admin.manage' => true,
             ]));
 });
 

@@ -27,6 +27,82 @@
             "body": "An unexpected error occurred. Please try again."
         }
     },
+    "settings": {
+        "eyebrow": "Governance",
+        "title": "Practice settings",
+        "subtitle": "Configure your practice. The server enforces every value — this page only reflects it.",
+        "flash": {
+            "saved": "Settings saved.",
+            "unchanged": "No changes to save."
+        },
+        "profile": {
+            "title": "Practice profile",
+            "subtitle": "Read-only for now — editing the practice name and contact details isn't wired to a backend yet.",
+            "name": "Practice name",
+            "slug": "Booking slug",
+            "region": "Region",
+            "status": "Status",
+            "plan": "Plan",
+            "noPlan": "No plan assigned"
+        },
+        "billing": {
+            "title": "Billing identity & currency",
+            "subtitle": "Shown on invoices and used across billing, reporting and the dashboard.",
+            "currency": "Settlement currency",
+            "sellerName": "Invoice issuer name",
+            "sellerNamePlaceholder": "e.g. Praxis Lindenhof AG",
+            "sellerVatId": "VAT / tax ID",
+            "sellerVatIdPlaceholder": "e.g. CHE-123.456.789",
+            "save": "Save billing settings"
+        },
+        "branches": {
+            "title": "Branches",
+            "subtitle": "Your configured locations. Adding or editing branches isn't wired to a backend yet.",
+            "code": "Code",
+            "city": "City",
+            "timezone": "Timezone",
+            "active": "Active",
+            "inactive": "Inactive",
+            "empty": "No branches configured."
+        },
+        "access": {
+            "title": "Roles & access",
+            "subtitle": "Manage who can do what in your practice.",
+            "link": "Manage roles & access →"
+        },
+        "gaps": {
+            "title": "Not yet configurable",
+            "subtitle": "On the roadmap — these have no backend to save to yet, so they aren't shown as editable.",
+            "items": "Practice name & contact details · Branch management · Opening hours · Interface language · Feature toggles · Plan & subscription"
+        }
+    },
+    "roles": {
+        "eyebrow": "Governance",
+        "title": "Roles & access",
+        "subtitle": "Assign a built-in role to each member. Roles are fixed templates — the server enforces exactly what each grants.",
+        "flash": {
+            "assigned": "Role updated.",
+            "unchanged": "That member already has this role."
+        },
+        "lastAdmin": "Can't change this — it would leave the practice with no organisation admin.",
+        "backToSettings": "← Back to settings",
+        "team": {
+            "title": "Team",
+            "subtitle": "Each member's current role. Assigning a new role replaces the current one.",
+            "member": "Member",
+            "role": "Current role",
+            "assign": "Assign role",
+            "assignAction": "Assign",
+            "you": "you",
+            "none": "No role",
+            "empty": "No members yet."
+        },
+        "catalog": {
+            "title": "What each role grants",
+            "subtitle": "Read-only — the tested permission set for every role template.",
+            "permissions": "{count} permission | {count} permissions"
+        }
+    },
     "app": {
         "name": "CareOS",
         "signOut": "Sign out",
@@ -40,7 +116,8 @@
             "inbox": "Inbox",
             "billing": "Billing",
             "reporting": "Reporting",
-            "import": "Import"
+            "import": "Import",
+            "settings": "Settings"
         }
     },
     "kiosk": {

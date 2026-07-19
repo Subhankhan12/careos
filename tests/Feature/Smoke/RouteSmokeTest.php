@@ -116,6 +116,8 @@ test('every major staff route is reachable through the real middleware stack (20
         'imports.index' => '/imports',
         'imports.create' => '/imports/create',
         'admin.kiosks' => '/admin/kiosks',
+        'settings' => '/settings',
+        'admin.roles' => '/admin/roles',
         // Detail pages (real ids) — the billing/import ones are the C-1 regression surface.
         'patient.show' => '/patients/'.$fx['patient']->id,
         'chart' => '/clinical/chart/'.$fx['patient']->id,
@@ -175,6 +177,11 @@ test('per-role RBAC smoke: each role reaches its pages (200) and is denied other
         // billing: billing yes; patients (no patient.view) no.
         [$u['billing'], '/billing/invoices', 200],
         [$u['billing'], $patientUrl, 403],
+        // settings + roles are admin.manage only — reception is denied, org_admin reaches them.
+        [$u['reception'], '/settings', 403],
+        [$u['reception'], '/admin/roles', 403],
+        [$u['org_admin'], '/settings', 200],
+        [$u['org_admin'], '/admin/roles', 200],
         // org_admin is a tenant admin, NOT a super-admin: the platform shell is denied.
         [$u['org_admin'], '/admin', 403],
     ];

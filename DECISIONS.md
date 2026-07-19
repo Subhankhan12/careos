@@ -840,3 +840,26 @@ references the old ID.
   covered here). Wired as a dedicated fast-fail CI step (`composer test:smoke`, before `composer check`) AND it
   runs inside the full suite; local run via `composer test:smoke` / `npm run test:smoke`. Maintainability: a single
   route list in the test — a new page is one line. NO app logic changed (test infra + CI only). (FIX.5)
+- **D-094 — Settings + Roles/access admin are a presentation layer over EXISTING backends; they wire what round-trips
+  and flag the rest, and role assignment stays on the sanctioned audited path.** CLINIC.W8 built the two admin
+  screens a paying clinic needs day-one (the QA audit's not-wired "settings" + "RBAC-UI" gaps), UI-over-tested-backend
+  like W6/W7 billing, no domain logic. **Settings** (`Modules/Platform/.../SettingsController`, `/settings`,
+  admin.manage): the ONLY editable values are those that genuinely round-trip through `SettingsService` AND have a
+  runtime consumer — settlement `currency` (read by landing/reporting/billing) and the invoice-issuer identity the PDF
+  renderer reads (`billing.seller_name` / `billing.seller_vat_id`); writes go through `SettingsService::set()` (the
+  existing path — not new storage) with a currency allow-list. Tenant profile (name/region/plan) and branches are shown
+  READ-ONLY because they have no write backend; everything else a clinic would want is listed as a **GAP, not faked**
+  (profile edit, branch CRUD, opening hours, locale wiring, tenant timezone, feature flags, plan selection, operational
+  tuning keys). **Roles** (`UserRoleController`, `/admin/roles`, admin.manage): lists tenant users + current role and
+  assigns ONE of the 6 seeded system templates — NOT a role builder, NO per-permission toggles. **Safety:** assignment
+  is the sanctioned raw `RoleAssignment::create(['user_id','role_id','branch_id'=>null])` (no service exists — this IS
+  the path), which the server Gate reads live, so a user's effective permissions are EXACTLY the template's (a test
+  asserts an assigned doctor gains note.write but NOT billing.manage/admin.manage); it is AUTO-AUDITED via the
+  `RoleAssignment::created` → `role.assigned` hook (replace = revoke old + assign new = `role.revoked`+`role.assigned`,
+  chain stays valid) — the controller never calls audit code, and must never bypass Eloquent events or run in system
+  mode. Assign REPLACES the user's role (dedupes — `role_user` has no unique constraint). **Self-lockout guard** (none
+  existed in the RBAC layer): the controller refuses to demote the tenant's last org_admin (a presentation-layer count
+  check; a test proves it blocks the last admin but allows demotion when another admin remains). Both pages tenant
+  scoped + cross-tenant user/role → 404. One existing-test update (tracking, not weakening): `NavAndErrorPageTest`'s
+  exact nav-permissions map gained `admin.manage` because the new `/settings` nav link is gated on it (shared via
+  `HandleInertiaRequests::NAV_PERMISSIONS`) — same category as FIX.4's L-2 seeder-count update. (CLINIC.W8)

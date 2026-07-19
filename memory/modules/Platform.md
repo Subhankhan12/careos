@@ -153,6 +153,18 @@ running shows up as an absence rather than as nothing at all.
   context via the middleware, like a browser), asserting 200-not-500 for all roles + portal. This is the
   systemic guard against a request-time 500 (the C-1 class the pre-seeded feature tests masked). Runs as a
   dedicated CI step + inside `composer check`; local: `composer test:smoke`. See [[D-093]].
+- Admin screens (CLINIC.W8) — the FIRST Platform Http controllers (`Modules/Platform/src/Http/Controllers/`).
+  **SettingsController** (`/settings`, admin.manage): reads/writes tenant settings ONLY through the existing
+  `SettingsService` (get/set) — editable = settlement `currency` (+ allow-list) and invoice-issuer identity
+  `billing.seller_name`/`billing.seller_vat_id` (the keys that round-trip AND have a runtime consumer); tenant
+  profile + branches shown read-only (no write backend); other clinic-settings listed as gaps, not faked.
+  **UserRoleController** (`/admin/roles`, admin.manage): assigns one of the 6 seeded `is_system` role templates via
+  the sanctioned raw `RoleAssignment::create(['user_id','role_id','branch_id'=>null])` (NO service exists — that IS
+  the path; auto-audited by the `RoleAssignment::created`→`role.assigned` hook, so never bypass Eloquent / run in
+  system mode). Assign REPLACES the user's role (role_user has no unique constraint → dedupe). A last-org_admin
+  self-lockout guard lives in the controller (none in the RBAC layer). Server Gate stays authoritative — a user's
+  effective perms are exactly the template's. Nav link is gated on `admin.manage` (added to
+  `HandleInertiaRequests::NAV_PERMISSIONS`). See [[D-094]].
 
 ## Open items
 
