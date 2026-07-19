@@ -91,9 +91,13 @@ class InvoiceController
         ]);
     }
 
-    public function show(Invoice $invoice, Request $request): Response
+    public function show(string $invoice, Request $request): Response
     {
         Gate::authorize('billing.view');
+        // Resolve the tenant-scoped model INSIDE the action (not via implicit route-model
+        // binding, which resolves before IdentifyTenantFromUser sets the context). The
+        // BelongsToTenant global scope makes a missing/cross-tenant id 404, never a leak.
+        $invoice = Invoice::query()->whereKey($invoice)->firstOrFail();
         abort_unless($invoice->series === Invoice::SERIES_INVOICE, 404);
 
         // Reading one patient's invoice is a disclosure — record a read-audit row.
@@ -120,11 +124,14 @@ class InvoiceController
         ]);
     }
 
-    public function issue(Invoice $invoice, Request $request, IssueService $issueService): RedirectResponse
+    public function issue(string $invoice, Request $request, IssueService $issueService): RedirectResponse
     {
         Gate::authorize('billing.manage');
         $actor = $request->user();
         abort_unless($actor instanceof User, 403);
+
+        // Tenant-scoped resolution inside the action (see show() for the why); 404 fail-closed.
+        $invoice = Invoice::query()->whereKey($invoice)->firstOrFail();
 
         // The gapless-numbering + immutability path is entirely inside IssueService.
         $issueService->issue($invoice, $actor);
@@ -132,11 +139,13 @@ class InvoiceController
         return redirect()->route('billing.invoices.show', $invoice->id);
     }
 
-    public function creditNote(Invoice $invoice, Request $request, IssueService $issueService): RedirectResponse
+    public function creditNote(string $invoice, Request $request, IssueService $issueService): RedirectResponse
     {
         Gate::authorize('billing.manage');
         $actor = $request->user();
         abort_unless($actor instanceof User, 403);
+
+        $invoice = Invoice::query()->whereKey($invoice)->firstOrFail();
 
         $validated = $request->validate(['reason' => ['required', 'string', 'max:500']]);
 
@@ -147,9 +156,10 @@ class InvoiceController
         return redirect()->route('billing.credit-notes.show', $creditNote->id);
     }
 
-    public function download(Invoice $invoice, Request $request): HttpResponse
+    public function download(string $invoice, Request $request): HttpResponse
     {
         Gate::authorize('billing.view');
+        $invoice = Invoice::query()->whereKey($invoice)->firstOrFail();
         // This route serves invoice PDFs only; a credit note is fetched via its own surface.
         abort_unless($invoice->series === Invoice::SERIES_INVOICE, 404);
         abort_if($invoice->number === null || $invoice->pdf_path === null, 404);

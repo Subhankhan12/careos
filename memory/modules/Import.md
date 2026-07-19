@@ -65,3 +65,9 @@ It must NOT depend on AiCore/Scheduling/Clinical/Nursing/Billing/Comms
   contacts/identifiers/coverages only).
 - Existing tenants need a re-provision (`RbacProvisioner::provisionTenant`) to pick up `data.import`;
   fresh tenants get it automatically on `Tenant::created`.
+- FIX.1 (D-090): `ImportBatchController` show/mapping/validateBatch/commit used implicit route-model
+  binding (`ImportBatch $batch`), which 500'd in the real app (SubstituteBindings runs before
+  IdentifyTenantFromUser sets tenant context) — the import DRY-RUN preview was unreachable. Now each
+  takes `string $batch` → `ImportBatch::query()->whereKey($batch)->firstOrFail()` (missing/cross-tenant
+  → 404). Regression covered in `tests/Feature/RouteBindingTenantContextTest.php`. Same app-wide
+  convention as billing — see [[tenant-scoped-routes-need-string-ids-not-model-binding]].

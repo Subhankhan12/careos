@@ -65,9 +65,12 @@ class CreditNoteController
         ]);
     }
 
-    public function show(Invoice $invoice, Request $request): Response
+    public function show(string $invoice, Request $request): Response
     {
         Gate::authorize('billing.view');
+        // Resolve inside the action (not via implicit binding, which runs before the tenant
+        // context is set); the BelongsToTenant scope makes a missing/cross-tenant id 404.
+        $invoice = Invoice::query()->whereKey($invoice)->firstOrFail();
         abort_unless($invoice->series === Invoice::SERIES_CREDIT_NOTE, 404);
 
         $invoice->auditRead(['surface' => 'billing_credit_note']);

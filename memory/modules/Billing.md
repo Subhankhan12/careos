@@ -263,6 +263,12 @@ P0F.G4 added invoices, gapless numbering, issued-document immutability, and cred
 
 ## Open items
 
+- FIX.1 (D-090): the W6/W7 detail/write controllers used implicit route-model binding, which 500'd in the
+  real app (SubstituteBindings resolves the tenant model before IdentifyTenantFromUser sets context).
+  Now every action takes a `string $id` and resolves via `Model::query()->whereKey($id)->firstOrFail()`
+  (Invoice show/issue/creditNote/download, CreditNote show, Payment show/allocate/reverse). Regression:
+  `tests/Feature/RouteBindingTenantContextTest.php` (must `TenantContext::forget()` before the request).
+  See [[tenant-scoped-routes-need-string-ids-not-model-binding]].
 - The billing/reporting STAFF UI is now built (W6 invoices/AR/CN + W7 payments/dunning/new-invoice/reporting).
   Still backend-only: the camt.053 bank-import + auto-match reconciliation (Payment Reconciliation prototype),
   AI-drafted dunning reminders + approval-escalation ladder, and the accounting-export UI. Admin "Billing & AR"

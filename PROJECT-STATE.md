@@ -816,6 +816,18 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
   invoices/AR/credit-notes (W6) · billing p2 + reporting — payments/dunning/new-invoice/reporting (W7).
   W1–W5 were re-skin-only; W6–W7 built the billing/reporting presentation over the frozen, tested engines
   with zero domain-logic change. All landed and green.
+- **QA audit (docs/QA-AUDIT-REPORT.md):** full Playwright E2E/UI audit across roles. Kiosk PHI-safety +
+  clinical/reporting electric fence + RBAC all hold. Found C-1 (CRITICAL): billing detail + all write
+  actions (and the CSV-import preview) 500'd in the real browser — implicit route-model binding resolving
+  before the tenant-context middleware. Plus Mediums (staff landing is an unwired placeholder;
+  tz-fragile date rendering; vitals shown in g/mm not kg/cm; bare 403 screens).
+- **FIX.1 — C-1 resolved (D-090):** converted the 12 billing + import detail/write actions from implicit
+  route-model binding to `string $id` + in-controller `Model::query()->whereKey($id)->firstOrFail()`
+  (missing/cross-tenant → 404, fail-closed preserved; no billing logic changed). NEW
+  `tests/Feature/RouteBindingTenantContextTest.php` exercises real middleware ordering
+  (`TenantContext::forget()` before the request) — failed on the old code, passes now. composer check
+  FULLY green (**Pest 601 passed / 4519 assertions**, 0 failed). The other QA-audit Mediums (landing,
+  date rendering, vitals units, 403 UX) remain OPEN for a follow-up gate.
 - **Next action:** the standing focus is again **DISCOVERY** — the CH/KVG-vs-EU-generic billing model must
   be confirmed with Spitex coordinators before the CH statutory pack (the likely real first NEW build) is
   committed. Remaining billing backend-only surfaces (camt.053 reconciliation, AI dunning drafts,

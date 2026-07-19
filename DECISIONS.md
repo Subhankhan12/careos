@@ -767,3 +767,23 @@ references the old ID.
   verify workflow returned 0 confirmed defects. With W7 the Eucalyptus Glow **CLINIC DELIVERY is
   COMPLETE** (W1 foundation → W2 patients → W3 portal → W4 staff boards → W5 clinical → W6 billing p1 →
   W7 billing p2 + reporting). (CLINIC.W7)
+- **D-090 — Tenant-scoped route params are STRING ids resolved in-controller, never implicit
+  route-model binding.** The QA audit's C-1 delivery-blocker: billing detail + all write actions (and
+  the CSV-import preview) 500'd in the real browser with `TenantContextMissingException`. Root cause:
+  `IdentifyTenantFromUser` is *appended* to the web group in `bootstrap/app.php`, so it runs AFTER
+  Laravel's `SubstituteBindings`; a controller that IMPLICITLY binds a `BelongsToTenant` model
+  (`show(Invoice $invoice)`) resolves it during `SubstituteBindings` — before the tenant context exists
+  — and the fail-closed global scope throws. The whole rest of the app already dodges this by taking a
+  **string id** and querying inside the action after the middleware runs (`PatientShowController(string
+  $patient)`, `ClinicalChartController(string $patient)`). FIX.1 converts every affected action to that
+  convention: InvoiceController `show/issue/creditNote/download`, CreditNoteController `show`,
+  PaymentController `show/allocate/reverse`, and the pre-existing ImportBatchController
+  `show/mapping/validateBatch/commit` — 12 actions, each now `string $id` →
+  `Model::query()->whereKey($id)->firstOrFail()`. A missing/cross-tenant id 404s (fail-closed
+  preserved); routes/URLs and all downstream service calls are byte-identical; no billing/payment/dunning
+  LOGIC changed. An app-wide grep confirmed billing + import were the ONLY implicit-bound tenant models.
+  **Test-gap lesson:** the W6/W7 tests stayed green because their fixtures pre-set the `TenantContext`
+  singleton BEFORE the request, masking the middleware ordering. The new
+  `tests/Feature/RouteBindingTenantContextTest.php` calls `TenantContext::forget()` after seeding so the
+  request establishes context via the middleware like a real browser — it FAILS (500) on the old code
+  and PASSES on the fix, and asserts 404 for missing/cross-tenant ids. (FIX.1)

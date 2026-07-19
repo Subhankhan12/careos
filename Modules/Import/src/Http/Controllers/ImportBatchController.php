@@ -71,9 +71,13 @@ class ImportBatchController
         return redirect()->route('import.show', $batch->id);
     }
 
-    public function show(ImportBatch $batch): Response
+    public function show(string $batch): Response
     {
         Gate::authorize('data.import');
+        // Resolve the tenant-scoped batch INSIDE the action (not via implicit route-model
+        // binding, which resolves before IdentifyTenantFromUser establishes the tenant
+        // context). The BelongsToTenant scope makes a missing/cross-tenant id 404, never 500.
+        $batch = ImportBatch::query()->whereKey($batch)->firstOrFail();
 
         return Inertia::render('Import/Upload', [
             'batch' => $this->batchDetail($batch),
@@ -83,9 +87,10 @@ class ImportBatchController
         ]);
     }
 
-    public function mapping(Request $request, ImportBatchService $service, ImportBatch $batch): RedirectResponse
+    public function mapping(Request $request, ImportBatchService $service, string $batch): RedirectResponse
     {
         Gate::authorize('data.import');
+        $batch = ImportBatch::query()->whereKey($batch)->firstOrFail();
 
         $data = $request->validate([
             'mapping' => ['array'],
@@ -101,9 +106,10 @@ class ImportBatchController
         return redirect()->route('import.show', $batch->id);
     }
 
-    public function validateBatch(ImportValidator $validator, ImportBatch $batch): RedirectResponse
+    public function validateBatch(ImportValidator $validator, string $batch): RedirectResponse
     {
         Gate::authorize('data.import');
+        $batch = ImportBatch::query()->whereKey($batch)->firstOrFail();
 
         try {
             $validator->validate($batch);
@@ -114,9 +120,10 @@ class ImportBatchController
         return redirect()->route('import.show', $batch->id);
     }
 
-    public function commit(Request $request, ImportCommitter $committer, ImportBatch $batch): RedirectResponse
+    public function commit(Request $request, ImportCommitter $committer, string $batch): RedirectResponse
     {
         Gate::authorize('data.import');
+        $batch = ImportBatch::query()->whereKey($batch)->firstOrFail();
 
         $data = $request->validate([
             'duplicate_policy' => ['required', 'string', 'in:'.implode(',', ImportBatch::POLICIES)],

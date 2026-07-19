@@ -154,10 +154,13 @@ class PaymentController
         return redirect()->route('billing.payments.show', $payment->id);
     }
 
-    public function show(Payment $payment, Request $request, PaymentService $payments): Response
+    public function show(string $payment, Request $request, PaymentService $payments): Response
     {
         Gate::authorize('billing.view');
         abort_unless($request->user() instanceof User, 403);
+        // Resolve inside the action (not via implicit binding, which runs before the tenant
+        // context is set); the BelongsToTenant scope makes a missing/cross-tenant id 404.
+        $payment = Payment::query()->whereKey($payment)->firstOrFail();
 
         $allocations = PaymentAllocation::query()
             ->where('payment_id', $payment->id)
@@ -230,11 +233,13 @@ class PaymentController
         ]);
     }
 
-    public function allocate(Payment $payment, Request $request, PaymentService $payments): RedirectResponse
+    public function allocate(string $payment, Request $request, PaymentService $payments): RedirectResponse
     {
         Gate::authorize('billing.manage');
         $actor = $request->user();
         abort_unless($actor instanceof User, 403);
+
+        $payment = Payment::query()->whereKey($payment)->firstOrFail();
 
         $validated = $request->validate([
             'invoice_id' => ['required', 'string', 'exists:invoices,id'],
@@ -255,11 +260,13 @@ class PaymentController
         return redirect()->route('billing.payments.show', $payment->id);
     }
 
-    public function reverse(Payment $payment, Request $request, PaymentService $payments): RedirectResponse
+    public function reverse(string $payment, Request $request, PaymentService $payments): RedirectResponse
     {
         Gate::authorize('billing.manage');
         $actor = $request->user();
         abort_unless($actor instanceof User, 403);
+
+        $payment = Payment::query()->whereKey($payment)->firstOrFail();
 
         $validated = $request->validate([
             'allocation_id' => ['required', 'string', 'exists:payment_allocations,id'],
