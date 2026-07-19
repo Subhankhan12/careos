@@ -734,6 +734,20 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
   exists); AllergyBanner dormant behind an optional `allergies?` prop the backend doesn't send. Verified:
   npm run build green; composer check FULLY green (Pint · PHPStan L5 · **Pest 582 passed / 4198
   assertions**), zero test edits; adversarial 4-dimension review → 0 confirmed defects. Recorded as D-084.
-- **Next action:** continue the `docs/CLINIC-DELIVERY-MAP.md` WIRE ORDER for the remaining clinic+shared
-  screens (Portal shell/login → scheduling/day-board + inbox/dispatch → chart/note-editor last), same
-  re-skin discipline (P0D.GU: `.vue` only; routes/controllers/props/guards/tests frozen). Then Phase H.
+- **CLINIC.W3 — patient portal wired (softer variant):** all seven authenticated portal pages
+  (`Portal/Home`, `Appointments`, `Documents`, `Messages`, `Invoices`, `Consents`, `Telehealth`) +
+  `PortalLayout` re-skinned to Eucalyptus Glow's patient-facing variant — 16px base, roomier glass
+  cards, reassuring copy, bigger touch targets — on the portal's OWN layout + patient guard, NEVER the
+  staff shell. Home hero + quick-action tiles; Appointments upcoming-hero + clay cancel-confirm +
+  within-window call-the-practice note + AM/PM booking; Documents category filters; Messages
+  patient/staff chat bubbles (no AI surfaces); Invoices open-balance + status filters; Consents serious
+  two-step withdraw-confirm; Telehealth Join + "not recorded". **NO payment processing anywhere** (PSP
+  deferred; balances display-only). RE-SKIN ONLY per P0D.GU — no route/controller/prop/action/guard/test
+  changed; `PortalUiTest` (9 tests) pass UNCHANGED. Gaps flagged not faked: no patient name in portal
+  props (generic greeting); no telehealth practitioner/time (generic title); unbacked extras omitted.
+  Verified: npm run build green; composer check FULLY green (Pint · PHPStan L5 · **Pest 582 passed /
+  4198 assertions**), zero test edits; adversarial 4-dimension review → 0 confirmed defects. D-085.
+- **Next action:** continue the `docs/CLINIC-DELIVERY-MAP.md` WIRE ORDER for the remaining clinic
+  screens (scheduling/day-board + kiosk → inbox/nursing-dispatch → clinical chart/note-editor last, then
+  billing once its staff UI is built), same re-skin discipline (P0D.GU: `.vue` only; routes/controllers/
+  props/guards/tests frozen). Then Phase H per the master plan.

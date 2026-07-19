@@ -641,3 +641,20 @@ references the old ID.
   exists at all; `portal.invitations.store` exists but is not on the Show payload), and the
   **AllergyBanner** stays dormant behind an optional `allergies?` prop the backend does not yet send
   (render-when-present, exactly as the design prescribes). (CLINIC.W2)
+- **D-085 — The patient portal is the SOFTER variant on its OWN layout; balances are display-only, no
+  PSP.** CLINIC.W3 re-skins the seven authenticated portal pages to Eucalyptus Glow's patient-facing
+  variant — 16px base, roomier glass cards, reassuring plain-language copy, bigger touch targets — on
+  the portal's OWN `PortalLayout` (glass pill nav + the `portal-tenant` + `portal-auth` +
+  `portal-consent` guard chain), NEVER the staff `AppLayout`. Per P0D.GU the wiring is `.vue`/`.json`
+  ONLY; routes/controllers/props/actions/guards/TESTS are frozen and `PortalUiTest` passes unchanged
+  (own-data-only, consent-lock, cross-tenant, self-book via `BookingService`, server-enforced cancel
+  window, gated + read-logged telehealth token, staff/patient shell separation). NO payment processing
+  is added anywhere — the PSP is deferred: the Home balance renders `minor/100` with NO currency symbol
+  and the Invoices open balance renders `minor/100` + currency, both display-only with no pay button.
+  Patient-facing invariants honored: no AI provenance crosses into the portal (Messages shows plain
+  practice replies, no `ai_assisted` surfaces); the consent withdrawal gets a serious two-step confirm
+  (presentational — the server call is unchanged) spelling out that withdrawing `portal.access` signs
+  the patient out immediately; the telehealth "this call is not recorded" notice and in-memory-only
+  token are kept. Honest gaps flagged not faked: the portal payload carries no patient NAME (generic
+  time-based greeting) and no telehealth practitioner/time (generic "Video visit" title); unbacked
+  prototype extras (Add-to-calendar, Directions, a live camera/mic checklist) are omitted. (CLINIC.W3)

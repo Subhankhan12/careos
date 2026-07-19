@@ -487,25 +487,55 @@
             "failed": "Those credentials do not match our records."
         },
         "home": {
+            "greeting": {
+                "morning": "Good morning",
+                "afternoon": "Good afternoon",
+                "evening": "Good evening"
+            },
             "nextAppointment": "Next appointment",
-            "none": "No upcoming appointment.",
+            "none": "Nothing booked yet.",
             "unreadMessages": "Unread messages",
-            "outstandingBalance": "Outstanding balance"
+            "outstandingBalance": "Outstanding balance",
+            "noPaymentDue": "No payment due",
+            "balanceNote": "For information only — payment is handled at the practice.",
+            "viewAppointments": "View appointments",
+            "viewMessages": "View messages",
+            "bookVisit": "Book a visit",
+            "bookVisitSub": "Pick a free time",
+            "messageUs": "Message us",
+            "messageUsSub": "Secure & private",
+            "documentsSub": "Shared with you",
+            "telehealthSub": "Join a video visit"
         },
         "appointments": {
+            "eyebrow": "Your practice · Appointments",
+            "subtitle": "Book a visit or change an upcoming one.",
             "upcoming": "Upcoming",
             "past": "Past",
-            "empty": "Nothing here yet.",
+            "empty": "Nothing booked yet — pick a time whenever you're ready.",
             "book": "Book an appointment",
+            "bookingIntro": "Booked as you — no details to re-enter.",
             "service": "Service",
             "branch": "Branch",
+            "location": "Location",
             "date": "Date",
             "findSlots": "Find slots",
-            "slotsEmpty": "No free slots for this day.",
+            "morning": "Morning",
+            "afternoon": "Afternoon",
+            "slotsEmpty": "No free times that day — try another date.",
+            "slotsCapNote": "Up to 12 free times per day.",
             "bookSlot": "Book",
+            "confirmBooking": "Confirm booking",
             "cancel": "Cancel",
             "cancelReason": "Reason",
-            "cancelHint": "Appointments can be cancelled online up to {hours} hours before the start."
+            "cancelConfirm": "Cancel this appointment? The time goes back to the practice right away.",
+            "keepIt": "Keep it",
+            "confirmCancel": "Yes, cancel",
+            "withinWindow": "Within {hours} hours of the start — please call the practice to cancel.",
+            "today": "today",
+            "tomorrow": "tomorrow",
+            "inDays": "in {count} days",
+            "cancelHint": "Appointments can be cancelled online up to {hours} hours before the start — within that window, please call the practice."
         },
         "checkIn": {
             "action": "Check in",
@@ -520,16 +550,28 @@
             "saveContact": "Save contact details"
         },
         "documents": {
+            "eyebrow": "Shared with you",
             "title": "Your documents",
+            "subtitle": "Only what the practice has shared with you appears here — nothing else from your record.",
+            "all": "All",
+            "file": "File",
             "empty": "No documents have been shared with you.",
-            "download": "Download"
+            "download": "Download",
+            "footer": "Each download is recorded for your safety, and files come straight from the practice — never a public link."
         },
         "messages": {
+            "eyebrow": "Secure messages",
             "title": "Your messages",
+            "subtitle": "Write to the practice here — we usually reply within one working day.",
             "empty": "No conversations yet.",
-            "noSelection": "Select a conversation.",
+            "onlyYours": "Only your own conversations appear here.",
+            "noSelection": "Choose a conversation on the left.",
+            "open": "Open",
+            "closed": "Closed",
+            "closedNote": "This conversation is closed — the practice will open a new one if anything else comes up.",
             "reply": "Write a message…",
             "send": "Send",
+            "urgentNote": "For anything urgent please call the practice — this inbox is checked during opening hours.",
             "unread": "{count} new",
             "author": {
                 "staff": "Care team",
@@ -538,7 +580,12 @@
             }
         },
         "invoices": {
+            "eyebrow": "Billing",
             "title": "Your invoices",
+            "subtitle": "Your issued invoices — download a PDF anytime.",
+            "openBalance": "Open balance",
+            "all": "All",
+            "filterNote": "Filters this list only — your open balance stays the full total.",
             "empty": "No invoices.",
             "number": "Invoice",
             "issued": "Issued",
@@ -546,13 +593,33 @@
             "total": "Total",
             "open": "Open",
             "status": "Status",
-            "download": "PDF"
+            "statuses": {
+                "issued": "Open",
+                "partially_paid": "Partially paid",
+                "paid": "Paid"
+            },
+            "download": "PDF",
+            "footer": "Payment is handled at the practice — please settle open invoices there or by bank transfer using the reference on your PDF."
         },
         "consents": {
+            "eyebrow": "Privacy",
             "title": "Your consents",
+            "subtitle": "What you've agreed to — and how to change your mind. Withdrawing takes effect immediately and is recorded with your reason.",
             "empty": "No consents recorded.",
+            "grantedOn": "Granted {date}",
             "withdraw": "Withdraw",
-            "withdrawReason": "Reason",
+            "withdrawReasonLabel": "Why are you withdrawing?",
+            "withdrawReason": "Your reason",
+            "withdrawWarning": "Withdrawing takes effect immediately and is recorded with your reason.",
+            "withdrawWarningStrong": "Please be sure. Withdrawing portal access signs you out immediately — you won't be able to sign back in, see documents, or message the practice here. The practice can invite you again later.",
+            "keepAccess": "Keep my access",
+            "withdrawConfirm": "Yes, withdraw access",
+            "scope": {
+                "portalAccess": "Sign in to this portal",
+                "documentsRead": "See documents the practice shares with you",
+                "messagesWrite": "Message the practice securely",
+                "researchShare": "Share anonymised data with approved research projects"
+            },
             "status": {
                 "granted": "Granted",
                 "withdrawn": "Withdrawn",
@@ -560,11 +627,15 @@
             }
         },
         "telehealth": {
+            "eyebrow": "Video visits",
             "title": "Video visits",
+            "subtitle": "Join from anywhere quiet and private. This call is not recorded.",
+            "sessionTitle": "Video visit",
             "empty": "No video visit is scheduled right now.",
             "join": "Get join code",
             "joined": "Your join code is ready. It expires shortly — use it now.",
-            "notice": "This video visit is not recorded."
+            "notice": "This video visit is not recorded.",
+            "footer": "Only sessions the practice has opened appear here. The join link is created the moment you tap Join and is never stored — if you close the call, just tap Join again."
         }
     },
     "comms": {
