@@ -284,3 +284,8 @@ P0F.G4 added invoices, gapless numbering, issued-document immutability, and cred
   unallocated remainder"), PDF download (200 `application/pdf` `%PDF-`), CSV import dry-run (validates, writes
   nothing until commit). All the billing list pages now format date-only values (issue/due dates) via
   `formatDateOnly` from `resources/js/lib/date.ts` — local-midnight parse, no timezone day-shift. See [[D-091]].
+- Currency labels come from the invoice's currency, else the tenant settlement currency — NEVER hard-coded
+  `EUR`. The QA final pass caught `Payments/Record.vue` defaulting its amount-field label to `EUR` on the
+  invoice-less record page; `PaymentController@create` now passes `tenantCurrency` (`SettingsService->get('currency')`)
+  and the view falls back to it (display only — the recorded payment's currency was already resolved correctly by
+  `PaymentService`). Any new billing view that shows a currency should follow the same pattern.

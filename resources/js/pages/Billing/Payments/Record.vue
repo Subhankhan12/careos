@@ -17,12 +17,15 @@ type TargetInvoice = {
 const props = defineProps<{
     methods: string[];
     invoice: TargetInvoice | null;
+    tenantCurrency: string;
     patientId: string | null;
     storeUrl: string;
     paymentsUrl: string;
 }>();
 
-const currency = computed(() => props.invoice?.currency ?? 'EUR');
+// The invoice's currency when recording against one; otherwise the tenant's settlement
+// currency (never a hard-coded EUR — display label only; the service stamps the real one).
+const currency = computed(() => props.invoice?.currency ?? props.tenantCurrency);
 
 function money(minor: number): string {
     return `${(minor / 100).toFixed(2)} ${currency.value}`;

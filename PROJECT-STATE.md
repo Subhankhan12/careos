@@ -39,7 +39,13 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
   route-reachability smoke (`tests/Feature/Smoke/RouteSmokeTest.php`, `composer test:smoke`) that drives every
   major route through the REAL middleware stack — tenant context forgotten before each request — asserting
   200-not-500 for every role + portal, wired as a dedicated CI step so a request-time 500 like C-1 can never ship
-  green again.
+  green again. **FINAL PRE-DEPLOYMENT PASS (QA gate):** re-drove the whole surface in a real browser (both demo
+  tenants, all roles + portal) — every FIX.1–FIX.5 remediation holds in-browser, and the electric fence + kiosk
+  PHI-safety hold. Only two NEW issues, both cosmetic + safe-fixed inline (a hard-coded "Amount (EUR)" label on
+  the record-payment page → now the tenant currency; a doubled `comms.email` portal-consent scope chip → labelled).
+  No fence/billing/RBAC defect open. **Verdict: the CLINIC vertical is deployment-ready** (see
+  `docs/QA-AUDIT-REPORT.md` §9); the only remaining gaps are designed-but-unwired admin screens (governance / KB /
+  AI-queue / settings / RBAC-UI / staff-telehealth join) — a founder scope decision, not blockers.
 
 - **Current phase:** Phase G COMPLETE - Comms, telehealth & patient portal. Consolidated at P0G.C:
   the functional staff-facing surface is FROZEN for the design pass, and `docs/SCREENS.md` is the

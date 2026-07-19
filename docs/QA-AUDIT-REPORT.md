@@ -164,3 +164,42 @@ Recommendation #7 was "add browser/E2E smoke tests to CI so a request-time 500 l
 - **CI wiring:** a dedicated fast-fail step **`Route smoke (real middleware stack, guards C-1-class 500s)`** runs `composer test:smoke` before the full `composer check`, so a 500 fails CI in ~1 min instead of after the whole suite.
 - **Run it locally:** `composer test:smoke` (robust across environments) or `npm run test:smoke`.
 - **Maintainability:** a single route list in the test — adding a new page later is one line.
+
+---
+
+## 9. Final pre-deployment pass (in-browser, post FIX.1–FIX.5)
+
+**Date:** 2026-07-19 · **Method:** live browser (Playwright MCP, Chromium in **America/Los_Angeles**) driven role-by-role against a fresh `migrate:fresh` + `DemoClinicSeeder` + `DemoSpitexSeeder` seed (+ a temporary super-admin for `/admin`). Every FIX.1–FIX.5 remediation was re-confirmed in-browser and the full audit surface re-driven to catch anything new.
+
+### Each remediation holds in-browser ✅
+
+| Fix | In-browser confirmation |
+|---|---|
+| **C-1** (billing) | Invoice **detail** opens (no 500); a draft **issued → gapless INV-7**; **credit note → CN-2**, original INV-7 untouched (number/lines/total 15.00 CHF unchanged, only balance→0 / status "Credit-noted"); **payment** recorded + **allocated** (unallocated → 0.00 CHF); **over-allocation** of 150 from a 100 payment **rejected** ("Cannot allocate more than the payment unallocated remainder"); **PDF** = `200 application/pdf %PDF- INV-7.pdf`. |
+| **M-1** (landing) | Real figures: Active patients **2**, **Outstanding 787.11 CHF**, "0 appointments · 0 waiting · 0 no-shows" (genuine Sunday zeros, not the old stub). |
+| **M-2** (dates) | Erika's DOB renders **03/12/1954** on the index (the buggy `new Date` path renders 03/11/1954 in this UTC-7 browser); Patient-360 header + demographics show `1954-03-12`. |
+| **M-3** (vitals) | Chart Vitals show **68.0 kg / 163 cm** (clinical units, no grams/mm), Systolic **125 mmHg** — raw, **zero fence violations** (no normal/abnormal/high/low/arrows/ranges/colours). |
+| **M-4** (nav) | org_admin sees all 7 nav items; **reception sees only Dashboard/Patients/Scheduling/Inbox** (Billing/Reporting/Nursing correctly hidden). |
+| **M-5** (styled denials) | Staff 403 → styled **"You don't have access to this area"** (HTTP 403); a not-wired URL → styled **"Page not found"** (HTTP 404); portal consent withdrawal → styled **"Your portal access has been withdrawn — contact the practice"** (HTTP 403). Status codes preserved (authorization unchanged). |
+| **L-2** (resources) | Day-board resources are **Sprechzimmer 1/2/3 + Behandlungsstuhl 1/2** — no `Fahrzeug` vehicles. |
+| **L-3** (currency) | **CHF** everywhere — landing (787.11 CHF), invoices, payments, portal invoices. |
+| Electric fence | **HELD** — vitals raw (no interpretation); a signed note renders read-only with a signed-lock line, version history, and reason-gated amend. |
+| Kiosk PHI-safety | **HELD** — a real name + DOB + a wrong code returns only *"We couldn't find your appointment. Please see reception."* (no PHI, no existence confirmation). |
+| RBAC by URL | reception → `/billing/invoices` is still **403** by direct URL (nav hiding is a UX hint only; the server Gate stays authoritative). Console clean (only benign 403/404 network logs). |
+
+### New issues found, classified
+
+**(a) Safe-fixed inline** (presentational only; no billing/clinical/RBAC/tenancy logic changed; no existing test modified):
+1. **Record-payment amount label hard-coded "Amount (EUR)".** On the standalone *Record payment* page (no invoice context) the label fell back to a literal `EUR`, wrong for the now-CHF clinic — even though the recorded payment itself already stamped CHF (the store resolves the tenant currency) and the allocate form already showed "Amount (CHF)". **Fix:** `PaymentController@create` now passes the tenant settlement currency (`SettingsService`), and `Payments/Record.vue` uses it as the fallback. Re-verified in-browser: the field now reads **"AMOUNT (CHF)"**. Display-only — no payment/currency logic changed.
+2. **Portal consent scope chip doubled for `comms.email`** ("comms.emailcomms.email"). The portal consents view shows a friendly label + a small mono key; `comms.email` had no entry in the label map, so the label fell back to the key (rendered twice). **Fix:** added `comms.email → commsEmail` to the scope map + an i18n label ("Get email updates about your care"). Presentational i18n only.
+
+**(b) Flagged for review:** **none.** No defect surfaced on the electric fence, billing/payment/dunning logic, or tenancy/RBAC surfaces — those all behaved correctly.
+
+**(c) Not-a-bug / known gaps:**
+- **Designed-but-unwired admin screens** (no route exists — a typed URL returns the styled 404): the **governance dashboard, knowledge-base admin, AI approval-queue, settings pages, RBAC/roles admin UI, and the staff telehealth *join* screen**. These are prototype/deferred surfaces, not defects — a **founder scope decision**, not a bug to fix.
+- **Nursing competency hard/soft block** is a **Spitex (home-care) tenant** feature; the clinic day-board dispatch is empty (a clinic isn't home-care), so it is not drivable in the clinic tenant. Backend-covered by the Nursing test suite; a coverage limitation of the clinic vertical, not a break.
+- **Staff landing "0 appointments today"** is correct — the audit day is a Sunday and the demo seeds weekday appointments.
+
+### Deployment-readiness verdict — CLINIC vertical
+
+**Deployable.** Every QA-audit finding is resolved and **re-confirmed in a real browser**: the Critical (C-1) billing surface works end-to-end, the two most-visible Mediums (M-1 landing, M-2 dates) hold, the polish batch (M-3 vitals units, M-4 nav gating, M-5 styled denials, L-1/L-2/L-3) is correct, and the safety invariants — the clinical **electric fence** and the **kiosk PHI-safety** — both hold. The only new issues were two cosmetic currency/label glitches, fixed inline. No fence/billing/RBAC defect remains open. The remaining gaps are **designed-but-unwired admin screens**, which are a scope decision for the founder rather than blockers for the clinic vertical.

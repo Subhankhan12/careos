@@ -24,6 +24,7 @@ const confirmingId = ref<string | null>(null);
 
 const scopeMap: Record<string, string> = {
     'portal.access': 'portalAccess',
+    'comms.email': 'commsEmail',
     'documents.read': 'documentsRead',
     'messages.write': 'messagesWrite',
     'research.share': 'researchShare',

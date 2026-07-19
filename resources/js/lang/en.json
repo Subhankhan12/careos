@@ -721,6 +721,7 @@
             "withdrawConfirm": "Yes, withdraw access",
             "scope": {
                 "portalAccess": "Sign in to this portal",
+                "commsEmail": "Get email updates about your care",
                 "documentsRead": "See documents the practice shares with you",
                 "messagesWrite": "Message the practice securely",
                 "researchShare": "Share anonymised data with approved research projects"

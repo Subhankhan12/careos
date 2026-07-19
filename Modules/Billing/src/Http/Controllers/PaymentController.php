@@ -16,6 +16,7 @@ use Modules\Billing\Models\Refund;
 use Modules\Billing\Services\PaymentService;
 use Modules\Patients\Models\Patient;
 use Modules\Platform\Models\User;
+use Modules\Platform\Services\SettingsService;
 
 /**
  * Staff payments UI: record a received payment, allocate it against invoices, and
@@ -68,7 +69,7 @@ class PaymentController
         ]);
     }
 
-    public function create(Request $request): Response
+    public function create(Request $request, SettingsService $settings): Response
     {
         Gate::authorize('billing.manage');
         abort_unless($request->user() instanceof User, 403);
@@ -95,6 +96,9 @@ class PaymentController
         return Inertia::render('Billing/Payments/Record', [
             'methods' => Payment::METHODS,
             'invoice' => $target,
+            // The tenant's settlement currency — the amount-field label when recording a
+            // payment not tied to an invoice (display only; the service stamps the currency).
+            'tenantCurrency' => (string) $settings->get('currency', 'EUR'),
             'patientId' => $patient?->id,
             'storeUrl' => route('billing.payments.store'),
             'paymentsUrl' => route('billing.payments.index'),
