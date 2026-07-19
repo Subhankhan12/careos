@@ -89,6 +89,15 @@ proven in `tests/Feature/Billing/BillingUiPart2Test.php`: coordinator (reporting
 no billing.view) → operational-only, `financial` omitted; billing role (no reporting.view)
 → 403; a recursive test asserts no judgment key leaks. See [[Billing]].
 
+**Staff landing consumes MetricsService (FIX.2).** `App\Http\Controllers\AppLandingController`
+(`GET /app`) assembles a today, tenant-wide view-model from the SAME service — appointments
+(+ by_status), waiting (arrived), no-shows, active patients (operational, only with
+`reporting.view`) and outstanding balance (financial, only with `billing.view`). Unlike
+`ReportingService::summary` (which requires reporting.view), the landing calls each metric
+CONDITIONALLY on `Gate::allows` so a role with neither (e.g. reception) gets the shell with
+both props `null` — never a throw. Genuine zeros (operational present, counts 0) replaced the
+old "awaiting data" stub. Test: `tests/Feature/AppLandingTest.php`. No new metric invented.
+
 ## Open items
 
 - The reporting surface wires ONLY the metrics `ReportingService::summary` already returns.

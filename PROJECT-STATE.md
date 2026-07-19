@@ -828,6 +828,13 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
   (`TenantContext::forget()` before the request) — failed on the old code, passes now. composer check
   FULLY green (**Pest 601 passed / 4519 assertions**, 0 failed). The other QA-audit Mediums (landing,
   date rendering, vitals units, 403 UX) remain OPEN for a follow-up gate.
+- **FIX.2 — M-1 resolved:** the staff landing (`/app`) was an unwired placeholder; NEW
+  `AppLandingController` wires it to the EXISTING `MetricsService` for today (appointments/waiting/
+  no-shows/active patients only with `reporting.view`; outstanding balance only with `billing.view`;
+  metrics called conditionally on `Gate::allows` so reception gets the shell, never a 500). Genuine
+  zeros replace the "awaiting data" stub. NEW `tests/Feature/AppLandingTest.php` (3 tests). No new
+  metric invented. composer check FULLY green (**Pest 604 passed / 4590 assertions**). QA-audit
+  Mediums still OPEN: M-2 date-rendering tz-shift, M-3 vitals units (g/mm→kg/cm), M-5 bare-403 UX.
 - **Next action:** the standing focus is again **DISCOVERY** — the CH/KVG-vs-EU-generic billing model must
   be confirmed with Spitex coordinators before the CH statutory pack (the likely real first NEW build) is
   committed. Remaining billing backend-only surfaces (camt.053 reconciliation, AI dunning drafts,

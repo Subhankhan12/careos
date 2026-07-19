@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\AppLandingController;
 use App\Http\Controllers\ClinicalSummaryDraftController;
 use App\Http\Controllers\ClinicalSummaryInsertController;
 use App\Http\Controllers\Comms\InboxAgentController;
@@ -63,7 +64,7 @@ Route::get('/', function () {
 
 Route::middleware('auth')->group(function () {
     // Tenant app shell. Tenant identification + mandatory-MFA run in the web group.
-    Route::get('/app', fn () => Inertia::render('App/Landing'))->name('app.landing');
+    Route::get('/app', AppLandingController::class)->name('app.landing');
 
     // Platform admin shell (super-admins only).
     Route::middleware('super-admin')

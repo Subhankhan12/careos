@@ -149,7 +149,21 @@
             "approvalsTitle": "Pending approvals",
             "approvalsEmpty": "All caught up.",
             "nursingDispatch": "Nursing dispatch",
-            "unifiedInbox": "Unified inbox"
+            "unifiedInbox": "Unified inbox",
+            "glanceSummary": "{appointments} appointments · {waiting} waiting · {noShows} no-shows",
+            "glanceWelcome": "Your practice at a glance.",
+            "kpiNoShows": "No-shows",
+            "kpiActive": "Active patients",
+            "kpiOutstanding": "Outstanding",
+            "hintCompleted": "{count} completed",
+            "hintCheckedIn": "checked in",
+            "hintScheduled": "of {count} scheduled",
+            "hintSeenToday": "seen today",
+            "hintPractice": "across the practice",
+            "scheduleCount": "{count} appointments today",
+            "scheduleNone": "Nothing scheduled today yet.",
+            "scheduleGoBoard": "Open the day-board to see and manage today's schedule.",
+            "quickActions": "Quick actions"
         },
         "admin": {
             "title": "Platform administration",
