@@ -150,4 +150,17 @@ The middleware/binding defect was fixed in **FIX.1** by converting the billing +
 - **Browser proof (America/Los_Angeles):** Erika Baumgartner's DOB (stored `1954-03-12`) now renders **`03/12/1954`** on the patients index — where the old `new Date("1954-03-12")` path renders `03/11/1954` in the same browser (verified inline). Invoice dates render the correct stored day too (draft issued `07/19/2026`).
 - **Regression test:** `resources/js/lib/date.test.ts` (new root Vitest config, `npm run test:unit`, TZ pinned to `America/Los_Angeles`) — 7 tests green, including a self-validating assertion that the naive parse yields `03/11` in that zone while the helper yields `03/12`.
 
-**Net:** the Critical (C-1) is closed and re-confirmed in the browser; M-2 is fixed with a reusable helper + a timezone-robust unit test. M-1 and the remaining Medium/Low polish items are unchanged.
+**Net:** the Critical (C-1) is closed and re-confirmed in the browser; M-2 is fixed with a reusable helper + a timezone-robust unit test. (FIX.4 subsequently cleared M-3/M-4/M-5/M-6/L-1/L-2/L-3; FIX.5 added the CI smoke guard below.)
+
+---
+
+## 8. Systemic guard — route smoke in CI (FIX.5)
+
+Recommendation #7 was "add browser/E2E smoke tests to CI so a request-time 500 like C-1 can't ship green again." C-1 shipped green because the unit/feature suite **pre-seeded the `TenantContext` singleton before each request**, masking the real middleware ordering (`SubstituteBindings` runs before `IdentifyTenantFromUser`). The guard closes exactly that gap.
+
+- **What it is:** `tests/Feature/Smoke/RouteSmokeTest.php` — a request-level smoke that seeds the demo clinic and drives **every major GET route** for **all six staff roles + a portal patient** through the full HTTP kernel, asserting each returns **200 (never a 500/419)**. It covers the landings, patients index/show/register, day-board, dispatch, competencies, inbox, clinical chart/encounter/note/note-edit/orders/snippets, all billing index + **detail** pages (invoice/credit-note/payment show — the C-1 surface) + aging/dunning/new-invoice/**PDF**, reporting, CSV **import** index/create/show, admin/kiosks, public booking, and every portal page — plus a per-role **RBAC** smoke (e.g. reception → **403** on `/billing/invoices` by URL).
+- **Why it catches the C-1 class:** it calls `TenantContext::forget()` **before every request**, so `IdentifyTenantFromUser` must (re)establish context via the middleware exactly like an independent browser request. That is the generalisation of the FIX.1 regression test, which failed with a 500 against the old implicit-binding controllers — so a re-introduced request-time 500 fails this smoke.
+- **Request-level, not a headless browser:** chosen for **reliability** — it runs in the existing MySQL-8 Pest job on every push, is deterministic and fast (~46 s), and exercises the identical middleware pipeline C-1 broke, with none of the `artisan serve` / browser-install / TOTP-timing flakiness a browser-in-CI would add. (The C-1 class is a server-side 500, fully covered here; Playwright remains the manual browser tool for client-render checks, e.g. the FIX.3 M-2 verification.)
+- **CI wiring:** a dedicated fast-fail step **`Route smoke (real middleware stack, guards C-1-class 500s)`** runs `composer test:smoke` before the full `composer check`, so a 500 fails CI in ~1 min instead of after the whole suite.
+- **Run it locally:** `composer test:smoke` (robust across environments) or `npm run test:smoke`.
+- **Maintainability:** a single route list in the test — adding a new page later is one line.

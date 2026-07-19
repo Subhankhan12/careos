@@ -35,7 +35,11 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
   consent-withdrawal lockout (wired in `bootstrap/app.php`, presentation only); **M-6** realistic/stable seeded
   vitals; **L-1** i18n pluralisation; **L-2** clinic day-board resources are rooms/chairs not vehicles; **L-3**
   the clinic demo tenant settles in CHF. Discovery remains the next real unit of progress — these fixes just
-  make the clinic vertical demo-credible.
+  make the clinic vertical demo-credible. **FIX.5** adds the systemic guard the audit recommended: a
+  route-reachability smoke (`tests/Feature/Smoke/RouteSmokeTest.php`, `composer test:smoke`) that drives every
+  major route through the REAL middleware stack — tenant context forgotten before each request — asserting
+  200-not-500 for every role + portal, wired as a dedicated CI step so a request-time 500 like C-1 can never ship
+  green again.
 
 - **Current phase:** Phase G COMPLETE - Comms, telehealth & patient portal. Consolidated at P0G.C:
   the functional staff-facing surface is FROZEN for the design pass, and `docs/SCREENS.md` is the

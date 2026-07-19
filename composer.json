@@ -98,6 +98,9 @@
             "@php artisan migrate:fresh --force --no-interaction",
             "@php artisan migrate:status --no-interaction",
             "@test"
+        ],
+        "test:smoke": [
+            "@php artisan test tests/Feature/Smoke"
         ]
     },
     "extra": {

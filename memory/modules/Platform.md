@@ -148,6 +148,11 @@ running shows up as an absence rather than as nothing at all.
   consent-withdrawal lockout (403 on a `portal.*` route → "access withdrawn" message); PRESENTATION ONLY, the
   status code is preserved, and the renderer no-ops under `testing` so existing status assertions stay exact.
   See [[D-092]].
+- CI route smoke (FIX.5): `tests/Feature/Smoke/RouteSmokeTest.php` drives every major GET route through the
+  REAL middleware stack with `TenantContext::forget()` before each request (so `IdentifyTenantFromUser` sets
+  context via the middleware, like a browser), asserting 200-not-500 for all roles + portal. This is the
+  systemic guard against a request-time 500 (the C-1 class the pre-seeded feature tests masked). Runs as a
+  dedicated CI step + inside `composer check`; local: `composer test:smoke`. See [[D-093]].
 
 ## Open items
 

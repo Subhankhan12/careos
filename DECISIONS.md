@@ -822,3 +822,21 @@ references the old ID.
   render test forces a runtime env via `detectEnvironment`). Demo-data items in the same gate (M-6 realistic
   vitals, L-2 clinic rooms/chairs not vehicles, L-3 clinic currency CHF) touch only `DemoClinicSeeder`; amounts
   stay integer minor so the P.16 reconcile (`delta_minor === 0`) + audit chain stay green. (FIX.4)
+- **D-093 — CI carries a route-reachability smoke that drives every major route through the REAL middleware
+  stack, so a request-time 500 (the C-1 class) can never ship green again.** `tests/Feature/Smoke/RouteSmokeTest.php`
+  hits every major GET route (all six staff roles + a portal patient: landings, patients index/show/register,
+  day-board, dispatch, competencies, inbox, clinical chart/encounter/note/note-edit/orders/snippets, billing
+  index+detail (invoices/CN/payments) + aging/dunning/new-invoice/PDF, reporting, CSV import index/create/show,
+  admin/kiosks, public booking, all portal pages) and asserts each returns 200 — never a 500/419 — plus per-role
+  RBAC (e.g. reception → 403 on `/billing/invoices` by URL). **The load-bearing detail:** it calls
+  `TenantContext::forget()` BEFORE each request, so `IdentifyTenantFromUser` must (re)establish context via the
+  middleware exactly as an independent browser request does. That is precisely the condition C-1 exploited and the
+  pre-seeded W6/W7 feature tests masked (they `set()` the context singleton before the request) — so this smoke
+  WOULD have caught C-1 (proven: it's the generalisation of the FIX.1 regression test that failed 500 on the old
+  implicit-binding controllers). **Chose request-level Pest over a headless browser in CI:** it runs in the
+  existing MySQL-8 Pest job on every push, is deterministic and fast (~46s), and exercises the identical
+  middleware pipeline C-1 broke — with none of the artisan-serve / browser-install / TOTP-timing flakiness a
+  browser-in-CI would add (reliability was the explicit requirement; the C-1 class is a server-side 500 fully
+  covered here). Wired as a dedicated fast-fail CI step (`composer test:smoke`, before `composer check`) AND it
+  runs inside the full suite; local run via `composer test:smoke` / `npm run test:smoke`. Maintainability: a single
+  route list in the test — a new page is one line. NO app logic changed (test infra + CI only). (FIX.5)

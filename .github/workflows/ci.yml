@@ -106,5 +106,13 @@ jobs:
             echo "::error::Pending migrations remain after migrate on MySQL 8"; exit 1
           fi
 
+      # FIX.5 — route reachability smoke through the REAL middleware stack. Drives every
+      # major GET route (all staff roles + a portal patient) with the tenant context
+      # FORGOTTEN before each request, asserting 200-not-500. This is the systemic guard the
+      # QA audit asked for: a request-time 500 like C-1 — which the pre-seeded feature tests
+      # masked — fails CI here (fast, before the full suite) instead of shipping green.
+      - name: Route smoke (real middleware stack, guards C-1-class 500s)
+        run: composer test:smoke
+
       - name: Quality checks (lint, analyse, test)
         run: composer check
