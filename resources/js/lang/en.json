@@ -410,6 +410,7 @@
             "reviewedAt": "Reviewed {at}"
         },
         "ordersReview": {
+            "eyebrow": "Clinical · Results to review",
             "title": "Orders to review",
             "subtitle": "Resulted orders awaiting a clinician's review. Results are shown as entered.",
             "empty": "No orders awaiting review."
@@ -426,8 +427,16 @@
             "deactivate": "Deactivate"
         },
         "note": {
+            "eyebrow": "Clinical · Note editor",
             "title": "SOAP note",
-            "chart": "Chart",
+            "headingFor": "SOAP note — {name}",
+            "chart": "Back to chart",
+            "encounter": "Encounter",
+            "encType": "Type",
+            "encStarted": "Started",
+            "encStatus": "Status",
+            "template": "Template",
+            "patient": "Patient",
             "sections": {
                 "subjective": "Subjective",
                 "objective": "Objective",
@@ -435,15 +444,26 @@
                 "plan": "Plan"
             },
             "required": "Required",
-            "saving": "Saving",
-            "saved": "Saved",
+            "requiredCount": "{filled} of {total} required sections filled",
+            "requiredMissing": "still to fill: {sections}",
+            "draftLabel": "Draft",
+            "saving": "Saving…",
+            "saved": "Draft saved",
             "save": "Save draft",
-            "sign": "Sign",
+            "sign": "Sign note",
             "signConfirm": "Signing permanently locks this note.",
-            "amendTitle": "Amend signed note",
-            "amendReason": "Amendment reason",
-            "amend": "Amend",
-            "history": "Version history",
+            "signModalTitle": "Sign this note?",
+            "signModalBody": "Corrections afterwards happen only as visible amendments.",
+            "signKeyword": "SIGN",
+            "signTypeToConfirm": "Type {keyword} to confirm",
+            "signPermanently": "Sign permanently",
+            "cancel": "Cancel",
+            "signedLock": "Signed · {name} · {date}",
+            "amendTitle": "Amend this note",
+            "amendHint": "Creates a fresh editable version prefilled from the signed note. The original stays exactly as signed.",
+            "amendReason": "Reason for amendment",
+            "amend": "Create amendment",
+            "history": "Versions",
             "versionLabel": "Version {version}",
             "openVersion": "Open version",
             "open": "Open"
@@ -452,8 +472,14 @@
             "title": "Patient chart",
             "empty": "No records yet.",
             "download": "Download",
+            "summary": "{encounters} encounters · {problems} problems · {medications} medications",
+            "openRecalls": "{count} open recall",
+            "patient360": "Patient 360",
+            "allEncounters": "All · {count}",
+            "sharedWithPatient": "Shared with patient",
             "allergies": {
-                "title": "Allergies"
+                "title": "Allergies",
+                "none": "No known allergies documented."
             },
             "tabs": {
                 "timeline": "Timeline",
@@ -494,9 +520,11 @@
                 }
             },
             "aiSummary": {
-                "title": "AI summary draft",
+                "title": "Chart summary",
                 "status": "Status: {status}",
-                "insert": "Insert into note"
+                "refresh": "Refresh",
+                "extractive": "Extractive only — every line carries its source; interpretive requests are refused.",
+                "insert": "Insert into my draft note"
             }
         }
     },

@@ -760,7 +760,26 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
   masked-identity/queue — all omitted (need props/endpoints the backend lacks, or would breach kiosk
   privacy). Verified: npm run build green; composer check FULLY green (Pint · PHPStan L5 · **Pest 582
   passed / 4198 assertions**), zero test edits; adversarial 4-dimension review → 0 confirmed defects. D-086.
-- **Next action:** the LAST re-skin in the wire order — the clinical **chart + note editor** (highest
-  behavioral coupling: AllergyBanner prominent, raw vitals, AI-summary label + per-line sources, sign/
-  amend lock) — then billing/AR once its staff UI is built. Same discipline (P0D.GU: `.vue` only;
-  routes/controllers/props/guards/tests frozen). Then Phase H per the master plan.
+- **CLINIC.W5 — clinical screens wired (final re-skin gate):** Patient Chart (deep-eucalyptus patient
+  tile + prominent amber AllergyBanner + dashed source-linked AI-summary + count-chip tabs +
+  month-grouped encounter timeline + RAW neutral vitals + problems/meds/documents/orders(P.11)/care),
+  SOAP Note Editor (rails + autosave chip + dark sign bar + type-SIGN confirm + signed read-only lock
+  line + amend-with-reason), and the raw-value "orders to review" worklist. **Electric fence held in the
+  UI:** vitals raw/neutral (no bands/flags/sparklines/scores), AllergyBanner amber-soft (never red),
+  signed notes read-only with no edit/delete + visible amendment history, AI content badged/dashed/
+  source-linked with explicit human Insert. RE-SKIN ONLY per P0D.GU — sign-lock/amend/read-logging are
+  server-enforced + unchanged; `ClinicalUiTest`/`VitalsHistoryTest`/`ClinicalNoteTest`/`OrderTest` pass
+  UNCHANGED. Gaps flagged not faked: prototype "Treatment Plan" (dental fee-scheduled/phased/billed) and
+  "Lab Result Review" (AI abnormal-flagging single-result view) are DIFFERENT unbuilt screens — the
+  built Care Plans (chart care tab) + raw OrdersReview worklist are wired instead, the AI-flagging
+  deliberately not adopted. Also fixed a pre-existing SOAP-editor data-loss reactivity footgun in
+  passing (mutate-in-place binding). Verified: build green; composer check FULLY green (Pint · PHPStan
+  L5 · **Pest 582 / 4198**), zero test edits; adversarial review → 0 confirmed. D-087.
+- **DESIGN WIRING COMPLETE — the Eucalyptus Glow clinic vertical is fully re-skinned (W1→W5):** shell +
+  auth + landings (W1) · patient index/360/register (W2) · patient portal (W3) · staff boards —
+  day-board/inbox/kiosk/public-booking (W4) · clinical chart/note-editor/care-plans/lab-review (W5).
+  All landed and green; every gate re-skin only (P0D.GU), routes/controllers/props/guards/tests frozen.
+- **Next action:** the next unit of progress is now a BUILD, not a re-skin — the **billing/AR staff UI**
+  (Bucket-2 in `docs/CLINIC-DELIVERY-MAP.md`: the Billing domain is built and tested, the staff
+  presentation layer is not) once discovery confirms the CH/KVG-vs-EU-generic billing model — then
+  Phase H per the master plan.

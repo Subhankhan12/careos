@@ -676,3 +676,30 @@ references the old ID.
   endpoints not on the inbox payload — a minimal context pane + a client-only "Edit as reply" are used),
   and the Kiosk prototype's DOB-only keypad + masked-identity + insurance/consent/queue steps (which the
   backend cannot serve and which would breach the kiosk's own privacy posture). (CLINIC.W4)
+- **D-087 — The clinical screens hold the electric fence in the UI; two prototypes are richer/unbuilt
+  and are flagged, not adopted.** CLINIC.W5 (the final re-skin gate) re-skins Patient Chart, SOAP Note
+  Editor, and the orders "to review" worklist, and wires Care Plans in the chart's care tab. Per P0D.GU
+  the wiring is `.vue`/`.json` ONLY; routes/controllers/props/actions/guards/TESTS are frozen and
+  `ClinicalUiTest` / `VitalsHistoryTest` / `ClinicalNoteTest` / `OrderTest` pass unchanged. The electric
+  fence is preserved verbatim in the UI: vitals render RAW in neutral ink with NO ranges/bands/flags/
+  colours/arrows/sparklines/scores (the P.13 trend view stays a neutral per-metric table — a sparkline
+  would itself be interpretation); `dose_text` + order results are raw/as-documented; the AllergyBanner
+  is prominent amber-soft (warning), never red; signed notes are read-only with a quiet lock line +
+  plain-text wells + always-reachable version history + no edit/delete affordance and no red near the
+  sign action; the AI chart-summary stays badged/dashed/source-linked with an explicit human Insert
+  (never auto-inserted). Two prototype screens differ from what is built and are flagged, not faked:
+  **"Treatment Plan"** is a dental, fee-schedule-priced, phased, billed-per-phase plan (route
+  `Clinical/Treatment-plans`) with no backend — our built Care Plans (CarePlan + goals) render in the
+  chart care tab; **"Lab Result Review"** is a single-result view with AI abnormal-flagging +
+  electronic-lab integration (route `Clinical/Results`) that is unbuilt AND whose interpretation would
+  breach the electric fence — the built raw/manual mark-reviewed OrdersReview worklist is wired instead
+  and the AI-flagging is deliberately NOT adopted. Minor gaps also flagged: the Chart Brief-10
+  find-in-chart well (omitted), rich encounter cards with note-preview/version-chains (not in the
+  encounters prop → type/status/date only), and a dormant NoteEditor allergies mini behind an optional
+  prop the backend doesn't send. In passing, W5 fixed a real PRE-EXISTING data-loss footgun the verify
+  pass surfaced: the note editor bound `v-model` on a `const reactive` (Vue 3.5 rewrites it to a `let`
+  reassignment), so editing 2+ SOAP sections silently discarded all but the last and stalled autosave —
+  changed to mutate-in-place (`:model-value` + `@update:model-value="Object.assign(sections,$event)"`),
+  no prop/emit/test change. With this, all five CLINIC re-skin gates (W1 foundation → W2 patients →
+  W3 portal → W4 staff boards → W5 clinical) are landed and green — the Eucalyptus Glow clinic vertical
+  is fully wired. (CLINIC.W5)
