@@ -119,64 +119,74 @@ onBeforeUnmount(() => idleTimer && clearTimeout(idleTimer));
 </script>
 
 <template>
-    <div class="min-h-screen bg-surface-muted px-4 py-10" @click="resetIdle" @keydown="resetIdle">
+    <div class="euca-wash relative min-h-screen px-4 py-10 text-ink" @click="resetIdle" @keydown="resetIdle">
         <Head :title="t('kiosk.title')" />
-        <div class="mx-auto max-w-xl">
-            <div class="mb-8 text-center">
-                <h1 class="text-3xl font-semibold text-ink">{{ t('kiosk.title') }}</h1>
+        <div class="relative z-10 mx-auto max-w-xl">
+            <div class="mb-8 flex flex-col items-center text-center">
+                <span class="euca-tile-dark mb-4 flex h-12 w-12 items-center justify-center rounded-2xl">
+                    <svg class="h-6 w-6 text-euca-50" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                        <path d="M5 19C5 11 9 5.2 19 4.8c-.4 9.2-5 13.8-14 14.2z" fill="currentColor" />
+                    </svg>
+                </span>
+                <h1 class="text-3xl font-semibold tracking-tight text-ink">{{ t('kiosk.title') }}</h1>
                 <p class="mt-1 text-lg text-ink-muted">{{ branch.name }}</p>
             </div>
 
-            <!-- Step 1: verify identity -->
-            <div v-if="step === 'verify'" class="space-y-5 rounded-2xl border border-line bg-surface p-6">
+            <!-- Step 1: verify identity (name + date of birth + check-in code) -->
+            <div v-if="step === 'verify'" class="glass-card space-y-5 p-7">
                 <p class="text-lg text-ink">{{ t('kiosk.verifyHint') }}</p>
                 <label class="block">
                     <span class="mb-2 block text-base font-medium text-ink">{{ t('kiosk.name') }}</span>
-                    <input v-model="form.name" type="text" autocomplete="off" class="block w-full rounded-xl border border-line bg-surface px-4 py-4 text-lg text-ink focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30" />
+                    <input v-model="form.name" type="text" autocomplete="off" class="block w-full rounded-xl border border-line bg-surface-2 px-4 py-4 text-lg text-ink focus:border-euca-600 focus:outline-none focus:ring-2 focus:ring-euca-500/30" />
                 </label>
                 <label class="block">
                     <span class="mb-2 block text-base font-medium text-ink">{{ t('kiosk.dob') }}</span>
-                    <input v-model="form.date_of_birth" type="date" class="block w-full rounded-xl border border-line bg-surface px-4 py-4 text-lg text-ink focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30" />
+                    <input v-model="form.date_of_birth" type="date" class="block w-full rounded-xl border border-line bg-surface-2 px-4 py-4 text-lg text-ink focus:border-euca-600 focus:outline-none focus:ring-2 focus:ring-euca-500/30" />
                 </label>
                 <label class="block">
                     <span class="mb-2 block text-base font-medium text-ink">{{ t('kiosk.code') }}</span>
-                    <input v-model="form.code" type="text" autocomplete="off" class="block w-full rounded-xl border border-line bg-surface px-4 py-4 text-lg uppercase tracking-widest text-ink focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30" />
+                    <input v-model="form.code" type="text" autocomplete="off" class="block w-full rounded-xl border border-line bg-surface-2 px-4 py-4 text-lg uppercase tracking-widest text-ink focus:border-euca-600 focus:outline-none focus:ring-2 focus:ring-euca-500/30" />
                 </label>
                 <p v-if="error" class="text-base text-danger">{{ error }}</p>
-                <button type="button" :disabled="busy || !form.name || !form.date_of_birth || !form.code" class="min-h-[3.5rem] w-full rounded-xl bg-brand-600 px-6 text-lg font-semibold text-white transition hover:bg-brand-700 disabled:opacity-60" @click="verify">
+                <button type="button" :disabled="busy || !form.name || !form.date_of_birth || !form.code" class="btn-glow min-h-[3.5rem] w-full rounded-xl px-6 text-lg font-semibold disabled:opacity-60" @click="verify">
                     {{ t('kiosk.continue') }}
                 </button>
             </div>
 
-            <!-- Step 2: confirm + optional contact update -->
-            <div v-else-if="step === 'confirm'" class="space-y-6 rounded-2xl border border-line bg-surface p-6">
+            <!-- Step 2: confirm + optional contact update (no clinical data, no patient browsing) -->
+            <div v-else-if="step === 'confirm'" class="glass-card space-y-6 p-7">
                 <div>
                     <p class="text-lg text-ink">{{ t('kiosk.confirmHint') }}</p>
                     <p class="mt-2 text-xl font-semibold text-ink">{{ appointment?.service }}</p>
                     <p class="text-lg text-ink-muted">{{ appointment?.starts_at }}</p>
                 </div>
-                <div class="space-y-4 border-t border-line pt-4">
+                <div class="space-y-4 border-t border-line pt-5">
                     <p class="text-base font-medium text-ink">{{ t('kiosk.contactTitle') }}</p>
                     <label class="block">
                         <span class="mb-1 block text-sm text-ink-muted">{{ t('kiosk.phone') }}</span>
-                        <input v-model="contact.phone" type="tel" class="block w-full rounded-xl border border-line bg-surface px-4 py-3 text-lg text-ink" />
+                        <input v-model="contact.phone" type="tel" class="block w-full rounded-xl border border-line bg-surface-2 px-4 py-3 text-lg text-ink focus:border-euca-600 focus:outline-none focus:ring-2 focus:ring-euca-500/30" />
                     </label>
                     <label class="block">
                         <span class="mb-1 block text-sm text-ink-muted">{{ t('kiosk.email') }}</span>
-                        <input v-model="contact.email" type="email" class="block w-full rounded-xl border border-line bg-surface px-4 py-3 text-lg text-ink" />
+                        <input v-model="contact.email" type="email" class="block w-full rounded-xl border border-line bg-surface-2 px-4 py-3 text-lg text-ink focus:border-euca-600 focus:outline-none focus:ring-2 focus:ring-euca-500/30" />
                     </label>
-                    <button type="button" :disabled="busy" class="min-h-[3rem] rounded-xl border border-line bg-surface px-5 text-base font-medium text-ink hover:bg-surface-muted" @click="saveContact">
+                    <button type="button" :disabled="busy" class="min-h-[3rem] rounded-xl border border-line bg-surface/70 px-5 text-base font-semibold text-ink transition hover:bg-surface-2" @click="saveContact">
                         {{ t('kiosk.saveContact') }}
                     </button>
                 </div>
-                <button type="button" :disabled="busy" class="min-h-[3.5rem] w-full rounded-xl bg-brand-600 px-6 text-lg font-semibold text-white transition hover:bg-brand-700 disabled:opacity-60" @click="checkIn">
+                <button type="button" :disabled="busy" class="btn-glow min-h-[3.5rem] w-full rounded-xl px-6 text-lg font-semibold disabled:opacity-60" @click="checkIn">
                     {{ t('kiosk.checkInNow') }}
                 </button>
-                <button type="button" class="w-full text-base text-ink-muted hover:text-ink" @click="reset">{{ t('kiosk.startOver') }}</button>
+                <button type="button" class="w-full text-base text-ink-muted transition hover:text-ink" @click="reset">{{ t('kiosk.startOver') }}</button>
             </div>
 
-            <!-- Step 3: done -->
-            <div v-else class="space-y-4 rounded-2xl border border-line bg-surface p-8 text-center">
+            <!-- Step 3: done (auto-resets for the next patient) -->
+            <div v-else class="glass-card space-y-4 p-10 text-center">
+                <span class="euca-tile-dark mx-auto flex h-16 w-16 items-center justify-center rounded-full">
+                    <svg class="h-8 w-8 text-euca-50" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                        <path d="M5 12.5l4 4 10-10" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                    </svg>
+                </span>
                 <p class="text-2xl font-semibold text-ink">{{ t('kiosk.doneTitle') }}</p>
                 <p class="text-lg text-ink-muted">{{ t('kiosk.doneHint') }}</p>
             </div>

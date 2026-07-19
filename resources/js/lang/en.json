@@ -284,15 +284,33 @@
             "empty": "No free slots."
         },
         "dayBoard": {
+            "eyebrow": "Scheduling · Day-board",
             "title": "Day-board",
             "subtitle": "Branch agenda by resource.",
             "time": "Time",
             "block": "Block",
             "refresh": "Refresh",
-            "quickBook": "Quick book",
+            "prevDay": "Previous day",
+            "nextDay": "Next day",
+            "todayLabel": "Today",
+            "today": "{count} today",
+            "viewAll": "All resources",
+            "viewPractitioners": "Practitioners",
+            "viewRooms": "Rooms",
+            "quickBook": "Quick-book",
             "quickBookHint": "Find a free slot and book through the safe booking path.",
+            "freeSlots": "Free slots",
+            "statusEdges": "Status edges",
+            "close": "Close",
             "book": "Book",
             "actionReason": "Updated from day-board"
+        },
+        "status": {
+            "booked": "Booked",
+            "arrived": "Arrived",
+            "in_progress": "In progress",
+            "completed": "Completed",
+            "cancelled": "Cancelled / no-show"
         },
         "series": {
             "title": "Recurring appointment",
@@ -335,8 +353,23 @@
             "decline": "Decline"
         },
         "public": {
+            "eyebrow": "Online booking",
             "title": "Book an appointment",
             "emergencyNotice": "This booking form is not for emergencies. For urgent help, contact local emergency services.",
+            "steps": {
+                "service": "Service",
+                "branch": "Location",
+                "time": "Time",
+                "details": "Details"
+            },
+            "pickTime": "Pick a time",
+            "pickTimeHint": "Times come from the practice's live calendar.",
+            "detailsTitle": "Your details",
+            "detailsHint": "Just enough to hold your appointment.",
+            "dedupeNote": "If you've been here before, we'll match you to your existing record — no duplicate is created.",
+            "back": "Back",
+            "continue": "Continue",
+            "confirmBooking": "Confirm booking",
             "book": "Book appointment"
         }
     },
@@ -640,8 +673,13 @@
     },
     "comms": {
         "inbox": {
+            "eyebrow": "Comms · Unified inbox",
             "title": "Inbox",
             "subtitle": "Patient messages and internal threads.",
+            "listNote": "Newest first · capped at 100 · unread derived per user.",
+            "internalChip": "Internal — not visible to the patient",
+            "patientThread": "Patient thread",
+            "contextNote": "Context shows for patient threads only.",
             "filters": {
                 "type": "Type",
                 "all": "All",
@@ -669,9 +707,11 @@
             "clinicianAttention": "Needs clinician",
             "aiDraft": {
                 "request": "Draft with AI",
-                "title": "AI-assisted draft — review before sending",
+                "title": "AI-assisted draft — nothing sends without you",
                 "sources": "Sources",
-                "send": "Send this draft"
+                "send": "Send this draft",
+                "editAsReply": "Edit as reply",
+                "footnote": "Sends as you · marked ai-assisted · re-grounded server-side."
             },
             "author": {
                 "staff": "Care team",

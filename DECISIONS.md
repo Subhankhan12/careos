@@ -658,3 +658,21 @@ references the old ID.
   token are kept. Honest gaps flagged not faked: the portal payload carries no patient NAME (generic
   time-based greeting) and no telehealth practitioner/time (generic "Video visit" title); unbacked
   prototype extras (Add-to-calendar, Directions, a live camera/mic checklist) are omitted. (CLINIC.W3)
+- **D-086 — The staff-boards re-skin keeps the electric fence and kiosk safety exactly; prototype-only
+  richness is flagged, not faked.** CLINIC.W4 re-skins the four staff operational surfaces (Reception
+  Day-Board, Unified Inbox, Kiosk Check-in, Public Booking) to Eucalyptus Glow. Per P0D.GU the wiring is
+  `.vue`/`.json` ONLY; routes/controllers/props/actions/guards/TESTS are frozen and `SchedulingUiTest` /
+  `InboxUiTest` / `CheckInTest` pass unchanged. Load-bearing safety preserved verbatim: appointment
+  status colours are WORKFLOW status only (booked/arrived/in-progress/completed/cancelled — never
+  clinical, rendered as left-edge tints); the Inbox AI-draft box never auto-sends (explicit human Send,
+  source chips, `ai_assisted` provenance pill, clinician-attention handoff banner) and now correctly
+  HIDES "Request AI draft" on flagged threads; the Public-Booking non-emergency notice persists on every
+  step and no symptom/triage free-text exists (D-031); the Kiosk shows NO clinical data / NO patient
+  browsing, returns a generic not-found (no PHI), stays ephemeral in-memory, idle-auto-resets, and its
+  verify step still submits the built name+dob+code contract. The prototypes show more than the backend
+  provides; rather than invent props, those are flagged and OMITTED: the Day-Board glance band /
+  waiting-room strip / booking-conflict resolver (need aggregates + a conflict endpoint that do not
+  exist), the Inbox rich context pane (patient MRN/DOB/next-appointment/chart links + Edit/Discard draft
+  endpoints not on the inbox payload — a minimal context pane + a client-only "Edit as reply" are used),
+  and the Kiosk prototype's DOB-only keypad + masked-identity + insurance/consent/queue steps (which the
+  backend cannot serve and which would breach the kiosk's own privacy posture). (CLINIC.W4)

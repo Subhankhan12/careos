@@ -747,7 +747,20 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
   props (generic greeting); no telehealth practitioner/time (generic title); unbacked extras omitted.
   Verified: npm run build green; composer check FULLY green (Pint · PHPStan L5 · **Pest 582 passed /
   4198 assertions**), zero test edits; adversarial 4-dimension review → 0 confirmed defects. D-085.
-- **Next action:** continue the `docs/CLINIC-DELIVERY-MAP.md` WIRE ORDER for the remaining clinic
-  screens (scheduling/day-board + kiosk → inbox/nursing-dispatch → clinical chart/note-editor last, then
-  billing once its staff UI is built), same re-skin discipline (P0D.GU: `.vue` only; routes/controllers/
-  props/guards/tests frozen). Then Phase H per the master plan.
+- **CLINIC.W4 — staff operational boards wired:** Reception Day-Board (date pager + view-filter pills +
+  Quick-book slide-over; `ScheduleGrid` with left-edge WORKFLOW-status tints + all lifecycle actions +
+  waitlist/series panels), Unified Inbox (three panes; dark thread-header tile + patient/staff/system
+  bubbles + amber AI-draft box that never auto-sends + ai_assisted pill + clinician-attention banner +
+  internal "not visible to patient" chip; Request-AI-draft hidden on flagged threads), Kiosk Check-in
+  (kiosk-scale glass; safety UNCHANGED — name+dob+code, generic not-found, no clinical data/browsing,
+  ephemeral, idle-reset), Public Booking (single-column step wizard; non-emergency notice on every step,
+  no symptom/triage field). RE-SKIN ONLY per P0D.GU — no route/controller/prop/action/guard/test changed;
+  `SchedulingUiTest` + `InboxUiTest` + `CheckInTest` (incl. kiosk safety) pass UNCHANGED. Gaps flagged
+  not faked: Day-Board glance/waiting/conflict-resolver, Inbox rich context pane, Kiosk DOB-keypad/
+  masked-identity/queue — all omitted (need props/endpoints the backend lacks, or would breach kiosk
+  privacy). Verified: npm run build green; composer check FULLY green (Pint · PHPStan L5 · **Pest 582
+  passed / 4198 assertions**), zero test edits; adversarial 4-dimension review → 0 confirmed defects. D-086.
+- **Next action:** the LAST re-skin in the wire order — the clinical **chart + note editor** (highest
+  behavioral coupling: AllergyBanner prominent, raw vitals, AI-summary label + per-line sources, sign/
+  amend lock) — then billing/AR once its staff UI is built. Same discipline (P0D.GU: `.vue` only;
+  routes/controllers/props/guards/tests frozen). Then Phase H per the master plan.

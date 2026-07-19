@@ -12,17 +12,17 @@ function label(value: string): string {
 </script>
 
 <template>
-    <div class="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+    <div class="grid gap-2 sm:grid-cols-3 lg:grid-cols-4">
         <button
             v-for="slot in slots"
             :key="slot.starts_at"
             type="button"
-            class="rounded-md border px-3 py-2 text-left text-sm font-semibold transition"
-            :class="selected === slot.starts_at ? 'border-brand-600 bg-brand-50 text-brand-950' : 'border-line bg-surface text-ink hover:bg-surface-muted'"
+            class="rounded-xl px-3.5 py-2.5 text-sm font-semibold transition"
+            :class="selected === slot.starts_at ? 'btn-glow' : 'border border-line bg-surface-2 text-ink hover:border-euca-400'"
             @click="$emit('select', slot)"
         >
-            {{ label(slot.starts_at) }}-{{ label(slot.ends_at) }}
+            {{ label(slot.starts_at) }}–{{ label(slot.ends_at) }}
         </button>
-        <p v-if="slots.length === 0" class="text-sm text-ink-muted">{{ $t('scheduling.slots.empty') }}</p>
+        <p v-if="slots.length === 0" class="col-span-full text-sm text-ink-muted">{{ $t('scheduling.slots.empty') }}</p>
     </div>
 </template>
