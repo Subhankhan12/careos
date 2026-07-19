@@ -24,6 +24,14 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
   ~3 coordinators, decide the market (EU-cash vs CH-insurance-funded vs US-claims). Everything else is
   prioritization. Full brief: `docs/DISCOVERY.md`; outreach: `docs/outreach-de.md`.
 
+- **QA-audit remediation (post-clinic-delivery, `docs/QA-AUDIT-REPORT.md`):** the live-browser audit found one
+  Critical (C-1: billing/import detail+write routes 500 in the browser) and Mediums. Cleared so far — **C-1**
+  (FIX.1, string-id route resolution) now **browser-verified** end-to-end; **M-1** staff landing wired to
+  MetricsService (FIX.2); **M-2** date-only timezone shift fixed with the shared `formatDateOnly` helper +
+  TZ-robust Vitest (FIX.3, browser-re-confirmed in America/Los_Angeles). Remaining audit items (M-3 vitals
+  units, M-4 nav gating, M-5 403 screens, M-6 demo vitals, L-1..L-3) are polish, not blockers. Discovery
+  remains the next real unit of progress — these fixes just keep the clinic vertical demoable.
+
 - **Current phase:** Phase G COMPLETE - Comms, telehealth & patient portal. Consolidated at P0G.C:
   the functional staff-facing surface is FROZEN for the design pass, and `docs/SCREENS.md` is the
   factual re-skin brief (22 Inertia pages + 11 nurse-PWA screens with routes/guards/props/actions).

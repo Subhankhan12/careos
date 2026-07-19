@@ -277,3 +277,10 @@ P0F.G4 added invoices, gapless numbering, issued-document immutability, and cred
 - Schedule `billing:dunning-run` once recurring application scheduling is finalized (deferred).
 - Partial credit notes do not reduce the original invoice's open balance (F.4 behavior); revisit if
   partial-credit-vs-payment interaction needs reconciliation.
+- FIX.3 BROWSER-VERIFIED the whole billing surface end-to-end (Playwright, real 2FA login, fresh
+  DemoClinic+DemoSpitex seed) after the FIX.1 string-id fix: invoice detail (no 500), issue draft→gapless
+  INV-7, credit note→original untouched (CN-2; INV-5 keeps number/lines/total, only balance/status change),
+  payment record+allocate→balance 313→213, over-allocation rejected ("cannot allocate more than the payment
+  unallocated remainder"), PDF download (200 `application/pdf` `%PDF-`), CSV import dry-run (validates, writes
+  nothing until commit). All the billing list pages now format date-only values (issue/due dates) via
+  `formatDateOnly` from `resources/js/lib/date.ts` — local-midnight parse, no timezone day-shift. See [[D-091]].

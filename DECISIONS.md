@@ -787,3 +787,19 @@ references the old ID.
   `tests/Feature/RouteBindingTenantContextTest.php` calls `TenantContext::forget()` after seeding so the
   request establishes context via the middleware like a real browser — it FAILS (500) on the old code
   and PASSES on the fix, and asserts 404 for missing/cross-tenant ids. (FIX.1)
+- **D-091 — Date-only values render through one shared `formatDateOnly` helper (local-midnight parse);
+  never `new Date(dateOnly)`.** The QA audit's M-2: `Intl.DateTimeFormat(...).format(new Date("1954-03-12"))`
+  parses a date-only string as **UTC** midnight, so a viewer behind UTC sees the day BEFORE (Erika's DOB
+  rendered `03/11/1954` on the patients index vs the stored `1954-03-12`; the AR "as of" was a day early).
+  For a Swiss (UTC+1) deployment it's invisible; it is wrong for any behind-UTC viewer. FIX.3 adds
+  `resources/js/lib/date.ts` — `formatDateOnly()` / `ageFromDateOnly()` — which parse a `^\d{4}-\d{2}-\d{2}$`
+  string as **local** midnight (`` `${value}T00:00:00` ``) so the calendar day never shifts by timezone; a
+  value carrying a time component is passed through unchanged. **Only date-only renders were converted**
+  (Patients/Index DOB+age, Clinical/Chart age, and the six billing pages Invoices/Index+Show, Payments/Index,
+  Dunning/Index, CreditNotes/Index, Aging) — **timestamped (datetime) rendering was deliberately NOT touched**
+  (an encounter/message/access-log time is a real instant and must localise). Rule for new date-only UI:
+  reach for `formatDateOnly`, never `new Date(dateOnly)`. Guarded by `resources/js/lib/date.test.ts` (new root
+  Vitest config, `npm run test:unit`, TZ pinned `America/Los_Angeles`) — a self-validating test asserting the
+  naive parse yields `03/11` in that zone while the helper yields `03/12`. Browser-re-confirmed in an
+  America/Los_Angeles session (DOB shows `03/12/1954`). Same class as the W6 `isOverdue` date-only fix (D-088).
+  (FIX.3)

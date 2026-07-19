@@ -3,6 +3,7 @@ import { Head, Link, router, usePage } from '@inertiajs/vue3';
 import { computed, reactive } from 'vue';
 import { useI18n } from 'vue-i18n';
 import AppLayout from '@/Layouts/AppLayout.vue';
+import { ageFromDateOnly, formatDateOnly } from '@/lib/date';
 
 const { t } = useI18n();
 const page = usePage();
@@ -39,23 +40,12 @@ function initials(first: string, last: string): string {
 }
 
 function formatDob(dob: string): string {
-    const d = new Date(dob);
-    if (Number.isNaN(d.getTime())) return dob;
-    try {
-        return new Intl.DateTimeFormat(locale.value, { day: '2-digit', month: '2-digit', year: 'numeric' }).format(d);
-    } catch {
-        return dob;
-    }
+    // Date-only → parsed as local midnight so the calendar day never shifts (M-2).
+    return formatDateOnly(dob, locale.value, { day: '2-digit', month: '2-digit', year: 'numeric' }, dob);
 }
 
 function age(dob: string): number | null {
-    const d = new Date(dob);
-    if (Number.isNaN(d.getTime())) return null;
-    const now = new Date();
-    let a = now.getFullYear() - d.getFullYear();
-    const m = now.getMonth() - d.getMonth();
-    if (m < 0 || (m === 0 && now.getDate() < d.getDate())) a -= 1;
-    return a;
+    return ageFromDateOnly(dob);
 }
 
 function statusLabel(status: string): string {

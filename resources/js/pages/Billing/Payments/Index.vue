@@ -3,6 +3,7 @@ import { Head, Link, router, usePage } from '@inertiajs/vue3';
 import { computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 import AppLayout from '@/Layouts/AppLayout.vue';
+import { formatDateOnly } from '@/lib/date';
 
 const { t, te } = useI18n();
 const page = usePage();
@@ -35,13 +36,8 @@ function methodLabel(method: string): string {
     return te(key) ? t(key) : method;
 }
 function formatDate(value: string): string {
-    const d = new Date(value);
-    if (Number.isNaN(d.getTime())) return value;
-    try {
-        return new Intl.DateTimeFormat(locale.value, { day: '2-digit', month: '2-digit', year: 'numeric' }).format(d);
-    } catch {
-        return value;
-    }
+    // Date-only → local-midnight parse so the day never shifts by timezone (M-2).
+    return formatDateOnly(value, locale.value, { day: '2-digit', month: '2-digit', year: 'numeric' }, value);
 }
 </script>
 

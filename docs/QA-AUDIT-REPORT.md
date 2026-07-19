@@ -122,3 +122,32 @@
 **Not deliverable to a paying customer as-is.** The clinic vertical is, on the whole, polished, safe (kiosk PHI-safety and the clinical/reporting electric fence all hold), and its lists/search/scheduling/clinical/portal flows work well. **But billing — a core W6/W7 deliverable — is non-functional in a real browser (C-1):** every invoice/payment/credit-note detail, every billing write action, PDF download, and the CSV-import preview return HTTP 500. That single middleware-ordering defect must be fixed first; it is small and well-understood.
 
 **Gate to demo/deliver:** fix **C-1** (Critical), then wire the **staff landing** (M-1) and fix **date rendering** (M-2) as the next two most visible issues. The remaining Medium/Low items are polish that can follow. After C-1 is fixed, re-run the billing write flows (issue / credit-note / payment+allocation / PDF / import dry-run) end-to-end in the browser to confirm — the backend logic behind them is already well-tested; only the presentation/binding layer is failing.
+
+---
+
+## 7. FIX-verify (post-audit, FIX.1 → FIX.3)
+
+**Date:** 2026-07-19 · **Method:** live browser (Playwright MCP, Chromium) against a fresh `migrate:fresh` + `DemoClinicSeeder` + `DemoSpitexSeeder` seed, logged in as org_admin (Andrea Lindenhof) with real TOTP 2FA. **Audit browser timezone = America/Los_Angeles (UTC-7, behind UTC)** — the exact condition that triggered M-2.
+
+### C-1 — CONFIRMED FIXED in the browser ✅
+
+The middleware/binding defect was fixed in **FIX.1** by converting the billing + import controllers to the app's string-id convention (`Model::query()->whereKey($id)->firstOrFail()` **after** tenant context is set; 404 fail-closed). Every flow that returned HTTP 500 in the original audit was re-driven end-to-end and now passes:
+
+| Flow | Result | Evidence |
+|---|---|---|
+| Open invoice **detail** (`/billing/invoices/{id}`) | ✅ Pass | INV-1 renders (lines, VAT, totals, actions) — no 500; URL carries the string id |
+| **Issue** a draft invoice → gapless number | ✅ Pass | Draft (Erika, 15.00 EUR) → **INV-7**, next after INV-6; status Issued, balance 15.00 |
+| Create a **credit note** → original untouched | ✅ Pass | INV-5 → new **CN-2** (gapless); INV-5 keeps number/dates/3 lines/subtotal 159.00/VAT 10.61/total 169.61; only its derived balance→0 / status→"Credit-noted" |
+| Record a **payment** + **allocate** → balance updates | ✅ Pass | 100.00 EUR payment allocated to INV-1 → INV-1 balance **313.00 → 213.00**, status "Partially paid"; payment unallocated → 0.00 |
+| **Over-allocation** prevented | ✅ Pass | Applying 150.00 from a 100.00 payment is rejected: *"Cannot allocate more than the payment unallocated remainder."*; unallocated stays 100.00, nothing applied |
+| Download invoice **PDF** | ✅ Pass | `GET /billing/invoices/{id}/pdf` → HTTP 200, `application/pdf`, `%PDF-` magic bytes, `attachment; filename="INV-1.pdf"` |
+| CSV **import dry-run** preview | ✅ Pass | `/imports/{batch}` renders; map → dry-run → both rows **valid**, batch "validated"; **writes nothing** (0 `Testimport` patients in DB after the run) |
+
+### M-2 — FIXED ✅
+
+- **Approach:** a small shared helper `resources/js/lib/date.ts` — `formatDateOnly()` / `ageFromDateOnly()`. A date-only string (`^\d{4}-\d{2}-\d{2}$`) is parsed as **local midnight** (`new Date(`${value}T00:00:00`)`) instead of UTC midnight, so the calendar day never shifts by the viewer's timezone. Full datetimes (with a time component) are passed through unchanged — **only date-only values were touched; no timestamped rendering was changed.**
+- **Wired everywhere date-only renders:** `Patients/Index.vue` (DOB + age), `Clinical/Chart.vue` (age), and the six billing pages (`Invoices/Index`, `Invoices/Show`, `Payments/Index`, `Dunning/Index`, `CreditNotes/Index`, `Aging`).
+- **Browser proof (America/Los_Angeles):** Erika Baumgartner's DOB (stored `1954-03-12`) now renders **`03/12/1954`** on the patients index — where the old `new Date("1954-03-12")` path renders `03/11/1954` in the same browser (verified inline). Invoice dates render the correct stored day too (draft issued `07/19/2026`).
+- **Regression test:** `resources/js/lib/date.test.ts` (new root Vitest config, `npm run test:unit`, TZ pinned to `America/Los_Angeles`) — 7 tests green, including a self-validating assertion that the naive parse yields `03/11` in that zone while the helper yields `03/12`.
+
+**Net:** the Critical (C-1) is closed and re-confirmed in the browser; M-2 is fixed with a reusable helper + a timezone-robust unit test. M-1 and the remaining Medium/Low polish items are unchanged.

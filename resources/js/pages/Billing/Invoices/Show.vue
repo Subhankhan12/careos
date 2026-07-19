@@ -3,6 +3,7 @@ import { Head, Link, router, useForm, usePage } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import AppLayout from '@/Layouts/AppLayout.vue';
+import { formatDateOnly } from '@/lib/date';
 
 const { t, te } = useI18n();
 const page = usePage();
@@ -50,14 +51,8 @@ function vatRate(bp: number): string {
     return `${(bp / 100).toFixed(1)}%`;
 }
 function formatDate(value: string | null): string {
-    if (!value) return '—';
-    const d = new Date(value);
-    if (Number.isNaN(d.getTime())) return value;
-    try {
-        return new Intl.DateTimeFormat(locale.value, { day: '2-digit', month: '2-digit', year: 'numeric' }).format(d);
-    } catch {
-        return value;
-    }
+    // Date-only → local-midnight parse so the day never shifts by timezone (M-2).
+    return formatDateOnly(value, locale.value, { day: '2-digit', month: '2-digit', year: 'numeric' });
 }
 function statusLabel(status: string): string {
     const key = `billing.status.${status}`;

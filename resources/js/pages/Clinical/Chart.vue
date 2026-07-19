@@ -7,6 +7,7 @@ import AllergyBanner from '@/Components/AllergyBanner.vue';
 import Tabs from '@/Components/Tabs.vue';
 import Timeline from '@/Components/Timeline.vue';
 import VersionHistory from '@/Components/VersionHistory.vue';
+import { ageFromDateOnly } from '@/lib/date';
 
 const { t } = useI18n();
 const page = usePage();
@@ -75,15 +76,7 @@ const summaryInsertForm = useForm({ action_id: props.aiSummary?.action_id ?? '' 
 const placeOrderForm = useForm({ patient_id: props.patient.id, orderable_item_id: props.orderableItems[0]?.id ?? '', priority: 'routine', clinical_note: '' });
 const resultForm = useForm({ order_id: '', value: '' });
 
-const age = computed(() => {
-    const d = new Date(props.patient.date_of_birth);
-    if (Number.isNaN(d.getTime())) return null;
-    const now = new Date();
-    let a = now.getFullYear() - d.getFullYear();
-    const m = now.getMonth() - d.getMonth();
-    if (m < 0 || (m === 0 && now.getDate() < d.getDate())) a -= 1;
-    return a;
-});
+const age = computed(() => ageFromDateOnly(props.patient.date_of_birth));
 const initials = computed(() => {
     const parts = props.patient.name.trim().split(/\s+/);
     return ((parts[0]?.[0] ?? '') + (parts.length > 1 ? (parts[parts.length - 1][0] ?? '') : '')).toUpperCase();

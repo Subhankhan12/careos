@@ -5,6 +5,7 @@
         "build": "vite build",
         "build:pwa": "vite build --config nurse-pwa/vite.config.ts",
         "dev": "vite",
+        "test:unit": "vitest run",
         "test:pwa": "vitest run --config nurse-pwa/vitest.config.ts"
     },
     "devDependencies": {
