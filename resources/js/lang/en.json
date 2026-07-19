@@ -190,35 +190,60 @@
             "plan": "Plan"
         },
         "index": {
+            "eyebrow": "Patients · Directory",
             "title": "Patients",
-            "subtitle": "Search and open tenant patient records.",
+            "subtitle": "Find a record by name or date of birth.",
             "register": "Register patient",
             "searchName": "Name",
+            "searchPlaceholder": "Search by name",
             "searchDob": "Date of birth",
             "search": "Search",
-            "empty": "No patients found."
+            "searchHint": "Full-text match on first and family name · date of birth matches exactly · results cap at 25.",
+            "matches": "{count} matches",
+            "sorted": "sorted by family name",
+            "ageUnit": "y",
+            "clearSearch": "Clear search",
+            "empty": "No patients match your search."
         },
         "register": {
-            "title": "Register patient",
-            "subtitle": "Create a patient record after checking for possible duplicates.",
+            "eyebrow": "Patients · Registration",
+            "title": "Register a new patient",
+            "subtitle": "Steps are freely clickable — everything validates on final submit.",
             "steps": {
                 "identity": "Identity",
                 "contacts": "Contacts",
-                "optional": "Identifiers",
+                "optional": "Coverage",
                 "review": "Review"
             },
-            "duplicatesTitle": "Possible duplicates",
-            "duplicatesChecking": "Checking for possible matches.",
-            "duplicatesHint": "Review these existing patients before creating a new record.",
-            "openDuplicate": "Open",
-            "identifiers": "Optional identifiers",
-            "coverages": "Coverages",
+            "duplicatesTitle": "Possible existing patient",
+            "duplicatesChecking": "Checking for existing patients…",
+            "duplicatesHint": "The identity you entered closely matches records already in this practice.",
+            "duplicatesCount": "{count} candidates",
+            "openDuplicate": "Open profile",
+            "notADuplicate": "This is a new patient — continue",
+            "duplicateDiscardHint": "Opening a profile leaves the wizard; entered data is discarded.",
+            "confidence": {
+                "high": "High match",
+                "medium": "Medium",
+                "low": "Low"
+            },
+            "reasons": {
+                "name_exact": "exact name",
+                "dob_exact": "exact date of birth",
+                "postal_exact": "same postal code",
+                "address_line_city_similar": "similar address",
+                "identifier_match_raises_confidence": "identifier match"
+            },
+            "identifiers": "Identifiers",
+            "coverages": "Coverage",
+            "stepCounter": "Step {current} of {total}",
+            "reviewSummary": "read-only summary",
             "back": "Back",
             "next": "Next",
             "create": "Create patient"
         },
         "show": {
-            "headerFlag": "Patient 360",
+            "headerFlag": "Flag",
             "tabs": {
                 "demographics": "Demographics",
                 "contacts": "Contacts",
@@ -227,10 +252,15 @@
                 "access": "Access log"
             },
             "empty": "No records yet.",
+            "allergiesLabel": "Allergies",
+            "viewInChart": "View in chart",
+            "grantTitle": "Grant a consent",
+            "grantHint": "Locks the latest active template version server-side; both fields required.",
+            "accessHint": "Read-only, factual, and visible to any patient.view user — who accessed this record.",
             "consentTemplate": "Template key",
-            "consentSignature": "Typed signature",
+            "consentSignature": "Signature (typed full name)",
             "grantConsent": "Grant",
-            "withdrawReason": "Reason",
+            "withdrawReason": "Reason for withdrawal",
             "withdraw": "Withdraw"
         }
     },

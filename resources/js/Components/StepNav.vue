@@ -8,16 +8,27 @@ defineEmits<{ (e: 'select', index: number): void }>();
 </script>
 
 <template>
-    <nav class="grid gap-2 sm:grid-cols-4">
+    <nav class="inline-flex max-w-full flex-wrap items-center gap-1 rounded-full bg-euca-50/70 p-1">
         <button
             v-for="(step, index) in steps"
             :key="step"
             type="button"
-            class="rounded-md border px-3 py-2 text-left text-sm font-medium transition"
-            :class="index === current ? 'border-brand-600 bg-brand-50 text-brand-900' : 'border-line bg-surface text-ink-muted hover:text-ink'"
+            class="inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-sm font-medium transition"
+            :class="index === current ? 'nav-pill-active text-ink' : 'text-ink-muted hover:text-ink'"
             @click="$emit('select', index)"
         >
-            <span class="block text-xs text-ink-subtle">{{ index + 1 }}</span>
+            <span
+                class="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-semibold"
+                :class="
+                    index === current
+                        ? 'bg-euca-800 text-euca-50'
+                        : index < current
+                          ? 'bg-euca-300 text-euca-900'
+                          : 'bg-euca-100 text-euca-700'
+                "
+            >
+                {{ index + 1 }}
+            </span>
             {{ step }}
         </button>
     </nav>

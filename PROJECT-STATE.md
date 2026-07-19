@@ -721,6 +721,19 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
   is committed). Verified: npm run build green; composer check FULLY green (Pint passed · PHPStan L5 [OK]
   No errors · **Pest 582 passed / 4198 assertions**) with ZERO test edits; adversarial 4-dimension review
   workflow → 0 confirmed defects. Recorded as D-083 (CLINIC.W1).
+- **CLINIC.W2 — patient screens wired:** `Patients/Index` (glass search + avatar-initials result rows +
+  empty state), `Patients/Show` = Patient 360 (deep-eucalyptus header tile, dormant AllergyBanner, pill
+  Tabs with count chips over the 5 fixed tabs, consent cards, quiet access-log timeline), and
+  `Patients/Register` (StepNav pills, glass steps, the amber duplicate card with server reasons +
+  confidence, enriched review). Shared `Tabs`/`StepNav`/`DataList` re-skinned to euca tokens (Tabs gains
+  an optional `count`; Clinical/Chart unaffected). RE-SKIN ONLY per P0D.GU — no route/controller/prop/
+  emit/action/test changed; `PatientUiTest` (5 assertInertia/RBAC/read-log/cross-tenant tests) pass
+  UNCHANGED. **Gaps flagged, not faked:** prototype "Client Record" is a SEPARATE unbuilt front-desk
+  household/guarantor screen (`/clients/{client}`, `client.view`) — NOT Patient 360 (D-084); Patient-360
+  header Edit + Portal-invite omitted (no URLs on the Show `actions` payload; no patient-edit route
+  exists); AllergyBanner dormant behind an optional `allergies?` prop the backend doesn't send. Verified:
+  npm run build green; composer check FULLY green (Pint · PHPStan L5 · **Pest 582 passed / 4198
+  assertions**), zero test edits; adversarial 4-dimension review → 0 confirmed defects. Recorded as D-084.
 - **Next action:** continue the `docs/CLINIC-DELIVERY-MAP.md` WIRE ORDER for the remaining clinic+shared
-  screens (Portal shell/login → lists → detail views → chart/note-editor last), same re-skin discipline
-  (P0D.GU: `.vue` only; routes/controllers/props/guards/tests frozen). Then Phase H per the master plan.
+  screens (Portal shell/login → scheduling/day-board + inbox/dispatch → chart/note-editor last), same
+  re-skin discipline (P0D.GU: `.vue` only; routes/controllers/props/guards/tests frozen). Then Phase H.

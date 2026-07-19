@@ -626,3 +626,18 @@ references the old ID.
   vue-i18n messages must escape a literal `@` as `{'@'}` (it is the linked-message metacharacter — a raw
   `@` throws at compile time). Wire order for the remaining clinic+shared screens follows
   `docs/CLINIC-DELIVERY-MAP.md`. (CLINIC.W1)
+- **D-084 — "Client Record" ≠ "Patient 360"; the front-desk household layer is a separate, unbuilt
+  screen.** Wiring the patient screens in CLINIC.W2, rendering the prototype resolved a mapping
+  ambiguity from the delivery map: the prototype **"Patient 360"** is `Patients/Show` (five fixed tabs;
+  deep-eucalyptus header band + dormant AllergyBanner) and was wired. The prototype **"Client Record"**
+  is a DISTINCT screen — a front-desk contact/consent/relationship layer keyed on a HOUSEHOLD/guarantor
+  (route `GET /clients/{client}`, gate `client.view`; "Keller household", 3 patients, guarantor,
+  preferred channel / quiet hours / tone, balance, upcoming recall) — for which NO backend exists
+  (no `clients` route/gate/model; CareOS patients are individuals, not households). It is therefore NOT
+  a re-skin target and belongs in the delivery map's Bucket 2 (needs backend); it is flagged, not faked.
+  Corollary re-skin gaps in CLINIC.W2 were handled the same honest way, per P0D.GU (bind to existing
+  props; never invent a backend prop): the Patient-360 header **Edit** + **Portal-invite** actions are
+  OMITTED because `Patients/Show`'s `actions` prop exposes no URLs for them (no patient-edit route
+  exists at all; `portal.invitations.store` exists but is not on the Show payload), and the
+  **AllergyBanner** stays dormant behind an optional `allergies?` prop the backend does not yet send
+  (render-when-present, exactly as the design prescribes). (CLINIC.W2)
