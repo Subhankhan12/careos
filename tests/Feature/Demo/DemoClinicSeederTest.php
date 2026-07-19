@@ -114,10 +114,11 @@ test('demo clinic seeder produces a non-trivial, tenant-scoped clinic', function
         ->and(Credential::query()->where('status', Credential::STATUS_EXPIRED)->count())->toBeGreaterThan(0)
         ->and(Credential::query()->where('status', Credential::STATUS_REVOKED)->count())->toBeGreaterThan(0);
 
-    // Resources: rooms, a chair, two vehicles, and the practitioners.
-    expect(Resource::query()->where('type', Resource::TYPE_ROOM)->count())->toBe(2)
-        ->and(Resource::query()->where('type', Resource::TYPE_CHAIR)->count())->toBe(1)
-        ->and(Resource::query()->where('type', Resource::TYPE_VEHICLE)->count())->toBe(2)
+    // Resources: clinic rooms and treatment chairs, plus the practitioners — no home-care
+    // vehicles (those belong to the Spitex tenant, not a clinic).
+    expect(Resource::query()->where('type', Resource::TYPE_ROOM)->count())->toBe(3)
+        ->and(Resource::query()->where('type', Resource::TYPE_CHAIR)->count())->toBe(2)
+        ->and(Resource::query()->where('type', Resource::TYPE_VEHICLE)->count())->toBe(0)
         ->and(Resource::query()->where('type', Resource::TYPE_PRACTITIONER)->count())->toBe(5);
 
     // Patients: near-duplicates for the dedup screen, consents, portal accounts.

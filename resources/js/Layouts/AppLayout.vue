@@ -8,9 +8,15 @@ const { t } = useI18n();
 const page = usePage();
 
 const user = computed(
-    () => (page.props.auth as { user: { name: string; isSuperAdmin: boolean } | null }).user,
+    () =>
+        (
+            page.props.auth as {
+                user: { name: string; isSuperAdmin: boolean; permissions?: Record<string, boolean> } | null;
+            }
+        ).user,
 );
 const isSuperAdmin = computed(() => user.value?.isSuperAdmin ?? false);
+const permissions = computed(() => user.value?.permissions ?? {});
 
 const initials = computed(() => {
     const name = user.value?.name?.trim() ?? '';
@@ -19,15 +25,21 @@ const initials = computed(() => {
     return (parts[0]?.[0] ?? '') + (parts.length > 1 ? (parts[parts.length - 1][0] ?? '') : '');
 });
 
-const nav = [
+// `permission` mirrors the server-side Gate on each route's controller. It only hides
+// links a role can't use — the server Gate stays authoritative, so a hidden route is
+// still blocked by URL, and a shown one still 403s if the user truly lacks access.
+// Dashboard has no permission (any authenticated staff member reaches /app).
+const nav: { key: string; href: string; permission?: string }[] = [
     { key: 'app.nav.dashboard', href: '/app' },
-    { key: 'app.nav.patients', href: '/patients' },
-    { key: 'app.nav.scheduling', href: '/scheduling/day-board' },
-    { key: 'app.nav.nursing', href: '/nursing/dispatch' },
-    { key: 'app.nav.inbox', href: '/comms/inbox' },
-    { key: 'app.nav.billing', href: '/billing/invoices' },
-    { key: 'app.nav.reporting', href: '/reporting' },
+    { key: 'app.nav.patients', href: '/patients', permission: 'patient.view' },
+    { key: 'app.nav.scheduling', href: '/scheduling/day-board', permission: 'appointment.manage' },
+    { key: 'app.nav.nursing', href: '/nursing/dispatch', permission: 'dispatch.manage' },
+    { key: 'app.nav.inbox', href: '/comms/inbox', permission: 'comms.manage' },
+    { key: 'app.nav.billing', href: '/billing/invoices', permission: 'billing.view' },
+    { key: 'app.nav.reporting', href: '/reporting', permission: 'reporting.view' },
 ];
+
+const visibleNav = computed(() => nav.filter((item) => !item.permission || permissions.value[item.permission] === true));
 
 function isActive(href: string): boolean {
     const url = page.url;
@@ -56,7 +68,7 @@ function signOut(): void {
                     <!-- Center pill nav on an ivory well; active = gradient white pill. -->
                     <nav class="hidden items-center gap-1 rounded-full bg-euca-50/80 p-1 md:flex">
                         <Link
-                            v-for="item in nav"
+                            v-for="item in visibleNav"
                             :key="item.href"
                             :href="item.href"
                             class="rounded-full px-3.5 py-1.5 text-sm font-medium transition"

@@ -193,7 +193,7 @@ function submit(): void {
                                     {{ t('patients.register.duplicatesTitle') }}
                                 </p>
                                 <span class="shrink-0 text-xs font-medium text-ink-muted">
-                                    {{ t('patients.register.duplicatesCount', { count: duplicates.length }) }}
+                                    {{ t('patients.register.duplicatesCount', { count: duplicates.length }, duplicates.length) }}
                                 </span>
                             </div>
                             <p class="mt-1 text-sm text-ink-muted">{{ t('patients.register.duplicatesHint') }}</p>

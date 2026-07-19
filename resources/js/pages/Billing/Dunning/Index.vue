@@ -54,7 +54,7 @@ function run(): void {
                 <div>
                     <p class="text-xs font-semibold uppercase tracking-[0.14em] text-euca-200">{{ t('billing.eyebrow') }}</p>
                     <h1 class="mt-1 text-2xl font-semibold tracking-tight text-euca-50">{{ t('billing.dunning.title') }}</h1>
-                    <p class="mt-1 text-sm text-euca-200">{{ t('billing.dunning.subtitle', { count: counters.overdue }) }}</p>
+                    <p class="mt-1 text-sm text-euca-200">{{ t('billing.dunning.subtitle', { count: counters.overdue }, counters.overdue) }}</p>
                 </div>
                 <button v-if="actions.can_manage" type="button" class="btn-glow self-start sm:self-auto" :disabled="runForm.processing || rows.length === 0" @click="run">
                     {{ t('billing.dunning.run') }}

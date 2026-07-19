@@ -49,7 +49,7 @@ function formatDate(value: string): string {
                 <div>
                     <p class="text-xs font-semibold uppercase tracking-[0.14em] text-euca-200">{{ t('billing.eyebrow') }}</p>
                     <h1 class="mt-1 text-2xl font-semibold tracking-tight text-euca-50">{{ t('billing.payments.title') }}</h1>
-                    <p class="mt-1 text-sm text-euca-200">{{ t('billing.payments.subtitle', { count: payments.length }) }}</p>
+                    <p class="mt-1 text-sm text-euca-200">{{ t('billing.payments.subtitle', { count: payments.length }, payments.length) }}</p>
                 </div>
                 <Link v-if="canManage" :href="recordUrl" class="btn-glow self-start sm:self-auto">{{ t('billing.payments.record') }}</Link>
             </div>

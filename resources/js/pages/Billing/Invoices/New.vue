@@ -74,7 +74,7 @@ function submit(): void {
                             <span class="font-medium text-ink">{{ c.name }}</span>
                             <span v-if="c.mrn" class="ml-2 font-mono text-xs text-ink-muted">{{ c.mrn }}</span>
                         </span>
-                        <span class="rounded-full bg-euca-50 px-2.5 py-0.5 text-xs font-semibold text-euca-800">{{ t('billing.newInvoice.chargeCount', { count: c.charge_count }) }}</span>
+                        <span class="rounded-full bg-euca-50 px-2.5 py-0.5 text-xs font-semibold text-euca-800">{{ t('billing.newInvoice.chargeCount', { count: c.charge_count }, c.charge_count) }}</span>
                     </Link>
                 </div>
                 <p v-else class="px-4 py-12 text-center text-sm text-ink-muted">{{ t('billing.newInvoice.noneToInvoice') }}</p>

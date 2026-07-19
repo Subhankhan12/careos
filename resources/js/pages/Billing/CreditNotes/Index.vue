@@ -44,7 +44,7 @@ function formatDate(value: string | null): string {
                 <div>
                     <p class="text-xs font-semibold uppercase tracking-[0.14em] text-euca-200">{{ t('billing.eyebrow') }}</p>
                     <h1 class="mt-1 text-2xl font-semibold tracking-tight text-euca-50">{{ t('billing.creditNotes.title') }}</h1>
-                    <p class="mt-1 text-sm text-euca-200">{{ t('billing.creditNotes.subtitle', { count: creditNotes.length }) }}</p>
+                    <p class="mt-1 text-sm text-euca-200">{{ t('billing.creditNotes.subtitle', { count: creditNotes.length }, creditNotes.length) }}</p>
                 </div>
                 <Link :href="invoicesUrl" class="self-start rounded-xl bg-white/15 px-4 py-2 text-sm font-semibold text-euca-50 transition hover:bg-white/25 sm:self-auto">{{ t('billing.nav.invoices') }}</Link>
             </div>

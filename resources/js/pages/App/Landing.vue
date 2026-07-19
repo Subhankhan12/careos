@@ -137,7 +137,7 @@ function money(minor: number, currency: string): string {
 
                 <!-- Real count when the actor can see it; a genuine empty state at zero. -->
                 <div v-if="operational && hasAppointments" class="mt-6 rounded-xl bg-euca-50/60 p-5">
-                    <p class="text-3xl font-semibold text-ink">{{ t('shell.app.scheduleCount', { count: operational.appointments }) }}</p>
+                    <p class="text-3xl font-semibold text-ink">{{ t('shell.app.scheduleCount', { count: operational.appointments }, operational.appointments) }}</p>
                     <div class="mt-4 flex flex-wrap gap-2">
                         <span v-for="(count, status) in operational.by_status" :key="status" v-show="count > 0" class="inline-flex items-center gap-1.5 rounded-full bg-white/70 px-3 py-1 text-xs text-ink-muted">
                             <span class="font-medium">{{ t(`reporting.apptStatus.${status}`) }}</span>

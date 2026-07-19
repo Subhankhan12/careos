@@ -803,3 +803,22 @@ references the old ID.
   naive parse yields `03/11` in that zone while the helper yields `03/12`. Browser-re-confirmed in an
   America/Los_Angeles session (DOB shows `03/12/1954`). Same class as the W6 `isOverdue` date-only fix (D-088).
   (FIX.3)
+- **D-092 — Delivery polish is presentation/demo-data only; it never moves stored data or an authorization
+  decision.** FIX.4 cleared the QA audit's remaining Mediums/Lows under P0D.GU with three load-bearing rules that
+  future work must keep: (a) **Vitals display in clinical units, storage stays base units.** Weight is stored in
+  grams and height in millimetres; a display-only helper `resources/js/lib/units.ts` (`vitalDisplayValue`) rescales
+  them to kg/cm AT RENDER (weight ÷1000 1dp, height ÷10 0dp). It is a pure rescale — the electric fence holds:
+  still raw numbers, no ranges/flags/colours/scores; only `weight_g`/`height_mm` convert, every other metric
+  (mmHg/bpm/°C/%) is already conventional and passes through untouched. Never scale vitals in storage or the
+  services — convert only in the view. (b) **Client-side nav gating is a UX hint; the server Gate stays
+  authoritative.** `HandleInertiaRequests` shares `auth.user.permissions` (the nav-relevant keys resolved via
+  `$user->can()`, super-admins all-true via `Gate::before`); `AppLayout` hides links a role can't use. Hiding a
+  link never grants access and never blocks it — the route's `Gate::authorize` still 403s on a typed URL, proven
+  by an existing-behaviour test kept green alongside the new render test. (c) **Styled error screens are
+  presentation only.** `bootstrap/app.php` renders an in-shell Inertia `Error` page for 403/404/419/503 (and the
+  portal consent-withdrawal lockout, a 403 on a `portal.*` route → its own "access withdrawn" message) instead of
+  the bare Symfony page; the status code — and therefore the authorization decision — is preserved. The renderer
+  no-ops under `testing` so the suite's ~75 `assertForbidden`/`assertNotFound` assertions stay exact (the new
+  render test forces a runtime env via `detectEnvironment`). Demo-data items in the same gate (M-6 realistic
+  vitals, L-2 clinic rooms/chairs not vehicles, L-3 clinic currency CHF) touch only `DemoClinicSeeder`; amounts
+  stay integer minor so the P.16 reconcile (`delta_minor === 0`) + audit chain stay green. (FIX.4)

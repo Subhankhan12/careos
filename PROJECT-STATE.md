@@ -24,13 +24,18 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
   ~3 coordinators, decide the market (EU-cash vs CH-insurance-funded vs US-claims). Everything else is
   prioritization. Full brief: `docs/DISCOVERY.md`; outreach: `docs/outreach-de.md`.
 
-- **QA-audit remediation (post-clinic-delivery, `docs/QA-AUDIT-REPORT.md`):** the live-browser audit found one
-  Critical (C-1: billing/import detail+write routes 500 in the browser) and Mediums. Cleared so far — **C-1**
-  (FIX.1, string-id route resolution) now **browser-verified** end-to-end; **M-1** staff landing wired to
-  MetricsService (FIX.2); **M-2** date-only timezone shift fixed with the shared `formatDateOnly` helper +
-  TZ-robust Vitest (FIX.3, browser-re-confirmed in America/Los_Angeles). Remaining audit items (M-3 vitals
-  units, M-4 nav gating, M-5 403 screens, M-6 demo vitals, L-1..L-3) are polish, not blockers. Discovery
-  remains the next real unit of progress — these fixes just keep the clinic vertical demoable.
+- **QA-audit remediation (post-clinic-delivery, `docs/QA-AUDIT-REPORT.md`) — COMPLETE.** The live-browser audit
+  found one Critical (C-1) and a set of Medium/Low polish items; all are now cleared. **C-1** (FIX.1, string-id
+  route resolution) is **browser-verified** end-to-end; **M-1** staff landing wired to MetricsService (FIX.2);
+  **M-2** date-only timezone shift fixed with the shared `formatDateOnly` helper + TZ-robust Vitest (FIX.3);
+  **FIX.4** cleared the rest as presentation/demo-data-only polish — **M-3** vitals shown in clinical units
+  (kg/cm) via a display-only `@/lib/units` helper (storage stays g/mm; still raw, no interpretation); **M-4**
+  client-side nav gating via `auth.user.permissions` shared from `HandleInertiaRequests` (server Gate stays
+  authoritative); **M-5** an in-shell Eucalyptus Glow `Error` page for 403/404/419/503 + the portal
+  consent-withdrawal lockout (wired in `bootstrap/app.php`, presentation only); **M-6** realistic/stable seeded
+  vitals; **L-1** i18n pluralisation; **L-2** clinic day-board resources are rooms/chairs not vehicles; **L-3**
+  the clinic demo tenant settles in CHF. Discovery remains the next real unit of progress — these fixes just
+  make the clinic vertical demo-credible.
 
 - **Current phase:** Phase G COMPLETE - Comms, telehealth & patient portal. Consolidated at P0G.C:
   the functional staff-facing surface is FROZEN for the design pass, and `docs/SCREENS.md` is the

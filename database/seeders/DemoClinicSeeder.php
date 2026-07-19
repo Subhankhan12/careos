@@ -122,7 +122,10 @@ class DemoClinicSeeder extends Seeder
 
     public const TIMEZONE = 'Europe/Zurich';
 
-    public const CURRENCY = 'EUR';
+    // A Swiss clinic settles in Swiss francs. This is the tenant's display/settlement
+    // currency label only — stored amounts stay integer minor units, so the label change
+    // does not alter any charge/invoice total or the reconciliation (delta stays 0).
+    public const CURRENCY = 'CHF';
 
     /** Demo logins are uniform and obviously fake; MFA is pre-enrolled. */
     public const STAFF_PASSWORD = 'demo-password';
@@ -408,13 +411,14 @@ class DemoClinicSeeder extends Seeder
             ]);
         }
 
-        // Rooms, a treatment chair, and the two home-care vehicles.
+        // Clinic rooms and treatment chairs — a clinic has consulting rooms and chairs, not
+        // the home-care vehicles a Spitex agency would field (those live in DemoSpitexSeeder).
         foreach ([
             ['key' => 'room_1', 'type' => Resource::TYPE_ROOM, 'name' => 'Sprechzimmer 1'],
             ['key' => 'room_2', 'type' => Resource::TYPE_ROOM, 'name' => 'Sprechzimmer 2'],
+            ['key' => 'room_3', 'type' => Resource::TYPE_ROOM, 'name' => 'Sprechzimmer 3'],
             ['key' => 'chair_1', 'type' => Resource::TYPE_CHAIR, 'name' => 'Behandlungsstuhl 1'],
-            ['key' => 'vehicle_1', 'type' => Resource::TYPE_VEHICLE, 'name' => 'Fahrzeug 1 — VW Caddy (ZH 154 872)'],
-            ['key' => 'vehicle_2', 'type' => Resource::TYPE_VEHICLE, 'name' => 'Fahrzeug 2 — Fiat Doblò (ZH 209 447)'],
+            ['key' => 'chair_2', 'type' => Resource::TYPE_CHAIR, 'name' => 'Behandlungsstuhl 2'],
         ] as $resource) {
             $this->resources[$resource['key']] = Resource::query()->create([
                 'type' => $resource['type'],
@@ -895,14 +899,43 @@ class DemoClinicSeeder extends Seeder
             ]);
         }
 
-        // Raw vitals across the demo period, tied to no interpretation at all.
+        // Raw vitals across the demo period, tied to no interpretation at all. Values are
+        // realistic and STABLE per patient (a fixed height, weight drifting within ~1 kg,
+        // BP/HR/temp/SpO2 in plausible resting ranges) with a gentle trend across the three
+        // readings so the P.13 vitals-history view is demonstrable. Deterministic (no random
+        // factory defaults) so the demo is reproducible — still raw numbers, never a flag.
+        // profile: [height_cm, weight_kg, systolic, diastolic, heart_rate, temp_c, spo2]
+        $profiles = [
+            0 => [163, 68.4, 128, 79, 72, 36.6, 98],
+            1 => [178, 82.1, 134, 84, 68, 36.7, 97],
+            2 => [159, 61.2, 138, 82, 75, 36.5, 96],
+            6 => [174, 79.6, 131, 80, 70, 36.8, 98],
+            9 => [166, 64.7, 126, 77, 74, 36.6, 99],
+        ];
+        // Gentle per-reading drift (readings 0, 1, 2) — believable movement, not noise.
+        $systolicStep = [0, 4, -3];
+        $diastolicStep = [0, 2, -2];
+        $heartRateStep = [0, -2, 1];
+        $weightStepKg = [0.0, 0.5, -0.4];
+        $temperatureStep = [0.0, 0.2, -0.1];
+        $spo2Step = [0, -1, 1];
+
         foreach ([0, 1, 2, 6, 9] as $patientIndex) {
-            foreach ([3, 12, 24] as $dayOfMonth) {
+            [$heightCm, $weightKg, $systolic, $diastolic, $heartRate, $temperature, $spo2] = $profiles[$patientIndex];
+            foreach ([3, 12, 24] as $reading => $dayOfMonth) {
                 VitalFactory::new()
                     ->forPatient($this->patients[$patientIndex])
                     ->recordedBy($doctor)
                     ->recordedAt($this->day($dayOfMonth)->setTime(9, 20)->toDateTimeString())
-                    ->create();
+                    ->create([
+                        'systolic' => $systolic + $systolicStep[$reading],
+                        'diastolic' => $diastolic + $diastolicStep[$reading],
+                        'heart_rate' => $heartRate + $heartRateStep[$reading],
+                        'temperature_c' => round($temperature + $temperatureStep[$reading], 1),
+                        'spo2' => $spo2 + $spo2Step[$reading],
+                        'weight_g' => (int) round(($weightKg + $weightStepKg[$reading]) * 1000),
+                        'height_mm' => $heightCm * 10,
+                    ]);
             }
         }
     }

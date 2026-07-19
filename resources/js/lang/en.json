@@ -1,4 +1,32 @@
 {
+    "errors": {
+        "code": "Error {status}",
+        "backToApp": "Back to dashboard",
+        "403": {
+            "title": "You don't have access to this area",
+            "body": "Your account doesn't have permission to view this. If you think this is a mistake, please contact your administrator."
+        },
+        "portalLockout": {
+            "title": "Your portal access has been withdrawn",
+            "body": "Your consent to use the patient portal was withdrawn, so you've been signed out. Please contact the practice if you'd like to use the portal again."
+        },
+        "404": {
+            "title": "Page not found",
+            "body": "The page you're looking for doesn't exist or may have moved."
+        },
+        "419": {
+            "title": "Your session expired",
+            "body": "For your security your session timed out. Please sign in again and retry."
+        },
+        "503": {
+            "title": "Temporarily unavailable",
+            "body": "CareOS is briefly down for maintenance. Please try again in a moment."
+        },
+        "generic": {
+            "title": "Something went wrong",
+            "body": "An unexpected error occurred. Please try again."
+        }
+    },
     "app": {
         "name": "CareOS",
         "signOut": "Sign out",
@@ -160,7 +188,7 @@
             "hintScheduled": "of {count} scheduled",
             "hintSeenToday": "seen today",
             "hintPractice": "across the practice",
-            "scheduleCount": "{count} appointments today",
+            "scheduleCount": "{count} appointment today | {count} appointments today",
             "scheduleNone": "Nothing scheduled today yet.",
             "scheduleGoBoard": "Open the day-board to see and manage today's schedule.",
             "quickActions": "Quick actions"
@@ -215,7 +243,7 @@
             "searchDob": "Date of birth",
             "search": "Search",
             "searchHint": "Full-text match on first and family name · date of birth matches exactly · results cap at 25.",
-            "matches": "{count} matches",
+            "matches": "{count} match | {count} matches",
             "sorted": "sorted by family name",
             "ageUnit": "y",
             "clearSearch": "Clear search",
@@ -234,7 +262,7 @@
             "duplicatesTitle": "Possible existing patient",
             "duplicatesChecking": "Checking for existing patients…",
             "duplicatesHint": "The identity you entered closely matches records already in this practice.",
-            "duplicatesCount": "{count} candidates",
+            "duplicatesCount": "{count} candidate | {count} candidates",
             "openDuplicate": "Open profile",
             "notADuplicate": "This is a new patient — continue",
             "duplicateDiscardHint": "Opening a profile leaves the wizard; entered data is discarded.",
@@ -489,7 +517,7 @@
             "empty": "No records yet.",
             "download": "Download",
             "summary": "{encounters} encounters · {problems} problems · {medications} medications",
-            "openRecalls": "{count} open recall",
+            "openRecalls": "{count} open recall | {count} open recalls",
             "patient360": "Patient 360",
             "allEncounters": "All · {count}",
             "sharedWithPatient": "Shared with patient",
@@ -527,8 +555,8 @@
                     "heart_rate": "bpm",
                     "temperature_c": "°C",
                     "spo2": "%",
-                    "weight_g": "g",
-                    "height_mm": "mm"
+                    "weight_g": "kg",
+                    "height_mm": "cm"
                 },
                 "source": {
                     "clinic": "Clinic",
@@ -840,7 +868,7 @@
         },
         "invoices": {
             "title": "Invoices",
-            "subtitle": "{count} invoices",
+            "subtitle": "{count} invoice | {count} invoices",
             "draftInvoice": "Draft invoice",
             "all": "All",
             "number": "Invoice",
@@ -899,7 +927,7 @@
         },
         "creditNotes": {
             "title": "Credit notes",
-            "subtitle": "{count} credit notes",
+            "subtitle": "{count} credit note | {count} credit notes",
             "badge": "Credit note",
             "number": "Credit note",
             "patient": "Patient",
@@ -919,7 +947,7 @@
         },
         "payments": {
             "title": "Payments",
-            "subtitle": "{count} payments",
+            "subtitle": "{count} payment | {count} payments",
             "record": "Record payment",
             "recordHint": "Record money already received and, if you like, apply it to an invoice. CareOS does not process cards — the desk records the result.",
             "recordConfirm": "Record payment",
@@ -954,7 +982,7 @@
             "title": "New invoice",
             "subtitle": "Assemble an invoice from a patient's validated charges and issue it.",
             "forPatient": "For patient",
-            "chargeCount": "{count} charges",
+            "chargeCount": "{count} charge | {count} charges",
             "noneToInvoice": "No validated, un-invoiced charges to bill.",
             "totalNote": "The invoice total, VAT, and number are set by the billing engine when you issue.",
             "payer": "Payer",
@@ -963,7 +991,7 @@
         },
         "dunning": {
             "title": "Dunning",
-            "subtitle": "{count} overdue invoices with an open balance",
+            "subtitle": "{count} overdue invoice with an open balance | {count} overdue invoices with an open balance",
             "run": "Send reminders",
             "overdue": "Overdue",
             "noReminder": "No reminder yet",

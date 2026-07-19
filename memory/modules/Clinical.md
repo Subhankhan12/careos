@@ -256,6 +256,12 @@ architecture tests. Local `composer check` is green: 222 tests / 1202 assertions
   component only renders/inserts. NO existing NoteEditor prop or behavior changed. Net-new
   `Clinical/Snippets.vue` management page (RBAC `note.write`; shared editing gated). i18n keys.
 
+- Vitals DISPLAY: weight/height are stored in base units (grams / millimetres) but rendered in clinical
+  units (kg / cm) via the display-only helper `resources/js/lib/units.ts` (`vitalDisplayValue`) — weight ÷1000
+  1dp, height ÷10 0dp; every other metric (mmHg/bpm/°C/%) is already conventional and passes through raw. The
+  chart Vitals tab + P.13 trend both use it. Storage NEVER changes; convert only at render, still raw with no
+  interpretation (electric fence holds). M-3 / FIX.4, see [[D-092]].
+
 ## Open items
 
 - Next phase: Phase E - Nursing wedge (home care, dispatch, offline-first nurse PWA).

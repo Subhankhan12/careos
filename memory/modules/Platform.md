@@ -140,6 +140,15 @@ it needs `BelongsToTenant`, which Audit may not import. `integrity_checks` is ap
 DB-trigger level, and a PASS is recorded as well as a failure — so a check that silently stops
 running shows up as an absence rather than as nothing at all.
 
+- Frontend UX gating + error pages (M-4/M-5, FIX.4): `HandleInertiaRequests::authUser()` shares
+  `auth.user.permissions` (the nav-relevant keys resolved via `$user->can()`, super-admins all-true via
+  `Gate::before`) so `AppLayout` hides links a role can't use — a UX hint only; the route Gate stays
+  authoritative (a typed URL still 403s). `bootstrap/app.php` `withExceptions` renders an in-shell Inertia
+  `Error` page (`resources/js/pages/Error.vue`, GuestLayout) for 403/404/419/503 and the portal
+  consent-withdrawal lockout (403 on a `portal.*` route → "access withdrawn" message); PRESENTATION ONLY, the
+  status code is preserved, and the renderer no-ops under `testing` so existing status assertions stay exact.
+  See [[D-092]].
+
 ## Open items
 
 - ABAC condition evaluation (`abac_conditions`) not yet implemented (Phase B, needs patients/audit).

@@ -76,7 +76,7 @@ function setStatus(status: string | null): void {
                 <div>
                     <p class="text-xs font-semibold uppercase tracking-[0.14em] text-euca-200">{{ t('billing.eyebrow') }}</p>
                     <h1 class="mt-1 text-2xl font-semibold tracking-tight text-euca-50">{{ t('billing.invoices.title') }}</h1>
-                    <p class="mt-1 text-sm text-euca-200">{{ t('billing.invoices.subtitle', { count: invoices.length }) }}</p>
+                    <p class="mt-1 text-sm text-euca-200">{{ t('billing.invoices.subtitle', { count: invoices.length }, invoices.length) }}</p>
                 </div>
                 <div class="flex flex-wrap gap-2">
                     <Link v-if="canManage" :href="newInvoiceUrl" class="btn-glow">{{ t('billing.nav.newInvoice') }}</Link>

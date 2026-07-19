@@ -8,6 +8,7 @@ import Tabs from '@/Components/Tabs.vue';
 import Timeline from '@/Components/Timeline.vue';
 import VersionHistory from '@/Components/VersionHistory.vue';
 import { ageFromDateOnly } from '@/lib/date';
+import { vitalDisplayValue } from '@/lib/units';
 
 const { t } = useI18n();
 const page = usePage();
@@ -133,8 +134,8 @@ function rawVital(vital: (typeof props.vitals)[number]): string {
         vital.heart_rate !== null ? `${vital.heart_rate}` : null,
         vital.temperature_c !== null ? `${vital.temperature_c} C` : null,
         vital.spo2 !== null ? `${vital.spo2}%` : null,
-        vital.weight_g !== null ? `${vital.weight_g} g` : null,
-        vital.height_mm !== null ? `${vital.height_mm} mm` : null,
+        vital.weight_g !== null ? `${vitalDisplayValue('weight_g', vital.weight_g)} kg` : null,
+        vital.height_mm !== null ? `${vitalDisplayValue('height_mm', vital.height_mm)} cm` : null,
     ].filter(Boolean).join(' | ');
 }
 
@@ -182,7 +183,7 @@ function transitionOrder(orderId: string, status: string): void {
                                 <span class="rounded-md bg-white/10 px-2.5 py-1 text-euca-100">{{ patient.date_of_birth }}<template v-if="age !== null"> · {{ age }} y</template> · {{ patient.sex }}</span>
                                 <span class="rounded-md bg-white/10 px-2.5 py-1 text-euca-100">{{ t('clinical.chart.summary', { encounters: encounters.length, problems: problems.length, medications: medications.length }) }}</span>
                                 <span v-if="openRecalls > 0" class="inline-flex items-center gap-1.5 rounded-md bg-warning/25 px-2.5 py-1 text-euca-50">
-                                    <span class="h-1.5 w-1.5 rounded-full bg-warning"></span>{{ t('clinical.chart.openRecalls', { count: openRecalls }) }}
+                                    <span class="h-1.5 w-1.5 rounded-full bg-warning"></span>{{ t('clinical.chart.openRecalls', { count: openRecalls }, openRecalls) }}
                                 </span>
                             </div>
                         </div>
@@ -271,7 +272,7 @@ function transitionOrder(orderId: string, status: string): void {
                                 <table class="mt-2 w-full text-left text-sm">
                                     <tbody>
                                         <tr v-for="(point, index) in metric.points" :key="index" class="border-t border-line/60 first:border-t-0">
-                                            <td class="py-1 pr-3 tabular-nums text-ink">{{ point.value }}</td>
+                                            <td class="py-1 pr-3 tabular-nums text-ink">{{ vitalDisplayValue(metric.key, point.value) }}</td>
                                             <td class="py-1 pr-3 text-ink-muted">{{ point.recorded_at }}</td>
                                             <td class="py-1 text-xs text-ink-muted">{{ t('clinical.chart.vitalsHistory.source.' + point.source) }}</td>
                                         </tr>

@@ -113,7 +113,7 @@ function statusLabel(status: string): string {
             <div class="glass-card overflow-hidden p-2">
                 <div v-if="patients.length > 0" class="flex items-center justify-between px-3 py-2">
                     <p class="text-sm font-medium text-ink">
-                        {{ t('patients.index.matches', { count: patients.length }) }}
+                        {{ t('patients.index.matches', { count: patients.length }, patients.length) }}
                     </p>
                     <p class="text-xs text-ink-subtle">{{ t('patients.index.sorted') }}</p>
                 </div>
