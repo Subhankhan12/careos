@@ -99,6 +99,32 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
   the P.4 eval harness + audit/immutability suites stay UNCHANGED and green. Closes two of the founder-scope admin
   gaps (governance + AI approval-queue); remaining unwired: KB admin, staff-telehealth join. See D-097.
 
+- **CLINIC.W10 built the LAST two admin screens — KB admin + staff telehealth join** — over existing backends, no
+  new agent/telehealth logic (D-098). **PART A — KB admin (`/governance/kb`, `ai.manage`):** CRUD over the tenant's
+  `KbArticle` rows (the Front-Desk agent's grounding source) via app-layer `KbArticleController` (app layer because
+  KB curation is audited and AiCore may not depend on Audit). Writes go through the existing `KbArticle` model +
+  `KbEmbeddingService::syncArticle`; deactivate is a soft `is_active=false` toggle. **The agent's grounding + fence
+  are UNCHANGED: `KbRetriever` already filters `is_active=true`, so a deactivated article stops being grounded on
+  (tested via the retriever before/after) — the P.4 front-desk evals are untouched.** Audited (`kb.article.*`),
+  tenant-scoped (string ids → cross-tenant 404). **PART B — staff telehealth (`/telehealth`, `encounter.manage`):**
+  the clinician side of the SAME sessions the portal patient joins (W3). Comms `StaffTelehealthController` lists the
+  clinician's OWN created/active sessions and issues the EXISTING staff token via `TelehealthService::joinTokenForStaff`.
+  **No new telehealth logic:** media never touches the server, recording stays disabled at the provider (grants pin
+  recorder/roomRecord/roomAdmin=false — asserted through the staff path), the token is short-lived + never stored,
+  the "not recorded" discipline is displayed; issue is audited (`telehealth.token_issued`) + read-logged. Two nav
+  entries (`knowledge` on `ai.manage`; `telehealth` on `encounter.manage`, added to `NAV_PERMISSIONS`); `kb.*` +
+  `staffTelehealth.*` i18n. 4 feature tests + route smoke gains both GET routes; `NavAndErrorPageTest` nav map gained
+  `encounter.manage` (tracking). See D-098.
+
+- **ADMIN VERTICAL COMPLETE (W8 → W10).** The full admin set is delivered: **W8** settings + roles/access ·
+  **W8b** settings backends (profile / branch CRUD / opening hours / timezone) · **W8c** bookable-resource CRUD ·
+  **W9** governance dashboard + AI approval-queue · **W10** KB admin + staff telehealth join. Combined with the
+  earlier CLINIC delivery (W1 shell/auth/landings · W2 patients · W3 portal · W4 staff boards · W5 clinical ·
+  W6–W7 billing + reporting), **the CLINIC and ADMIN verticals are both fully built, wired, and green** — every
+  admin screen surfaces a tested backend with no new domain/agent/telehealth logic (P0D.GU). Standing focus returns
+  to DISCOVERY (the CH/KVG-vs-EU-generic billing question with Spitex coordinators) — no admin gaps remain that block
+  a demo; the only unwired designed screens left are non-clinic/dental (B3, out of scope).
+
 - **Current phase:** Phase G COMPLETE - Comms, telehealth & patient portal. Consolidated at P0G.C:
   the functional staff-facing surface is FROZEN for the design pass, and `docs/SCREENS.md` is the
   factual re-skin brief (22 Inertia pages + 11 nurse-PWA screens with routes/guards/props/actions).

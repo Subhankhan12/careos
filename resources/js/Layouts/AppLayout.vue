@@ -35,10 +35,12 @@ const nav: { key: string; href: string; permission?: string }[] = [
     { key: 'app.nav.scheduling', href: '/scheduling/day-board', permission: 'appointment.manage' },
     { key: 'app.nav.nursing', href: '/nursing/dispatch', permission: 'dispatch.manage' },
     { key: 'app.nav.inbox', href: '/comms/inbox', permission: 'comms.manage' },
+    { key: 'app.nav.telehealth', href: '/telehealth', permission: 'encounter.manage' },
     { key: 'app.nav.billing', href: '/billing/invoices', permission: 'billing.view' },
     { key: 'app.nav.reporting', href: '/reporting', permission: 'reporting.view' },
     { key: 'app.nav.governance', href: '/governance', permission: 'audit.view' },
     { key: 'app.nav.approvals', href: '/governance/approvals', permission: 'ai.manage' },
+    { key: 'app.nav.knowledge', href: '/governance/kb', permission: 'ai.manage' },
     { key: 'app.nav.settings', href: '/settings', permission: 'admin.manage' },
 ];
 

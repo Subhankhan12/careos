@@ -7,6 +7,7 @@ use App\Http\Controllers\ClinicalSummaryDraftController;
 use App\Http\Controllers\ClinicalSummaryInsertController;
 use App\Http\Controllers\Comms\InboxAgentController;
 use App\Http\Controllers\GovernanceDashboardController;
+use App\Http\Controllers\KbArticleController;
 use App\Http\Controllers\Portal\PortalHomeController;
 use App\Http\Controllers\ResourceController;
 use Illuminate\Support\Facades\Route;
@@ -36,6 +37,7 @@ use Modules\Comms\Http\Controllers\InboxActionController;
 use Modules\Comms\Http\Controllers\InboxController;
 use Modules\Comms\Http\Controllers\PortalMessageController;
 use Modules\Comms\Http\Controllers\PortalTelehealthController;
+use Modules\Comms\Http\Controllers\StaffTelehealthController;
 use Modules\FrontDesk\Http\Controllers\KioskCheckInController;
 use Modules\FrontDesk\Http\Controllers\KioskDeviceController;
 use Modules\FrontDesk\Http\Controllers\PortalCheckInController;
@@ -249,6 +251,22 @@ Route::middleware('auth')->group(function () {
     Route::get('/governance/approvals', [AiApprovalQueueController::class, 'index'])->name('governance.approvals.index');
     Route::post('/governance/approvals/{id}/approve', [AiApprovalQueueController::class, 'approve'])->name('governance.approvals.approve');
     Route::post('/governance/approvals/{id}/reject', [AiApprovalQueueController::class, 'reject'])->name('governance.approvals.reject');
+
+    // KB admin (CLINIC.W10) — CRUD over the front-desk agent's grounding source. ai.manage-gated
+    // (same governance area). This curates CONTENT only: the agent's grounding/fence is unchanged
+    // and a deactivated article stops being grounded on (KbRetriever filters is_active=true). Ids
+    // resolve by string (FIX.1) → cross-tenant/missing = 404.
+    Route::get('/governance/kb', [KbArticleController::class, 'index'])->name('governance.kb.index');
+    Route::post('/governance/kb', [KbArticleController::class, 'store'])->name('governance.kb.store');
+    Route::post('/governance/kb/{id}/update', [KbArticleController::class, 'update'])->name('governance.kb.update');
+    Route::post('/governance/kb/{id}/toggle', [KbArticleController::class, 'toggle'])->name('governance.kb.toggle');
+
+    // Staff telehealth join (CLINIC.W10) — the clinician side of the SAME sessions the portal
+    // patient joins (W3). encounter.manage-gated; the staff token comes from the EXISTING
+    // TelehealthService (recording-disabled, short-lived, never stored/logged) — no new telehealth
+    // logic, "not recorded" discipline preserved.
+    Route::get('/telehealth', [StaffTelehealthController::class, 'index'])->name('telehealth.index');
+    Route::post('/telehealth/{session}/token', [StaffTelehealthController::class, 'token'])->name('telehealth.token');
 
     // Kiosk device provisioning (admin.manage enforced in the controller). The
     // plaintext token is shown once at issue.

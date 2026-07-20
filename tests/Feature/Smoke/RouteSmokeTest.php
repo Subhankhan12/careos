@@ -116,6 +116,8 @@ test('every major staff route is reachable through the real middleware stack (20
         'reporting' => '/reporting',
         'governance' => '/governance',
         'governance.approvals' => '/governance/approvals',
+        'governance.kb' => '/governance/kb',
+        'telehealth' => '/telehealth',
         'imports.index' => '/imports',
         'imports.create' => '/imports/create',
         'admin.kiosks' => '/admin/kiosks',
@@ -194,6 +196,14 @@ test('per-role RBAC smoke: each role reaches its pages (200) and is denied other
         [$u['reception'], '/governance/approvals', 403],
         [$u['org_admin'], '/governance', 200],
         [$u['org_admin'], '/governance/approvals', 200],
+        // W10: KB admin is ai.manage (org_admin only); staff telehealth is encounter.manage
+        // (clinicians). reception has neither; a doctor reaches telehealth but not KB.
+        [$u['reception'], '/governance/kb', 403],
+        [$u['reception'], '/telehealth', 403],
+        [$u['org_admin'], '/governance/kb', 200],
+        [$u['org_admin'], '/telehealth', 200],
+        [$u['doctor'], '/telehealth', 200],
+        [$u['doctor'], '/governance/kb', 403],
         // org_admin is a tenant admin, NOT a super-admin: the platform shell is denied.
         [$u['org_admin'], '/admin', 403],
     ];

@@ -49,6 +49,7 @@ test('the shell shares nav permissions so a role only sees links it can use', fu
             ->where('auth.user.permissions', [
                 'patient.view' => true,
                 'appointment.manage' => true,
+                'encounter.manage' => false,
                 'dispatch.manage' => false,
                 'comms.manage' => true,
                 'billing.view' => false,
@@ -66,6 +67,7 @@ test('the shell shares nav permissions so a role only sees links it can use', fu
             ->where('auth.user.permissions', [
                 'patient.view' => true,
                 'appointment.manage' => true,
+                'encounter.manage' => true,
                 'dispatch.manage' => true,
                 'comms.manage' => true,
                 'billing.view' => true,

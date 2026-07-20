@@ -106,6 +106,17 @@ append-only messages.
   never depends on AiCore) with explicit send through `comms.inbox.send-draft` -> ApprovalQueue.
   Messages posted from AI drafts carry `ai_assisted=true`, staff-visible only.
 
+- Staff telehealth join UI (CLINIC.W10): `Http\Controllers\StaffTelehealthController` (`/telehealth`,
+  `encounter.manage`) is the CLINICIAN side of the SAME sessions the portal patient joins (W3 `PortalTelehealth
+  Controller`). It lists the clinician's OWN created/active sessions (filtered by their `StaffProfile`
+  `practitioner_id`; patient names resolved via a typed `Patient` query, not the untyped belongsTo) and issues the
+  EXISTING staff token via `TelehealthService::joinTokenForStaff` (POST `/telehealth/{session}/token`, returned
+  transiently, mirroring the portal's in-memory fetch). NO new telehealth logic: recording stays disabled at the
+  provider (grants pin recorder/roomRecord/roomAdmin=false), the token is short-lived + never stored/logged, media
+  never touches the server, and the "not recorded" discipline is displayed. Issue is audited (`telehealth.token_issued`)
+  + patient-scoped read-logged by the existing service. Locked by `tests/Feature/Telehealth/StaffTelehealthTest.php`.
+  See [[D-098]].
+
 ## Open items
 
 - G.2 notification engine; G.3 unified inbox UI (adds `thread_reads` + `assigned_to`); G.4 telehealth;

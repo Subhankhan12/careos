@@ -944,3 +944,31 @@ references the old ID.
   audited + autonomy-not-raisable; reject-does-nothing + reason-required + audited; cap-binds-via-UI + cross-tenant
   404) + the route smoke gains both GET routes. Closes two of the founder-scope admin gaps; the remaining unwired
   admin surfaces (KB admin, staff-telehealth join) stay a scope decision. (CLINIC.W9)
+- **D-098 — KB admin + staff telehealth join surface existing backends with no new agent/telehealth logic; the
+  admin vertical is complete.** CLINIC.W10 built the last two (lowest-risk) admin screens over frozen backends
+  (P0D.GU). **PART A — KB admin (`/governance/kb`, `ai.manage`):** CRUD over the tenant's `KbArticle` rows (the
+  Front-Desk agent's grounding source). App-layer `App\Http\Controllers\KbArticleController` because KB curation
+  writes an AUDIT trail (a KB change changes what the agent can say) and AiCore may not depend on Audit. Writes go
+  through the existing `KbArticle` model + `KbEmbeddingService::syncArticle` (the existing embedding path, kept warm
+  on save); deactivate is a soft `is_active=false` toggle. **The agent's grounding + electric fence are UNCHANGED:
+  `KbRetriever` already filters `where('is_active', true)`, so a deactivated article immediately stops being grounded
+  on — proven by a test that drives the retriever before/after deactivation — and the P.4 front-desk evals are not
+  touched.** Gated on `ai.manage` (curating what the governed AI grounds on is governed-AI management, consistent
+  with the W9 governance area; delivery map: governance/KB); audited (`kb.article.created/updated/activated/
+  deactivated`); tenant-scoped (BelongsToTenant + string ids → cross-tenant 404). **PART B — staff telehealth join
+  (`/telehealth`, `encounter.manage`):** the CLINICIAN side of the SAME sessions the portal patient joins (W3).
+  `Modules\Comms\Http\Controllers\StaffTelehealthController` (beside `PortalTelehealthController`, Comms already uses
+  People/Patients/Scheduling) lists the clinician's OWN created/active sessions (filtered by their StaffProfile
+  `practitioner_id`) and issues the EXISTING staff token via `TelehealthService::joinTokenForStaff`. **No new
+  telehealth logic:** media never touches CareOS servers, recording stays disabled at the provider (grants pin
+  roomRecord/roomAdmin/recorder=false — asserted through the staff path), the token is short-lived + never stored/
+  logged, and the "not recorded" discipline is displayed. The service re-authorizes per session (encounter.manage /
+  appointment.manage), asserts tenant, audits (`telehealth.token_issued`) and read-logs; the token is returned
+  transiently only (mirroring the portal's in-memory fetch). Two nav entries added (`app.nav.knowledge` on
+  `ai.manage`; `app.nav.telehealth` on `encounter.manage`, the latter added to `NAV_PERMISSIONS`); `kb.*` +
+  `staffTelehealth.*` i18n. 4 feature tests (KB CRUD+gate+audit+tenant-scope + deactivated-not-grounded; staff join
+  issues-existing-token+not-recorded+audited + gated+tenant-scoped+own-sessions-only) + route smoke gains both GET
+  routes. Completeness/tracking edits only: `NavAndErrorPageTest`'s exact nav map gained `encounter.manage`. The P.4
+  eval harness + audit/immutability suites are UNCHANGED and green. **With W10, the ADMIN VERTICAL is complete
+  (W8 settings/roles · W8b settings backends · W8c resource CRUD · W9 governance/approval-queue · W10 KB/telehealth);
+  the CLINIC + ADMIN verticals are both fully delivered.** (CLINIC.W10)

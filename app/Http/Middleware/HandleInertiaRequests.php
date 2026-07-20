@@ -23,6 +23,7 @@ class HandleInertiaRequests extends Middleware
     private const NAV_PERMISSIONS = [
         'patient.view',
         'appointment.manage',
+        'encounter.manage',
         'dispatch.manage',
         'comms.manage',
         'billing.view',

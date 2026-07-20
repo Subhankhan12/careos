@@ -159,10 +159,21 @@ audit). Actions resolve by string id (FIX.1) → cross-tenant/missing = 404. The
 ledger + kill-switch state. Locked by `tests/Feature/Governance/AiApprovalQueueTest.php` (incl. the cap-binds-via-UI
 test). See [[D-097]]. The P.4 eval suite was UNCHANGED by this gate.
 
+## KB admin UI (CLINIC.W10)
+
+The KB now has an admin surface — app-layer `App\Http\Controllers\KbArticleController` (`/governance/kb`,
+`ai.manage`) CRUDs `KbArticle` rows (the front-desk agent's grounding source): list / create / edit / soft toggle
+`is_active`. Writes go through the existing `KbArticle` model + `Retrieval\KbEmbeddingService::syncArticle` (the
+existing embedding path, kept warm on save); no retrieval/agent logic added. App layer because a KB change is audited
+(`kb.article.created/updated/activated/deactivated`) and AiCore may not depend on Audit. **The agent's grounding +
+electric fence are UNCHANGED — `KbRetriever` already filters `where('is_active', true)`, so a deactivated article
+immediately stops being grounded on** (locked by `tests/Feature/Kb/KbAdminTest.php`, which drives the retriever
+before/after). Tenant-scoped (string ids → cross-tenant 404). The P.4 front-desk evals were NOT touched. See [[D-098]].
+
 ## Open items
 
-- KB administration UI and richer production-grade vector retrieval are still unbuilt. The approval-queue UI now
-  exists (W9, above). All agents/tools must continue through AiCore governance.
+- Richer production-grade vector retrieval is still unbuilt (KB admin UI now exists, W10 above; approval-queue UI, W9).
+  All agents/tools must continue through AiCore governance.
 - Expand the prompt eval harness beyond the minimal eval-passed flag before real prompt rollout.
   (Distinct from the P0P.G4 safety eval suite: that locks BEHAVIOR/guardrails deterministically; a
   prompt-quality harness would score real model outputs — still deferred.)

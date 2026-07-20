@@ -134,6 +134,8 @@
             "reporting": "Reporting",
             "governance": "Governance",
             "approvals": "Approvals",
+            "knowledge": "Knowledge base",
+            "telehealth": "Telehealth",
             "import": "Import",
             "settings": "Settings"
         }
@@ -1335,6 +1337,58 @@
             "reason": "Reason",
             "when": "When",
             "empty": "No resolved actions yet."
+        }
+    },
+    "kb": {
+        "eyebrow": "Governance",
+        "title": "Knowledge base",
+        "subtitle": "The articles the Front-Desk agent answers patient questions from. Curate the content here; the agent's grounding and refusals are unchanged.",
+        "grounding": "The Front-Desk agent grounds its answers only on ACTIVE articles, always with a citation, and refuses medical questions. Deactivating an article removes it from what the agent can answer from.",
+        "flash": {
+            "created": "Article created.",
+            "updated": "Article updated.",
+            "activated": "Article activated — the agent can ground on it again.",
+            "deactivated": "Article deactivated — the agent no longer grounds on it."
+        },
+        "fields": {
+            "title": "Title",
+            "body": "Body",
+            "tags": "Tags",
+            "tagsPlaceholder": "Comma-separated, e.g. booking, hours",
+            "active": "Active — used by the agent"
+        },
+        "new": {
+            "title": "New article",
+            "subtitle": "A new active article is immediately available to the agent.",
+            "submit": "Create article"
+        },
+        "list": {
+            "title": "Articles",
+            "subtitle": "Active articles are the agent's source; inactive ones are kept but not grounded on.",
+            "empty": "No articles yet.",
+            "active": "Active",
+            "inactive": "Inactive"
+        },
+        "actions": {
+            "edit": "Edit",
+            "activate": "Activate",
+            "deactivate": "Deactivate",
+            "save": "Save changes",
+            "cancel": "Cancel"
+        }
+    },
+    "staffTelehealth": {
+        "eyebrow": "Clinical",
+        "title": "Telehealth",
+        "subtitle": "Your active and upcoming video visits. Join issues a short-lived, single-use token — media never touches CareOS.",
+        "notRecorded": "None of these calls are recorded. The video room is not the clinical record — document the visit in a note like any other encounter.",
+        "join": "Join",
+        "joined": "Token issued — connecting you to the video room. This call is not recorded.",
+        "empty": "You have no active or upcoming telehealth sessions.",
+        "aPatient": "Your patient",
+        "status": {
+            "created": "Scheduled",
+            "active": "In progress"
         }
     }
 }
