@@ -996,3 +996,25 @@ references the old ID.
   assistant split is a later gate; reception/nurse refused, tested). No UI this gate (chart UI is G2). No
   existing behavior changed; the P.4 eval / reconciliation / immutability / audit suites stay green
   unchanged. New module memory `memory/modules/Dental.md`; plan `docs/DENTAL-DELIVERY-MAP.md`. (DENTAL.G1)
+- **D-100 — The odontogram chart UI is PRESENTATIONAL over the G1 service and RENDER-NOT-JUDGE.** DENTAL.G2
+  builds the interactive tooth chart (`Modules\Dental\Http\Controllers\OdontogramController` — a module
+  controller, Dental may use Patients; `resources/js/pages/Dental/Odontogram.vue`). It surfaces the patient's
+  CHARTED tooth conditions + history and dispatches the charting action; it computes nothing. **All logic
+  stays in the G1 `ToothChartService`** (append-only charting, deterministic FDI/surface/condition
+  validation, tenant scoping, audit, patient-scoped read-logging) — the controller only calls it; the tooth
+  universe, surfaces, and condition vocabulary are passed as PROPS from the domain so NO
+  tooth/surface/condition logic lives in the component (P0D.GU). Routes: GET `/dental/chart/{patient}` (show,
+  `patient.view`) + POST `/dental/chart/{patient}` (store/charting, `dental.chart`), STRING-id `{patient}`
+  (FIX.1/D-090; cross-tenant/missing → 404). **FENCE CARRIED INTO THE UI (render-not-judge):** the rendered
+  payload carries charted FACTS only — `condition` (the value the dentist selected), never severity / score /
+  grade / risk / priority / flag (asserted by a recursive payload fence test). The chart's colours are a
+  FACTUAL charted-condition LEGEND (categorical — each discrete condition has a distinct hue, with a "Chart
+  key" that states "colour marks the condition charted, not its severity"), NOT a severity heatmap / risk
+  colour / auto-flag; nothing is scored, graded, or flagged, and no number is rendered — the visual analogue
+  of raw vitals with no bands (D-D3). Charting goes ONLY through the append-only service: a correction via the
+  UI creates a NEW record (prior state preserved — proven end-to-end via the store action + a fresh render).
+  The odontogram is patient-scoped read-logged (inside the service) and RBAC-gated (view = patient.view,
+  record = dental.chart — reception can view but not record; billing, lacking patient.view, cannot view).
+  Reached by URL for now (a patient/chart cross-link is a later, non-breaking addition — no existing page or
+  test was touched). 4 feature tests + the route smoke gains the dental chart route (doctor 200 / billing 403).
+  (DENTAL.G2)

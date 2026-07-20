@@ -39,6 +39,13 @@ system — so its new surface is ONLY the dental clinical domain.
   `history()` (full trail, optional per-tooth) both Gate `patient.view` and write a patient-scoped
   `read` audit row. Pure record + retrieve — no interpretation logic.
 - `Exceptions\DentalException`, `Providers\DentalServiceProvider` (boot: loadMigrationsFrom only).
+- `Http\Controllers\OdontogramController` (DENTAL.G2) — the odontogram chart UI, PRESENTATIONAL over
+  `ToothChartService` (P0D.GU). `show` (GET `/dental/chart/{patient}`, `patient.view`) renders the current
+  chart (`currentChart`) + history (`history`) + the domain-owned tooth universe/surfaces/condition
+  vocabulary as props (so no domain logic in the Vue); `store` (POST, `dental.chart`) charts through the
+  service (append-only). String-id `{patient}` (FIX.1 → cross-tenant/missing 404). RENDER-NOT-JUDGE: the
+  payload carries charted facts only; the Vue (`resources/js/pages/Dental/Odontogram.vue`) uses colour as a
+  FACTUAL charted-condition legend (categorical, not severity), no score/grade/flag rendered. See [[D-100]].
 
 ## Invariants (ELECTRIC FENCE — record-not-judge)
 
@@ -69,11 +76,12 @@ A dedicated dentist/hygienist/assistant role split is a later dental gate. Recep
 
 ## Status
 
-**DENTAL.G1 COMPLETE** (foundation). Domain + service + tests only; no UI, no commands.
+**DENTAL.G1 + G2 COMPLETE.** G1 = the tooth/odontogram data model (foundation). G2 = the interactive
+odontogram chart UI (`OdontogramController` + `Odontogram.vue`) over the G1 service, render-not-judge.
 
 ## Open items / next gates (per docs/DENTAL-DELIVERY-MAP.md)
 
-- G2 odontogram chart UI · G3 procedure catalog + billing integration · G4 procedures · G5 treatment
+- (done: G2 odontogram chart UI) · G3 procedure catalog + billing integration · G4 procedures · G5 treatment
   plan · G6 perio charting · G7 diagnosis record · G8 imaging/scans; later: G9 chair-view (reuse), G10
   sterilization/inventory, G11 ortho/scan-comparison. Long poles: imaging-device/scanner integration
   (partner-gated), licensed procedure codes (CDT licensed — tenant-authored catalog, do NOT bundle).

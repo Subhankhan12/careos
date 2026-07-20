@@ -1390,5 +1390,64 @@
             "created": "Scheduled",
             "active": "In progress"
         }
+    },
+    "dental": {
+        "eyebrow": "Dental chart",
+        "title": "Odontogram",
+        "dob": "Date of birth",
+        "readOnly": "You can view the chart but not record — dental.chart required.",
+        "clickHint": "Click a tooth to inspect it and record what you observe.",
+        "upper": "Upper",
+        "lower": "Lower",
+        "flash": {
+            "charted": "Charted."
+        },
+        "dentition": {
+            "permanent": "Permanent",
+            "primary": "Primary"
+        },
+        "legend": {
+            "title": "Chart key",
+            "note": "Colour marks the condition the dentist charted — not its severity. Nothing here is scored, graded, or flagged."
+        },
+        "selectPrompt": "Select a tooth to see its charted conditions and history.",
+        "tooth": "Tooth",
+        "current": "Charted conditions",
+        "nothingCharted": "Nothing charted yet.",
+        "record": "Record a condition",
+        "scope": "Where",
+        "wholeTooth": "Whole tooth",
+        "condition": "Condition",
+        "chooseCondition": "Choose a condition…",
+        "notePlaceholder": "Note (optional)",
+        "reasonPlaceholder": "Reason, if correcting a prior record (optional)",
+        "recordButton": "Record",
+        "history": "Tooth history",
+        "noHistory": "No charting history for this tooth.",
+        "surfaces": {
+            "mesial": "Mesial",
+            "distal": "Distal",
+            "buccal": "Buccal",
+            "lingual": "Lingual",
+            "occlusal": "Occlusal"
+        },
+        "conditions": {
+            "present": "Present",
+            "missing": "Missing",
+            "unerupted": "Unerupted",
+            "implant": "Implant",
+            "pontic": "Pontic",
+            "crown": "Crown",
+            "root_canal": "Root canal",
+            "bridge_retainer": "Bridge retainer",
+            "sound": "Sound",
+            "caries": "Caries",
+            "restoration": "Restoration",
+            "fracture": "Fracture",
+            "sealant": "Sealant",
+            "veneer": "Veneer",
+            "erosion": "Erosion",
+            "abrasion": "Abrasion"
+        }
     }
 }

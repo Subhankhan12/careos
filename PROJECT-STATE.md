@@ -140,6 +140,19 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
   **No UI this gate** (chart UI is G2). 6 feature tests + arch boundary; no existing behavior changed; the
   eval/reconciliation/immutability/audit suites stay green. Module memory `memory/modules/Dental.md`.
 
+- **DENTAL.G2 built the ODONTOGRAM CHART UI** — the interactive tooth chart the dentist works in, over the
+  G1 data model (D-100). PRESENTATIONAL (P0D.GU): `OdontogramController` (`/dental/chart/{patient}`, string-id
+  FIX.1) renders the current chart + history + the domain-owned tooth-universe/surfaces/condition vocabulary
+  as props; `resources/js/pages/Dental/Odontogram.vue` lays teeth out anatomically (FDI, permanent/primary
+  toggle), shows per-surface charted conditions + a per-tooth history panel, and records through the
+  append-only `ToothChartService` (a correction = a new record, prior state preserved — proven via the UI).
+  **All logic stays in the G1 service.** show = `patient.view`, store/charting = `dental.chart`.
+  **FENCE IN THE UI (render-not-judge):** the payload carries charted FACTS only (no severity/score/grade/
+  risk/flag — recursive fence test), and colour is a FACTUAL charted-condition legend (categorical, "colour =
+  the condition charted, not its severity"), never a severity heatmap/auto-flag; no number/score rendered.
+  4 feature tests + route smoke gains the dental chart route (doctor 200 / billing 403). No existing behavior
+  changed; suites (incl. G1 + evals) green. Next: G3 procedure catalog + billing integration.
+
 - **Current phase:** Phase G COMPLETE - Comms, telehealth & patient portal. Consolidated at P0G.C:
   the functional staff-facing surface is FROZEN for the design pass, and `docs/SCREENS.md` is the
   factual re-skin brief (22 Inertia pages + 11 nurse-PWA screens with routes/guards/props/actions).

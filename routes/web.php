@@ -38,6 +38,7 @@ use Modules\Comms\Http\Controllers\InboxController;
 use Modules\Comms\Http\Controllers\PortalMessageController;
 use Modules\Comms\Http\Controllers\PortalTelehealthController;
 use Modules\Comms\Http\Controllers\StaffTelehealthController;
+use Modules\Dental\Http\Controllers\OdontogramController;
 use Modules\FrontDesk\Http\Controllers\KioskCheckInController;
 use Modules\FrontDesk\Http\Controllers\KioskDeviceController;
 use Modules\FrontDesk\Http\Controllers\PortalCheckInController;
@@ -198,6 +199,13 @@ Route::middleware('auth')->group(function () {
         ->name('clinical.documents.unshare');
     Route::delete('/clinical/documents/{document}', DocumentDeleteController::class)
         ->name('clinical.documents.delete');
+
+    // Dental odontogram chart (DENTAL.G2) — the interactive tooth chart, PRESENTATIONAL
+    // over the G1 ToothChartService (append-only, audited, patient-scoped read-logged).
+    // show = patient.view (read), store/charting = dental.chart. String-id {patient}
+    // (FIX.1). Render-not-judge: the payload carries charted facts only.
+    Route::get('/dental/chart/{patient}', [OdontogramController::class, 'show'])->name('dental.chart');
+    Route::post('/dental/chart/{patient}', [OdontogramController::class, 'store'])->name('dental.chart.store');
 
     // Onboarding/migration: generic CSV patient import (RBAC 'data.import' enforced
     // in each controller action). Mandatory dry-run before commit.

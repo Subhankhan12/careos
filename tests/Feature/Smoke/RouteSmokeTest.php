@@ -127,6 +127,7 @@ test('every major staff route is reachable through the real middleware stack (20
         // Detail pages (real ids) — the billing/import ones are the C-1 regression surface.
         'patient.show' => '/patients/'.$fx['patient']->id,
         'chart' => '/clinical/chart/'.$fx['patient']->id,
+        'dental.chart' => '/dental/chart/'.$fx['patient']->id,
         'encounter.show' => '/clinical/encounters/'.$fx['encounter']->id,
         'note.show' => '/clinical/notes/'.$fx['note']->id,
         'note.edit' => '/clinical/notes/'.$fx['note']->id.'/edit',
@@ -167,6 +168,10 @@ test('per-role RBAC smoke: each role reaches its pages (200) and is denied other
         [$u['doctor'], '/clinical/chart/'.$fx['patient']->id, 200],
         [$u['doctor'], '/billing/invoices', 403],
         [$u['doctor'], '/reporting', 403],
+        // DENTAL.G2: the odontogram is patient.view-gated — the dentist (doctor) reaches it,
+        // a non-dental role without patient.view (billing) is denied.
+        [$u['doctor'], '/dental/chart/'.$fx['patient']->id, 200],
+        [$u['billing'], '/dental/chart/'.$fx['patient']->id, 403],
         // nurse: patients yes; billing no.
         [$u['nurse'], '/patients', 200],
         [$u['nurse'], '/billing/invoices', 403],
