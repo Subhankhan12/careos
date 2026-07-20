@@ -10,6 +10,7 @@ use Modules\Dental\Exceptions\DentalException;
 use Modules\Dental\Models\DentalProcedure;
 use Modules\Dental\Models\PerformedProcedure;
 use Modules\Dental\Models\ToothRecord;
+use Modules\Dental\Models\TreatmentPlanItem;
 use Modules\Patients\Models\Patient;
 use Modules\Platform\Exceptions\CrossTenantReferenceException;
 use Modules\Platform\Models\Branch;
@@ -54,6 +55,7 @@ class PerformProcedureService
         ?string $note = null,
         ?string $toothState = null,
         int $quantity = 1,
+        ?TreatmentPlanItem $planItem = null,
     ): PerformedProcedure {
         Gate::forUser($actor)->authorize('dental.chart'); // clinical gate; billing.manage is enforced by the charge
         $this->assertActorTenant($actor);
@@ -64,7 +66,18 @@ class PerformProcedureService
             throw new DentalException('This procedure is tooth-scoped and needs a tooth.');
         }
 
-        return DB::transaction(function () use ($actor, $patient, $branch, $procedure, $tooth, $surface, $note, $toothState, $quantity): PerformedProcedure {
+        // The OPTIONAL plan-item link (G5) — a performed procedure may complete a planned item, but
+        // only one belonging to the SAME tenant + patient. G4's atomic workflow is otherwise unchanged.
+        if ($planItem !== null) {
+            if ($planItem->tenant_id !== $this->tenantContext->id()) {
+                throw CrossTenantReferenceException::forAttribute('treatment_plan_item_id', (string) $planItem->id);
+            }
+            if ($planItem->treatmentPlan?->patient_id !== $patient->id) {
+                throw new DentalException('That treatment-plan item belongs to a different patient.');
+            }
+        }
+
+        return DB::transaction(function () use ($actor, $patient, $branch, $procedure, $tooth, $surface, $note, $toothState, $quantity, $planItem): PerformedProcedure {
             // 1. Charge — the EXISTING G3 path (resolves + snapshots the fee; billing.manage enforced inside).
             $charge = $this->charges->capture($actor, $patient, $branch, $procedure, $tooth, $surface, $quantity);
 
@@ -72,6 +85,7 @@ class PerformProcedureService
             $performed = PerformedProcedure::query()->create([
                 'patient_id' => $patient->id,
                 'dental_procedure_id' => $procedure->id,
+                'treatment_plan_item_id' => $planItem?->id,
                 'charge_id' => $charge->id,
                 'tooth' => $tooth,
                 'surface' => $surface,

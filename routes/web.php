@@ -40,6 +40,8 @@ use Modules\Comms\Http\Controllers\PortalTelehealthController;
 use Modules\Comms\Http\Controllers\StaffTelehealthController;
 use Modules\Dental\Http\Controllers\FeeScheduleController;
 use Modules\Dental\Http\Controllers\OdontogramController;
+use Modules\Dental\Http\Controllers\PortalTreatmentPlanController;
+use Modules\Dental\Http\Controllers\TreatmentPlanController;
 use Modules\FrontDesk\Http\Controllers\KioskCheckInController;
 use Modules\FrontDesk\Http\Controllers\KioskDeviceController;
 use Modules\FrontDesk\Http\Controllers\PortalCheckInController;
@@ -212,6 +214,17 @@ Route::middleware('auth')->group(function () {
     // dental.chart-gated (clinical); the charge enforces billing.manage inside the service.
     Route::post('/dental/chart/{patient}/perform', [OdontogramController::class, 'perform'])->name('dental.chart.perform');
 
+    // Dental treatment plans (DENTAL.G5) — a DENTIST-AUTHORED phased plan with a fee-schedule
+    // ESTIMATE (snapshotted at proposal, reusing the G3 pricing). The plan ESTIMATES; performing
+    // a planned item CHARGES through G4 (no double-charge). Read = patient.view, manage/perform =
+    // dental.chart (+ billing.manage for the charge). String-id params (FIX.1).
+    Route::get('/dental/plans/{patient}', [TreatmentPlanController::class, 'index'])->name('dental.plans');
+    Route::post('/dental/plans/{patient}', [TreatmentPlanController::class, 'store'])->name('dental.plans.store');
+    Route::post('/dental/plans/{plan}/phases', [TreatmentPlanController::class, 'addPhase'])->name('dental.plans.phases');
+    Route::post('/dental/plans/{plan}/items', [TreatmentPlanController::class, 'addItem'])->name('dental.plans.items');
+    Route::post('/dental/plans/{plan}/transition', [TreatmentPlanController::class, 'transition'])->name('dental.plans.transition');
+    Route::post('/dental/plan-items/{item}/perform', [TreatmentPlanController::class, 'performItem'])->name('dental.plan-items.perform');
+
     // Dental fee schedule (DENTAL.G3) — the tenant's procedure catalog, authored over the
     // EXISTING billing tariff engine (a procedure IS a tariff item; charging snapshots the
     // fee through ChargeCaptureService — no new billing logic). billing.manage-gated. The
@@ -381,6 +394,10 @@ Route::prefix('portal')->name('portal.')->group(function () {
 
         Route::get('/telehealth', [PortalTelehealthController::class, 'index'])->name('telehealth');
         Route::post('/telehealth/{session}/token', [PortalTelehealthController::class, 'token'])->name('telehealth.token');
+
+        // Dental treatment plan (DENTAL.G5) — READ-ONLY view of the patient's own plans (proposed
+        // onward). Display only — no lifecycle actions, no payment (PSP deferred).
+        Route::get('/treatment-plan', [PortalTreatmentPlanController::class, 'index'])->name('treatment-plan');
     });
 });
 

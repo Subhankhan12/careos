@@ -1504,5 +1504,81 @@
             "subtitle": "Your own code and fee — a new active procedure is immediately chargeable.",
             "submit": "Add procedure"
         }
+    },
+    "treatmentPlan": {
+        "eyebrow": "Dental",
+        "title": "Treatment plans",
+        "subtitle": "Proposed procedures grouped into phases, with an estimate from your fee schedule. You author the plan; the patient accepts it. Estimating is not billing — a procedure is charged only when it's performed.",
+        "flash": {
+            "created": "Plan created.",
+            "updated": "Plan updated.",
+            "performed": "Procedure recorded and charged; the plan item is marked done."
+        },
+        "empty": "No treatment plans yet.",
+        "status": {
+            "draft": "Draft",
+            "proposed": "Proposed",
+            "accepted": "Accepted",
+            "in_progress": "In progress",
+            "completed": "Completed",
+            "declined": "Declined"
+        },
+        "total": "Total estimate",
+        "phaseTotal": "Phase estimate",
+        "accepted": "Accepted {date}",
+        "newPlan": {
+            "title": "New plan",
+            "placeholder": "Plan title (optional)",
+            "submit": "Create plan"
+        },
+        "phase": {
+            "add": "Add phase",
+            "name": "Phase name",
+            "submit": "Add phase"
+        },
+        "item": {
+            "add": "Add procedure to a phase",
+            "procedure": "Procedure",
+            "chooseProcedure": "Choose a procedure…",
+            "phase": "Phase",
+            "choosePhase": "Choose a phase…",
+            "tooth": "Tooth (FDI)",
+            "surface": "Surface",
+            "chooseSurface": "Whole tooth",
+            "submit": "Add to plan",
+            "done": "Done",
+            "perform": "Perform + charge"
+        },
+        "lifecycle": {
+            "propose": "Propose to patient",
+            "accept": "Mark accepted",
+            "decline": "Mark declined",
+            "start": "Start treatment",
+            "complete": "Complete"
+        },
+        "perform": {
+            "branch": "Location",
+            "resultingState": "Resulting tooth state (optional)",
+            "noChange": "No change",
+            "note": "Note (optional)",
+            "submit": "Perform + charge"
+        },
+        "fenceNote": "You author this plan — nothing is auto-suggested. Estimates come from your fee schedule.",
+        "noProcedures": "Add procedures to your fee schedule first."
+    },
+    "portalTreatmentPlan": {
+        "eyebrow": "Your care",
+        "title": "Treatment plan",
+        "subtitle": "The treatment your dental team has proposed, with an estimate. This is an estimate — your dentist will confirm costs.",
+        "empty": "You have no treatment plans yet.",
+        "total": "Total estimate",
+        "phaseTotal": "Phase estimate",
+        "status": {
+            "proposed": "Proposed",
+            "accepted": "Accepted",
+            "in_progress": "In progress",
+            "completed": "Completed",
+            "declined": "Declined"
+        }
     }
 }

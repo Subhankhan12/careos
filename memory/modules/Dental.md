@@ -87,10 +87,13 @@ A dedicated dentist/hygienist/assistant role split is a later dental gate. Recep
 
 ## Status
 
-**DENTAL.G1–G4 COMPLETE.** G1 = tooth/odontogram data model (foundation). G2 = interactive odontogram chart
-UI, render-not-judge. G3 = procedure catalog (tenant-authored fee schedule) + billing-engine integration
-(a procedure IS a tariff item; no new billing logic). G4 = the perform-a-procedure workflow — one atomic
-action recording the clinical fact + charge + tooth-state change.
+**DENTAL.G1–G5 COMPLETE — the CORE dental spine is done.** G1 = tooth/odontogram data model (foundation).
+G2 = interactive odontogram chart UI, render-not-judge. G3 = procedure catalog (tenant-authored fee
+schedule) + billing-engine integration (a procedure IS a tariff item; no new billing logic). G4 = the
+perform-a-procedure workflow — one atomic action recording the clinical fact + charge + tooth-state change.
+G5 = the phased, fee-scheduled treatment plan — dentist-authored, estimate reuses G3 pricing (snapshotted at
+proposal), estimates without billing (G4 charges). **A general dentist can now chart the mouth → record +
+bill procedures → build/present/track a phased fee-scheduled plan.**
 
 ## Perform workflow (DENTAL.G4)
 
@@ -108,10 +111,33 @@ action recording the clinical fact + charge + tooth-state change.
   odontogram Vue gains a "Perform a procedure" side-panel form + performed history (shown only when
   `can_perform`). No G3 code changed. See [[D-102]], [[Billing]], [[Clinical]].
 
+## Treatment plan (DENTAL.G5)
+
+- `treatment_plans` (lifecycle draft→proposed→accepted/declined→in_progress→completed; BelongsToTenant,
+  LogsReads, NOT append-only) group `treatment_plan_phases` holding `treatment_plan_items` (a planned
+  procedure = a G3 `dental_procedure` + tooth/surface + `estimated_fee_minor`). `Services\
+  TreatmentPlanService`: `create/addPhase/addItem` (draft-only, gate `dental.chart`); `propose` SNAPSHOTS
+  each item's `estimated_fee_minor` from the live tariff fee (`dentalProcedure->tariffItem->unit_price_minor`,
+  READ not recomputed) then transitions draft→proposed — so a later fee edit never changes an accepted
+  plan (tested); `accept/decline/start/complete` via a legal-only `transition`/`canTransition` state machine
+  (illegal throws `DentalException`; completed/declined terminal); `itemEstimate` = snapshot ?? live fee;
+  totals are `->sum(itemEstimate)` (the ONLY arithmetic — NO VAT/discount math, grep clean). **NO
+  DOUBLE-CHARGE (tested): accepting/starting posts NO charge; the charge is created only when PERFORMED
+  (G4).** **Link to G4:** `performed_procedures.treatment_plan_item_id` (nullable) + `PerformProcedureService
+  ::perform` gains an optional `?TreatmentPlanItem $planItem = null` (G4's atomic 3-write workflow otherwise
+  unchanged) that validates same-tenant + same-patient and stamps the link; an item is "done" when a
+  performed procedure references it (derived). **FENCE: dentist-authored** — no auto-suggest/severity/AI; the
+  payload carries no severity/suggested/ai field (tested via `tpAssertNoJudgment`). **RBAC:** manage =
+  `dental.chart`; read = `patient.view`; perform a planned item = dental.chart + billing.manage (G4). UI:
+  `Http\Controllers\TreatmentPlanController` + `Dental/TreatmentPlans.vue` (`/dental/plans/{patient}`,
+  string-id) staff editor; `PortalTreatmentPlanController` + `Portal/TreatmentPlan.vue`
+  (`/portal/treatment-plan`) read-only patient view (proposed-onward only, no actions/PSP). No G3/G4 behavior
+  changed. See [[D-103]], [[Billing]], [[Patients]].
+
 ## Open items / next gates (per docs/DENTAL-DELIVERY-MAP.md)
 
-- (done: G2 odontogram UI · G3 catalog+billing · G4 perform workflow) · G5 treatment
-  plan · G6 perio charting · G7 diagnosis record · G8 imaging/scans; later: G9 chair-view (reuse), G10
+- (done: G2 odontogram UI · G3 catalog+billing · G4 perform workflow · G5 treatment plan — CORE spine
+  complete) · G6 perio charting · G7 diagnosis record · G8 imaging/scans; later: G9 chair-view (reuse), G10
   sterilization/inventory, G11 ortho/scan-comparison. Long poles: imaging-device/scanner integration
   (partner-gated), licensed procedure codes (CDT licensed — tenant-authored catalog, do NOT bundle).
 - All later gates keep the fence: build the prototype's AI-diagnosis / AI-overlay / auto-grade features

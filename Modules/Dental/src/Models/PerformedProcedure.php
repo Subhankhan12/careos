@@ -23,6 +23,7 @@ use Modules\Platform\Concerns\BelongsToTenant;
  * @property string $tenant_id
  * @property string $patient_id
  * @property string $dental_procedure_id
+ * @property string|null $treatment_plan_item_id
  * @property string $charge_id
  * @property string|null $tooth
  * @property string|null $surface
@@ -45,6 +46,7 @@ class PerformedProcedure extends Model
     protected $fillable = [
         'patient_id',
         'dental_procedure_id',
+        'treatment_plan_item_id',
         'charge_id',
         'tooth',
         'surface',

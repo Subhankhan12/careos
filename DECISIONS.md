@@ -1079,3 +1079,35 @@ references the old ID.
   5 feature tests + the route smoke gains the perform route (reception 403 at the clinical gate). No G3
   code was touched (the mapping is a perform-time input, so the catalog needed no change); no existing
   behavior changed; the reconciliation/immutability/fence/eval + G1–G3 suites stay green. (DENTAL.G4)
+- **D-103 — The dental treatment plan is DENTIST-AUTHORED, its estimate reuses G3 pricing (snapshot at
+  proposal), and it ESTIMATES without billing (G4 charges).** DENTAL.G5 completes the core dental spine.
+  Domain: `treatment_plans` (BelongsToTenant, LogsReads; lifecycle draft→proposed→accepted/declined→
+  in_progress→completed) group `treatment_plan_phases` which hold `treatment_plan_items` (a planned
+  procedure = a dental_procedure + tooth/surface + estimated_fee_minor). **ESTIMATE:** each item's estimate
+  is the G3 tariff fee (`DentalProcedure`→`TariffItem.unit_price_minor`) READ through the existing store,
+  SNAPSHOTTED (into `estimated_fee_minor`) when the plan is PROPOSED — so a later fee-schedule edit never
+  changes an accepted plan's agreed estimate (tested; the same snapshot discipline as charges). Phase/plan
+  totals are `->sum(itemEstimate)` — the ONLY arithmetic; there is NO VAT/discount math (an adversarial grep
+  finds no pricing/charge math in `Modules\Dental`; VAT is applied by the billing engine only when a
+  procedure is actually charged). **NO DOUBLE-CHARGE (documented + tested): the plan ESTIMATES; proposing/
+  accepting posts NO charge** — a charge is created only when the procedure is PERFORMED (G4). **Link to
+  G4:** `performed_procedures` gains a nullable `treatment_plan_item_id`; `PerformProcedureService::perform`
+  gains an optional `?TreatmentPlanItem $planItem` (default null — G4's atomic workflow unchanged) that, when
+  set, ties the performed procedure to the plan item so the plan tracks completion (an item is "done" when a
+  performed procedure references it — derived, no stored flag). **LIFECYCLE legal-only** (a state machine
+  mirroring `ServiceAgreementService`; illegal transitions throw; completed/declined terminal), audited,
+  tenant + patient scoped, read-logged. **ELECTRIC FENCE: the DENTIST authors the plan** — no
+  auto-suggestion of procedures, no severity-driven prioritisation, no AI-recommended treatment; the service
+  only records what the dentist adds and sums the fees (the prototype's "the agent drafted it" is built
+  WITHOUT the AI; the payload carries no auto-suggested/severity/AI field — tested). **RBAC:** managing =
+  `dental.chart` (clinical authorship); reading = `patient.view`; performing a planned item = dental.chart +
+  billing.manage (via the G4 service). UI: `TreatmentPlanController` + `Dental/TreatmentPlans.vue`
+  (`/dental/plans/{patient}`) presentational — build phases/items, per-phase + total estimates, lifecycle,
+  and perform-a-planned-item; the patient portal shows their own proposed-onward plans READ-ONLY
+  (`PortalTreatmentPlanController` + `Portal/TreatmentPlan.vue`, `/portal/treatment-plan` — no actions, no
+  PSP payment). String-id (FIX.1). 5 feature tests + the route smoke gains the staff plan route (doctor 200
+  / billing 403) + the portal plan route. No existing behavior changed; reconciliation/immutability/fence/
+  eval + G1–G4 suites green. **With G5 the CORE DENTAL SPINE (G1→G5) is complete:** a general dentist can
+  chart the mouth (G1/G2), record + bill procedures (G3/G4), and build + present + track a phased,
+  fee-scheduled treatment plan (G5). Remaining: G6 perio · G7 diagnosis record · G8 imaging (+ later:
+  sterilization/inventory, ortho/scan-compare, live imaging capture, licensed code sets). (DENTAL.G5)
