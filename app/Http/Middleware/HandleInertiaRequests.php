@@ -27,6 +27,8 @@ class HandleInertiaRequests extends Middleware
         'comms.manage',
         'billing.view',
         'reporting.view',
+        'audit.view',
+        'ai.manage',
         'admin.manage',
     ];
 

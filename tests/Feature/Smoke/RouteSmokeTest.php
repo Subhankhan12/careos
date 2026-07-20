@@ -114,6 +114,8 @@ test('every major staff route is reachable through the real middleware stack (20
         'billing.new-invoice' => '/billing/new-invoice',
         'billing.dunning' => '/billing/dunning',
         'reporting' => '/reporting',
+        'governance' => '/governance',
+        'governance.approvals' => '/governance/approvals',
         'imports.index' => '/imports',
         'imports.create' => '/imports/create',
         'admin.kiosks' => '/admin/kiosks',
@@ -186,6 +188,12 @@ test('per-role RBAC smoke: each role reaches its pages (200) and is denied other
         [$u['org_admin'], '/settings', 200],
         [$u['org_admin'], '/admin/roles', 200],
         [$u['org_admin'], '/admin/branches', 200],
+        // Governance + AI approval queue are audit.view / ai.manage — org_admin holds both,
+        // reception holds neither. (W9: the two most safety-sensitive admin surfaces.)
+        [$u['reception'], '/governance', 403],
+        [$u['reception'], '/governance/approvals', 403],
+        [$u['org_admin'], '/governance', 200],
+        [$u['org_admin'], '/governance/approvals', 200],
         // org_admin is a tenant admin, NOT a super-admin: the platform shell is denied.
         [$u['org_admin'], '/admin', 403],
     ];

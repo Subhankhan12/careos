@@ -1,10 +1,12 @@
 <?php
 
+use App\Http\Controllers\AiApprovalQueueController;
 use App\Http\Controllers\AppLandingController;
 use App\Http\Controllers\BranchController;
 use App\Http\Controllers\ClinicalSummaryDraftController;
 use App\Http\Controllers\ClinicalSummaryInsertController;
 use App\Http\Controllers\Comms\InboxAgentController;
+use App\Http\Controllers\GovernanceDashboardController;
 use App\Http\Controllers\Portal\PortalHomeController;
 use App\Http\Controllers\ResourceController;
 use Illuminate\Support\Facades\Route;
@@ -235,6 +237,18 @@ Route::middleware('auth')->group(function () {
 
     // Reporting dashboard — the thin facts-only surface over ReportingService::summary.
     Route::get('/reporting', ReportingDashboardController::class)->name('reporting.dashboard');
+
+    // Governance oversight + AI approval queue (CLINIC.W9) — read/act windows onto tested
+    // backends, no new autonomy or audit-mutation. Governance is READ-ONLY (audit.view): the
+    // only POST re-runs the existing chain verification and writes nothing. The approval
+    // queue (ai.manage) approves/rejects ONLY through AiCore's ApprovalQueue — the same path
+    // the eval harness locks; the tool's own permission is re-checked server-side so the caps
+    // bind. Actions resolve by string id (FIX.1) so cross-tenant ids fail closed as 404.
+    Route::get('/governance', [GovernanceDashboardController::class, 'index'])->name('governance.dashboard');
+    Route::post('/governance/verify-chain', [GovernanceDashboardController::class, 'verifyChain'])->name('governance.verify-chain');
+    Route::get('/governance/approvals', [AiApprovalQueueController::class, 'index'])->name('governance.approvals.index');
+    Route::post('/governance/approvals/{id}/approve', [AiApprovalQueueController::class, 'approve'])->name('governance.approvals.approve');
+    Route::post('/governance/approvals/{id}/reject', [AiApprovalQueueController::class, 'reject'])->name('governance.approvals.reject');
 
     // Kiosk device provisioning (admin.manage enforced in the controller). The
     // plaintext token is shown once at issue.

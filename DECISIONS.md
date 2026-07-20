@@ -910,3 +910,37 @@ references the old ID.
   deactivate → gone from both). **Follow-up flagged:** a CRUD'd resource is immediately day-board-selectable but is
   only OFFERED AS SLOTS once its per-resource availability windows are set (the existing `ResourceAvailability`
   mechanism, unchanged); a resource-availability admin screen is the natural next step. (CLINIC.W8c)
+- **D-097 — Governance dashboard + AI approval-queue are READ/ACT WINDOWS onto tested backends; they add no
+  autonomy, no audit-mutation, and no fence bypass — the hardest safety line in the admin vertical.** CLINIC.W9
+  built the two most safety-sensitive admin screens as app-layer controllers (`App\Http\Controllers\
+  GovernanceDashboardController` + `AiApprovalQueueController`), app layer because they compose Audit + Platform +
+  Billing + AiCore, which no single module may do. **PART A — Governance (STRICTLY READ-ONLY, `audit.view`):** it
+  DISPLAYS posture assembled entirely from existing data — a live `AuditService::verifyChain()` replay (a pure read
+  that writes nothing) plus the latest scheduled `IntegrityCheck` (D-069); the latest `ReconciliationRun` (the D-068
+  launch-blocker monitor) plus the persisted `billing.reconciliation.alarm`; AI-usage outcome counts + integer-minor
+  cost over the append-only `ai_interactions` ledger; the pending-`AgentAction` depth; kill-switch state (via
+  `KillSwitch::enabled()`); and recent + security-relevant audit events. There is NO mutation path: every source is
+  append-only at model + DB-trigger level and the controller only reads. The single POST ("verify now") RE-RUNS the
+  existing verification and shows the result — it appends nothing (proven: audit-event count unchanged). **CRITICAL:
+  `AuditEvent` has no `BelongsToTenant` scope (Audit may not depend on Platform), so the controller filters
+  `tenant_id` EXPLICITLY — the isolation guarantee the whole surface rests on (tested).** **PART B — AI approval
+  queue (READ + ACT-THROUGH-EXISTING-PATH, `ai.manage`):** it lists PENDING agent actions and approves/rejects them
+  ONLY through `AiCore\Services\ApprovalQueue::approve/reject` — the same service the backend tests and the P.4 eval
+  harness lock. The screen introduces NO new execution path, NO create/propose route (so a human cannot inject an
+  un-fenced action — the fence refuses clinical asks at propose time, before any `agent_action` exists), and NEVER
+  sets an autonomy level (the request body cannot raise it — tested). The queue only ever holds items the
+  `AutonomyPolicy` already routed to human approval; clinical/financial tools are hard-capped at `approve` and the UI
+  cannot lift that. **THE CAP THAT BINDS:** `ApprovalQueue::approve/reject` re-authorizes the reviewer against the
+  TOOL's OWN permission on every call (`authorize()` before `execute()`), so a reviewer who reaches the queue
+  (`ai.manage`) but lacks a tool's permission (e.g. `appointment.manage`) is DENIED by the service — the controller
+  lets that `AuthorizationException` propagate as 403 and catches only `AiCoreException` (domain errors). Reject
+  executes nothing; approve runs only `tool->execute()` with tenancy/audit/fence intact; every approve/reject is
+  audited by the EXISTING app-layer glue (`agent_action.*` / `ai_interaction.*`) — the controller adds no audit of
+  its own. Actions resolve by STRING id (FIX.1/D-090), so cross-tenant/missing ids fail closed as 404. Both surfaces
+  are RE-SKIN-style presentation over frozen engines (P0D.GU): no route/controller/prop of an existing surface, no
+  eval or audit/immutability test touched. NEW `Governance/Dashboard.vue` + `Governance/ApprovalQueue.vue` (Eucalyptus
+  Glow), two nav entries (`audit.view` / `ai.manage`, added to `HandleInertiaRequests::NAV_PERMISSIONS`), `governance.*`
+  + `aiQueue.*` i18n. 8 feature tests (read-only/no-mutation/tenant-scoped/gated; approve-through-existing-path +
+  audited + autonomy-not-raisable; reject-does-nothing + reason-required + audited; cap-binds-via-UI + cross-tenant
+  404) + the route smoke gains both GET routes. Closes two of the founder-scope admin gaps; the remaining unwired
+  admin surfaces (KB admin, staff-telehealth join) stay a scope decision. (CLINIC.W9)

@@ -40,7 +40,8 @@ function neUser(Tenant $tenant, string $role): User
 test('the shell shares nav permissions so a role only sees links it can use', function () {
     $tenant = neTenant();
 
-    // reception: patient.view + appointment.manage + comms.manage; NOT dispatch/billing/reporting.
+    // reception: patient.view + appointment.manage + comms.manage; NOT dispatch/billing/
+    // reporting, and NOT audit.view/ai.manage (governance + AI approval-queue are W9 admin-only).
     $this->actingAs(neUser($tenant, 'reception'))
         ->get('/app')
         ->assertOk()
@@ -52,6 +53,8 @@ test('the shell shares nav permissions so a role only sees links it can use', fu
                 'comms.manage' => true,
                 'billing.view' => false,
                 'reporting.view' => false,
+                'audit.view' => false,
+                'ai.manage' => false,
                 'admin.manage' => false,
             ]));
 
@@ -67,6 +70,8 @@ test('the shell shares nav permissions so a role only sees links it can use', fu
                 'comms.manage' => true,
                 'billing.view' => true,
                 'reporting.view' => true,
+                'audit.view' => true,
+                'ai.manage' => true,
                 'admin.manage' => true,
             ]));
 });

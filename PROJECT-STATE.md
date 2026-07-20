@@ -54,6 +54,8 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
   path (no role builder, no per-permission toggles; server Gate authoritative; a last-org_admin self-lockout guard).
   Both admin.manage-gated + tenant-scoped, covered by 9 feature tests + the route smoke. **Still not wired** (the
   remaining founder-scope gaps): governance dashboard, KB admin, AI approval-queue, staff-telehealth join. See D-094.
+  (UPDATE: CLINIC.W9 later wired the **governance dashboard + AI approval-queue** — see the W9 bullet + D-097; the
+  still-unwired remainder is KB admin + staff-telehealth join.)
 
 - **CLINIC.W8b built the settings BACKENDS** the W8 discovery found missing — genuine domain work, scheduling-safe:
   editable practice **profile** (new nullable `tenants` columns; slug/region/status/plan stay read-only), **branch
@@ -74,6 +76,28 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
   tenant+branch scoped, audited. Remaining follow-up: a CRUD'd resource is day-board-selectable but only offered as
   slots once its `ResourceAvailability` windows are set (existing per-resource mechanism, unchanged) — a
   resource-availability admin screen is the natural next step. See D-096.
+
+- **CLINIC.W9 built the two MOST SAFETY-SENSITIVE admin screens — Governance dashboard + AI approval-queue** — as
+  READ/ACT WINDOWS onto tested backends, no new autonomy/audit-mutation/fence-bypass (D-097). App-layer controllers
+  (`GovernanceDashboardController` + `AiApprovalQueueController`) because they compose Audit + Platform + Billing +
+  AiCore. **PART A — Governance (`audit.view`, STRICTLY READ-ONLY):** displays posture from EXISTING data — a live
+  `AuditService::verifyChain()` replay (writes nothing) + latest scheduled `IntegrityCheck` (D-069); latest
+  `ReconciliationRun` (the D-068 launch-blocker monitor) + the persisted alarm; AI-usage outcome counts + integer-minor
+  cost over the append-only `ai_interactions` ledger; pending-`AgentAction` depth; kill-switch state; recent +
+  security-relevant audit events. NO mutation path (all sources append-only at model+trigger; controller only reads);
+  the one POST ("verify now") re-runs the existing verification and appends nothing (tested). **`AuditEvent` has no
+  `BelongsToTenant`, so tenant_id is filtered EXPLICITLY — the isolation guarantee (tested).** **PART B — AI approval
+  queue (`ai.manage`, READ + ACT-THROUGH-EXISTING-PATH):** lists PENDING agent actions; approve/reject go ONLY through
+  `AiCore\ApprovalQueue::approve/reject` (the eval-harness-locked path). NO new execute path, NO create/propose route
+  (a human can't inject an un-fenced action), NEVER sets autonomy (the body can't raise it — tested). THE CAP BINDS:
+  `ApprovalQueue` re-authorizes the reviewer against the TOOL's own permission (before execute), so a reviewer with
+  `ai.manage` but lacking a tool's permission is DENIED (403, left to propagate); only `AiCoreException` is caught.
+  Reject executes nothing; approve runs only `tool->execute()`; every decision is audited by the EXISTING app-layer
+  glue (`agent_action.*`/`ai_interaction.*`) — the controller adds no audit. Actions resolve by string id (FIX.1) →
+  cross-tenant/missing = 404. NEW `Governance/Dashboard.vue` + `ApprovalQueue.vue` (Eucalyptus Glow), two nav entries
+  (`audit.view`/`ai.manage`), `governance.*`/`aiQueue.*` i18n. 8 feature tests + route smoke gains both GET routes;
+  the P.4 eval harness + audit/immutability suites stay UNCHANGED and green. Closes two of the founder-scope admin
+  gaps (governance + AI approval-queue); remaining unwired: KB admin, staff-telehealth join. See D-097.
 
 - **Current phase:** Phase G COMPLETE - Comms, telehealth & patient portal. Consolidated at P0G.C:
   the functional staff-facing surface is FROZEN for the design pass, and `docs/SCREENS.md` is the

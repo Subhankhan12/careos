@@ -182,6 +182,14 @@ running shows up as an absence rather than as nothing at all.
   [[Scheduling]] / [[D-096]]) — noted here because it is administered from the Platform branch-admin surface and its
   audit hooks + app-layer controller sit beside the branch ones. A new active resource makes a self-service branch
   bookable; deactivation is soft + BLOCKED when future appointments exist (the branch guard mirrored).
+- Governance dashboard + AI approval-queue (CLINIC.W9) — READ/ACT windows over tested backends, no new autonomy or
+  audit-mutation. App-layer `App\Http\Controllers\GovernanceDashboardController` (`/governance`, `audit.view`,
+  STRICTLY READ-ONLY) reads Platform's `IntegrityCheck` (D-069) + `Setting` (kill-switch state) alongside Audit's
+  `verifyChain`/`AuditEvent`, Billing's `ReconciliationRun` (D-068), and AiCore's `ai_interactions`/`agent_actions`;
+  the only POST re-runs `verifyChain` and writes nothing. **`AuditEvent` has no `BelongsToTenant`, so the controller
+  filters `tenant_id` EXPLICITLY** (Audit may not depend on Platform). `AiApprovalQueueController` (`/governance/
+  approvals`, `ai.manage`) approves/rejects only through `AiCore\ApprovalQueue` (see [[AiCore]] / [[D-097]]).
+  `audit.view` + `ai.manage` added to `HandleInertiaRequests::NAV_PERMISSIONS`. See [[D-097]].
 
 ## Open items
 

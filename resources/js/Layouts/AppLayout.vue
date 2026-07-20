@@ -37,6 +37,8 @@ const nav: { key: string; href: string; permission?: string }[] = [
     { key: 'app.nav.inbox', href: '/comms/inbox', permission: 'comms.manage' },
     { key: 'app.nav.billing', href: '/billing/invoices', permission: 'billing.view' },
     { key: 'app.nav.reporting', href: '/reporting', permission: 'reporting.view' },
+    { key: 'app.nav.governance', href: '/governance', permission: 'audit.view' },
+    { key: 'app.nav.approvals', href: '/governance/approvals', permission: 'ai.manage' },
     { key: 'app.nav.settings', href: '/settings', permission: 'admin.manage' },
 ];
 

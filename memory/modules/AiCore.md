@@ -144,10 +144,25 @@ agent added.** The governed runtime foundation runs Scheduler Agent, Front-Desk 
 Summary + Follow-up agents, E.9 Nursing Dispatch proposals, and F.8 Billing map + preflight
 suggestions. Local `composer check` is green: 358 tests / 2073 assertions.
 
+## Approval-queue UI (CLINIC.W9)
+
+The approval queue now has an admin surface — an app-layer `App\Http\Controllers\AiApprovalQueueController`
+(`/governance/approvals`, `ai.manage`) that lists PENDING `agent_actions` and approves/rejects them ONLY through
+`Services\ApprovalQueue::approve/reject` (never reimplemented). It adds NO new autonomy, NO create/propose route,
+and never sets an autonomy level — the queue only holds items `AutonomyPolicy` already routed to human approval.
+The cap binds server-side: `ApprovalQueue` re-authorizes the reviewer against the TOOL's own permission before
+execute, so a reviewer with `ai.manage` but lacking a tool's permission is DENIED (403); the controller catches only
+`AiCoreException` and lets `AuthorizationException` propagate. Reject executes nothing; approve runs only
+`tool->execute()`; both are audited by the existing `AgentActionLifecycleChanged` glue (the controller adds no
+audit). Actions resolve by string id (FIX.1) → cross-tenant/missing = 404. The paired Governance dashboard
+(`audit.view`, read-only) surfaces the pending-action depth + AI-usage from the append-only `ai_interactions`
+ledger + kill-switch state. Locked by `tests/Feature/Governance/AiApprovalQueueTest.php` (incl. the cap-binds-via-UI
+test). See [[D-097]]. The P.4 eval suite was UNCHANGED by this gate.
+
 ## Open items
 
-- Future gates add UI for approval queue / KB administration and richer production-grade vector
-  retrieval. All agents/tools must continue through AiCore governance.
+- KB administration UI and richer production-grade vector retrieval are still unbuilt. The approval-queue UI now
+  exists (W9, above). All agents/tools must continue through AiCore governance.
 - Expand the prompt eval harness beyond the minimal eval-passed flag before real prompt rollout.
   (Distinct from the P0P.G4 safety eval suite: that locks BEHAVIOR/guardrails deterministically; a
   prompt-quality harness would score real model outputs — still deferred.)

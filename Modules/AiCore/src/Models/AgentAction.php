@@ -4,6 +4,7 @@ namespace Modules\AiCore\Models;
 
 use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Carbon;
 use Modules\Platform\Concerns\BelongsToTenant;
 
 /**
@@ -19,6 +20,10 @@ use Modules\Platform\Concerns\BelongsToTenant;
  * @property string $status
  * @property string|null $proposed_by
  * @property string|null $reviewed_by
+ * @property Carbon|null $approved_at
+ * @property Carbon|null $rejected_at
+ * @property Carbon|null $executed_at
+ * @property string|null $rejection_reason
  * @property string $why
  * @property array<string, mixed> $input_payload
  * @property array<string, mixed>|null $proposed_output

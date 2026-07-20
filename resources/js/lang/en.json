@@ -132,6 +132,8 @@
             "inbox": "Inbox",
             "billing": "Billing",
             "reporting": "Reporting",
+            "governance": "Governance",
+            "approvals": "Approvals",
             "import": "Import",
             "settings": "Settings"
         }
@@ -1228,6 +1230,111 @@
                 "chair": "Chair",
                 "vehicle": "Vehicle"
             }
+        }
+    },
+    "governance": {
+        "eyebrow": "Governance",
+        "title": "Governance & oversight",
+        "subtitle": "The tenant's audit, integrity, reconciliation and AI posture — read only, from the tested checks.",
+        "flash": {
+            "chain_ok": "Audit chain re-verified: intact.",
+            "chain_broken": "Audit chain re-verified: a break was detected. See the chain card for the offending row."
+        },
+        "chain": {
+            "title": "Audit chain",
+            "cardTitle": "Audit chain integrity",
+            "cardSubtitle": "The append-only hash chain, verified by replay. 'Verify now' re-runs the existing check and changes nothing.",
+            "valid": "Valid",
+            "broken": "Broken",
+            "count": "{count} events | {count} events",
+            "lastChecked": "Last automated check",
+            "never": "Never",
+            "verifyNow": "Verify now"
+        },
+        "reconcile": {
+            "title": "Reconciliation",
+            "cardTitle": "Billing reconciliation",
+            "cardSubtitle": "The most recent run of the launch-blocker reconciliation monitor.",
+            "passes": "Reconciles",
+            "fails": "Does not reconcile",
+            "never": "Not yet run",
+            "period": "Period {period}",
+            "ranAt": "Last run",
+            "alarm": "A reconciliation alarm is set for a period that has not since passed. Billing must reconcile to the unit before real invoicing."
+        },
+        "queue": {
+            "title": "Awaiting review",
+            "pendingHint": "AI actions pending approval",
+            "view": "View the approval queue ({count})"
+        },
+        "ai": {
+            "title": "AI interactions",
+            "cardTitle": "AI usage",
+            "cardSubtitle": "Interaction outcomes and cost from the append-only ledger over the last {days} days.",
+            "window": "last {days} days",
+            "outcome": "Outcome",
+            "count": "Count",
+            "total": "Total interactions",
+            "cost": "Estimated cost",
+            "none": "No AI interactions in this window."
+        },
+        "kill": {
+            "title": "AI kill switches",
+            "subtitle": "Features an admin has disabled fail-closed.",
+            "allEnabled": "All AI features are enabled.",
+            "disabled": "Disabled"
+        },
+        "security": {
+            "title": "Security-relevant events",
+            "subtitle": "Role changes, overrides and other sensitive audit actions.",
+            "none": "No security-relevant events recorded."
+        },
+        "activity": {
+            "title": "Governance activity",
+            "note": "Recent audit events — append-only, displayed and never editable.",
+            "action": "Action",
+            "actor": "Actor",
+            "resource": "Resource",
+            "when": "When",
+            "empty": "No audit events recorded yet."
+        }
+    },
+    "aiQueue": {
+        "eyebrow": "Governance",
+        "title": "AI approval queue",
+        "subtitle": "AI actions awaiting human approval. Approve or reject each — it runs only through the tested path, and the caps still bind.",
+        "badge": "AI draft — requires human review",
+        "empty": "No AI actions are awaiting review.",
+        "flash": {
+            "approved": "Action approved and executed through the existing path.",
+            "rejected": "Action rejected. Nothing was executed."
+        },
+        "card": {
+            "why": "Why",
+            "grounding": "Proposed output (source-grounded)",
+            "autonomy": "Autonomy: {level}",
+            "agent": "Agent: {agent}"
+        },
+        "actions": {
+            "approve": "Approve",
+            "reject": "Reject",
+            "confirmReject": "Confirm reject",
+            "cancel": "Cancel",
+            "reasonPlaceholder": "Reason for rejecting (required)",
+            "noPermission": "You do not hold the permission this tool requires, so you cannot review this action."
+        },
+        "status": {
+            "executed": "Approved",
+            "rejected": "Rejected"
+        },
+        "resolved": {
+            "title": "Recently resolved",
+            "subtitle": "The latest approved and rejected actions (read-only).",
+            "tool": "Tool",
+            "status": "Status",
+            "reason": "Reason",
+            "when": "When",
+            "empty": "No resolved actions yet."
         }
     }
 }
