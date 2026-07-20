@@ -1449,5 +1449,42 @@
             "erosion": "Erosion",
             "abrasion": "Abrasion"
         }
+    },
+    "feeSchedule": {
+        "eyebrow": "Dental billing",
+        "title": "Fee schedule",
+        "subtitle": "Your own dental procedure list and fees. Each procedure is a billable item — charging it runs through the standard billing engine (invoice, reconciliation, dunning). You author your own codes and fees; nothing licensed is bundled.",
+        "flash": {
+            "created": "Procedure added.",
+            "updated": "Procedure updated. Past charges keep the fee they were captured at.",
+            "seeded": "Starter template added. Edit the codes and fees to match your practice."
+        },
+        "list": {
+            "title": "Procedures",
+            "subtitle": "Active procedures are chargeable; a fee edit never changes a charge already captured.",
+            "empty": "No procedures yet. Add your own, or start from a generic template."
+        },
+        "seed": "Add the generic starter template",
+        "code": "Code",
+        "codePlaceholder": "Your own code, e.g. D-FILL",
+        "name": "Name",
+        "fee": "Fee",
+        "feeInput": "Fee ({currency})",
+        "vat": "VAT",
+        "vatInput": "VAT %",
+        "toothScoped": "Tooth-scoped",
+        "toothScopedHint": "Tooth-scoped — this procedure applies to a specific tooth/surface (e.g. a filling)",
+        "active": "Active",
+        "inactive": "Inactive",
+        "yes": "Yes",
+        "no": "No",
+        "edit": "Edit",
+        "save": "Save changes",
+        "cancel": "Cancel",
+        "new": {
+            "title": "Add a procedure",
+            "subtitle": "Your own code and fee — a new active procedure is immediately chargeable.",
+            "submit": "Add procedure"
+        }
     }
 }

@@ -153,6 +153,19 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
   4 feature tests + route smoke gains the dental chart route (doctor 200 / billing 403). No existing behavior
   changed; suites (incl. G1 + evals) green. Next: G3 procedure catalog + billing integration.
 
+- **DENTAL.G3 built the PROCEDURE CATALOG + BILLING INTEGRATION** — the dentist's fee schedule wired to the
+  EXISTING tested billing engine (D-101). **Mapping:** a dental procedure IS a `TariffItem` in a dedicated
+  dental `TariffCatalog`; a thin `dental_procedures` overlay adds only `tooth_scoped`. Charging =
+  `ChargeCaptureService::captureManual` (resolves + SNAPSHOTS the fee) → the charge flows into the existing
+  invoice → reconciliation → dunning → PDF pipeline UNCHANGED; **a dental charge reconciles-to-the-unit**
+  (tested) and **a later fee edit never changes a past charge** (snapshot, tested). **NO new billing logic /
+  no money math in dental code** (adversarial grep clean — every `_minor` is a pass-through). **NO licensed
+  CDT bundled** — the catalog is tenant-authored; `seedStarter` = a generic editable template (D-EXAM…D-RCT).
+  Fee-schedule editor (`/dental/fee-schedule`, `billing.manage`) presentational over `DentalCatalogService`.
+  Light tooth link (`dental_procedure_charges`) ties a tooth-scoped charge to the odontogram tooth (full
+  perform workflow = G4). 7 feature tests + route smoke gains the fee-schedule route (billing 200 / reception
+  403). No existing behavior changed; reconciliation/immutability/fence/eval suites green. Next: G4 procedures.
+
 - **Current phase:** Phase G COMPLETE - Comms, telehealth & patient portal. Consolidated at P0G.C:
   the functional staff-facing surface is FROZEN for the design pass, and `docs/SCREENS.md` is the
   factual re-skin brief (22 Inertia pages + 11 nurse-PWA screens with routes/guards/props/actions).

@@ -39,6 +39,17 @@ system — so its new surface is ONLY the dental clinical domain.
   `history()` (full trail, optional per-tooth) both Gate `patient.view` and write a patient-scoped
   `read` audit row. Pure record + retrieve — no interpretation logic.
 - `Exceptions\DentalException`, `Providers\DentalServiceProvider` (boot: loadMigrationsFrom only).
+- **Billing integration (DENTAL.G3):** `Models\DentalProcedure` (a THIN overlay on a Billing `TariffItem` —
+  the tariff item holds code/name/FEE/VAT/active; the overlay adds only `tooth_scoped`, 1:1) +
+  `Models\DentalProcedureCharge` (the light tooth link: ties a billing `charge` to an odontogram tooth/
+  surface, no money). `Services\DentalCatalogService` (the fee schedule, over a dedicated dental
+  `TariffCatalog` key 'dental'): `catalog` (get-or-create), `seedStarter` (generic template, NO CDT),
+  `create`/`update` (author the tariff item's name+fee — data entry, no math), `list`. Gated `billing.manage`,
+  audited (`dental.procedure.created/updated`). `Services\DentalChargeService::capture` charges a procedure
+  through the EXISTING `ChargeCaptureService::captureManual` (resolves + SNAPSHOTS the fee — NO dental money
+  math) and records the tooth link. A dental charge reconciles-to-the-unit like any other; a later fee edit
+  never changes a past charge (snapshot). `Http\Controllers\FeeScheduleController` + `Dental/FeeSchedule.vue`
+  (`/dental/fee-schedule`, `billing.manage`) = the presentational editor. See [[D-101]], [[Billing]].
 - `Http\Controllers\OdontogramController` (DENTAL.G2) — the odontogram chart UI, PRESENTATIONAL over
   `ToothChartService` (P0D.GU). `show` (GET `/dental/chart/{patient}`, `patient.view`) renders the current
   chart (`currentChart`) + history (`history`) + the domain-owned tooth universe/surfaces/condition
@@ -76,12 +87,14 @@ A dedicated dentist/hygienist/assistant role split is a later dental gate. Recep
 
 ## Status
 
-**DENTAL.G1 + G2 COMPLETE.** G1 = the tooth/odontogram data model (foundation). G2 = the interactive
-odontogram chart UI (`OdontogramController` + `Odontogram.vue`) over the G1 service, render-not-judge.
+**DENTAL.G1 + G2 + G3 COMPLETE.** G1 = tooth/odontogram data model (foundation). G2 = the interactive
+odontogram chart UI, render-not-judge. G3 = the dental procedure catalog (tenant-authored fee schedule) +
+billing-engine integration (a procedure IS a tariff item; charging reuses the tested engine, no new billing
+logic).
 
 ## Open items / next gates (per docs/DENTAL-DELIVERY-MAP.md)
 
-- (done: G2 odontogram chart UI) · G3 procedure catalog + billing integration · G4 procedures · G5 treatment
+- (done: G2 odontogram UI · G3 procedure catalog + billing) · G4 procedures (perform workflow) · G5 treatment
   plan · G6 perio charting · G7 diagnosis record · G8 imaging/scans; later: G9 chair-view (reuse), G10
   sterilization/inventory, G11 ortho/scan-comparison. Long poles: imaging-device/scanner integration
   (partner-gated), licensed procedure codes (CDT licensed — tenant-authored catalog, do NOT bundle).

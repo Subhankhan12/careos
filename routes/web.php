@@ -38,6 +38,7 @@ use Modules\Comms\Http\Controllers\InboxController;
 use Modules\Comms\Http\Controllers\PortalMessageController;
 use Modules\Comms\Http\Controllers\PortalTelehealthController;
 use Modules\Comms\Http\Controllers\StaffTelehealthController;
+use Modules\Dental\Http\Controllers\FeeScheduleController;
 use Modules\Dental\Http\Controllers\OdontogramController;
 use Modules\FrontDesk\Http\Controllers\KioskCheckInController;
 use Modules\FrontDesk\Http\Controllers\KioskDeviceController;
@@ -206,6 +207,15 @@ Route::middleware('auth')->group(function () {
     // (FIX.1). Render-not-judge: the payload carries charted facts only.
     Route::get('/dental/chart/{patient}', [OdontogramController::class, 'show'])->name('dental.chart');
     Route::post('/dental/chart/{patient}', [OdontogramController::class, 'store'])->name('dental.chart.store');
+
+    // Dental fee schedule (DENTAL.G3) — the tenant's procedure catalog, authored over the
+    // EXISTING billing tariff engine (a procedure IS a tariff item; charging snapshots the
+    // fee through ChargeCaptureService — no new billing logic). billing.manage-gated. The
+    // static /seed path is registered before the {id} sibling so it is never captured.
+    Route::get('/dental/fee-schedule', [FeeScheduleController::class, 'index'])->name('dental.fee-schedule');
+    Route::post('/dental/fee-schedule', [FeeScheduleController::class, 'store'])->name('dental.fee-schedule.store');
+    Route::post('/dental/fee-schedule/seed', [FeeScheduleController::class, 'seed'])->name('dental.fee-schedule.seed');
+    Route::post('/dental/fee-schedule/{id}', [FeeScheduleController::class, 'update'])->name('dental.fee-schedule.update');
 
     // Onboarding/migration: generic CSV patient import (RBAC 'data.import' enforced
     // in each controller action). Mandatory dry-run before commit.

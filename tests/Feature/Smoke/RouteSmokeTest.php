@@ -113,6 +113,7 @@ test('every major staff route is reachable through the real middleware stack (20
         'billing.payments.record' => '/billing/payments/record',
         'billing.new-invoice' => '/billing/new-invoice',
         'billing.dunning' => '/billing/dunning',
+        'dental.fee-schedule' => '/dental/fee-schedule',
         'reporting' => '/reporting',
         'governance' => '/governance',
         'governance.approvals' => '/governance/approvals',
@@ -188,6 +189,10 @@ test('per-role RBAC smoke: each role reaches its pages (200) and is denied other
         // billing: billing yes; patients (no patient.view) no.
         [$u['billing'], '/billing/invoices', 200],
         [$u['billing'], $patientUrl, 403],
+        // DENTAL.G3: the dental fee schedule is billing.manage — the billing role + org_admin
+        // reach it; reception (no billing.manage) is denied.
+        [$u['billing'], '/dental/fee-schedule', 200],
+        [$u['reception'], '/dental/fee-schedule', 403],
         // settings + roles are admin.manage only — reception is denied, org_admin reaches them.
         [$u['reception'], '/settings', 403],
         [$u['reception'], '/admin/roles', 403],

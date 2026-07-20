@@ -1018,3 +1018,35 @@ references the old ID.
   Reached by URL for now (a patient/chart cross-link is a later, non-breaking addition — no existing page or
   test was touched). 4 feature tests + the route smoke gains the dental chart route (doctor 200 / billing 403).
   (DENTAL.G2)
+- **D-101 — A dental procedure IS a tariff item; the dental catalog is authored over the EXISTING billing
+  engine with NO new pricing logic.** DENTAL.G3 wires the dentist's procedure list + fees to the tested
+  billing engine. **The mapping:** the dental fee schedule is a dedicated dental `TariffCatalog` (key
+  'dental') of `TariffItem`s — each tariff item holds the code / name / FEE (`unit_price_minor`) / VAT — and
+  a thin `dental_procedures` overlay (BelongsToTenant) adds ONLY the dental-specific `tooth_scoped` flag,
+  keyed 1:1 to the tariff item. So PRICING lives entirely in the billing store; NO fee column is duplicated
+  in dental. **Charging** a dental procedure calls the EXISTING `ChargeCaptureService::captureManual(...,
+  $procedure->tariffItem->code, ...)`, which resolves the tariff via `TariffResolver` and SNAPSHOTS the fee
+  onto the `Charge` (D-F1/D-F2) — so the charge flows into the existing invoice → reconciliation → dunning →
+  PDF pipeline UNCHANGED, and a dental charge reconciles-to-the-unit exactly like any other (tested: capture
+  → validate → issue → `ReconciliationEngine::check` passes with delta 0). **A later fee edit never changes
+  a past charge** (the snapshot discipline — tested). **NO new billing logic / no money math in dental
+  code:** `DentalCatalogService` only AUTHORS the catalog (writes the tariff item's name + the fee the
+  dentist entered — data entry, not computation) and `DentalChargeService` only calls `captureManual` — an
+  adversarial grep confirms zero pricing/charge/VAT/line-total math in `Modules\Dental` (every `_minor`/
+  `vat_rate_bp` reference is a pass-through). **NO licensed code set bundled:** the catalog is
+  TENANT-AUTHORED (the dentist enters their own codes/fees); `DentalCatalogService::seedStarter` lays down a
+  small GENERIC editable template (D-EXAM, D-PROPHY, D-XRAY, D-RESTOR, D-CROWN, D-EXTRACT, D-RCT — plain
+  names, the tenant's own codes, placeholder fees), NOT ADA CDT or Swiss SSO point values (tested: codes are
+  the generic set, not the CDT Dnnnn format; tenant-isolated). **The fee-schedule editor**
+  (`FeeScheduleController` + `Dental/FeeSchedule.vue`, `/dental/fee-schedule`) is PRESENTATIONAL over
+  `DentalCatalogService` (add/edit/deactivate + seed), gated on **`billing.manage`** (the "manage billing
+  tariffs and billable items" permission — the fee schedule IS a tariff catalog; the same permission that
+  gates charge capture, so the whole dental-billing surface is consistent; the dentist-owner typically holds
+  org_admin). Major↔minor / %↔bp conversions are display-only in the Vue (like the vitals unit helper).
+  **The light tooth link** (`dental_procedure_charges`): when a tooth-scoped procedure is charged, a thin row
+  ties the resulting `charge` to the odontogram tooth/surface (no money stored) — a filling on tooth 16 is
+  chargeable and tied to the tooth; the full perform-a-procedure workflow is DENTAL.G4. Fence: a procedure
+  catalog is administrative/financial, not clinical interpretation — the payload carries no severity/
+  recommendation (tested). String-id routes (FIX.1). 7 feature tests + the route smoke gains the fee-schedule
+  route (billing 200 / reception 403). No existing behavior changed; the reconciliation/immutability/fence/
+  eval suites stay green. (DENTAL.G3)
