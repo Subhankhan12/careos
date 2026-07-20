@@ -40,6 +40,7 @@ use Modules\Comms\Http\Controllers\PortalTelehealthController;
 use Modules\Comms\Http\Controllers\StaffTelehealthController;
 use Modules\Dental\Http\Controllers\FeeScheduleController;
 use Modules\Dental\Http\Controllers\OdontogramController;
+use Modules\Dental\Http\Controllers\PerioChartController;
 use Modules\Dental\Http\Controllers\PortalTreatmentPlanController;
 use Modules\Dental\Http\Controllers\TreatmentPlanController;
 use Modules\FrontDesk\Http\Controllers\KioskCheckInController;
@@ -213,6 +214,13 @@ Route::middleware('auth')->group(function () {
     // existing G3 billing path) + any tooth-state change (through G1's append-only charting).
     // dental.chart-gated (clinical); the charge enforces billing.manage inside the service.
     Route::post('/dental/chart/{patient}/perform', [OdontogramController::class, 'perform'])->name('dental.chart.perform');
+
+    // Dental perio charting (DENTAL.G6) — per-tooth, per-site periodontal measurements as RAW
+    // recorded facts (record-not-judge: NO staging/grade/severity/risk/auto-flag anywhere).
+    // Append-only exams (a re-exam is a new exam). show = patient.view (read), store = dental.chart.
+    // String-id {patient} (FIX.1).
+    Route::get('/dental/perio/{patient}', [PerioChartController::class, 'show'])->name('dental.perio');
+    Route::post('/dental/perio/{patient}', [PerioChartController::class, 'store'])->name('dental.perio.store');
 
     // Dental treatment plans (DENTAL.G5) — a DENTIST-AUTHORED phased plan with a fee-schedule
     // ESTIMATE (snapshotted at proposal, reusing the G3 pricing). The plan ESTIMATES; performing

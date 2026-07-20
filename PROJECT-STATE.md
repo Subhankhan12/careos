@@ -205,6 +205,26 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
   build, present, and track a phased fee-scheduled plan. Remaining: G6 perio · G7 diagnosis record · G8
   imaging (+ later: sterilization/inventory, ortho/scan-compare, live imaging capture, licensed code sets).
 
+- **DENTAL.G6 built PERIO CHARTING — per-tooth, per-site periodontal measurements as RAW recorded facts,
+  record-not-judge (D-104).** `perio_exams` (BelongsToTenant, LogsReads, **APPEND-ONLY** model + DB-trigger —
+  a re-exam is a NEW exam; history preserved) is a point-in-time 6-point probing; it groups
+  `perio_measurements` (BelongsToTenant, APPEND-ONLY) — one row per tooth × SITE. **Six sites/tooth**
+  (`PerioMeasurement::SITES`: mesio_buccal/buccal/disto_buccal/mesio_lingual/lingual/disto_lingual — the
+  standard 6-point probing, distinct from the odontogram's 5 anatomical surfaces). Per site the RAW values:
+  `pocket_depth_mm`, `recession_mm` (signed), `bleeding_on_probing` (bool), + optional per-tooth `mobility`
+  (0–3) and `furcation` (0–4). Tooth = FDI (reuses G1 `ToothNotation`). **CRITICAL FENCE (perio's core
+  risk): raw numbers ONLY — NO periodontal stage (I–IV), NO grade (A–C), NO severity, NO risk score, NO
+  auto-flag of a deepening site, NO computed attachment-loss finding, in schema/service/UI.** `assertValid`
+  is pure data-entry validation (valid FDI/site, physically-plausible number), never a grade; the per-site
+  trend over time (`siteHistory`) is raw numbers in sequence, NO band/arrow/"worsening" label (same rule as
+  the vitals trends). Proven by a recursive payload fence assertion over the page props AND the siteHistory
+  output. `PerioChartService`: `recordExam` (dental.chart, DB::transaction, audited `dental.perio_charted`);
+  `examsFor`/`siteHistory` (patient.view, patient-scoped read-log). UI: `Dental/PerioChart.vue`
+  (`/dental/perio/{patient}`, string-id FIX.1) — the classic perio grid (teeth × 6 sites; prior exams as
+  raw grids), NO severity colouring/flags/stage badge (a dot marks BOP = data entry, not severity). 7
+  feature tests + route smoke gains the perio route (doctor 200 / billing 403). No existing behavior changed;
+  reconciliation/immutability/fence/eval + G1–G5 suites green. Next: G7 diagnosis record · G8 imaging.
+
 - **Current phase:** Phase G COMPLETE - Comms, telehealth & patient portal. Consolidated at P0G.C:
   the functional staff-facing surface is FROZEN for the design pass, and `docs/SCREENS.md` is the
   factual re-skin brief (22 Inertia pages + 11 nurse-PWA screens with routes/guards/props/actions).

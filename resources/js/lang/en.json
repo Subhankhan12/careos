@@ -1468,6 +1468,65 @@
             "abrasion": "Abrasion"
         }
     },
+    "perio": {
+        "eyebrow": "Periodontal chart",
+        "title": "Perio charting",
+        "subtitle": "Six-point probing per tooth. Record the raw measurements you read on the probe.",
+        "fenceNote": "These are raw measurements only — pocket depth and recession in mm, bleeding on probing, and (optional) mobility and furcation. Nothing here is staged, graded, scored, or flagged. You read the numbers and interpret them.",
+        "flash": {
+            "charted": "Perio exam recorded."
+        },
+        "newExam": {
+            "title": "Record a perio exam",
+            "subtitle": "A re-exam is a new record — prior exams are kept.",
+            "examDate": "Exam date",
+            "note": "Note (optional)",
+            "tooth": "Tooth",
+            "chooseTooth": "Choose a tooth…",
+            "addTooth": "Add tooth to exam",
+            "staged": "Teeth staged for this exam",
+            "sitesLabel": "sites",
+            "save": "Record exam"
+        },
+        "dentition": {
+            "permanent": "Permanent",
+            "primary": "Primary"
+        },
+        "fields": {
+            "pocket_depth_mm": "Pocket depth (mm)",
+            "recession_mm": "Recession (mm)",
+            "bleeding_on_probing": "Bleeding on probing",
+            "mobility": "Mobility (0–3)",
+            "furcation": "Furcation (0–4)",
+            "mobilityShort": "Mob",
+            "furcationShort": "Fur"
+        },
+        "table": {
+            "site": "Site",
+            "tooth": "Tooth"
+        },
+        "sites": {
+            "mesio_buccal": "Mesio-buccal",
+            "buccal": "Buccal",
+            "disto_buccal": "Disto-buccal",
+            "mesio_lingual": "Mesio-lingual",
+            "lingual": "Lingual",
+            "disto_lingual": "Disto-lingual"
+        },
+        "sitesShort": {
+            "mesio_buccal": "MB",
+            "buccal": "B",
+            "disto_buccal": "DB",
+            "mesio_lingual": "ML",
+            "lingual": "L",
+            "disto_lingual": "DL"
+        },
+        "exams": {
+            "empty": "No perio exams recorded yet.",
+            "on": "Exam on",
+            "legend": "Each site shows pocket depth / recession in mm; a dot marks bleeding on probing. Raw values as recorded."
+        }
+    },
     "feeSchedule": {
         "eyebrow": "Dental billing",
         "title": "Fee schedule",

@@ -129,6 +129,7 @@ test('every major staff route is reachable through the real middleware stack (20
         'patient.show' => '/patients/'.$fx['patient']->id,
         'chart' => '/clinical/chart/'.$fx['patient']->id,
         'dental.chart' => '/dental/chart/'.$fx['patient']->id,
+        'dental.perio' => '/dental/perio/'.$fx['patient']->id,
         'dental.plans' => '/dental/plans/'.$fx['patient']->id,
         'encounter.show' => '/clinical/encounters/'.$fx['encounter']->id,
         'note.show' => '/clinical/notes/'.$fx['note']->id,
@@ -174,6 +175,10 @@ test('per-role RBAC smoke: each role reaches its pages (200) and is denied other
         // a non-dental role without patient.view (billing) is denied.
         [$u['doctor'], '/dental/chart/'.$fx['patient']->id, 200],
         [$u['billing'], '/dental/chart/'.$fx['patient']->id, 403],
+        // DENTAL.G6: the perio chart is patient.view-gated — the dentist reaches it; billing
+        // (no patient.view) is denied.
+        [$u['doctor'], '/dental/perio/'.$fx['patient']->id, 200],
+        [$u['billing'], '/dental/perio/'.$fx['patient']->id, 403],
         // DENTAL.G5: the treatment-plan page is patient.view-gated (the dentist reads/builds it);
         // billing (no patient.view) is denied.
         [$u['doctor'], '/dental/plans/'.$fx['patient']->id, 200],

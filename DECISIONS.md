@@ -1111,3 +1111,36 @@ references the old ID.
   chart the mouth (G1/G2), record + bill procedures (G3/G4), and build + present + track a phased,
   fee-scheduled treatment plan (G5). Remaining: G6 perio · G7 diagnosis record · G8 imaging (+ later:
   sterilization/inventory, ortho/scan-compare, live imaging capture, licensed code sets). (DENTAL.G5)
+- **D-104 — Perio charting records RAW per-site measurements only; the dentist interprets, the
+  system never stages/grades/flags (record-not-judge, the vitals discipline applied to perio).**
+  DENTAL.G6. Domain: `perio_exams` (BelongsToTenant, LogsReads, **APPEND-ONLY** at model +
+  DB-trigger SIGNAL-45000 — a re-exam is a NEW exam, corrections are new records; historical exams
+  preserved) is a point-in-time full/partial probing (patient, examined_by, exam_date, note); it
+  groups `perio_measurements` (BelongsToTenant, **APPEND-ONLY** model + triggers) — one row per
+  tooth × SITE. **Six sites per tooth** (`PerioMeasurement::SITES` = mesio_buccal, buccal,
+  disto_buccal, mesio_lingual, lingual, disto_lingual — the standard 6-point probing; distinct from
+  the odontogram's 5 anatomical SURFACES). Per site the RAW probed values: `pocket_depth_mm`,
+  `recession_mm` (signed — negative = gingival overgrowth), `bleeding_on_probing` (bool), plus
+  optional per-tooth `mobility` (Miller 0–3) and `furcation` (Glickman/Hamp 0–4). Tooth = FDI
+  (reuses G1 `ToothNotation`). **CRITICAL ELECTRIC FENCE (perio's core risk): the schema, service,
+  and UI store/render RAW NUMBERS ONLY** — there is DELIBERATELY NO periodontal stage (I–IV), NO
+  grade (A–C), NO severity, NO risk score, NO "disease detected", NO auto-flag of a deepening site,
+  NO computed attachment-loss "finding". Attachment level (depth+recession) is left for the clinician
+  to read — not stored or labelled. `PerioMeasurement::assertValid()` is pure DATA-ENTRY validation
+  (valid FDI id, valid site, physically-plausible number — e.g. depth 0–15mm) exactly like the
+  odontogram rejecting an unknown surface; bounds reject impossible input, they never grade. A
+  per-site **trend over time is RAW CONTEXT** (raw numbers in sequence via `siteHistory`, oldest
+  first) — NO band/flag/arrow/"worsening" label (same rule as the unified vitals trends, P.13). The
+  fence is proven by a recursive payload assertion (`ppAssertNoJudgment` forbids stage/staging/grade/
+  severity/risk/flag/classification/worsening/… keys) over both the page props and the siteHistory
+  output. **Service** `PerioChartService`: `recordExam` (dental.chart, tenant+patient scoped,
+  DB::transaction of exam + its site rows — an invalid value throws and the whole exam rolls back,
+  audited `dental.perio_charted`); `examsFor` + `siteHistory` (patient.view, patient-scoped `read`
+  audit). **RBAC:** record = `dental.chart`; read = `patient.view` (reception views but can't record;
+  billing lacking patient.view can't view). **UI:** `PerioChartController` + `Dental/PerioChart.vue`
+  (`/dental/perio/{patient}`, string-id FIX.1) — the classic perio grid (teeth × 6 sites, enter
+  depth/recession/BOP + per-tooth mobility/furcation; prior exams as raw grids). PRESENTATIONAL
+  (P0D.GU) — NO severity colouring, NO flagged sites, NO stage/grade badge, NO auto-watch; a dot
+  marks BOP (data entry), not severity. Route smoke gains `/dental/perio/{patient}` (doctor 200 /
+  billing 403). Money/clinical/existing behavior unchanged; no existing test modified;
+  reconciliation/fence/immutability/eval + G1–G5 suites green. (DENTAL.G6)

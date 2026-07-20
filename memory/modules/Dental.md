@@ -87,13 +87,15 @@ A dedicated dentist/hygienist/assistant role split is a later dental gate. Recep
 
 ## Status
 
-**DENTAL.G1–G5 COMPLETE — the CORE dental spine is done.** G1 = tooth/odontogram data model (foundation).
-G2 = interactive odontogram chart UI, render-not-judge. G3 = procedure catalog (tenant-authored fee
-schedule) + billing-engine integration (a procedure IS a tariff item; no new billing logic). G4 = the
-perform-a-procedure workflow — one atomic action recording the clinical fact + charge + tooth-state change.
-G5 = the phased, fee-scheduled treatment plan — dentist-authored, estimate reuses G3 pricing (snapshotted at
-proposal), estimates without billing (G4 charges). **A general dentist can now chart the mouth → record +
-bill procedures → build/present/track a phased fee-scheduled plan.**
+**DENTAL.G1–G5 = the CORE dental spine (complete); G6 (perio) built on top.** G1 = tooth/odontogram data
+model (foundation). G2 = interactive odontogram chart UI, render-not-judge. G3 = procedure catalog
+(tenant-authored fee schedule) + billing-engine integration (a procedure IS a tariff item; no new billing
+logic). G4 = the perform-a-procedure workflow — one atomic action recording the clinical fact + charge +
+tooth-state change. G5 = the phased, fee-scheduled treatment plan — dentist-authored, estimate reuses G3
+pricing (snapshotted at proposal), estimates without billing (G4 charges). **G6 = perio charting** —
+per-tooth, per-site periodontal measurements as RAW recorded facts (record-not-judge). **A general dentist
+can now chart the mouth → record + bill procedures → build/present/track a phased fee-scheduled plan → chart
+periodontal status.**
 
 ## Perform workflow (DENTAL.G4)
 
@@ -134,10 +136,36 @@ bill procedures → build/present/track a phased fee-scheduled plan.**
   (`/portal/treatment-plan`) read-only patient view (proposed-onward only, no actions/PSP). No G3/G4 behavior
   changed. See [[D-103]], [[Billing]], [[Patients]].
 
+## Perio charting (DENTAL.G6)
+
+- `perio_exams` (BelongsToTenant, LogsReads, **APPEND-ONLY** model `updating`/`deleting`-throw + DB triggers
+  `perio_exams_no_update`/`_no_delete` SIGNAL-45000) — a point-in-time 6-point probing session (patient,
+  examined_by, exam_date, note). Groups `perio_measurements` (BelongsToTenant, APPEND-ONLY, triggers) — one
+  row per tooth × SITE. **`PerioMeasurement::SITES`** = the standard **6 probing sites** (mesio_buccal,
+  buccal, disto_buccal, mesio_lingual, lingual, disto_lingual) — DISTINCT from `ToothNotation::SURFACES` (5
+  anatomical surfaces the odontogram uses). Per site the RAW probed values: `pocket_depth_mm`,
+  `recession_mm` (smallInteger — signed, negative = overgrowth), `bleeding_on_probing` (bool), + optional
+  per-tooth `mobility` (0–3) / `furcation` (0–4) carried on the tooth's site rows. Tooth = FDI (reuses G1
+  `ToothNotation::isValid`). **ELECTRIC FENCE (record-not-judge — perio's core risk): RAW numbers ONLY — NO
+  stage (I–IV), grade (A–C), severity, risk score, auto-flag of a deepening site, or computed attachment-loss
+  finding, anywhere in schema/service/UI.** `PerioMeasurement::assertValid` is pure data-entry validation
+  (valid FDI/site + physically-plausible bounds: depth 0–15, recession -15–30, mobility 0–3, furcation 0–4)
+  — bounds reject impossible input, they NEVER grade. A per-site trend (`siteHistory`, oldest first) is raw
+  numbers in sequence — NO band/arrow/"worsening" label (same rule as unified vitals trends, P.13). Proven by
+  a recursive `pcAssertNoJudgment` (forbids stage/staging/grade/severity/risk/flag/classification/worsening/…)
+  over BOTH the page props and the siteHistory output. `Services\PerioChartService`: `recordExam` (gate
+  `dental.chart`, actor+patient same-tenant fail-closed, DB::transaction of exam + site rows — an invalid
+  value throws and the whole exam rolls back, audited `dental.perio_charted`); `examsFor`/`siteHistory` (gate
+  `patient.view`, patient-scoped `read` audit). `Http\Controllers\PerioChartController` (GET `/dental/perio/
+  {patient}` = show, POST = store, string-id FIX.1) + `Dental/PerioChart.vue` — the classic perio grid
+  (teeth × 6 sites entry; prior exams as raw grids), PRESENTATIONAL (P0D.GU): NO severity colouring/flags/
+  stage badge (a dot marks BOP = data entry, not severity). NEW `perio.*` i18n. No G1–G5 code changed. See
+  [[D-104]], [[Dental]], [[Clinical]].
+
 ## Open items / next gates (per docs/DENTAL-DELIVERY-MAP.md)
 
-- (done: G2 odontogram UI · G3 catalog+billing · G4 perform workflow · G5 treatment plan — CORE spine
-  complete) · G6 perio charting · G7 diagnosis record · G8 imaging/scans; later: G9 chair-view (reuse), G10
+- (done: G2 odontogram UI · G3 catalog+billing · G4 perform workflow · G5 treatment plan [CORE spine
+  complete] · G6 perio charting) · G7 diagnosis record · G8 imaging/scans; later: G9 chair-view (reuse), G10
   sterilization/inventory, G11 ortho/scan-comparison. Long poles: imaging-device/scanner integration
   (partner-gated), licensed procedure codes (CDT licensed — tenant-authored catalog, do NOT bundle).
 - All later gates keep the fence: build the prototype's AI-diagnosis / AI-overlay / auto-grade features
