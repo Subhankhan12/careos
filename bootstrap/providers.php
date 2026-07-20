@@ -8,6 +8,7 @@ use Modules\Audit\Providers\AuditServiceProvider;
 use Modules\Billing\Providers\BillingServiceProvider;
 use Modules\Clinical\Providers\ClinicalServiceProvider;
 use Modules\Comms\Providers\CommsServiceProvider;
+use Modules\Dental\Providers\DentalServiceProvider;
 use Modules\FrontDesk\Providers\FrontDeskServiceProvider;
 use Modules\Import\Providers\ImportServiceProvider;
 use Modules\Nursing\Providers\NursingServiceProvider;
@@ -26,6 +27,7 @@ return [
     BillingServiceProvider::class,
     ClinicalServiceProvider::class,
     CommsServiceProvider::class,
+    DentalServiceProvider::class,
     FrontDeskServiceProvider::class,
     ImportServiceProvider::class,
     NursingServiceProvider::class,

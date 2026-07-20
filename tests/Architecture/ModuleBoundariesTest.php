@@ -147,3 +147,15 @@ arch('Reporting may read care modules but not Audit models, AiCore, Comms, Impor
         'Modules\Import',
         'Modules\FrontDesk',
     ]);
+
+// Dental is a clinical vertical: it may use Patients/Scheduling/Clinical/Billing +
+// Audit SERVICES (LogsReads / AuditService), but never Audit models directly, AiCore,
+// Nursing, or Comms. Cross-module guards that need another module live in app/.
+arch('Dental may use care modules + Audit services but not Audit models, AiCore, Nursing, or Comms')
+    ->expect('Modules\Dental')
+    ->not->toUse([
+        'Modules\Audit\Models',
+        'Modules\AiCore',
+        'Modules\Nursing',
+        'Modules\Comms',
+    ]);

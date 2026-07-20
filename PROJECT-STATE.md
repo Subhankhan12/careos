@@ -125,6 +125,21 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
   to DISCOVERY (the CH/KVG-vs-EU-generic billing question with Spitex coordinators) — no admin gaps remain that block
   a demo; the only unwired designed screens left are non-clinic/dental (B3, out of scope).
 
+- **DENTAL vertical STARTED — a paying general dentist bought it.** Plan: `docs/DENTAL-DELIVERY-MAP.md`
+  (~8 core gates, foundational-first; dental inherits tenancy/patients/scheduling+chairs/billing/documents/
+  audit/RBAC/AI/design-system — new surface is only the dental clinical domain). **DENTAL.G1 built the
+  FOUNDATION:** `Modules\Dental` + the tooth/odontogram data model + dental RBAC (D-099). Tooth notation =
+  **FDI/ISO 3950** (permanent 11–48 + primary 51–85 — family dentist charts children). `tooth_records`
+  (BelongsToTenant, **APPEND-ONLY** at model + DB-trigger level) stores one immutable charting row per
+  tooth/surface moment; **current odontogram = latest per (tooth, surface), history = every row** (a
+  correction is a NEW row + reason, prior states never destroyed — tested at model + raw-DB level).
+  **ELECTRIC FENCE (record-not-judge):** NO severity/score/risk/grade/abnormal/flag column anywhere —
+  `charted_condition` is a fact the dentist selected, never computed (schema + recursive-output fence test).
+  `ToothChartService` (chart = `dental.chart`-gated + audited; reads = `patient.view`-gated + patient-scoped
+  read-logged). `dental.chart` granted to org_admin + doctor (the treating clinician = the general dentist).
+  **No UI this gate** (chart UI is G2). 6 feature tests + arch boundary; no existing behavior changed; the
+  eval/reconciliation/immutability/audit suites stay green. Module memory `memory/modules/Dental.md`.
+
 - **Current phase:** Phase G COMPLETE - Comms, telehealth & patient portal. Consolidated at P0G.C:
   the functional staff-facing surface is FROZEN for the design pass, and `docs/SCREENS.md` is the
   factual re-skin brief (22 Inertia pages + 11 nurse-PWA screens with routes/guards/props/actions).

@@ -47,6 +47,7 @@ class RbacProvisioner
         'audit.view' => 'View the audit log',
         'admin.manage' => 'Manage tenant settings and users',
         'data.import' => 'Import patients from CSV',
+        'dental.chart' => 'Chart teeth and dental findings (odontogram)',
     ];
 
     /**
@@ -63,7 +64,7 @@ class RbacProvisioner
                 'encounter.manage',
                 'timesheet.approve', 'note.write', 'note.sign', 'note.supervise', 'allergy.override',
                 'snippet.manage.shared', 'order.manage', 'ai.manage', 'comms.manage', 'billing.view',
-                'billing.manage', 'reporting.view', 'audit.view', 'data.import',
+                'billing.manage', 'reporting.view', 'audit.view', 'data.import', 'dental.chart',
             ],
         ],
         'coordinator' => [
@@ -76,10 +77,13 @@ class RbacProvisioner
         'doctor' => [
             'name' => 'Doctor',
             'permissions' => [
-                // Doctor is the clinical-lead role that also curates the shared
-                // snippet library.
+                // Doctor is the clinical-lead / treating-clinician role that also
+                // curates the shared snippet library. In a dental tenant this IS the
+                // general dentist — hence `dental.chart` (odontogram charting). A
+                // dedicated dentist/hygienist/assistant role split is a later dental gate.
                 'patient.view', 'patient.edit', 'appointment.manage', 'encounter.manage',
                 'note.write', 'note.sign', 'order.manage', 'snippet.manage.shared', 'allergy.override',
+                'dental.chart',
             ],
         ],
         'nurse' => [

@@ -46,7 +46,8 @@
             "Modules\\Comms\\": "Modules/Comms/src/",
             "Modules\\Import\\": "Modules/Import/src/",
             "Modules\\FrontDesk\\": "Modules/FrontDesk/src/",
-            "Modules\\Reporting\\": "Modules/Reporting/src/"
+            "Modules\\Reporting\\": "Modules/Reporting/src/",
+            "Modules\\Dental\\": "Modules/Dental/src/"
         }
     },
     "autoload-dev": {

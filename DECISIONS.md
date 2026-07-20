@@ -972,3 +972,27 @@ references the old ID.
   eval harness + audit/immutability suites are UNCHANGED and green. **With W10, the ADMIN VERTICAL is complete
   (W8 settings/roles · W8b settings backends · W8c resource CRUD · W9 governance/approval-queue · W10 KB/telehealth);
   the CLINIC + ADMIN verticals are both fully delivered.** (CLINIC.W10)
+- **D-099 — The dental vertical begins with the tooth/odontogram data model as its foundation; it is
+  RECORD-NOT-JUDGE and append-only, and dental inherits the whole existing platform.** DENTAL.G1 registers
+  `Modules\Dental` (plain internal module, D-012; provider in bootstrap/providers + composer autoload; arch
+  boundary: Dental may use Patients/Scheduling/Clinical/Billing + Audit SERVICES but never Audit models,
+  AiCore, Nursing, or Comms — cross-module guards live in `app/`). **Tooth notation = FDI / ISO 3950
+  two-digit** (`Support\ToothNotation`, the international standard), supporting BOTH permanent (11–48, 32)
+  and primary (51–85, 20) because a family dentist charts children; dentition is DERIVED from the id, never
+  stored, and a patient's tooth set is whatever teeth have records (missing = a charted state; mixed
+  dentition = both) — no hardcoded 32-tooth assumption. **The odontogram data model is `tooth_records`
+  (BelongsToTenant, APPEND-ONLY at model + DB-trigger level, SIGNAL 45000, portable):** one immutable row
+  per tooth-or-surface charting moment, carrying `charted_condition` (a fact the clinician SELECTED from an
+  allowed vocabulary per scope — whole-tooth statuses vs surface conditions), `surface` (null = whole-tooth),
+  `note`, `reason` (a correction is a NEW row + reason — prior states never destroyed). **The current
+  odontogram = latest row per (tooth, surface); history = every row.** **ELECTRIC FENCE (record-not-judge,
+  same posture as vitals D-D3 / order results D-076):** there is DELIBERATELY no severity/score/risk/grade/
+  abnormal/flag/priority/recommendation column anywhere — the system records what the dentist charts, it
+  never detects caries, grades decay, assesses risk, or diagnoses (asserted by a schema + recursive-output
+  fence test). `ToothChartService` is pure record + retrieve: `chart()` (Gate `dental.chart`, actor+patient
+  same-tenant, audited `dental.tooth_charted`), `currentChart()`/`history()` (Gate `patient.view`,
+  patient-scoped `read` audit). RBAC adds `dental.chart` to the catalog, granted to `org_admin` + `doctor`
+  (the treating-clinician role — in a dental tenant this is the general dentist; a dentist/hygienist/
+  assistant split is a later gate; reception/nurse refused, tested). No UI this gate (chart UI is G2). No
+  existing behavior changed; the P.4 eval / reconciliation / immutability / audit suites stay green
+  unchanged. New module memory `memory/modules/Dental.md`; plan `docs/DENTAL-DELIVERY-MAP.md`. (DENTAL.G1)
