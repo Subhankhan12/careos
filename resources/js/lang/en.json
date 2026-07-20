@@ -1153,7 +1153,11 @@
             "updated": "Branch updated.",
             "hoursSaved": "Opening hours saved.",
             "deactivated": "Branch deactivated.",
-            "activated": "Branch reactivated."
+            "activated": "Branch reactivated.",
+            "resourceCreated": "Resource added.",
+            "resourceUpdated": "Resource updated.",
+            "resourceDeactivated": "Resource deactivated.",
+            "resourceActivated": "Resource reactivated."
         },
         "errors": {
             "codeTaken": "That branch code is already in use.",
@@ -1189,7 +1193,7 @@
             "empty": "No branches yet.",
             "resources": "{count} active resource | {count} active resources",
             "appointments": "{count} upcoming appointment | {count} upcoming appointments",
-            "noResources": "No resources yet — adding rooms/chairs to a branch is not wired yet, so it cannot be booked."
+            "noResources": "No resources yet — add a room, chair or vehicle below so this branch can be booked."
         },
         "hours": {
             "title": "Opening hours",
@@ -1209,6 +1213,21 @@
         "status": {
             "active": "Active",
             "inactive": "Inactive"
+        },
+        "resources": {
+            "title": "Bookable resources",
+            "subtitle": "Rooms, chairs or vehicles appointments book against. A new active resource is immediately bookable; a deactivated one drops out of scheduling.",
+            "empty": "No resources yet — add a room, chair or vehicle below so this branch can be booked.",
+            "name": "Resource name",
+            "add": "Add resource",
+            "blocked": "Cannot deactivate — this resource still has upcoming appointments. Reassign or cancel them first.",
+            "hasAppointments": "{count} upcoming appointment — reassign or cancel first | {count} upcoming appointments — reassign or cancel first",
+            "type": {
+                "label": "Type",
+                "room": "Room",
+                "chair": "Chair",
+                "vehicle": "Vehicle"
+            }
         }
     }
 }

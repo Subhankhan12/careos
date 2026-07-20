@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Services\BranchService;
+use App\Services\ResourceService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -12,6 +13,7 @@ use Inertia\Response;
 use Modules\Platform\Models\Branch;
 use Modules\Platform\Models\BranchHours;
 use Modules\Platform\Models\User;
+use Modules\Scheduling\Models\Resource;
 
 /**
  * Branch management for the tenant admin (admin.manage). App-layer controller so the
@@ -31,12 +33,20 @@ class BranchController
         'Europe/London', 'Europe/Rome', 'Europe/Madrid', 'America/New_York', 'America/Los_Angeles',
     ];
 
-    public function index(BranchService $branches): Response
+    /** Resource types an admin may create here (practitioner is staff-profile driven). */
+    private const RESOURCE_TYPES = [
+        Resource::TYPE_ROOM,
+        Resource::TYPE_CHAIR,
+        Resource::TYPE_VEHICLE,
+    ];
+
+    public function index(BranchService $branches, ResourceService $resources): Response
     {
         Gate::authorize('admin.manage');
 
         $rows = Branch::query()->orderBy('name')->get();
         $hoursByBranch = BranchHours::query()->whereIn('branch_id', $rows->pluck('id'))->get()->groupBy('branch_id');
+        $resourcesByBranch = Resource::query()->whereIn('branch_id', $rows->pluck('id'))->orderBy('name')->get()->groupBy('branch_id');
 
         return Inertia::render('Admin/Branches', [
             'branches' => $rows->map(fn (Branch $branch): array => [
@@ -53,6 +63,8 @@ class BranchController
                 'active_resources' => $branches->activeResourceCount($branch->id),
                 'future_appointments' => $branches->futureAppointmentCount($branch->id),
                 'hours' => $this->hoursFor($hoursByBranch->get($branch->id)),
+                'resources' => $this->resourcesFor($resourcesByBranch->get($branch->id), $resources),
+                'resourceStoreUrl' => route('admin.resources.store', $branch->id),
                 'updateUrl' => route('admin.branches.update', $branch->id),
                 'hoursUrl' => route('admin.branches.hours', $branch->id),
                 'deactivateUrl' => route('admin.branches.deactivate', $branch->id),
@@ -60,6 +72,7 @@ class BranchController
             ])->all(),
             'weekdays' => self::WEEKDAYS,
             'timezones' => self::TIMEZONES,
+            'resourceTypes' => self::RESOURCE_TYPES,
             'storeUrl' => route('admin.branches.store'),
             'settingsUrl' => route('settings.index'),
         ]);
@@ -200,5 +213,27 @@ class BranchController
                 'close_time' => $row !== null && $row->close_time !== null ? substr($row->close_time, 0, 5) : '17:00',
             ];
         })->all();
+    }
+
+    /**
+     * The branch's bookable resources for the admin editor. `future_appointments` drives
+     * the deactivation guard hint — a resource that still has upcoming appointments cannot
+     * be deactivated until they are reassigned/cancelled.
+     *
+     * @param  Collection<int, resource>|null  $rows
+     * @return list<array{id: string, name: string, type: string, active: bool, future_appointments: int, updateUrl: string, deactivateUrl: string, activateUrl: string}>
+     */
+    private function resourcesFor(?Collection $rows, ResourceService $resources): array
+    {
+        return ($rows ?? collect())->map(fn (Resource $resource): array => [
+            'id' => $resource->id,
+            'name' => $resource->name,
+            'type' => $resource->type,
+            'active' => (bool) $resource->active,
+            'future_appointments' => $resources->futureAppointmentCount($resource->id),
+            'updateUrl' => route('admin.resources.update', $resource->id),
+            'deactivateUrl' => route('admin.resources.deactivate', $resource->id),
+            'activateUrl' => route('admin.resources.activate', $resource->id),
+        ])->values()->all();
     }
 }

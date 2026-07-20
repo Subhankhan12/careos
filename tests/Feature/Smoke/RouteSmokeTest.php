@@ -12,6 +12,7 @@ use Modules\Patients\Models\ConsentTemplate;
 use Modules\Patients\Models\Patient;
 use Modules\Patients\Models\PortalAccount;
 use Modules\Patients\Services\ConsentService;
+use Modules\Platform\Models\Branch;
 use Modules\Platform\Models\Role;
 use Modules\Platform\Models\RoleAssignment;
 use Modules\Platform\Models\User;
@@ -194,6 +195,20 @@ test('per-role RBAC smoke: each role reaches its pages (200) and is denied other
         $status = smokeStatus($this, $user, $url);
         if ($status !== $expected) {
             $failures[] = "{$url} as {$user->name} -> {$status} (expected {$expected})";
+        }
+    }
+
+    // W8c: the resource WRITE routes go through the same admin.manage gate + middleware
+    // stack. Drive the store route with the tenant context forgotten (the C-1 condition):
+    // reception is denied (403); org_admin reaches it and redirects (302, never a 500).
+    $branch = Branch::query()->where('active', true)->firstOrFail();
+    foreach ([['reception', 403], ['org_admin', 302]] as [$role, $expected]) {
+        smokeCtx()->forget();
+        $status = $this->actingAs($u[$role])
+            ->post("/admin/branches/{$branch->id}/resources", ['name' => 'Smoke Room', 'type' => 'room'])
+            ->status();
+        if ($status !== $expected) {
+            $failures[] = "resource.store as {$role} -> {$status} (expected {$expected})";
         }
     }
 

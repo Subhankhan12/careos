@@ -221,6 +221,19 @@ Local `composer check` is green: 205 tests / 1013 assertions. Local `cmd /c npm 
   `BookingUnavailableException::outsideBranchHours` for a start outside hours. Day-board + portal branch lists now
   filter `active=true` (public booking already did) so a deactivated branch is unbookable everywhere. See [[D-095]].
 
+- Bookable-resource CRUD (CLINIC.W8c): the `Resource` (room/chair/vehicle) write path lives in the APP layer
+  (`App\Http\Controllers\ResourceController` + `App\Services\ResourceService`) — created under a branch, edited/
+  (de)activated by id, admin.manage-gated, tenant+branch scoped, audited (resource.created/updated/activated/
+  deactivated app-layer hooks; Scheduling never imports Audit). App layer because the deactivation guard queries
+  `Appointment` (via the `appointment_resources` pivot) and `arch('Platform does not depend on Scheduling')` forbids
+  a cross-module guard inside a module. **No booking LOGIC changed:** `DayBoardController` + `AvailableSlotFinder::
+  resourcesByType` already filtered `active=true`, so a new active resource is picked up and a deactivated one drops
+  out automatically. **SCHEDULING SAFETY:** deactivation is soft (`active=false`; `appointment_resources`
+  `restrictOnDelete`s a resource) and BLOCKED when the resource has future active appointments — the branch guard,
+  mirrored. Practitioner resources stay staff-profile driven (People), excluded from the admin screen. A CRUD'd
+  resource is immediately day-board-selectable but only OFFERED AS SLOTS once its `ResourceAvailability` windows are
+  set (existing mechanism, unchanged) — a resource-availability screen is the flagged follow-up. See [[D-096]].
+
 ## Open items
 
 - Later gates add realtime day-board refresh and UI surfaces for agent proposals.

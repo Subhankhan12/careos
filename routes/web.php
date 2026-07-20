@@ -6,6 +6,7 @@ use App\Http\Controllers\ClinicalSummaryDraftController;
 use App\Http\Controllers\ClinicalSummaryInsertController;
 use App\Http\Controllers\Comms\InboxAgentController;
 use App\Http\Controllers\Portal\PortalHomeController;
+use App\Http\Controllers\ResourceController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 use Modules\Billing\Http\Controllers\AgingController;
@@ -258,6 +259,14 @@ Route::middleware('auth')->group(function () {
     Route::post('/admin/branches/{branch}/hours', [BranchController::class, 'hours'])->name('admin.branches.hours');
     Route::post('/admin/branches/{branch}/deactivate', [BranchController::class, 'deactivate'])->name('admin.branches.deactivate');
     Route::post('/admin/branches/{branch}/activate', [BranchController::class, 'activate'])->name('admin.branches.activate');
+
+    // Bookable-resource CRUD (CLINIC.W8c) — app-layer controller (deactivation guard spans
+    // Scheduling's Resource + its appointments); soft-deactivate blocked when future
+    // appointments exist. Managed on the /admin/branches screen (resources belong to a branch).
+    Route::post('/admin/branches/{branch}/resources', [ResourceController::class, 'store'])->name('admin.resources.store');
+    Route::post('/admin/resources/{resource}/update', [ResourceController::class, 'update'])->name('admin.resources.update');
+    Route::post('/admin/resources/{resource}/deactivate', [ResourceController::class, 'deactivate'])->name('admin.resources.deactivate');
+    Route::post('/admin/resources/{resource}/activate', [ResourceController::class, 'activate'])->name('admin.resources.activate');
 });
 
 // Self check-in KIOSK (P0P.G7): unauthenticated but scoped to a branch by the

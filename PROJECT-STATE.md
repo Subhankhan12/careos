@@ -62,8 +62,18 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
   so existing scheduling stays green), and **timezone/locale** applied per request via `ApplyTenantLocaleTimezone`.
   **Scheduling safety (tested):** branch deactivation is soft (`active=false`) and BLOCKED while future appointments
   exist (never orphaning care); the day-board/portal now hide inactive branches; opening hours bound bookable slots +
-  reject out-of-hours bookings. All admin.manage-gated, tenant-scoped, audited. Remaining gap: adding resources
-  (rooms/chairs) to a branch still has no backend, so a new branch isn't bookable until resources are seeded. See D-095.
+  reject out-of-hours bookings. All admin.manage-gated, tenant-scoped, audited. See D-095.
+
+- **CLINIC.W8c built bookable-resource CRUD** — closes the W8b gap so a self-service branch is fully bookable.
+  Rooms/chairs/vehicles are created under a branch on the `/admin/branches` screen via an app-layer
+  `ResourceController`/`ResourceService` (app layer because the deactivation guard queries Scheduling's `Appointment`;
+  practitioner resources stay staff-profile driven, excluded). **No booking logic changed:** the day-board +
+  `AvailableSlotFinder` already filtered `active=true`, so a new active resource is picked up and a deactivated one
+  drops out automatically (proven end-to-end). **Scheduling safety (tested):** resource deactivation is soft
+  (`active=false`) and BLOCKED while future appointments exist — the branch guard mirrored. All admin.manage-gated,
+  tenant+branch scoped, audited. Remaining follow-up: a CRUD'd resource is day-board-selectable but only offered as
+  slots once its `ResourceAvailability` windows are set (existing per-resource mechanism, unchanged) — a
+  resource-availability admin screen is the natural next step. See D-096.
 
 - **Current phase:** Phase G COMPLETE - Comms, telehealth & patient portal. Consolidated at P0G.C:
   the functional staff-facing surface is FROZEN for the design pass, and `docs/SCREENS.md` is the

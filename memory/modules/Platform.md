@@ -177,6 +177,12 @@ running shows up as an absence rather than as nothing at all.
   future appointments exist; audited via app-layer hooks (branch.*, tenant.profile_updated, branch.hours_changed).
   See [[D-095]].
 
+- Bookable-resource CRUD (CLINIC.W8c) closes the W8b "no resource backend" gap: rooms/chairs/vehicles are created
+  under a branch on the same `/admin/branches` admin screen. The `Resource` model + guard are SCHEDULING (see
+  [[Scheduling]] / [[D-096]]) — noted here because it is administered from the Platform branch-admin surface and its
+  audit hooks + app-layer controller sit beside the branch ones. A new active resource makes a self-service branch
+  bookable; deactivation is soft + BLOCKED when future appointments exist (the branch guard mirrored).
+
 ## Open items
 
 - ABAC condition evaluation (`abac_conditions`) not yet implemented (Phase B, needs patients/audit).

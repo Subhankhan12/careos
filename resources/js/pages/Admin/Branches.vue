@@ -11,6 +11,16 @@ const { t } = useI18n();
 const page = usePage();
 
 type DayHours = { weekday: number; is_closed: boolean; open_time: string; close_time: string };
+type ResourceRow = {
+    id: string;
+    name: string;
+    type: string;
+    active: boolean;
+    future_appointments: number;
+    updateUrl: string;
+    deactivateUrl: string;
+    activateUrl: string;
+};
 type Branch = {
     id: string;
     name: string;
@@ -25,6 +35,8 @@ type Branch = {
     active_resources: number;
     future_appointments: number;
     hours: DayHours[];
+    resources: ResourceRow[];
+    resourceStoreUrl: string;
     updateUrl: string;
     hoursUrl: string;
     deactivateUrl: string;
@@ -35,6 +47,7 @@ const props = defineProps<{
     branches: Branch[];
     weekdays: number[];
     timezones: string[];
+    resourceTypes: string[];
     storeUrl: string;
     settingsUrl: string;
 }>();
@@ -56,6 +69,10 @@ const createForm = useForm({
 // Per-branch editable details + hours (plain reactive state; submitted via router.post).
 const details = reactive<Record<string, Record<string, string>>>({});
 const hours = reactive<Record<string, DayHours[]>>({});
+// Resource CRUD state: one "add" draft per branch + an edit draft per existing resource.
+const newResource = reactive<Record<string, { name: string; type: string }>>({});
+const resourceEdits = reactive<Record<string, { name: string; type: string }>>({});
+const defaultType = (): string => props.resourceTypes[0] ?? 'room';
 props.branches.forEach((branch) => {
     details[branch.id] = {
         name: branch.name,
@@ -68,6 +85,10 @@ props.branches.forEach((branch) => {
         timezone: branch.timezone,
     };
     hours[branch.id] = branch.hours.map((day) => ({ ...day }));
+    newResource[branch.id] = { name: '', type: defaultType() };
+    branch.resources.forEach((resource) => {
+        resourceEdits[resource.id] = { name: resource.name, type: resource.type };
+    });
 });
 
 function createBranch(): void {
@@ -81,6 +102,20 @@ function saveHours(branch: Branch): void {
 }
 function setActive(branch: Branch, active: boolean): void {
     router.post(active ? branch.activateUrl : branch.deactivateUrl, {}, { preserveScroll: true });
+}
+function createResource(branch: Branch): void {
+    router.post(branch.resourceStoreUrl, newResource[branch.id], {
+        preserveScroll: true,
+        onSuccess: () => {
+            newResource[branch.id] = { name: '', type: defaultType() };
+        },
+    });
+}
+function saveResource(resource: ResourceRow): void {
+    router.post(resource.updateUrl, resourceEdits[resource.id], { preserveScroll: true });
+}
+function setResourceActive(resource: ResourceRow, active: boolean): void {
+    router.post(active ? resource.activateUrl : resource.deactivateUrl, {}, { preserveScroll: true });
 }
 
 // A day with invalid open/close blocks its Save (the server also enforces this).
@@ -100,11 +135,14 @@ function hoursInvalid(branchId: string): boolean {
                 <Link :href="settingsUrl" class="mt-2 inline-flex text-sm font-semibold text-euca-700 hover:text-euca-800">{{ t('branchesAdmin.backToSettings') }}</Link>
             </div>
 
-            <p v-if="flash && ['created', 'updated', 'hoursSaved', 'deactivated', 'activated'].includes(flash)" class="rounded-2xl border border-success/30 bg-success-soft p-4 text-sm text-success">
+            <p v-if="flash && ['created', 'updated', 'hoursSaved', 'deactivated', 'activated', 'resourceCreated', 'resourceUpdated', 'resourceDeactivated', 'resourceActivated'].includes(flash)" class="rounded-2xl border border-success/30 bg-success-soft p-4 text-sm text-success">
                 {{ t(`branchesAdmin.flash.${flash}`) }}
             </p>
             <p v-if="errors.branch === 'has_appointments'" class="rounded-2xl border border-danger/30 bg-danger-soft p-4 text-sm text-danger">
                 {{ t('branchesAdmin.errors.invalidWindow') }}
+            </p>
+            <p v-if="errors.resource === 'has_appointments'" class="rounded-2xl border border-danger/30 bg-danger-soft p-4 text-sm text-danger">
+                {{ t('branchesAdmin.resources.blocked') }}
             </p>
 
             <!-- Add a branch. -->
@@ -191,6 +229,41 @@ function hoursInvalid(branchId: string): boolean {
                             </div>
                         </div>
                         <Button type="button" variant="secondary" :block="false" :disabled="hoursInvalid(branch.id)" class="mt-3" @click="saveHours(branch)">{{ t('branchesAdmin.hours.save') }}</Button>
+                    </div>
+
+                    <!-- bookable resources (rooms/chairs/vehicles) -->
+                    <div>
+                        <p class="text-sm font-semibold text-ink">{{ t('branchesAdmin.resources.title') }}</p>
+                        <p class="mt-0.5 text-xs text-ink-muted">{{ t('branchesAdmin.resources.subtitle') }}</p>
+                        <div class="mt-3 space-y-2">
+                            <p v-if="branch.resources.length === 0" class="text-xs text-ink-subtle">{{ t('branchesAdmin.resources.empty') }}</p>
+                            <div v-for="resource in branch.resources" :key="resource.id" class="flex flex-wrap items-center gap-2 text-sm">
+                                <span class="rounded-full px-2 py-0.5 text-xs font-semibold" :class="resource.active ? 'bg-success-soft text-success' : 'bg-surface-2 text-ink-muted'">
+                                    {{ resource.active ? t('branchesAdmin.status.active') : t('branchesAdmin.status.inactive') }}
+                                </span>
+                                <input v-model="resourceEdits[resource.id].name" class="w-40 rounded-md border border-line bg-surface px-2 py-1 text-sm text-ink" :aria-label="t('branchesAdmin.resources.name')" />
+                                <select v-model="resourceEdits[resource.id].type" class="rounded-md border border-line bg-surface px-2 py-1 text-sm text-ink" :aria-label="t('branchesAdmin.resources.type.label')">
+                                    <option v-for="rt in resourceTypes" :key="rt" :value="rt">{{ t(`branchesAdmin.resources.type.${rt}`) }}</option>
+                                </select>
+                                <Button type="button" variant="secondary" :block="false" @click="saveResource(resource)">{{ t('branchesAdmin.actions.save') }}</Button>
+                                <Button v-if="resource.active" type="button" variant="danger" :block="false" :disabled="resource.future_appointments > 0" @click="setResourceActive(resource, false)">{{ t('branchesAdmin.actions.deactivate') }}</Button>
+                                <Button v-else type="button" variant="secondary" :block="false" @click="setResourceActive(resource, true)">{{ t('branchesAdmin.actions.activate') }}</Button>
+                                <span v-if="resource.active && resource.future_appointments > 0" class="text-xs text-ink-subtle">{{ t('branchesAdmin.resources.hasAppointments', { count: resource.future_appointments }, resource.future_appointments) }}</span>
+                            </div>
+                        </div>
+                        <div class="mt-3 flex flex-wrap items-end gap-2">
+                            <label class="block">
+                                <span class="mb-1 block text-xs font-medium text-ink-muted">{{ t('branchesAdmin.resources.name') }}</span>
+                                <input v-model="newResource[branch.id].name" class="w-40 rounded-md border border-line bg-surface px-2 py-1 text-sm text-ink" />
+                            </label>
+                            <label class="block">
+                                <span class="mb-1 block text-xs font-medium text-ink-muted">{{ t('branchesAdmin.resources.type.label') }}</span>
+                                <select v-model="newResource[branch.id].type" class="rounded-md border border-line bg-surface px-2 py-1 text-sm text-ink">
+                                    <option v-for="rt in resourceTypes" :key="rt" :value="rt">{{ t(`branchesAdmin.resources.type.${rt}`) }}</option>
+                                </select>
+                            </label>
+                            <Button type="button" variant="secondary" :block="false" :disabled="!newResource[branch.id].name" @click="createResource(branch)">{{ t('branchesAdmin.resources.add') }}</Button>
+                        </div>
                     </div>
                 </div>
             </Card>

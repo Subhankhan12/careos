@@ -64,6 +64,7 @@ use Modules\Scheduling\Events\AppointmentTransitioned;
 use Modules\Scheduling\Events\WaitlistEntryStatusChanged;
 use Modules\Scheduling\Events\WaitlistOfferLifecycleChanged;
 use Modules\Scheduling\Models\Appointment;
+use Modules\Scheduling\Models\Resource;
 use Modules\Scheduling\Models\WaitlistOffer;
 
 class AppServiceProvider extends ServiceProvider
@@ -183,6 +184,25 @@ class AppServiceProvider extends ServiceProvider
         ]);
         BranchHours::created($auditHours);
         BranchHours::updated($auditHours);
+
+        // Bookable-resource CRUD (CLINIC.W8c). Resource is a Scheduling model; the hooks
+        // live here so Scheduling stays free of Audit. activated/deactivated is derived
+        // from the `active` change so the deactivation guard leaves an audit trail.
+        Resource::created(fn (Resource $m) => $this->auditChange('resource.created', [
+            'resource_type' => 'resource',
+            'resource_id' => $m->id,
+            'context' => ['name' => $m->name, 'type' => $m->type, 'branch_id' => $m->branch_id],
+        ]));
+        Resource::updated(function (Resource $m): void {
+            $action = $m->wasChanged('active')
+                ? ($m->active ? 'resource.activated' : 'resource.deactivated')
+                : 'resource.updated';
+            $this->auditChange($action, [
+                'resource_type' => 'resource',
+                'resource_id' => $m->id,
+                'context' => ['fields' => array_keys($m->getChanges())],
+            ]);
+        });
 
         // People credential vault changes. The observer lives here so People
         // stays independent from Audit while still using the Platform audit context.

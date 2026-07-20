@@ -889,3 +889,24 @@ references the old ID.
   and audited via app-layer model hooks (branch.created/updated/activated/deactivated, branch.hours_changed,
   tenant.profile_updated) — Platform never imports Audit. GAPS still flagged: adding resources (rooms/chairs) to a
   branch has no backend, so a brand-new branch is created but not yet bookable until resources are seeded. (CLINIC.W8b)
+
+- **D-096 — Bookable-resource CRUD closes the W8b gap; resource deactivation carries the same scheduling-safety
+  guard as branch deactivation.** CLINIC.W8c built the resource (room/chair/vehicle) write path that W8b flagged
+  missing, so a self-service branch can now be made bookable. Resource is a Scheduling model, so — mirroring the
+  branch controller — the CRUD lives in the APP LAYER (`App\Http\Controllers\ResourceController` +
+  `App\Services\ResourceService`) because the deactivation guard queries Scheduling's Appointment and
+  `arch('Platform does not depend on Scheduling')` forbids the guard inside Platform. Resources are created UNDER a
+  branch (`POST /admin/branches/{branch}/resources`), edited/(de)activated by id; all admin.manage-gated,
+  tenant+branch scoped (cross-tenant → 404), audited via app-layer hooks
+  (resource.created/updated/activated/deactivated) — Scheduling never imports Audit. **Only room/chair/vehicle are
+  admin-creatable; practitioner resources stay staff-profile driven (People), excluded from this screen.**
+  **SCHEDULING SAFETY:** deactivation is soft (`active=false`, never a hard delete — `appointment_resources`
+  `restrictOnDelete`s a resource) and is **BLOCKED when the resource still has future active appointments** (via the
+  appointment_resources pivot, blockingStatuses, starts_at ≥ now) so scheduled care is never orphaned — the exact
+  branch guard. **No booking LOGIC changed:** the day-board (`DayBoardController`) and `AvailableSlotFinder::
+  resourcesByType` ALREADY filtered `Resource ... active=true`, so a new active resource is picked up and a
+  deactivated one drops out of every booking surface automatically — W8c only added the CRUD that flows through the
+  existing engine (proven end-to-end: create branch+resource → day-board-selectable + slot-finder offers it;
+  deactivate → gone from both). **Follow-up flagged:** a CRUD'd resource is immediately day-board-selectable but is
+  only OFFERED AS SLOTS once its per-resource availability windows are set (the existing `ResourceAvailability`
+  mechanism, unchanged); a resource-availability admin screen is the natural next step. (CLINIC.W8c)
