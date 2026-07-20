@@ -18,6 +18,16 @@ interface Record {
     charted_by: number;
 }
 
+interface Performed {
+    id: string;
+    tooth: string | null;
+    surface: string | null;
+    code: string | null;
+    name: string | null;
+    note: string | null;
+    performed_at: string;
+}
+
 const props = defineProps<{
     patient: { id: string; mrn: string; name: string; date_of_birth: string; sex: string };
     chart: Record[];
@@ -25,7 +35,10 @@ const props = defineProps<{
     teeth: { permanent: string[]; primary: string[] };
     surfaces: string[];
     conditions: { wholeTooth: string[]; surface: string[] };
-    actions: { can_chart: boolean; store_url: string };
+    procedures: Array<{ id: string; code: string | null; name: string | null; tooth_scoped: boolean }>;
+    branches: Array<{ id: string; name: string }>;
+    performed: Performed[];
+    actions: { can_chart: boolean; can_perform: boolean; store_url: string; perform_url: string };
 }>();
 
 const flash = computed(() => (page.props.flash as { status?: string } | undefined)?.status);
@@ -118,6 +131,23 @@ function submit(): void {
         preserveScroll: true,
         preserveState: true,
         onSuccess: () => form.reset('condition', 'note', 'reason'),
+    });
+}
+
+// Perform a procedure (G4): the resulting tooth-state options are the full G1 vocabulary
+// (the dentist states the factual consequence, e.g. extraction -> missing). The service
+// records the clinical fact + captures the charge + charts the tooth-state, atomically.
+const allConditions = computed(() => [...props.conditions.wholeTooth, ...props.conditions.surface]);
+const performedForSelected = computed(() =>
+    selectedTooth.value === null ? [] : props.performed.filter((p) => p.tooth === selectedTooth.value),
+);
+const performForm = useForm({ dental_procedure_id: '', branch_id: props.branches.length === 1 ? props.branches[0].id : '', tooth: '', surface: '', tooth_state: '', note: '' });
+function submitPerform(): void {
+    performForm.tooth = selectedTooth.value ?? '';
+    performForm.post(props.actions.perform_url, {
+        preserveScroll: true,
+        preserveState: true,
+        onSuccess: () => performForm.reset('dental_procedure_id', 'surface', 'tooth_state', 'note'),
     });
 }
 
@@ -272,6 +302,54 @@ function dateTime(iso: string): string {
                             <input v-model="form.reason" type="text" :placeholder="t('dental.reasonPlaceholder')" class="block w-full rounded-md border border-line bg-surface px-3 py-2 text-sm text-ink" />
                             <button type="submit" class="btn-glow w-full rounded-xl px-4 py-2 text-sm font-semibold" :disabled="form.processing || form.condition === ''">{{ t('dental.recordButton') }}</button>
                         </form>
+
+                        <!-- Perform a procedure (G4): records the clinical fact + charge + tooth-state, atomically. -->
+                        <form v-if="actions.can_perform" class="space-y-3 border-t border-line pt-4" @submit.prevent="submitPerform">
+                            <p class="text-xs font-semibold uppercase tracking-wide text-ink-muted">{{ t('dental.perform.title') }}</p>
+                            <label class="block">
+                                <span class="mb-1 block text-xs font-medium text-ink">{{ t('dental.perform.procedure') }}</span>
+                                <select v-model="performForm.dental_procedure_id" class="block w-full rounded-md border border-line bg-surface px-3 py-2 text-sm text-ink">
+                                    <option value="" disabled>{{ t('dental.perform.chooseProcedure') }}</option>
+                                    <option v-for="p in procedures" :key="p.id" :value="p.id">{{ p.code }} — {{ p.name }}</option>
+                                </select>
+                                <span v-if="performForm.errors.procedure" class="mt-1 block text-xs text-danger">{{ performForm.errors.procedure }}</span>
+                            </label>
+                            <label class="block">
+                                <span class="mb-1 block text-xs font-medium text-ink">{{ t('dental.perform.branch') }}</span>
+                                <select v-model="performForm.branch_id" class="block w-full rounded-md border border-line bg-surface px-3 py-2 text-sm text-ink">
+                                    <option value="" disabled>{{ t('dental.perform.chooseBranch') }}</option>
+                                    <option v-for="b in branches" :key="b.id" :value="b.id">{{ b.name }}</option>
+                                </select>
+                            </label>
+                            <label class="block">
+                                <span class="mb-1 block text-xs font-medium text-ink">{{ t('dental.perform.resultingState') }}</span>
+                                <select v-model="performForm.tooth_state" class="block w-full rounded-md border border-line bg-surface px-3 py-2 text-sm text-ink">
+                                    <option value="">{{ t('dental.perform.noChange') }}</option>
+                                    <option v-for="c in allConditions" :key="c" :value="c">{{ t(`dental.conditions.${c}`) }}</option>
+                                </select>
+                            </label>
+                            <label v-if="performForm.tooth_state && conditions.surface.includes(performForm.tooth_state)" class="block">
+                                <span class="mb-1 block text-xs font-medium text-ink">{{ t('dental.scope') }}</span>
+                                <select v-model="performForm.surface" class="block w-full rounded-md border border-line bg-surface px-3 py-2 text-sm text-ink">
+                                    <option value="" disabled>{{ t('dental.condition') }}</option>
+                                    <option v-for="s in surfaces" :key="s" :value="s">{{ t(`dental.surfaces.${s}`) }}</option>
+                                </select>
+                            </label>
+                            <input v-model="performForm.note" type="text" :placeholder="t('dental.perform.note')" class="block w-full rounded-md border border-line bg-surface px-3 py-2 text-sm text-ink" />
+                            <button type="submit" class="btn-glow w-full rounded-xl px-4 py-2 text-sm font-semibold" :disabled="performForm.processing || performForm.dental_procedure_id === '' || performForm.branch_id === ''">{{ t('dental.perform.button') }}</button>
+                            <p class="text-xs text-ink-subtle">{{ t('dental.perform.hint') }}</p>
+                        </form>
+
+                        <!-- Procedures performed on this tooth. -->
+                        <div v-if="performedForSelected.length" class="border-t border-line pt-4">
+                            <p class="text-xs font-semibold uppercase tracking-wide text-ink-muted">{{ t('dental.performed.title') }}</p>
+                            <ul class="mt-2 space-y-2 text-sm">
+                                <li v-for="pp in performedForSelected" :key="pp.id" class="border-b border-line/60 pb-2">
+                                    <p class="text-ink">{{ pp.code }} — {{ pp.name }}</p>
+                                    <p class="text-xs text-ink-subtle">{{ dateTime(pp.performed_at) }}<span v-if="pp.note"> · {{ pp.note }}</span></p>
+                                </li>
+                            </ul>
+                        </div>
 
                         <!-- Per-tooth charting history (the append-only trail). -->
                         <div class="border-t border-line pt-4">

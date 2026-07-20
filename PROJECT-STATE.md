@@ -166,6 +166,21 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
   perform workflow = G4). 7 feature tests + route smoke gains the fee-schedule route (billing 200 / reception
   403). No existing behavior changed; reconciliation/immutability/fence/eval suites green. Next: G4 procedures.
 
+- **DENTAL.G4 built the PERFORM-A-PROCEDURE workflow** — one atomic action tying G1+G2+G3 together (D-102).
+  `PerformProcedureService::perform` writes THREE things in ONE `DB::transaction`: (1) captures the charge via
+  the EXISTING G3 `DentalChargeService` (no new billing math — grep clean); (2) records an APPEND-ONLY
+  `performed_procedures` clinical row (tied to the charge); (3) charts the resulting tooth-state via the
+  EXISTING G1 `ToothChartService` (append-only). **CONSISTENCY: a failure in any step rolls back ALL THREE —
+  no orphan** (tested: an invalid tooth-state throws at step 3 → zero charges/performed/tooth-records). The
+  tooth-state result is a perform-time input the DENTIST states (extraction→missing, filling→restoration),
+  charted verbatim — factual consequence, not judgment (fence). **RBAC needs BOTH** dental.chart (clinical)
+  AND billing.manage (charge) — the dentist-owner holds both via org_admin; a doctor-only is denied at the
+  charge and rolls back. The charge reconciles-to-the-unit (tested). Odontogram (G2) extended additively with
+  a "Perform a procedure" side-panel form + performed history (`can_perform` = both perms); POST
+  `/dental/chart/{patient}/perform`. 5 feature tests + route smoke gains the perform route (reception 403).
+  No G3 code touched; no existing behavior changed; reconciliation/immutability/fence/eval + G1–G3 suites
+  green. Next: G5 treatment plan.
+
 - **Current phase:** Phase G COMPLETE - Comms, telehealth & patient portal. Consolidated at P0G.C:
   the functional staff-facing surface is FROZEN for the design pass, and `docs/SCREENS.md` is the
   factual re-skin brief (22 Inertia pages + 11 nurse-PWA screens with routes/guards/props/actions).

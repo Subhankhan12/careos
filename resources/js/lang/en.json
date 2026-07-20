@@ -1400,7 +1400,8 @@
         "upper": "Upper",
         "lower": "Lower",
         "flash": {
-            "charted": "Charted."
+            "charted": "Charted.",
+            "performed": "Procedure recorded and charged."
         },
         "dentition": {
             "permanent": "Permanent",
@@ -1424,6 +1425,23 @@
         "recordButton": "Record",
         "history": "Tooth history",
         "noHistory": "No charting history for this tooth.",
+        "perform": {
+            "title": "Perform a procedure",
+            "procedure": "Procedure",
+            "chooseProcedure": "Choose a procedure…",
+            "branch": "Location",
+            "chooseBranch": "Choose a location…",
+            "resultingState": "Resulting tooth state (optional)",
+            "noChange": "No change",
+            "note": "Note (optional)",
+            "button": "Record procedure + charge",
+            "hint": "Records the procedure, captures the charge, and updates the chart — in one action."
+        },
+        "performed": {
+            "title": "Procedures performed",
+            "empty": "No procedures performed yet.",
+            "onTooth": "Tooth {tooth}"
+        },
         "surfaces": {
             "mesial": "Mesial",
             "distal": "Distal",

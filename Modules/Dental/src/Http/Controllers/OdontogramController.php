@@ -8,10 +8,15 @@ use Illuminate\Support\Facades\Gate;
 use Inertia\Inertia;
 use Inertia\Response;
 use Modules\Dental\Exceptions\DentalException;
+use Modules\Dental\Models\DentalProcedure;
+use Modules\Dental\Models\PerformedProcedure;
 use Modules\Dental\Models\ToothRecord;
+use Modules\Dental\Services\DentalCatalogService;
+use Modules\Dental\Services\PerformProcedureService;
 use Modules\Dental\Services\ToothChartService;
 use Modules\Dental\Support\ToothNotation;
 use Modules\Patients\Models\Patient;
+use Modules\Platform\Models\Branch;
 use Modules\Platform\Models\User;
 
 /**
@@ -30,7 +35,7 @@ use Modules\Platform\Models\User;
  */
 class OdontogramController
 {
-    public function show(Request $request, string $patient, ToothChartService $charts): Response
+    public function show(Request $request, string $patient, ToothChartService $charts, DentalCatalogService $catalog): Response
     {
         Gate::authorize('patient.view');
         $actor = $request->user();
@@ -42,6 +47,11 @@ class OdontogramController
         // both patient-scoped read-log inside the service.
         $chart = $charts->currentChart($actor, $record);
         $history = $charts->history($actor, $record);
+
+        // Performing (clinical record + charge, DENTAL.G4) needs BOTH the clinical gate and
+        // the billing gate — the dentist-owner (org_admin) holds them. The procedure catalog
+        // is only surfaced when the user can actually perform.
+        $canPerform = Gate::allows('dental.chart') && Gate::allows('billing.manage');
 
         return Inertia::render('Dental/Odontogram', [
             'patient' => [
@@ -64,11 +74,78 @@ class OdontogramController
                 'wholeTooth' => ToothRecord::WHOLE_TOOTH_CONDITIONS,
                 'surface' => ToothRecord::SURFACE_CONDITIONS,
             ],
+            // Perform-a-procedure (G4): the catalog to pick from, branches to charge against,
+            // and the patient's performed-procedure history. Facts only — no interpretation.
+            'procedures' => $canPerform
+                ? $catalog->list()->map(fn (DentalProcedure $procedure): array => [
+                    'id' => $procedure->id,
+                    'code' => $procedure->tariffItem?->code,
+                    'name' => $procedure->tariffItem?->description,
+                    'tooth_scoped' => $procedure->tooth_scoped,
+                ])->all()
+                : [],
+            'branches' => Branch::query()->orderBy('name')->get(['id', 'name'])
+                ->map(fn (Branch $branch): array => ['id' => $branch->id, 'name' => $branch->name])->all(),
+            'performed' => PerformedProcedure::query()
+                ->where('patient_id', $record->id)
+                ->with('dentalProcedure.tariffItem')
+                ->orderByDesc('performed_at')
+                ->orderByDesc('id')
+                ->get()
+                ->map(fn (PerformedProcedure $p): array => [
+                    'id' => $p->id,
+                    'tooth' => $p->tooth,
+                    'surface' => $p->surface,
+                    'code' => $p->dentalProcedure?->tariffItem?->code,
+                    'name' => $p->dentalProcedure?->tariffItem?->description,
+                    'note' => $p->note,
+                    'performed_at' => $p->performed_at->toIso8601String(),
+                ])->all(),
             'actions' => [
                 'can_chart' => Gate::allows('dental.chart'),
+                'can_perform' => $canPerform,
                 'store_url' => route('dental.chart.store', $record->id),
+                'perform_url' => route('dental.chart.perform', $record->id),
             ],
         ]);
+    }
+
+    /**
+     * Perform a procedure on this patient — the G4 atomic workflow (clinical record + charge
+     * + tooth-state change, together). All logic lives in PerformProcedureService; this only
+     * resolves the inputs and dispatches. The clinical gate is `dental.chart`; the charge
+     * enforces `billing.manage` inside the service (a failure there rolls the whole thing back).
+     */
+    public function perform(Request $request, string $patient, PerformProcedureService $performer): RedirectResponse
+    {
+        Gate::authorize('dental.chart');
+        $actor = $request->user();
+        abort_unless($actor instanceof User, 403);
+
+        $data = $request->validate([
+            'dental_procedure_id' => ['required', 'string'],
+            'branch_id' => ['required', 'string'],
+            'tooth' => ['nullable', 'string', 'max:2'],
+            'surface' => ['nullable', 'string', 'max:20'],
+            'tooth_state' => ['nullable', 'string', 'max:40'],
+            'note' => ['nullable', 'string', 'max:2000'],
+        ]);
+
+        $record = Patient::query()->whereKey($patient)->firstOrFail();
+        $procedure = DentalProcedure::query()->whereKey($data['dental_procedure_id'])->firstOrFail();
+        $branch = Branch::query()->whereKey($data['branch_id'])->firstOrFail();
+
+        $tooth = ($data['tooth'] ?? '') === '' ? null : $data['tooth'];
+        $surface = ($data['surface'] ?? '') === '' ? null : $data['surface'];
+        $toothState = ($data['tooth_state'] ?? '') === '' ? null : $data['tooth_state'];
+
+        try {
+            $performer->perform($actor, $record, $branch, $procedure, $tooth, $surface, $data['note'] ?? null, $toothState);
+        } catch (DentalException $e) {
+            return back()->withErrors(['procedure' => $e->getMessage()]);
+        }
+
+        return redirect()->route('dental.chart', $record->id)->with('status', 'performed');
     }
 
     public function store(Request $request, string $patient, ToothChartService $charts): RedirectResponse

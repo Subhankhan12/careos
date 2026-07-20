@@ -1050,3 +1050,32 @@ references the old ID.
   recommendation (tested). String-id routes (FIX.1). 7 feature tests + the route smoke gains the fee-schedule
   route (billing 200 / reception 403). No existing behavior changed; the reconciliation/immutability/fence/
   eval suites stay green. (DENTAL.G3)
+- **D-102 — Performing a procedure is ONE ATOMIC action: clinical record + charge + tooth-state, together
+  or not at all, reusing G1/G3 with no new logic.** DENTAL.G4 wires the vertical together.
+  `PerformProcedureService::perform` writes THREE things inside ONE `DB::transaction`: (1) captures the
+  charge via the EXISTING `DentalChargeService::capture` → `ChargeCaptureService` (G3 — tariff snapshot →
+  the invoice/reconciliation pipeline; NO new billing math, adversarial-grep clean); (2) records a
+  `performed_procedures` row (the clinical fact, APPEND-ONLY at model + DB-trigger level, tied to the
+  charge via `charge_id` NOT NULL); (3) charts the resulting tooth-state change via the EXISTING
+  `ToothChartService::chart` (G1 — append-only). **CONSISTENCY GUARANTEE (tested):** a performed procedure
+  never leaves a charge without its clinical record or vice-versa — a failure in ANY step rolls back ALL
+  three (proven: an invalid resulting tooth-state makes step 3 throw AFTER the charge + clinical record
+  were written → the whole transaction rolls back → zero charges, zero performed rows, zero tooth records).
+  Nested audit writes (charge.captured, dental.tooth_charted, dental.procedure.performed) become savepoints
+  and roll back with the outer transaction. **TOOTH-STATE MAPPING = factual consequence, not judgment:** the
+  DENTIST states the resulting condition per perform (e.g. extraction → `missing`, filling → `restoration`
+  on the surface); the service charts exactly that value (validated against G1's vocabulary — a whole-tooth
+  condition charts whole-tooth, a surface condition charts on the performed surface), it INFERS nothing and
+  GRADES nothing. `performed_procedures` records fact only — no severity/score/grade/recommendation (fence,
+  tested). **RBAC (the permission model):** perform authorizes `dental.chart` (clinical) up front AND the
+  charge enforces `billing.manage` inside — so performing-and-charging needs BOTH; a doctor (dental.chart,
+  no billing.manage) is denied at the charge step and everything rolls back; the dentist-owner holds both
+  via org_admin (tested). A charge from a performed procedure reconciles-to-the-unit like any other
+  (tested). Append-only: a correction is a NEW performed record; the prior is preserved (tested).
+  **UI:** the odontogram (G2) is extended additively — a "Perform a procedure" side-panel form (procedure +
+  branch + optional resulting tooth-state + note, shown only when `can_perform` = dental.chart && billing.
+  manage) + a per-tooth performed-procedure history; `OdontogramController::perform` (POST
+  `/dental/chart/{patient}/perform`, string-id FIX.1). PRESENTATIONAL (P0D.GU) — the service owns the logic.
+  5 feature tests + the route smoke gains the perform route (reception 403 at the clinical gate). No G3
+  code was touched (the mapping is a perform-time input, so the catalog needed no change); no existing
+  behavior changed; the reconciliation/immutability/fence/eval + G1–G3 suites stay green. (DENTAL.G4)

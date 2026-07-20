@@ -207,6 +207,10 @@ Route::middleware('auth')->group(function () {
     // (FIX.1). Render-not-judge: the payload carries charted facts only.
     Route::get('/dental/chart/{patient}', [OdontogramController::class, 'show'])->name('dental.chart');
     Route::post('/dental/chart/{patient}', [OdontogramController::class, 'store'])->name('dental.chart.store');
+    // Perform a procedure (DENTAL.G4) — one atomic action: clinical record + charge (through the
+    // existing G3 billing path) + any tooth-state change (through G1's append-only charting).
+    // dental.chart-gated (clinical); the charge enforces billing.manage inside the service.
+    Route::post('/dental/chart/{patient}/perform', [OdontogramController::class, 'perform'])->name('dental.chart.perform');
 
     // Dental fee schedule (DENTAL.G3) — the tenant's procedure catalog, authored over the
     // EXISTING billing tariff engine (a procedure IS a tariff item; charging snapshots the

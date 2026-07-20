@@ -240,6 +240,16 @@ test('per-role RBAC smoke: each role reaches its pages (200) and is denied other
         }
     }
 
+    // DENTAL.G4: the perform-a-procedure write route is dental.chart-gated (clinical). Reception
+    // (no dental.chart) is denied at the gate through the real stack, before any data is touched.
+    smokeCtx()->forget();
+    $performStatus = $this->actingAs($u['reception'])
+        ->post('/dental/chart/'.$fx['patient']->id.'/perform', ['dental_procedure_id' => 'x', 'branch_id' => 'y'])
+        ->status();
+    if ($performStatus !== 403) {
+        $failures[] = "dental.perform as reception -> {$performStatus} (expected 403)";
+    }
+
     expect(implode("\n", $failures))->toBe('');
 });
 

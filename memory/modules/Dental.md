@@ -87,14 +87,30 @@ A dedicated dentist/hygienist/assistant role split is a later dental gate. Recep
 
 ## Status
 
-**DENTAL.G1 + G2 + G3 COMPLETE.** G1 = tooth/odontogram data model (foundation). G2 = the interactive
-odontogram chart UI, render-not-judge. G3 = the dental procedure catalog (tenant-authored fee schedule) +
-billing-engine integration (a procedure IS a tariff item; charging reuses the tested engine, no new billing
-logic).
+**DENTAL.G1–G4 COMPLETE.** G1 = tooth/odontogram data model (foundation). G2 = interactive odontogram chart
+UI, render-not-judge. G3 = procedure catalog (tenant-authored fee schedule) + billing-engine integration
+(a procedure IS a tariff item; no new billing logic). G4 = the perform-a-procedure workflow — one atomic
+action recording the clinical fact + charge + tooth-state change.
+
+## Perform workflow (DENTAL.G4)
+
+- `Models\PerformedProcedure` (APPEND-ONLY at model + DB-trigger level, LogsReads) — the clinical fact,
+  tied to the resulting `charge_id` (NOT NULL). `Services\PerformProcedureService::perform` writes THREE
+  things in ONE `DB::transaction`: (1) captures the charge via the EXISTING `DentalChargeService::capture`
+  (G3, no new billing math); (2) records the `performed_procedures` row; (3) charts the resulting
+  tooth-state via the EXISTING `ToothChartService::chart` (G1, append-only). **A failure in any step rolls
+  back ALL THREE — no orphan** (tested; nested audit writes become savepoints). The tooth-state result is a
+  perform-time input the DENTIST states (extraction → missing, filling → restoration on the surface) —
+  charted verbatim against G1's vocabulary, no inference/judgment. **RBAC needs BOTH** `dental.chart`
+  (up front, clinical) AND `billing.manage` (inside the charge) — the dentist-owner holds both via
+  org_admin; a doctor (dental.chart only) is denied at the charge and everything rolls back. `Http\
+  Controllers\OdontogramController::perform` (POST `/dental/chart/{patient}/perform`, string-id) + the
+  odontogram Vue gains a "Perform a procedure" side-panel form + performed history (shown only when
+  `can_perform`). No G3 code changed. See [[D-102]], [[Billing]], [[Clinical]].
 
 ## Open items / next gates (per docs/DENTAL-DELIVERY-MAP.md)
 
-- (done: G2 odontogram UI · G3 procedure catalog + billing) · G4 procedures (perform workflow) · G5 treatment
+- (done: G2 odontogram UI · G3 catalog+billing · G4 perform workflow) · G5 treatment
   plan · G6 perio charting · G7 diagnosis record · G8 imaging/scans; later: G9 chair-view (reuse), G10
   sterilization/inventory, G11 ortho/scan-comparison. Long poles: imaging-device/scanner integration
   (partner-gated), licensed procedure codes (CDT licensed — tenant-authored catalog, do NOT bundle).
