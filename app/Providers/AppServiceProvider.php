@@ -47,6 +47,8 @@ use Modules\Nursing\Events\ServiceAgreementChanged;
 use Modules\Nursing\Events\VisitEventRecorded;
 use Modules\Patients\Models\Patient;
 use Modules\People\Models\Credential;
+use Modules\Platform\Models\Branch;
+use Modules\Platform\Models\BranchHours;
 use Modules\Platform\Models\FeatureFlag;
 use Modules\Platform\Models\Role;
 use Modules\Platform\Models\RoleAssignment;
@@ -145,6 +147,42 @@ class AppServiceProvider extends ServiceProvider
             'resource_id' => $m->id,
             'context' => ['key' => $m->key],
         ]));
+
+        // Practice profile + branch config changes (CLINIC.W8b). Kept in the app layer so
+        // Platform stays free of Audit; auditChange skips seeding (system mode).
+        Tenant::updated(function (Tenant $m): void {
+            $profileFields = ['name', 'contact_email', 'contact_phone', 'address_line1', 'address_line2', 'city', 'postal_code', 'country'];
+            $changed = array_values(array_intersect($profileFields, array_keys($m->getChanges())));
+            if ($changed !== []) {
+                $this->auditChange('tenant.profile_updated', [
+                    'resource_type' => 'tenant',
+                    'resource_id' => $m->id,
+                    'context' => ['fields' => $changed],
+                ]);
+            }
+        });
+        Branch::created(fn (Branch $m) => $this->auditChange('branch.created', [
+            'resource_type' => 'branch',
+            'resource_id' => $m->id,
+            'context' => ['name' => $m->name, 'code' => $m->code],
+        ]));
+        Branch::updated(function (Branch $m): void {
+            $action = $m->wasChanged('active')
+                ? ($m->active ? 'branch.activated' : 'branch.deactivated')
+                : 'branch.updated';
+            $this->auditChange($action, [
+                'resource_type' => 'branch',
+                'resource_id' => $m->id,
+                'context' => ['fields' => array_keys($m->getChanges())],
+            ]);
+        });
+        $auditHours = fn (BranchHours $m) => $this->auditChange('branch.hours_changed', [
+            'resource_type' => 'branch_hours',
+            'resource_id' => $m->id,
+            'context' => ['branch_id' => $m->branch_id, 'weekday' => $m->weekday, 'is_closed' => $m->is_closed],
+        ]);
+        BranchHours::created($auditHours);
+        BranchHours::updated($auditHours);
 
         // People credential vault changes. The observer lives here so People
         // stays independent from Audit while still using the Platform audit context.

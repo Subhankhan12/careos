@@ -863,3 +863,29 @@ references the old ID.
   scoped + cross-tenant user/role → 404. One existing-test update (tracking, not weakening): `NavAndErrorPageTest`'s
   exact nav-permissions map gained `admin.manage` because the new `/settings` nav link is gated on it (shared via
   `HandleInertiaRequests::NAV_PERMISSIONS`) — same category as FIX.4's L-2 seeder-count update. (CLINIC.W8)
+- **D-095 — Settings backends (profile, branch CRUD, opening hours, timezone) are real domain work, but branch
+  deactivation + opening-hours changes must never orphan or silently break scheduling.** CLINIC.W8b built the
+  write backends the W8 discovery found missing. **Profile:** new nullable `tenants` columns (contact_email/phone,
+  address_*), editable via `SettingsController::updateProfile`; slug/region/status/plan stay READ-ONLY (slug is the
+  public `/book/{slug}` key, region is immutable, status/plan are platform/billing). locale + timezone persist via
+  SettingsService and are APPLIED per request by a new `ApplyTenantLocaleTimezone` middleware
+  (`date_default_timezone_set` for server `now()`, `app()->setLocale()`; NEVER touches `config('app.timezone')`, so
+  Eloquent keeps serialising UTC — stored data unchanged) + surfaced lazily on Inertia's `locale`/`timezone` (lazy
+  closures because Inertia evaluates `share()` before the middleware runs). Full per-widget datetime→tz display is a
+  documented follow-up. **Branch CRUD:** a new `branch_hours` table + `BranchHours` model (per-weekday, validated
+  like ResourceAvailability), and an APP-LAYER `App\Http\Controllers\BranchController` + `App\Services\BranchService`
+  (app layer because the deactivation guard spans Platform's Branch + Scheduling's appointments/resources, and
+  `arch('Platform does not depend on Scheduling')` forbids doing it inside Platform). **SCHEDULING SAFETY — two
+  guards, both tested:** (1) **Deactivation is soft (`active=false`, never a hard delete** — appointments/encounters/
+  charges/visits `restrictOnDelete` a branch) and is **BLOCKED when the branch still has future active appointments**
+  (blockingStatuses, starts_at ≥ now) so scheduled care is never stranded; the day-board/portal now filter
+  `active=true` (public booking already did), so a deactivated branch disappears from every booking surface while its
+  rows persist. (2) **Opening hours feed the slot engine:** `AvailableSlotFinder` bounds its scan to the branch's
+  configured [open, close] for the weekday (a closed day offers nothing), and `BookingService::createBooking` — the
+  authoritative funnel for book/bookOnline/series/waitlist — rejects a start outside hours (new
+  `BookingUnavailableException::outsideBranchHours`). **Backward-compatible by design:** a branch with NO configured
+  hours keeps the engine's default 07:00–19:00 window and imposes no booking constraint, so every existing
+  scheduling test (none set hours) stays green. All writes admin.manage-gated, tenant-scoped (cross-tenant → 404),
+  and audited via app-layer model hooks (branch.created/updated/activated/deactivated, branch.hours_changed,
+  tenant.profile_updated) — Platform never imports Audit. GAPS still flagged: adding resources (rooms/chairs) to a
+  branch has no backend, so a brand-new branch is created but not yet bookable until resources are seeded. (CLINIC.W8b)

@@ -213,6 +213,14 @@ are registered with tests. Scheduler Agent tools now wrap waitlist fill proposal
 suggestions under AiCore approval governance. D.7 added the day-board Document handoff to Clinical.
 Local `composer check` is green: 205 tests / 1013 assertions. Local `cmd /c npm run build` is green.
 
+- Branch OPENING HOURS (CLINIC.W8b) bound bookable times. `AvailableSlotFinder::forServiceBranchDate` and
+  `BookingService::createBooking`/`checkAvailability` read `Modules\Platform\Services\BranchHoursService`
+  (Scheduling→Platform is allowed). A branch with NO configured `branch_hours` rows keeps the engine's default
+  07:00–19:00 scan window and imposes no booking constraint (so every hours-less test stays green); a configured
+  branch bounds slots to its per-weekday [open, close] (closed day → no slots) and the write path throws
+  `BookingUnavailableException::outsideBranchHours` for a start outside hours. Day-board + portal branch lists now
+  filter `active=true` (public booking already did) so a deactivated branch is unbookable everywhere. See [[D-095]].
+
 ## Open items
 
 - Later gates add realtime day-board refresh and UI surfaces for agent proposals.

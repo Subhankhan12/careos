@@ -1,14 +1,8 @@
 {
     "errors": {
-        "code": "Error {status}",
-        "backToApp": "Back to dashboard",
         "403": {
             "title": "You don't have access to this area",
             "body": "Your account doesn't have permission to view this. If you think this is a mistake, please contact your administrator."
-        },
-        "portalLockout": {
-            "title": "Your portal access has been withdrawn",
-            "body": "Your consent to use the patient portal was withdrawn, so you've been signed out. Please contact the practice if you'd like to use the portal again."
         },
         "404": {
             "title": "Page not found",
@@ -22,6 +16,12 @@
             "title": "Temporarily unavailable",
             "body": "CareOS is briefly down for maintenance. Please try again in a moment."
         },
+        "code": "Error {status}",
+        "backToApp": "Back to dashboard",
+        "portalLockout": {
+            "title": "Your portal access has been withdrawn",
+            "body": "Your consent to use the patient portal was withdrawn, so you've been signed out. Please contact the practice if you'd like to use the portal again."
+        },
         "generic": {
             "title": "Something went wrong",
             "body": "An unexpected error occurred. Please try again."
@@ -33,12 +33,27 @@
         "subtitle": "Configure your practice. The server enforces every value — this page only reflects it.",
         "flash": {
             "saved": "Settings saved.",
-            "unchanged": "No changes to save."
+            "unchanged": "No changes to save.",
+            "profileSaved": "Practice profile saved."
         },
         "profile": {
             "title": "Practice profile",
-            "subtitle": "Read-only for now — editing the practice name and contact details isn't wired to a backend yet.",
+            "subtitle": "The details shown on invoices, the portal and public booking.",
             "name": "Practice name",
+            "contactEmail": "Contact email",
+            "contactPhone": "Contact phone",
+            "addressLine1": "Address line 1",
+            "addressLine2": "Address line 2",
+            "city": "City",
+            "postalCode": "Postal code",
+            "country": "Country (2-letter)",
+            "locale": "Interface language",
+            "timezone": "Timezone",
+            "save": "Save profile"
+        },
+        "identity": {
+            "title": "Identity & plan",
+            "subtitle": "Fixed identifiers — the booking slug and region cannot change; status and plan are managed for you.",
             "slug": "Booking slug",
             "region": "Region",
             "status": "Status",
@@ -57,13 +72,14 @@
         },
         "branches": {
             "title": "Branches",
-            "subtitle": "Your configured locations. Adding or editing branches isn't wired to a backend yet.",
+            "subtitle": "Your practice locations.",
             "code": "Code",
             "city": "City",
             "timezone": "Timezone",
             "active": "Active",
             "inactive": "Inactive",
-            "empty": "No branches configured."
+            "empty": "No branches yet.",
+            "manage": "Manage branches →"
         },
         "access": {
             "title": "Roles & access",
@@ -72,8 +88,8 @@
         },
         "gaps": {
             "title": "Not yet configurable",
-            "subtitle": "On the roadmap — these have no backend to save to yet, so they aren't shown as editable.",
-            "items": "Practice name & contact details · Branch management · Opening hours · Interface language · Feature toggles · Plan & subscription"
+            "subtitle": "On the roadmap — these have no backend to save to yet.",
+            "items": "Adding resources (rooms/chairs) to a branch · Feature toggles · Plan & subscription"
         }
     },
     "roles": {
@@ -1125,6 +1141,74 @@
             "cancelled": "Cancelled",
             "no_show": "No-show",
             "rescheduled": "Rescheduled"
+        }
+    },
+    "branchesAdmin": {
+        "eyebrow": "Governance",
+        "title": "Branches",
+        "subtitle": "Manage your locations, their opening hours and status.",
+        "backToSettings": "← Back to settings",
+        "flash": {
+            "created": "Branch created.",
+            "updated": "Branch updated.",
+            "hoursSaved": "Opening hours saved.",
+            "deactivated": "Branch deactivated.",
+            "activated": "Branch reactivated."
+        },
+        "errors": {
+            "codeTaken": "That branch code is already in use.",
+            "hasAppointments": "Cannot deactivate — this branch has {count} upcoming appointment. Reassign or cancel it first. | Cannot deactivate — this branch has {count} upcoming appointments. Reassign or cancel them first.",
+            "invalidWindow": "Each open day needs an opening time before its closing time."
+        },
+        "fields": {
+            "name": "Branch name",
+            "code": "Code",
+            "addressLine1": "Address line 1",
+            "addressLine2": "Address line 2",
+            "city": "City",
+            "postalCode": "Postal code",
+            "country": "Country (2-letter)",
+            "timezone": "Timezone"
+        },
+        "weekday": {
+            "0": "Sunday",
+            "1": "Monday",
+            "2": "Tuesday",
+            "3": "Wednesday",
+            "4": "Thursday",
+            "5": "Friday",
+            "6": "Saturday"
+        },
+        "create": {
+            "title": "Add a branch",
+            "subtitle": "A new active branch is immediately selectable for booking.",
+            "submit": "Create branch"
+        },
+        "list": {
+            "title": "Your branches",
+            "empty": "No branches yet.",
+            "resources": "{count} active resource | {count} active resources",
+            "appointments": "{count} upcoming appointment | {count} upcoming appointments",
+            "noResources": "No resources yet — adding rooms/chairs to a branch is not wired yet, so it cannot be booked."
+        },
+        "hours": {
+            "title": "Opening hours",
+            "subtitle": "Bookable times are bounded by these hours. A branch with none set uses the default 07:00–19:00.",
+            "closed": "Closed",
+            "openTime": "Opens",
+            "closeTime": "Closes",
+            "save": "Save opening hours"
+        },
+        "actions": {
+            "save": "Save details",
+            "deactivate": "Deactivate",
+            "activate": "Reactivate",
+            "editHours": "Opening hours",
+            "edit": "Edit"
+        },
+        "status": {
+            "active": "Active",
+            "inactive": "Inactive"
         }
     }
 }

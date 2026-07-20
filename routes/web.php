@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\AppLandingController;
+use App\Http\Controllers\BranchController;
 use App\Http\Controllers\ClinicalSummaryDraftController;
 use App\Http\Controllers\ClinicalSummaryInsertController;
 use App\Http\Controllers\Comms\InboxAgentController;
@@ -245,8 +246,18 @@ Route::middleware('auth')->group(function () {
     // audited RoleAssignment path — no domain logic here.
     Route::get('/settings', [SettingsController::class, 'index'])->name('settings.index');
     Route::post('/settings', [SettingsController::class, 'update'])->name('settings.update');
+    Route::post('/settings/profile', [SettingsController::class, 'updateProfile'])->name('settings.profile.update');
     Route::get('/admin/roles', [UserRoleController::class, 'index'])->name('admin.roles.index');
     Route::post('/admin/roles/assign', [UserRoleController::class, 'assign'])->name('admin.roles.assign');
+
+    // Branch management (CLINIC.W8b) — app-layer controller (deactivation guard spans
+    // Platform + Scheduling); soft-deactivate blocked when future appointments exist.
+    Route::get('/admin/branches', [BranchController::class, 'index'])->name('admin.branches.index');
+    Route::post('/admin/branches', [BranchController::class, 'store'])->name('admin.branches.store');
+    Route::post('/admin/branches/{branch}/update', [BranchController::class, 'update'])->name('admin.branches.update');
+    Route::post('/admin/branches/{branch}/hours', [BranchController::class, 'hours'])->name('admin.branches.hours');
+    Route::post('/admin/branches/{branch}/deactivate', [BranchController::class, 'deactivate'])->name('admin.branches.deactivate');
+    Route::post('/admin/branches/{branch}/activate', [BranchController::class, 'activate'])->name('admin.branches.activate');
 });
 
 // Self check-in KIOSK (P0P.G7): unauthenticated but scoped to a branch by the

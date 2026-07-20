@@ -23,6 +23,7 @@ class DayBoardController
 
         $date = Carbon::parse($request->query('date', Carbon::today()->toDateString()))->toDateString();
         $branch = Branch::query()
+            ->where('active', true)
             ->when($request->query('branch_id'), fn ($query, $branchId) => $query->whereKey($branchId))
             ->orderBy('name')
             ->firstOrFail();
@@ -34,7 +35,7 @@ class DayBoardController
 
         return Inertia::render('Scheduling/DayBoard', [
             'filters' => ['date' => $date, 'branch_id' => $branch->id],
-            'branches' => Branch::query()->orderBy('name')->get(['id', 'name'])->all(),
+            'branches' => Branch::query()->where('active', true)->orderBy('name')->get(['id', 'name'])->all(),
             'resources' => Resource::query()
                 ->where('branch_id', $branch->id)
                 ->where('active', true)

@@ -45,7 +45,9 @@ class HandleInertiaRequests extends Middleware
         return [
             ...parent::share($request),
             'appName' => config('app.name'),
-            'locale' => app()->getLocale(),
+            // Lazy so they reflect ApplyTenantLocaleTimezone, which runs AFTER share() is called.
+            'locale' => fn () => app()->getLocale(),
+            'timezone' => fn () => date_default_timezone_get(),
             'auth' => [
                 'user' => fn () => $this->authUser($request),
             ],

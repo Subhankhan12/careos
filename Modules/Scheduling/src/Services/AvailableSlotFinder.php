@@ -5,13 +5,22 @@ namespace Modules\Scheduling\Services;
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Facades\DB;
+use Modules\Platform\Services\BranchHoursService;
 use Modules\Scheduling\Models\Appointment;
 use Modules\Scheduling\Models\Resource;
 use Modules\Scheduling\Models\Service;
 
 class AvailableSlotFinder
 {
-    public function __construct(private readonly AvailabilityService $availability) {}
+    /** Default scan window (07:00–19:00) for branches that have not configured opening hours. */
+    private const DEFAULT_OPEN_MINUTES = 7 * 60;
+
+    private const DEFAULT_CLOSE_MINUTES = 19 * 60;
+
+    public function __construct(
+        private readonly AvailabilityService $availability,
+        private readonly BranchHoursService $branchHours,
+    ) {}
 
     /**
      * @return list<array{starts_at: string, ends_at: string, resource_ids: list<string>}>
@@ -29,9 +38,18 @@ class AvailableSlotFinder
             return [];
         }
 
+        // Bound the scan to the branch's opening hours for this weekday. An unconfigured
+        // branch keeps the default 07:00–19:00 window; a configured-but-closed day yields
+        // no slots at all.
+        $window = $this->branchHours->scanWindow($branchId, $date->dayOfWeek, self::DEFAULT_OPEN_MINUTES, self::DEFAULT_CLOSE_MINUTES);
+
+        if ($window === null) {
+            return [];
+        }
+
         $slots = [];
-        $cursor = $date->setTime(7, 0);
-        $endOfDay = $date->setTime(19, 0);
+        $cursor = $date->addMinutes($window['open']);
+        $endOfDay = $date->addMinutes($window['close']);
 
         while ($cursor->lessThanOrEqualTo($endOfDay) && count($slots) < $limit) {
             $ends = $cursor->addMinutes($service->default_duration_minutes);

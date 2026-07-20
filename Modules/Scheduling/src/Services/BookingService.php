@@ -14,6 +14,7 @@ use Modules\Patients\Models\Patient;
 use Modules\Platform\Exceptions\CrossTenantReferenceException;
 use Modules\Platform\Models\Branch;
 use Modules\Platform\Models\User;
+use Modules\Platform\Services\BranchHoursService;
 use Modules\Platform\Services\TenantContext;
 use Modules\Scheduling\Events\AppointmentBooked;
 use Modules\Scheduling\Exceptions\BookingConflictException;
@@ -28,6 +29,7 @@ class BookingService
     public function __construct(
         private readonly AvailabilityService $availability,
         private readonly TenantContext $tenantContext,
+        private readonly BranchHoursService $branchHours,
     ) {}
 
     /**
@@ -130,6 +132,13 @@ class BookingService
         $ends = $starts->addMinutes($service->default_duration_minutes);
         $heldStart = $starts->subMinutes($service->buffer_before_minutes);
         $heldEnd = $ends->addMinutes($service->buffer_after_minutes);
+
+        // The branch must be open then. Unconfigured branches impose no constraint; a
+        // configured branch rejects a start outside its opening hours (or on a closed day).
+        // Every write path (book/bookOnline/series/waitlist) funnels through here.
+        if (! $this->branchHours->allowsStart($branchId, $starts->dayOfWeek, $starts->hour * 60 + $starts->minute)) {
+            throw BookingUnavailableException::outsideBranchHours($branchId);
+        }
 
         foreach ($resources as $resource) {
             $this->assertWithinAvailability($resource, $heldStart, $heldEnd);
@@ -358,6 +367,10 @@ SQL,
             $ends = $starts->addMinutes($service->default_duration_minutes);
             $heldStart = $starts->subMinutes($service->buffer_before_minutes);
             $heldEnd = $ends->addMinutes($service->buffer_after_minutes);
+
+            if (! $this->branchHours->allowsStart($branchId, $starts->dayOfWeek, $starts->hour * 60 + $starts->minute)) {
+                return ['free' => false, 'reason' => 'outside_branch_hours'];
+            }
 
             foreach ($resources as $resource) {
                 $this->assertWithinAvailability($resource, $heldStart, $heldEnd);

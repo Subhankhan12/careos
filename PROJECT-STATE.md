@@ -53,9 +53,17 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
   (UserRoleController) assigns one of the 6 seeded role templates via the sanctioned auto-audited `RoleAssignment`
   path (no role builder, no per-permission toggles; server Gate authoritative; a last-org_admin self-lockout guard).
   Both admin.manage-gated + tenant-scoped, covered by 9 feature tests + the route smoke. **Still not wired** (the
-  remaining founder-scope gaps): governance dashboard, KB admin, AI approval-queue, staff-telehealth join — plus the
-  settings BACKENDS a clinic will eventually want but that don't exist yet (editable practice profile, branch CRUD,
-  opening hours, locale wiring, plan/feature-flag management). See D-094.
+  remaining founder-scope gaps): governance dashboard, KB admin, AI approval-queue, staff-telehealth join. See D-094.
+
+- **CLINIC.W8b built the settings BACKENDS** the W8 discovery found missing — genuine domain work, scheduling-safe:
+  editable practice **profile** (new nullable `tenants` columns; slug/region/status/plan stay read-only), **branch
+  CRUD** (app-layer `BranchController`/`BranchService`), per-branch **opening hours** (new `branch_hours` table wired
+  into `AvailableSlotFinder` + the `BookingService` write guard — a branch with no hours keeps the default 07:00–19:00,
+  so existing scheduling stays green), and **timezone/locale** applied per request via `ApplyTenantLocaleTimezone`.
+  **Scheduling safety (tested):** branch deactivation is soft (`active=false`) and BLOCKED while future appointments
+  exist (never orphaning care); the day-board/portal now hide inactive branches; opening hours bound bookable slots +
+  reject out-of-hours bookings. All admin.manage-gated, tenant-scoped, audited. Remaining gap: adding resources
+  (rooms/chairs) to a branch still has no backend, so a new branch isn't bookable until resources are seeded. See D-095.
 
 - **Current phase:** Phase G COMPLETE - Comms, telehealth & patient portal. Consolidated at P0G.C:
   the functional staff-facing surface is FROZEN for the design pass, and `docs/SCREENS.md` is the

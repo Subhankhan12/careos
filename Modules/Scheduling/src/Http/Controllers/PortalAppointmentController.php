@@ -63,7 +63,7 @@ class PortalAppointmentController
                 'name' => $service->name,
                 'duration' => $service->default_duration_minutes,
             ])->all(),
-            'branches' => Branch::query()->orderBy('name')->get(['id', 'name'])->all(),
+            'branches' => Branch::query()->where('active', true)->orderBy('name')->get(['id', 'name'])->all(),
             'cancelMinHours' => $this->cancelMinHours(),
             'contact' => $this->contactSnapshot($account->patient_id),
             'actions' => [

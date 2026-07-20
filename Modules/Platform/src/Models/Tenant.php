@@ -17,6 +17,13 @@ use Modules\Platform\Exceptions\TenantRegionImmutableException;
  *
  * @property string $id
  * @property string $name
+ * @property string|null $contact_email
+ * @property string|null $contact_phone
+ * @property string|null $address_line1
+ * @property string|null $address_line2
+ * @property string|null $city
+ * @property string|null $postal_code
+ * @property string|null $country
  * @property string $slug
  * @property string $region
  * @property string $status
@@ -33,6 +40,13 @@ class Tenant extends Model
 
     protected $fillable = [
         'name',
+        'contact_email',
+        'contact_phone',
+        'address_line1',
+        'address_line2',
+        'city',
+        'postal_code',
+        'country',
         'slug',
         'region',
         'status',

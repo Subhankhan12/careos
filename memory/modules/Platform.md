@@ -165,6 +165,17 @@ running shows up as an absence rather than as nothing at all.
   self-lockout guard lives in the controller (none in the RBAC layer). Server Gate stays authoritative — a user's
   effective perms are exactly the template's. Nav link is gated on `admin.manage` (added to
   `HandleInertiaRequests::NAV_PERMISSIONS`). See [[D-094]].
+- Settings backends (CLINIC.W8b): tenant PROFILE columns (contact_email/phone, address_*) editable via
+  `SettingsController::updateProfile`; slug/region/status/plan stay read-only. locale + timezone persist in
+  SettingsService and are APPLIED per request by `App\Http\Middleware\ApplyTenantLocaleTimezone`
+  (`date_default_timezone_set` + `setLocale`; never touches config app.timezone) — surfaced via LAZY `locale`/
+  `timezone` Inertia shares (Inertia evaluates `share()` before that middleware runs, so eager values would miss it).
+  BRANCH CRUD lives in the APP layer (`App\Http\Controllers\BranchController` + `App\Services\BranchService`) because
+  the deactivation guard spans Platform+Scheduling and `arch('Platform does not depend on Scheduling')` forbids it in
+  Platform. New `BranchHours` model + `branch_hours` table (per-weekday, validated in booted like ResourceAvailability)
+  + `BranchHoursService` (read by the scheduling engine). Branch deactivation is soft (`active=false`), BLOCKED while
+  future appointments exist; audited via app-layer hooks (branch.*, tenant.profile_updated, branch.hours_changed).
+  See [[D-095]].
 
 ## Open items
 
