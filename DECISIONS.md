@@ -1178,3 +1178,37 @@ references the old ID.
   diagnosis" UI, NO differential ranking, NO AI panel, NO auto-fill from charting. Route smoke gains
   `/dental/diagnoses/{patient}` (doctor 200 / billing 403). Money/clinical/existing behavior unchanged;
   no existing test modified; reconciliation/fence/immutability/eval + G1–G6 suites green. (DENTAL.G7)
+- **D-106 — Dental imaging is UPLOAD + a basic 2D VIEWER + a DENTIST-authored reading, REUSING the
+  existing clinical document storage; the system NEVER analyses an image (no AI/CV), and live capture/
+  DICOM/3D overlay are PARTNER-GATED.** DENTAL.G8 — completes the general-dentist feature set.
+  **Storage reuse (no new file storage):** a dental image is stored through the EXISTING Clinical
+  `DocumentService::upload` (private `local` disk, tenant-prefixed path `tenants/{tenant}/clinical-
+  documents/{patient}/{ulid}.{ext}`, MIME/size validated, category `image`, NO public URL — Dental MAY
+  use Clinical per the arch test). NEW `dental_images` (BelongsToTenant, LogsReads, **APPEND-ONLY/
+  immutable** model + DB-trigger SIGNAL-45000 — a captured image is never edited) adds the dental
+  metadata over it: `document_id` (the stored asset), `image_type` ∈ {bitewing, periapical, panoramic,
+  photo, scan} (a plain tenant-meaningful label), optional `tooth` (FDI, reuses G1), `region`,
+  `captured_at`, `uploaded_by`. The dentist's READING is NEW `dental_image_readings` (BelongsToTenant,
+  **APPEND-ONLY** model + triggers) — free text the DENTIST wrote (`reading` + `reason`); a change is a
+  new reading, history preserved. **ELECTRIC FENCE (imaging's risk): the viewer DISPLAYS the image and
+  lets the DENTIST write a reading — the system does NOT detect caries, flag pathology, overlay AI
+  findings, auto-annotate, or compute anything about the pixels. There is NO AI/CV analysis anywhere**
+  — no method looks at the image bytes except to stream them. The schema/service/UI carry no
+  ai/finding/detected/overlay/annotation/confidence field; `assertValid` is pure data-entry validation
+  (known type, valid FDI). Proven by a recursive `diAssertNoAnalysis` over the payload + a no-auto-read
+  proof (an upload creates ZERO readings — nothing is generated). **PARTNER-GATED / NON-GOAL (flagged,
+  NOT built — see DEFERRED):** live capture from an X-ray sensor / intraoral scanner (needs vendor
+  SDK/driver), DICOM/PACS, 3D scan overlay/comparison (needs 3D compute + scanner pipeline), and AI
+  radiology / caries detection (electric fence + regulated device — never build the homemade version).
+  Day-one = upload + 2D view (client-side zoom/pan on raw pixels) + dentist reading. **Service**
+  `DentalImagingService`: `upload` (gate `dental.chart`; the file store additionally enforces the
+  document-write permission `note.write` — the dentist/org_admin holds both), `recordReading` (gate
+  `dental.chart`, append-only, audited `dental.image_read`), `imagesFor`/`fileContents` (gate
+  `patient.view`, patient-scoped `read` audit). The private bytes stream ONLY through an authed route
+  (`/dental/image-file/{image}`, nosniff, `private, no-store` — no public URL). **RBAC:** upload/annotate
+  = dental.chart; view/file = patient.view. **UI:** `DentalImageController` + `Dental/Imaging.vue`
+  (`/dental/images/{patient}`, string-id FIX.1) — upload, a gallery, the 2D viewer with metadata + the
+  dentist's readings; NO AI panel / auto-findings / overlay. Route smoke gains `/dental/images/{patient}`
+  (doctor 200 / billing 403). Money/clinical/existing behavior unchanged; no existing test modified;
+  reconciliation/fence/immutability/eval + G1–G7 suites green. **With G8 the GENERAL-DENTIST feature set
+  (G1–G8) is COMPLETE.** (DENTAL.G8)

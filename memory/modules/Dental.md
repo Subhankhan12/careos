@@ -95,9 +95,11 @@ tooth-state change. G5 = the phased, fee-scheduled treatment plan — dentist-au
 pricing (snapshotted at proposal), estimates without billing (G4 charges). **G6 = perio charting** —
 per-tooth, per-site periodontal measurements as RAW recorded facts (record-not-judge). **G7 = the
 dentist-authored diagnosis record** — the SHARPEST fence: NO AI, NO suggested/proposed diagnosis, NO
-auto-ranked differential; the dentist enters it and sets the status, the system only records. **A general
-dentist can now chart the mouth → record + bill procedures → build/present/track a phased fee-scheduled plan
-→ chart periodontal status → record their clinical diagnosis.**
+auto-ranked differential; the dentist enters it and sets the status, the system only records. **G8 = dental
+imaging** — upload + a basic 2D viewer + a dentist-authored reading, over the EXISTING clinical document
+storage; NO AI/CV analysis; live capture/DICOM/3D overlay partner-gated. **THE GENERAL-DENTIST FEATURE SET
+(G1–G8) IS COMPLETE: chart the mouth → record + bill procedures → build/track a phased fee-scheduled plan →
+chart periodontal status → record a diagnosis → upload/view/read imaging.**
 
 ## Perform workflow (DENTAL.G4)
 
@@ -190,11 +192,39 @@ dentist can now chart the mouth → record + bill procedures → build/present/t
   a no-auto-populate proof (charting caries [G2] + probing 9mm perio pockets [G6] yields ZERO diagnoses).
   NEW `diagnosis.*` i18n. No G1–G6 code changed. See [[D-105]], [[Dental]], [[AiCore]].
 
+## Imaging (DENTAL.G8)
+
+- Storage REUSE (no new file storage): a dental image is stored through the EXISTING Clinical
+  `DocumentService::upload` (private `local` disk, tenant-prefixed `tenants/{tenant}/clinical-documents/
+  {patient}/{ulid}.{ext}`, MIME/size validated, category `Document::CATEGORY_IMAGE`, NO public URL — Dental
+  MAY use Clinical per `ModuleBoundariesTest`). NEW `dental_images` (BelongsToTenant, LogsReads, **IMMUTABLE**
+  — model `updating`/`deleting`-throw + DB triggers `dental_images_no_update`/`_no_delete`) adds the metadata
+  over it: `document_id` (the stored asset), `image_type` ∈ `DentalImage::TYPES` {bitewing, periapical,
+  panoramic, photo, scan}, optional `tooth` (FDI) / `region`, `captured_at`, `uploaded_by`. The dentist's
+  reading is NEW `dental_image_readings` (BelongsToTenant, **APPEND-ONLY** model + triggers) — free text the
+  DENTIST wrote (`reading` + optional `reason`); a change is a new reading, history preserved. **ELECTRIC
+  FENCE: the system DISPLAYS the image + records the dentist's reading — it NEVER analyses the pixels. NO
+  AI/CV, NO caries/pathology detection, NO auto-findings, NO overlay, NO auto-annotation.** No method looks
+  at the image bytes except to STREAM them; the schema/service/UI carry no ai/finding/detected/overlay/
+  confidence field (recursive `diAssertNoAnalysis` + a no-auto-read proof: an upload creates ZERO readings).
+  `Services\DentalImagingService`: `upload` (gate `dental.chart`; the doc store additionally enforces
+  `note.write` — dentist/org_admin holds both), `recordReading` (gate `dental.chart`, append-only, audited
+  `dental.image_read`), `imagesFor`/`fileContents` (gate `patient.view`, patient-scoped `read` audit). Private
+  bytes stream ONLY through an authed nosniff route `GET /dental/image-file/{image}` (`private, no-store`, no
+  public URL). `Http\Controllers\DentalImageController` (show/store/storeReading/download, string-id FIX.1) +
+  `Dental/Imaging.vue` — upload + gallery + 2D viewer (client-side zoom/pan on raw pixels) + readings;
+  PRESENTATIONAL (P0D.GU), NO AI panel/overlay. **PARTNER-GATED / NON-GOAL (flagged, NOT built): live capture
+  (X-ray sensor / intraoral scanner), DICOM/PACS, 3D scan overlay/comparison, AI radiology/caries detection.**
+  NEW `imaging.*` i18n. Reuses Clinical `DocumentService`/`Document` (allowed dep). No G1–G7 code changed. See
+  [[D-106]], [[Dental]], [[Clinical]].
+
 ## Open items / next gates (per docs/DENTAL-DELIVERY-MAP.md)
 
 - (done: G2 odontogram UI · G3 catalog+billing · G4 perform workflow · G5 treatment plan [CORE spine
-  complete] · G6 perio charting · G7 diagnosis record) · G8 imaging/scans; later: G9 chair-view (reuse), G10
-  sterilization/inventory, G11 ortho/scan-comparison. Long poles: imaging-device/scanner integration
-  (partner-gated), licensed procedure codes (CDT licensed — tenant-authored catalog, do NOT bundle).
+  complete] · G6 perio charting · G7 diagnosis record · G8 imaging — **general-dentist feature set G1–G8
+  COMPLETE**) · later: G9 chair-view (reuse), G10 sterilization/inventory, G11 ortho/scan-comparison. Long
+  poles (partner-gated/non-goal): live imaging capture (X-ray sensor / intraoral scanner) + DICOM/PACS + 3D
+  scan overlay/comparison, AI radiology/caries detection (NON-GOAL — fence + regulated device), licensed
+  procedure/diagnosis codes (CDT/ICD licensed — tenant-authored catalogs, do NOT bundle).
 - All later gates keep the fence: build the prototype's AI-diagnosis / AI-overlay / auto-grade features
   WITHOUT the interpretation; dental agents ship draft-only with `tests/Evals/` locks.

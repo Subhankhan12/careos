@@ -117,3 +117,28 @@ it stays here so it is neither forgotten nor pre-built (P0P.G5).
   fence holds).
   **TRIGGER:** a customer using a specific lab AND a funded integration build against that lab's
   interface (plus, if any coded catalog is required, a licensed source for it).
+
+## Dental vertical — later gates + partner-gated long poles (post-G8)
+
+The general-dentist feature set (DENTAL.G1–G8) is built. The following are parked:
+
+- **Live dental imaging capture (X-ray sensor / intraoral scanner) + DICOM/PACS.** DENTAL.G8 ships
+  MANUAL upload + a 2D viewer + a dentist-authored reading over the existing private document storage.
+  Live capture needs the vendor device SDK/driver; DICOM/PACS is its own integration.
+  **TRIGGER:** a customer with a specific sensor/scanner AND a funded integration against that vendor.
+- **3D scan overlay / scan-comparison (ortho/aligner progress).** Needs a 3D compute pipeline + the
+  scanner import path; out of scope for the 2D day-one viewer.
+  **TRIGGER:** an ortho/aligner customer AND the scanner integration above.
+- **AI radiology / caries detection on dental images. NON-GOAL (electric fence + regulated device).**
+  The G8 viewer deliberately has no AI/CV: no caries detection, no pathology flagging, no auto-findings,
+  no overlay. Never build the homemade version; a regulated CADe/CADx device is a partner product, not
+  a CareOS feature. The dentist reads the image; the system records what they wrote.
+  **TRIGGER:** none for a homemade version (do not build). A certified partner device is a separate
+  commercial/regulatory decision.
+- **Licensed dental code sets (ADA CDT procedures / ICD-10 / SNODENT diagnoses).** The dental procedure
+  catalog (G3) and the diagnosis pick-list (G7) are TENANT-AUTHORED — no licensed coded set is bundled.
+  **TRIGGER:** a customer requires a specific coded set AND a license for it (then load it as tenant
+  data, still not bundled in the repo).
+- **Later dental gates: G9 chair-view (reuse of the resource/day-board), G10 sterilization/inventory,
+  G11 ortho/aligner tracking.** Specialist/operational features beyond the general-dentist set.
+  **TRIGGER:** a dental customer whose workflow needs them.

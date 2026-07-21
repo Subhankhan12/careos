@@ -244,6 +244,30 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
   gains the diagnosis route (doctor 200 / billing 403). No existing behavior changed;
   reconciliation/immutability/fence/eval + G1–G6 suites green. Next: G8 imaging/scans.
 
+- **DENTAL.G8 built DENTAL IMAGING — upload + a basic 2D viewer + a dentist-authored reading, over the
+  EXISTING clinical document storage; COMPLETES the general-dentist feature set (D-106).** A dental image is
+  stored through the existing Clinical `DocumentService::upload` (private disk, tenant-prefixed, MIME/size
+  validated, category `image`, NO public URL — Dental MAY use Clinical per the arch test); NEW `dental_images`
+  (BelongsToTenant, LogsReads, **immutable** — model + DB-trigger) adds the metadata (`document_id`,
+  `image_type` ∈ {bitewing,periapical,panoramic,photo,scan}, optional `tooth`/`region`, captured_at); the
+  dentist's reading is NEW `dental_image_readings` (**APPEND-ONLY** — a change is a new reading, history
+  preserved). **FENCE (imaging's risk): the viewer DISPLAYS + the dentist WRITES the reading — NO AI/CV, NO
+  caries/pathology detection, NO auto-findings, NO overlay, NO auto-annotation; the system analyses nothing**
+  (proven by a recursive no-analysis payload assertion + a no-auto-read proof: an upload creates ZERO
+  readings). **PARTNER-GATED / NON-GOAL (flagged, NOT built — see DEFERRED): live capture (X-ray sensor /
+  intraoral scanner), DICOM/PACS, 3D scan overlay/comparison, AI radiology/caries detection.**
+  `DentalImagingService`: `upload` (dental.chart + note.write via the doc store), `recordReading`
+  (dental.chart, append-only, audited), `imagesFor`/`fileContents` (patient.view, read-log). Private bytes
+  stream ONLY through an authed nosniff route (no public URL). UI: `Dental/Imaging.vue`
+  (`/dental/images/{patient}`, string-id FIX.1) — upload + gallery + 2D viewer (client-side zoom) + readings;
+  no AI/overlay panel. 6 feature tests + route smoke gains the imaging route (doctor 200 / billing 403). No
+  existing behavior changed; reconciliation/immutability/fence/eval + G1–G7 suites green. **GENERAL-DENTIST
+  FEATURE SET (G1–G8) COMPLETE:** chart the mouth (G1/G2) → record + bill procedures (G3/G4) → build/track a
+  phased fee-scheduled plan (G5) → chart perio (G6) → record a diagnosis (G7) → upload/view/read imaging (G8).
+  Remaining dental (later/partner-gated): G9 chair-view (reuse), G10 sterilization/inventory, G11 ortho/
+  scan-compare; live imaging capture/DICOM/3D overlay + AI radiology (partner-gated/non-goal); licensed
+  CDT/ICD code sets (tenant-authored, never bundled).
+
 - **Current phase:** Phase G COMPLETE - Comms, telehealth & patient portal. Consolidated at P0G.C:
   the functional staff-facing surface is FROZEN for the design pass, and `docs/SCREENS.md` is the
   factual re-skin brief (22 Inertia pages + 11 nurse-PWA screens with routes/guards/props/actions).

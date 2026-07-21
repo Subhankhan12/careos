@@ -1572,6 +1572,49 @@
             "reason": "Reason"
         }
     },
+    "imaging": {
+        "eyebrow": "Dental imaging",
+        "title": "Imaging & scans",
+        "subtitle": "Upload an image, view it, and write your reading.",
+        "fenceNote": "This is a viewer. The system does not analyse images — no AI, no auto-findings, no overlay, no caries or pathology detection. You read the image and write the interpretation. Live capture (X-ray sensor / intraoral scanner), DICOM, and 3D scan overlay are not part of this release.",
+        "empty": "No images uploaded yet.",
+        "flash": {
+            "uploaded": "Image uploaded.",
+            "read": "Reading saved."
+        },
+        "upload": {
+            "title": "Upload an image",
+            "subtitle": "JPEG or PNG, up to 10 MB. Stored privately, tied to this patient.",
+            "file": "Image file",
+            "type": "Type",
+            "tooth": "Tooth (optional)",
+            "noTooth": "No specific tooth",
+            "region": "Region (optional)",
+            "submit": "Upload"
+        },
+        "dentition": {
+            "permanent": "Permanent",
+            "primary": "Primary"
+        },
+        "types": {
+            "bitewing": "Bitewing",
+            "periapical": "Periapical",
+            "panoramic": "Panoramic",
+            "photo": "Photo",
+            "scan": "Scan"
+        },
+        "viewer": {
+            "tooth": "Tooth"
+        },
+        "reading": {
+            "title": "Your reading",
+            "empty": "No reading written yet.",
+            "placeholder": "Write your interpretation of this image…",
+            "reasonPlaceholder": "Reason, if correcting a prior reading (optional)",
+            "reason": "Reason",
+            "submit": "Save reading"
+        }
+    },
     "feeSchedule": {
         "eyebrow": "Dental billing",
         "title": "Fee schedule",

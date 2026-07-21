@@ -38,6 +38,7 @@ use Modules\Comms\Http\Controllers\InboxController;
 use Modules\Comms\Http\Controllers\PortalMessageController;
 use Modules\Comms\Http\Controllers\PortalTelehealthController;
 use Modules\Comms\Http\Controllers\StaffTelehealthController;
+use Modules\Dental\Http\Controllers\DentalImageController;
 use Modules\Dental\Http\Controllers\DiagnosisController;
 use Modules\Dental\Http\Controllers\FeeScheduleController;
 use Modules\Dental\Http\Controllers\OdontogramController;
@@ -231,6 +232,17 @@ Route::middleware('auth')->group(function () {
     Route::get('/dental/diagnoses/{patient}', [DiagnosisController::class, 'show'])->name('dental.diagnoses');
     Route::post('/dental/diagnoses/{patient}', [DiagnosisController::class, 'store'])->name('dental.diagnoses.store');
     Route::post('/dental/diagnosis-terms', [DiagnosisController::class, 'storeTerm'])->name('dental.diagnosis-terms.store');
+
+    // Dental imaging (DENTAL.G8) — upload + a basic 2D viewer + a DENTIST-authored reading, over the
+    // EXISTING clinical document storage (private disk, tenant-prefixed, no public URL). NO AI/CV: the
+    // system displays the image + records the dentist's reading, it never analyses the pixels. Live
+    // capture / DICOM / 3D overlay / AI detection are PARTNER-GATED / NON-GOAL (see DEFERRED). show +
+    // file = patient.view, upload + reading = dental.chart. String-id params (FIX.1). The static
+    // image-file route uses a distinct prefix so it never collides with the {patient} gallery route.
+    Route::get('/dental/images/{patient}', [DentalImageController::class, 'show'])->name('dental.imaging');
+    Route::post('/dental/images/{patient}', [DentalImageController::class, 'store'])->name('dental.imaging.store');
+    Route::post('/dental/images/{image}/reading', [DentalImageController::class, 'storeReading'])->name('dental.imaging.reading');
+    Route::get('/dental/image-file/{image}', [DentalImageController::class, 'download'])->name('dental.imaging.file');
 
     // Dental treatment plans (DENTAL.G5) — a DENTIST-AUTHORED phased plan with a fee-schedule
     // ESTIMATE (snapshotted at proposal, reusing the G3 pricing). The plan ESTIMATES; performing
