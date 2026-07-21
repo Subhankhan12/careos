@@ -36,21 +36,23 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
   unlocks **eMAR + the CH statutory billing pack** when confirmed. The well of safe build-without-a-
   customer-need work is done — do not open a new gate unless a customer need pulls a specific feature
   forward. Discovery brief: `docs/DISCOVERY.md`; outreach: `docs/outreach-de.md`.
-- **Latest verified quality:** commit `0d93a36`; `composer check` FULLY green — Pint `passed`, PHPStan L5
-  `[OK] No errors`, **Pest 700 passed / 5623 assertions**, 0 failed; `npm run build` green; **CI green on
-  MySQL 8 + Redis 7** (check-run `success`). A route-reachability smoke (**FIX.5**, `composer test:smoke`)
+- **Latest verified quality:** DENTAL.G9; `composer check` FULLY green — Pint `passed`, PHPStan L5
+  `[OK] No errors`, **Pest 707 passed / 5741 assertions**, 0 failed; `npm run build` green; **CI green on
+  MySQL 8 + Redis 7** (check-run `success`). (G8 baseline: `0d93a36`, Pest 700/5623.) A route-reachability smoke (**FIX.5**, `composer test:smoke`)
   drives every major route through the real middleware stack to guard against request-time 500s (the C-1
   class). See the detailed quality block below.
-- **Demo tenants (both reconcile-to-the-unit + chain-verify):** `DemoClinicSeeder` (Praxis Lindenhof, CHF,
-  clinic resources, realistic vitals) + `DemoSpitexSeeder` (Spitex Sonnengarten, EU-Generic home-care).
-  Seed: `php artisan migrate:fresh --seed` then `php artisan db:seed --class=DemoClinicSeeder` /
-  `--class=DemoSpitexSeeder`. **No dental demo seeder yet** (a documented follow-up).
+- **Demo tenants (all reconcile-to-the-unit + chain-verify):** `DemoClinicSeeder` (Praxis Lindenhof, CHF,
+  clinic resources, realistic vitals) + `DemoSpitexSeeder` (Spitex Sonnengarten, EU-Generic home-care) +
+  **`DemoDentalSeeder` (Zahnarztpraxis Morgenstern, CHF — general-dental practice; DENTAL.G9)**. Seed:
+  `php artisan migrate:fresh --seed` then `php artisan db:seed --class=DemoClinicSeeder` /
+  `--class=DemoSpitexSeeder` / `--class=DemoDentalSeeder`.
 - **Deploy-ready status:** MySQL 8 parity proven (`docs/DB-PARITY.md`); **NOT yet deployed**. Still needed:
   real email transport, a production LiveKit key/secret, production config/secrets. **Documented
   follow-ups:** full per-widget timezone *display* (W8b stores/normalizes tz; per-widget rendering
-  pending) · the resource-availability admin screen (flagged in W8c) · dental: the patient/chart → dental
-  cross-link, a dental demo seeder, and the dental long-poles (live imaging capture/DICOM/3D overlay,
-  licensed code sets, G9–G11) — all in DEFERRED.md.
+  pending) · the resource-availability admin screen (flagged in W8c) · dental long-poles (live imaging
+  capture/DICOM/3D overlay, licensed code sets, chair-view/sterilization/ortho later gates) — in DEFERRED.md.
+  (**DENTAL.G9 RESOLVED** the two dental demo-readiness follow-ups: the patient/chart → dental cross-link +
+  a role-gated Dental nav/landing [the vertical is now reachable by clicking], and the `DemoDentalSeeder`.)
 
 - **QA-audit remediation (post-clinic-delivery, `docs/QA-AUDIT-REPORT.md`) — COMPLETE.** The live-browser audit
   found one Critical (C-1) and a set of Medium/Low polish items; all are now cleared. **C-1** (FIX.1, string-id
@@ -292,9 +294,30 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
   existing behavior changed; reconciliation/immutability/fence/eval + G1–G7 suites green. **GENERAL-DENTIST
   FEATURE SET (G1–G8) COMPLETE:** chart the mouth (G1/G2) → record + bill procedures (G3/G4) → build/track a
   phased fee-scheduled plan (G5) → chart perio (G6) → record a diagnosis (G7) → upload/view/read imaging (G8).
-  Remaining dental (later/partner-gated): G9 chair-view (reuse), G10 sterilization/inventory, G11 ortho/
-  scan-compare; live imaging capture/DICOM/3D overlay + AI radiology (partner-gated/non-goal); licensed
-  CDT/ICD code sets (tenant-authored, never bundled).
+  Remaining dental (later/partner-gated, renumbered — G9 is demo-readiness): chair-view (reuse),
+  sterilization/inventory, ortho/scan-compare; live imaging capture/DICOM/3D overlay + AI radiology
+  (partner-gated/non-goal); licensed CDT/ICD code sets (tenant-authored, never bundled).
+
+- **DENTAL.G9 made the dental vertical REACHABLE + DEMO-READY — presentation + seed only (D-107).** The
+  deep-audit (`docs/DEEP-AUDIT-REPORT.md`) found dental functionally done + safety-verified but UNREACHABLE
+  (no nav, no patient cross-link) and EMPTY (no seeder). G9 closes that WITHOUT touching fence/billing/
+  clinical/tenancy/RBAC logic or any existing behavior test (P0D.GU): a role-gated **"Dental" top-nav
+  entry** (`dental.chart` added to `NAV_PERMISSIONS`; a non-dental role never sees it) → a NEW `/dental`
+  **patient-picker landing** (`DentalLandingController` + `Dental/Index.vue`, `dental.chart`-gated) + a
+  shared **`DentalSectionNav`** sub-nav on all 5 dental pages + a **patient→dental cross-link** on
+  Patient 360 + the clinical chart (gated on the shared `dental.chart` permission) — the odontogram is now
+  reachable by clicking. A portal **"Treatment plan"** nav link surfaces the existing read-only plan
+  (own-data, no PSP). NEW **`DemoDentalSeeder`** (Zahnarztpraxis Morgenstern, CHF) seeds a realistic
+  general-dental practice through the REAL services (idempotent; D-066) — odontograms with a multi-step
+  correction history, a live performed procedure, an accepted + a proposed plan, two perio exams (raw
+  trend), diagnoses, an image + a reading; dental **billing reconciles-to-the-unit** (capture→validate→3
+  gapless invoices→full+partial payment; paired test proves δ=0 + chain-verify + idempotent). Also fixed
+  the deep-audit's three (a)-class cosmetics: the CSV import "Save mapping" trap (dry-run now
+  saves-then-validates), the portal credit-note label ("Credit", excluded from the open-balance aggregate),
+  and the admin eyebrow mislabel (Settings/Roles/Branches → "Administration", oversight pages stay
+  "Governance"). NEW `DentalLandingTest` (4) + `DemoDentalSeederTest` (3); route smoke gains `/dental`
+  (dentist 200 / reception 403). Verified: npm build green; PHPStan L5 `[OK]`; Pint passed; composer check
+  green. Seed: `php artisan db:seed --class=DemoDentalSeeder`.
 
 - **Current phase:** ALL BUILD PHASES COMPLETE. Phases 0/A/B/C/D/E/F/G + Phase-P hardening (P.1–P.16) +
   the CLAUDE design pass (Eucalyptus Glow) + clinic delivery wiring (CLINIC.W1–W7) + QA remediation

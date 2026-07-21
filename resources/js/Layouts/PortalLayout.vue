@@ -12,6 +12,7 @@ const nav = [
     { key: 'portal.nav.documents', href: '/portal/documents' },
     { key: 'portal.nav.messages', href: '/portal/messages' },
     { key: 'portal.nav.invoices', href: '/portal/invoices' },
+    { key: 'portal.nav.treatmentPlan', href: '/portal/treatment-plan' },
     { key: 'portal.nav.consents', href: '/portal/consents' },
     { key: 'portal.nav.telehealth', href: '/portal/telehealth' },
 ];

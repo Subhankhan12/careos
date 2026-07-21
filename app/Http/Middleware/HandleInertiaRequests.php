@@ -31,6 +31,7 @@ class HandleInertiaRequests extends Middleware
         'audit.view',
         'ai.manage',
         'admin.manage',
+        'dental.chart',
     ];
 
     public function version(Request $request): ?string

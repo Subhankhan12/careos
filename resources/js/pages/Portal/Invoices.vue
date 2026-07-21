@@ -32,8 +32,17 @@ const filtered = computed(() =>
     activeStatus.value === 'all' ? props.invoices : props.invoices.filter((i) => i.status === activeStatus.value),
 );
 
-// Open-balance summary is ALWAYS the full total — filters narrow the list only.
-const openBalance = computed(() => props.invoices.reduce((sum, i) => sum + i.open_balance_minor, 0));
+// A credit note is a negative-total invoice (series CN). It is a credit in the patient's
+// favour, not something they owe — so it reads as "Credit", not "Open".
+function isCredit(invoice: { total_minor: number }): boolean {
+    return invoice.total_minor < 0;
+}
+
+// "Open balance" is what the patient OWES: real invoices only. A credit note is shown as its
+// own row and is never folded in as a negative "open balance". Filters narrow the list only.
+const openBalance = computed(() =>
+    props.invoices.filter((i) => !isCredit(i)).reduce((sum, i) => sum + i.open_balance_minor, 0),
+);
 const currency = computed(() => props.invoices[0]?.currency ?? '');
 
 function money(minor: number): string {
@@ -49,6 +58,15 @@ function statusDot(status: string): string {
     if (status === 'paid') return 'bg-success';
     if (status === 'partially_paid') return 'bg-info';
     return 'bg-warning';
+}
+
+// Row-level label/dot: a credit note reads "Credit" (success), regardless of its raw status.
+function rowStatusLabel(invoice: { status: string; total_minor: number }): string {
+    return isCredit(invoice) ? t('portal.invoices.statuses.credit') : statusLabel(invoice.status);
+}
+
+function rowStatusDot(invoice: { status: string; total_minor: number }): string {
+    return isCredit(invoice) ? 'bg-success' : statusDot(invoice.status);
 }
 </script>
 
@@ -114,8 +132,8 @@ function statusDot(status: string): string {
                             <td class="py-3 pr-4 text-ink">{{ money(invoice.open_balance_minor) }} {{ invoice.currency }}</td>
                             <td class="py-3 pr-4">
                                 <span class="inline-flex items-center gap-1.5 text-ink-muted">
-                                    <span class="h-1.5 w-1.5 rounded-full" :class="statusDot(invoice.status)"></span>
-                                    {{ statusLabel(invoice.status) }}
+                                    <span class="h-1.5 w-1.5 rounded-full" :class="rowStatusDot(invoice)"></span>
+                                    {{ rowStatusLabel(invoice) }}
                                 </span>
                             </td>
                             <td class="py-3">

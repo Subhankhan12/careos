@@ -1212,3 +1212,34 @@ references the old ID.
   (doctor 200 / billing 403). Money/clinical/existing behavior unchanged; no existing test modified;
   reconciliation/fence/immutability/eval + G1–G7 suites green. **With G8 the GENERAL-DENTIST feature set
   (G1–G8) is COMPLETE.** (DENTAL.G8)
+
+- **D-107 — Dental demo-readiness is presentation + seed, not new domain: make the (already-correct)
+  vertical REACHABLE and DEMONSTRABLE.** The deep-audit report (docs/DEEP-AUDIT-REPORT.md) found the dental
+  functionality done and safety-verified, but the odontogram was UNREACHABLE from the product (no nav, no
+  patient cross-link) and every surface started EMPTY (no dental seeder). DENTAL.G9 closes that with
+  presentational/routing + seed only (P0D.GU): no fence/billing/clinical/tenancy/RBAC logic changed, no
+  existing behavior test modified. **Navigability:** a role-gated top-nav "Dental" entry (`dental.chart`
+  added to `NAV_PERMISSIONS` so the client can gate it — a non-dental role never sees it) → a NEW `/dental`
+  patient-picker landing (`DentalLandingController`, `dental.chart`-gated, presentational — there is no
+  patient-independent clinical dental route, so the landing is a picker into each patient's odontogram); a
+  shared `DentalSectionNav` sub-nav on all five patient dental pages (the whole vertical navigable by
+  clicking); a patient→dental cross-link on Patient 360 + the clinical chart, gated client-side on the
+  shared `dental.chart` permission (no dead link for non-dental staff). A portal "Treatment plan" nav link
+  surfaces the EXISTING read-only `/portal/treatment-plan` (own-data, no PSP; always shown, page owns its
+  empty state). **Demo seeder:** `DemoDentalSeeder` (a companion to DemoClinicSeeder/DemoSpitexSeeder) seeds
+  a realistic general-dental practice through the REAL services — idempotent by slug, D-066 discipline
+  (never rewinds `now()`). Dental BILLING reconciles-to-the-unit in the previous month by CAPTURING charges
+  through the existing engine (`DentalChargeService::capture`) and `forceFill`-ing `service_date` into the
+  closed month — capture() not perform(), because perform() also writes an APPEND-ONLY tooth record that
+  cannot be back-dated; the mutable Charge can. Draft charges (a live performed procedure) stay unbilled and
+  are invisible to reconciliation (I4 counts only INVOICED charges) — the same discipline as the clinic
+  demo's draft dunning fee. **Audit-cosmetic disambiguation:** the audit flagged a "Governance" eyebrow on
+  the admin-config pages (Settings/Roles/Branches) as a MISLABEL — the brief read it as "missing"; verified
+  from the repo (all six admin/governance pages already carried it) and flagged the drift (AGENTS.md rule).
+  Fixed by disambiguating the three admin-config pages to "Administration", leaving the true
+  governance/oversight pages as "Governance". Also: the CSV import dry-run now saves-then-validates (does
+  what the button says), and a portal credit note reads "Credit" and is excluded from the "open balance"
+  aggregate (display-only; the ledger math is untouched). NEW `DentalLandingTest` (4) + `DemoDentalSeederTest`
+  (3, incl. reconcile δ=0 + chain-verify + idempotent); the FIX.5 route smoke gains `/dental` (dentist 200 /
+  reception 403). VERIFIED: npm build green; PHPStan L5 `[OK]`; Pint passed; composer check green. With G9
+  the dental vertical is REACHABLE + DEMO-READY. (DENTAL.G9) See [[Dental]], [[D-106]], [[D-090]].

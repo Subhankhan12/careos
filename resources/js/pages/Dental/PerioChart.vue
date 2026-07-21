@@ -3,6 +3,7 @@ import { Head, router, usePage } from '@inertiajs/vue3';
 import { computed, reactive, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import AppLayout from '@/Layouts/AppLayout.vue';
+import DentalSectionNav from '@/Components/DentalSectionNav.vue';
 import Button from '@/Components/Button.vue';
 import Card from '@/Components/Card.vue';
 
@@ -140,6 +141,8 @@ function dash(v: number | null | undefined): string {
                 <p class="mt-1 text-sm text-ink-muted">{{ patient.name }} · <span class="font-mono">{{ patient.mrn }}</span></p>
                 <p class="mt-1 max-w-2xl text-sm text-ink-subtle">{{ t('perio.subtitle') }}</p>
             </div>
+
+            <DentalSectionNav :patient-id="patient.id" active="perio" />
 
             <p class="rounded-2xl border border-line bg-surface px-4 py-3 text-xs text-ink-subtle">{{ t('perio.fenceNote') }}</p>
 

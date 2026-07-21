@@ -71,7 +71,15 @@ function saveMapping(): void {
 const validateForm = useForm({});
 function runDryRun(): void {
     if (!props.batch) return;
-    validateForm.post(props.batch.urls.validate);
+    // Save the CURRENT column mapping first, then validate against it — so the dry-run always
+    // reflects the mapping on screen. Otherwise it validates the last SAVED mapping and can
+    // report the required fields as unmapped even though the dropdowns are set (the audit trap).
+    const mappingUrl = props.batch.urls.mapping;
+    const validateUrl = props.batch.urls.validate;
+    mappingForm.post(mappingUrl, {
+        preserveScroll: true,
+        onSuccess: () => validateForm.post(validateUrl, { preserveScroll: true }),
+    });
 }
 
 // --- Commit ---

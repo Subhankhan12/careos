@@ -14,6 +14,12 @@ const { t } = useI18n();
 const page = usePage();
 const locale = computed(() => (page.props.locale as string) || 'en');
 
+// Dental cross-link shows only for a dental-capable user (dental.chart) — the same gate as
+// the top-nav Dental entry (DENTAL.G9); non-dental staff never see a dead link.
+const canDental = computed(
+    () => (page.props.auth as { user?: { permissions?: Record<string, boolean> } } | undefined)?.user?.permissions?.['dental.chart'] === true,
+);
+
 const props = defineProps<{
     patient: { id: string; mrn: string; name: string; date_of_birth: string; sex: string; status: string };
     encounters: Array<{ id: string; type: string; status: string; started_at: string; ended_at: string | null }>;
@@ -188,9 +194,14 @@ function transitionOrder(orderId: string, status: string): void {
                             </div>
                         </div>
                     </div>
-                    <Link :href="`/patients/${patient.id}`" class="shrink-0 rounded-xl bg-white/15 px-4 py-2 text-sm font-semibold text-euca-50 transition hover:bg-white/25">
-                        {{ t('clinical.chart.patient360') }} →
-                    </Link>
+                    <div class="flex shrink-0 items-center gap-2">
+                        <Link v-if="canDental" :href="`/dental/chart/${patient.id}`" class="rounded-xl bg-white/15 px-4 py-2 text-sm font-semibold text-euca-50 transition hover:bg-white/25">
+                            {{ t('clinical.chart.dentalChart') }} →
+                        </Link>
+                        <Link :href="`/patients/${patient.id}`" class="rounded-xl bg-white/15 px-4 py-2 text-sm font-semibold text-euca-50 transition hover:bg-white/25">
+                            {{ t('clinical.chart.patient360') }} →
+                        </Link>
+                    </div>
                 </div>
             </div>
 

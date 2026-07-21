@@ -36,6 +36,7 @@ const nav: { key: string; href: string; permission?: string }[] = [
     { key: 'app.nav.nursing', href: '/nursing/dispatch', permission: 'dispatch.manage' },
     { key: 'app.nav.inbox', href: '/comms/inbox', permission: 'comms.manage' },
     { key: 'app.nav.telehealth', href: '/telehealth', permission: 'encounter.manage' },
+    { key: 'app.nav.dental', href: '/dental', permission: 'dental.chart' },
     { key: 'app.nav.billing', href: '/billing/invoices', permission: 'billing.view' },
     { key: 'app.nav.reporting', href: '/reporting', permission: 'reporting.view' },
     { key: 'app.nav.governance', href: '/governance', permission: 'audit.view' },

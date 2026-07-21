@@ -39,6 +39,7 @@ use Modules\Comms\Http\Controllers\PortalMessageController;
 use Modules\Comms\Http\Controllers\PortalTelehealthController;
 use Modules\Comms\Http\Controllers\StaffTelehealthController;
 use Modules\Dental\Http\Controllers\DentalImageController;
+use Modules\Dental\Http\Controllers\DentalLandingController;
 use Modules\Dental\Http\Controllers\DiagnosisController;
 use Modules\Dental\Http\Controllers\FeeScheduleController;
 use Modules\Dental\Http\Controllers\OdontogramController;
@@ -205,6 +206,12 @@ Route::middleware('auth')->group(function () {
         ->name('clinical.documents.unshare');
     Route::delete('/clinical/documents/{document}', DocumentDeleteController::class)
         ->name('clinical.documents.delete');
+
+    // Dental section landing (DENTAL.G9) — a PATIENT PICKER so the dental vertical is reachable
+    // from the top nav (dental work is patient-scoped; there is no patient-independent clinical
+    // dental route). dental.chart-gated, PRESENTATIONAL. GET /dental has no collision — every
+    // other /dental/* route carries a static second segment.
+    Route::get('/dental', DentalLandingController::class)->name('dental.index');
 
     // Dental odontogram chart (DENTAL.G2) — the interactive tooth chart, PRESENTATIONAL
     // over the G1 ToothChartService (append-only, audited, patient-scoped read-logged).

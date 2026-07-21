@@ -12,6 +12,12 @@ const { t } = useI18n();
 const page = usePage();
 const locale = computed(() => (page.props.locale as string) || 'en');
 
+// The dental cross-link shows only for a dental-capable user (dental.chart) — the same
+// gate as the top-nav Dental entry (DENTAL.G9). Non-dental staff never see a dead link.
+const canDental = computed(
+    () => (page.props.auth as { user?: { permissions?: Record<string, boolean> } } | undefined)?.user?.permissions?.['dental.chart'] === true,
+);
+
 const props = defineProps<{
     patient: {
         id: string;
@@ -173,6 +179,13 @@ function withdrawConsent(url: string): void {
                             </div>
                         </div>
                     </div>
+                    <Link
+                        v-if="canDental"
+                        :href="`/dental/chart/${patient.id}`"
+                        class="shrink-0 self-start rounded-xl bg-white/15 px-4 py-2 text-sm font-semibold text-euca-50 transition hover:bg-white/25"
+                    >
+                        {{ t('patients.show.viewInDental') }} →
+                    </Link>
                 </div>
             </div>
 

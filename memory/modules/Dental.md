@@ -99,7 +99,11 @@ auto-ranked differential; the dentist enters it and sets the status, the system 
 imaging** — upload + a basic 2D viewer + a dentist-authored reading, over the EXISTING clinical document
 storage; NO AI/CV analysis; live capture/DICOM/3D overlay partner-gated. **THE GENERAL-DENTIST FEATURE SET
 (G1–G8) IS COMPLETE: chart the mouth → record + bill procedures → build/track a phased fee-scheduled plan →
-chart periodontal status → record a diagnosis → upload/view/read imaging.**
+chart periodontal status → record a diagnosis → upload/view/read imaging.** **DENTAL.G9 = demo-readiness
+(presentation + seed only): the vertical is now REACHABLE (a role-gated "Dental" nav entry + a `/dental`
+patient-picker landing + a shared dental sub-nav + a patient→dental cross-link + a portal treatment-plan
+link) and DEMO-READY (`DemoDentalSeeder`, reconciles-to-the-unit). See the demo-readiness section below +
+[[D-107]].**
 
 ## Perform workflow (DENTAL.G4)
 
@@ -218,11 +222,45 @@ chart periodontal status → record a diagnosis → upload/view/read imaging.**
   NEW `imaging.*` i18n. Reuses Clinical `DocumentService`/`Document` (allowed dep). No G1–G7 code changed. See
   [[D-106]], [[Dental]], [[Clinical]].
 
+## Demo-readiness — navigability + demo seeder (DENTAL.G9)
+
+Presentational/routing + seed ONLY (P0D.GU) — the dental FUNCTIONALITY (G1–G8) was already done and
+safety-verified (docs/DEEP-AUDIT-REPORT.md); G9 makes it REACHABLE + DEMONSTRABLE. No fence/billing/
+clinical/tenancy/RBAC logic changed, no existing behavior test modified. See [[D-107]].
+
+- **Navigability.** A role-gated top-nav **"Dental"** entry (`dental.chart` added to
+  `HandleInertiaRequests::NAV_PERMISSIONS`; `AppLayout.vue` nav item — a non-dental role never sees it) →
+  a NEW `/dental` **patient-picker landing** (`Http\Controllers\DentalLandingController` + `Dental/Index.vue`,
+  `dental.chart`-gated, PRESENTATIONAL — there is no patient-independent CLINICAL dental route, so the
+  landing is a picker into each patient's odontogram; surfaces a fee-schedule link only for `billing.manage`).
+  A shared **`resources/js/components/DentalSectionNav.vue`** sub-nav on all 5 patient dental pages
+  (chart/perio/diagnoses/plans/images) makes the vertical navigable from any dental page. A **patient →
+  dental cross-link** ("Dental chart →") on Patient 360 (`Patients/Show.vue`) + the clinical chart
+  (`Clinical/Chart.vue`), gated client-side on the shared `auth.user.permissions['dental.chart']` (no dead
+  link for non-dental staff). A portal **"Treatment plan"** nav link (`PortalLayout.vue`) surfaces the
+  EXISTING read-only `/portal/treatment-plan` (own-data, no PSP). Route smoke gains `/dental` (dentist 200 /
+  reception 403). NEW `DentalLandingTest` (4).
+- **Demo seeder.** `database/seeders/DemoDentalSeeder.php` — **Zahnarztpraxis Morgenstern**
+  (`zahnarztpraxis-morgenstern`, CHF), a companion to DemoClinicSeeder/DemoSpitexSeeder, built through the
+  REAL services (idempotent by slug; D-066 — never rewinds `now()`). Seeds the generic starter fee schedule
+  (no CDT), 4 patients with charted odontograms incl. a multi-step correction HISTORY, a live performed
+  extraction (atomic clinical record + DRAFT charge + tooth-state), an ACCEPTED plan (portal-visible) + a
+  PROPOSED one, two perio exams (raw trend), two diagnoses, an image + a dentist reading. **Dental billing
+  reconciles-to-the-unit:** charges CAPTURED through the existing engine (`DentalChargeService::capture` +
+  `forceFill(service_date)` into the closed previous month — capture() not perform(), so the mutable Charge
+  can be back-dated; perform() also writes an append-only tooth record that cannot move) → validated → 3
+  gapless invoices → full + partial payment; the paired `DemoDentalSeederTest` proves all six invariants at
+  delta_minor === 0, the audit chain verifies, and a second run adds nothing. Draft charges (the live
+  performed procedure) stay unbilled and are invisible to reconciliation (I4 counts only INVOICED charges).
+  Seed: `php artisan db:seed --class=DemoDentalSeeder`.
+
 ## Open items / next gates (per docs/DENTAL-DELIVERY-MAP.md)
 
 - (done: G2 odontogram UI · G3 catalog+billing · G4 perform workflow · G5 treatment plan [CORE spine
   complete] · G6 perio charting · G7 diagnosis record · G8 imaging — **general-dentist feature set G1–G8
-  COMPLETE**) · later: G9 chair-view (reuse), G10 sterilization/inventory, G11 ortho/scan-comparison. Long
+  COMPLETE** · **G9 demo-readiness: navigability + `DemoDentalSeeder` + audit cosmetics [D-107]**) · later
+  (renumbered — G9 is now demo-readiness): chair-view (reuse of the resource/day-board), sterilization/
+  inventory, ortho/scan-comparison. Long
   poles (partner-gated/non-goal): live imaging capture (X-ray sensor / intraoral scanner) + DICOM/PACS + 3D
   scan overlay/comparison, AI radiology/caries detection (NON-GOAL — fence + regulated device), licensed
   procedure/diagnosis codes (CDT/ICD licensed — tenant-authored catalogs, do NOT bundle).

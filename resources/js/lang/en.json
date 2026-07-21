@@ -28,7 +28,7 @@
         }
     },
     "settings": {
-        "eyebrow": "Governance",
+        "eyebrow": "Administration",
         "title": "Practice settings",
         "subtitle": "Configure your practice. The server enforces every value — this page only reflects it.",
         "flash": {
@@ -93,7 +93,7 @@
         }
     },
     "roles": {
-        "eyebrow": "Governance",
+        "eyebrow": "Administration",
         "title": "Roles & access",
         "subtitle": "Assign a built-in role to each member. Roles are fixed templates — the server enforces exactly what each grants.",
         "flash": {
@@ -136,6 +136,7 @@
             "approvals": "Approvals",
             "knowledge": "Knowledge base",
             "telehealth": "Telehealth",
+            "dental": "Dental",
             "import": "Import",
             "settings": "Settings"
         }
@@ -200,7 +201,7 @@
             "dateFormat": "Date format",
             "saveMapping": "Save mapping",
             "dryRun": "Run dry-run (writes nothing)",
-            "dryRunNote": "The dry-run validates every row and detects duplicates. Nothing is written to patients until you commit.",
+            "dryRunNote": "The dry-run saves your current column mapping, then validates every row and detects duplicates. Nothing is written to patients until you commit.",
             "summary": "Dry-run summary",
             "valid": "Valid",
             "invalid": "Invalid",
@@ -395,6 +396,7 @@
             "empty": "No records yet.",
             "allergiesLabel": "Allergies",
             "viewInChart": "View in chart",
+            "viewInDental": "Dental chart",
             "grantTitle": "Grant a consent",
             "grantHint": "Locks the latest active template version server-side; both fields required.",
             "accessHint": "Read-only, factual, and visible to any patient.view user — who accessed this record.",
@@ -616,6 +618,7 @@
             "summary": "{encounters} encounters · {problems} problems · {medications} medications",
             "openRecalls": "{count} open recall | {count} open recalls",
             "patient360": "Patient 360",
+            "dentalChart": "Dental chart",
             "allEncounters": "All · {count}",
             "sharedWithPatient": "Shared with patient",
             "allergies": {
@@ -678,6 +681,7 @@
             "documents": "Documents",
             "messages": "Messages",
             "invoices": "Invoices",
+            "treatmentPlan": "Treatment plan",
             "consents": "Consents",
             "telehealth": "Video visit"
         },
@@ -798,7 +802,9 @@
             "statuses": {
                 "issued": "Open",
                 "partially_paid": "Partially paid",
-                "paid": "Paid"
+                "paid": "Paid",
+                "credit_noted": "Credit-noted",
+                "credit": "Credit"
             },
             "download": "PDF",
             "footer": "Payment is handled at the practice — please settle open invoices there or by bank transfer using the reference on your PDF."
@@ -1148,7 +1154,7 @@
         }
     },
     "branchesAdmin": {
-        "eyebrow": "Governance",
+        "eyebrow": "Administration",
         "title": "Branches",
         "subtitle": "Manage your locations, their opening hours and status.",
         "backToSettings": "← Back to settings",
@@ -1390,6 +1396,29 @@
             "created": "Scheduled",
             "active": "In progress"
         }
+    },
+    "dentalIndex": {
+        "eyebrow": "Dental",
+        "title": "Dental",
+        "subtitle": "Pick a patient to open their dental chart — charting, procedures, treatment plan, perio, diagnosis and imaging.",
+        "feeSchedule": "Fee schedule",
+        "searchName": "Search by name",
+        "searchPlaceholder": "Search by name",
+        "searchDob": "Date of birth",
+        "search": "Search",
+        "searchHint": "Full-text match on first and family name · date of birth matches exactly · results cap at 25.",
+        "matches": "{count} patient | {count} patients",
+        "openChart": "Open dental chart",
+        "empty": "No patients match your search.",
+        "clearSearch": "Clear search"
+    },
+    "dentalSection": {
+        "label": "Dental sections",
+        "chart": "Chart",
+        "perio": "Perio",
+        "diagnoses": "Diagnoses",
+        "plans": "Treatment plan",
+        "images": "Imaging"
     },
     "dental": {
         "eyebrow": "Dental chart",

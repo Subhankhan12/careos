@@ -114,6 +114,7 @@ test('every major staff route is reachable through the real middleware stack (20
         'billing.new-invoice' => '/billing/new-invoice',
         'billing.dunning' => '/billing/dunning',
         'dental.fee-schedule' => '/dental/fee-schedule',
+        'dental.index' => '/dental',
         'reporting' => '/reporting',
         'governance' => '/governance',
         'governance.approvals' => '/governance/approvals',
@@ -213,6 +214,10 @@ test('per-role RBAC smoke: each role reaches its pages (200) and is denied other
         // reach it; reception (no billing.manage) is denied.
         [$u['billing'], '/dental/fee-schedule', 200],
         [$u['reception'], '/dental/fee-schedule', 403],
+        // DENTAL.G9: the dental section landing is dental.chart-gated (the dentist reaches it);
+        // reception (patient.view but NOT dental.chart) is denied — same gate as the nav entry.
+        [$u['doctor'], '/dental', 200],
+        [$u['reception'], '/dental', 403],
         // settings + roles are admin.manage only — reception is denied, org_admin reaches them.
         [$u['reception'], '/settings', 403],
         [$u['reception'], '/admin/roles', 403],

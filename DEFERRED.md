@@ -139,6 +139,7 @@ The general-dentist feature set (DENTAL.G1–G8) is built. The following are par
   catalog (G3) and the diagnosis pick-list (G7) are TENANT-AUTHORED — no licensed coded set is bundled.
   **TRIGGER:** a customer requires a specific coded set AND a license for it (then load it as tenant
   data, still not bundled in the repo).
-- **Later dental gates: G9 chair-view (reuse of the resource/day-board), G10 sterilization/inventory,
-  G11 ortho/aligner tracking.** Specialist/operational features beyond the general-dentist set.
-  **TRIGGER:** a dental customer whose workflow needs them.
+- **Later dental gates (renumbered — DENTAL.G9 was used for demo-readiness: navigability +
+  `DemoDentalSeeder` + audit cosmetics, see D-107): chair-view (reuse of the resource/day-board),
+  sterilization/inventory, ortho/aligner tracking.** Specialist/operational features beyond the
+  general-dentist set. **TRIGGER:** a dental customer whose workflow needs them.

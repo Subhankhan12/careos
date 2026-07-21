@@ -3,6 +3,7 @@ import { Head, useForm, usePage } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import AppLayout from '@/Layouts/AppLayout.vue';
+import DentalSectionNav from '@/Components/DentalSectionNav.vue';
 
 const { t } = useI18n();
 const page = usePage();
@@ -169,6 +170,8 @@ function dateTime(iso: string): string {
                 </div>
                 <p class="mt-1 text-sm text-white/70">{{ t('dental.dob') }}: {{ patient.date_of_birth }}</p>
             </div>
+
+            <DentalSectionNav :patient-id="patient.id" active="chart" />
 
             <p v-if="flash === 'charted'" class="rounded-2xl border border-success/30 bg-success-soft p-4 text-sm text-success">{{ t('dental.flash.charted') }}</p>
 

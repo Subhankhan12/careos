@@ -3,6 +3,7 @@ import { Head, router, useForm, usePage } from '@inertiajs/vue3';
 import { computed, reactive, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import AppLayout from '@/Layouts/AppLayout.vue';
+import DentalSectionNav from '@/Components/DentalSectionNav.vue';
 import Button from '@/Components/Button.vue';
 import Card from '@/Components/Card.vue';
 import Input from '@/Components/Input.vue';
@@ -111,6 +112,8 @@ function confirmPerform(item: Item): void {
                 <p class="mt-1 text-sm text-ink-muted">{{ patient.name }} · <span class="font-mono">{{ patient.mrn }}</span></p>
                 <p class="mt-1 max-w-2xl text-sm text-ink-subtle">{{ t('treatmentPlan.subtitle') }}</p>
             </div>
+
+            <DentalSectionNav :patient-id="patient.id" active="plans" />
 
             <p v-if="flash" class="rounded-2xl border border-success/30 bg-success-soft p-4 text-sm text-success">{{ t(`treatmentPlan.flash.${flash}`) }}</p>
 
