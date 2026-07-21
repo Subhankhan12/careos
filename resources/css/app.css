@@ -69,16 +69,18 @@
     --color-info: #5b7a8c;
     --color-info-soft: #e6edf2;
 
-    /* Type scale (+ display sizes for the landing greeting). */
+    /* Type scale (+ display sizes for the landing greeting). Heading steps align to the
+       Eucalyptus Glow prototype (UI.F2): page title 2xl = 22px (was 24), landing hero 5xl =
+       40px (was 44). lg = 18px already matches the prototype's section headings. */
     --text-xs: 0.75rem;
     --text-sm: 0.875rem;
     --text-base: 1rem;
     --text-lg: 1.125rem;
     --text-xl: 1.25rem;
-    --text-2xl: 1.5rem;
+    --text-2xl: 1.375rem;
     --text-3xl: 1.875rem;
     --text-4xl: 2.25rem;
-    --text-5xl: 2.75rem;
+    --text-5xl: 2.5rem;
 
     /* Spacing base + radii. */
     --spacing: 0.25rem;
@@ -86,6 +88,32 @@
     --radius-lg: 0.75rem;
     --radius-xl: 1rem;
     --radius-2xl: 1.25rem;
+}
+
+/*
+ * Native date inputs (UI.F2). The control stays a real <input type="date"> — value and
+ * behaviour unchanged — but its native chrome is styled into the design system: ink text,
+ * a light picker (never the OS dark popup), and a euca-toned calendar button in place of the
+ * browser-default grey glyph, so the control reads as part of Eucalyptus Glow instead of a
+ * raw browser widget. Applies everywhere a date field is used (registration, filters, etc.).
+ */
+@layer base {
+    input[type='date'] {
+        color-scheme: light;
+    }
+    input[type='date']::-webkit-datetime-edit {
+        color: var(--color-ink);
+    }
+    input[type='date']::-webkit-calendar-picker-indicator {
+        cursor: pointer;
+        opacity: 0.65;
+        margin-left: 0.25rem;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%235c7d55' stroke-width='1.7'%3E%3Crect x='3.5' y='4.5' width='17' height='16' rx='2.5'/%3E%3Cpath d='M3.5 9h17M8 3v3M16 3v3' stroke-linecap='round'/%3E%3C/svg%3E");
+        transition: opacity 0.15s ease;
+    }
+    input[type='date']:hover::-webkit-calendar-picker-indicator {
+        opacity: 0.95;
+    }
 }
 
 /*

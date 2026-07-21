@@ -63,7 +63,7 @@ const quickActions = [
         <Head :title="t('portal.nav.home')" />
 
         <p class="text-xs font-semibold uppercase tracking-[0.14em] text-ink-subtle">{{ today }}</p>
-        <h1 class="mt-1 text-3xl font-semibold tracking-tight text-ink sm:text-4xl">{{ greeting }}</h1>
+        <h1 class="mt-1 text-3xl font-semibold tracking-tight text-ink">{{ greeting }}</h1>
 
         <div class="mt-6 grid gap-5 lg:grid-cols-[1.5fr_1fr]">
             <!-- The one dark tile: next appointment. -->

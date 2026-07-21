@@ -1265,3 +1265,25 @@ references the old ID.
   input, the prototype's nav tenant-chip) are page-specific and go to UI.F2. VERIFIED: npm build green (28
   woff2 emitted + the app fetches its own Inter); composer check green (Pest 707/5741 unchanged); smoke
   green. (UI.F1) See [[D-107]], [[D-083]].
+
+- **D-109 — Per-page visual fidelity: align the heading TYPE SCALE and style the native date input at the
+  shared/token level, and recognise the fence-omitted clinical scores as CORRECT behaviour, not drift.**
+  UI.F2 completes the visual match F1 (D-108) began. The residuals F1 flagged were per-page, but the fix is
+  still shared: (a) the heading scale — the app's page titles were `text-2xl` (24px) and landing hero
+  `text-5xl` (44px) vs the prototype's 22px / 40px (section headings `text-lg`=18px already matched), so the
+  TOKENS were retuned (`--text-2xl` → 22px, `--text-5xl` → 40px) rather than editing 77 headings by hand;
+  one genuine per-page outlier (the portal Home greeting) was reduced from 36 → 30px in place. (b) The
+  native date input rendered as raw browser chrome; a shared `@layer base` rule styles `input[type='date']`
+  into the design system (light color-scheme, ink text, a euca-toned calendar button) while keeping it a
+  real date input — value and behaviour unchanged — so every date field (registration, filters, reporting)
+  is fixed at once. The empty `mm/dd/yyyy` state is intrinsic to a native date input; replicating the
+  prototype's "Date of birth" placeholder would require changing the input type, which would alter
+  behaviour, so it stays. (c) The screen-by-screen re-compare confirmed the shared fixes propagate to every
+  area (auth/landing/patients/clinical/dental/billing/portal/scheduling all match). The differences that
+  REMAIN are correct behavioural content, deliberately left: RBAC-gated nav density, the multi-tenant
+  nav chip, real data/empty states — and, sharpest, the prototype odontogram's **"DMFT" caries-index score
+  and "finding" count**, which are exactly the computed clinical JUDGMENT the electric fence forbids; the
+  live app correctly omits them (record-not-judge) and they stay omitted (as does the portal's absent pay
+  button — PSP deferred). PURELY VISUAL (P0D.GU): no data/props/logic/route/fence/RBAC/billing change; the
+  only `.vue` edit is one heading class; every behaviour test passes UNCHANGED (Pest 707/5741). VERIFIED:
+  npm build green; composer check green; smoke green. (UI.F2) See [[D-108]], [[D-083]].

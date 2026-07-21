@@ -36,7 +36,7 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
   unlocks **eMAR + the CH statutory billing pack** when confirmed. The well of safe build-without-a-
   customer-need work is done — do not open a new gate unless a customer need pulls a specific feature
   forward. Discovery brief: `docs/DISCOVERY.md`; outreach: `docs/outreach-de.md`.
-- **Latest verified quality:** UI.F1 (visual-only; test count unchanged); `composer check` FULLY green — Pint `passed`, PHPStan L5
+- **Latest verified quality:** UI.F2 (visual-only; test count unchanged); `composer check` FULLY green — Pint `passed`, PHPStan L5
   `[OK] No errors`, **Pest 707 passed / 5741 assertions**, 0 failed; `npm run build` green; **CI green on
   MySQL 8 + Redis 7** (check-run `success`). (G8 baseline: `0d93a36`, Pest 700/5623.) A route-reachability smoke (**FIX.5**, `composer test:smoke`)
   drives every major route through the real middleware stack to guard against request-time 500s (the C-1
@@ -335,6 +335,23 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
   the native `<input type=date>` styling, the nav tenant-chip (content) and nav density (RBAC content, not
   styling). New dep `@fontsource/inter`; NO test changed. Verified: npm build green (28 woff2 + the app
   fetches its own Inter); composer check green (Pest 707/5741 unchanged); smoke green.
+
+- **UI.F2 — visual-fidelity pass, part 2: the per-page residuals F1's root fix didn't reach (D-109). PURELY
+  VISUAL** (P0D.GU) — no data/props/logic/route/fence/RBAC/billing change; the only `.vue` edit is one
+  heading class (Portal/Home greeting); every behaviour test passes UNCHANGED. Diagnosed by rendering the
+  prototype vs the live app + measuring computed sizes. **Fixed (shared/token where possible):** (1) heading
+  scale — retuned `--text-2xl` 24→**22px** (page titles) and `--text-5xl` 44→**40px** (landing hero) to the
+  prototype (section `text-lg`=18px already matched); portal Home greeting 36→30px in place. (2) native date
+  input — a shared `@layer base` rule styles `input[type='date']` (light color-scheme, ink text, a
+  euca-toned calendar button) while keeping it a real date input (value/behaviour unchanged) — every date
+  field fixed at once. **Screen-by-screen re-compare** (auth/landing/patients/clinical/**dental**/billing/
+  portal/scheduling) — all match the prototype's LOOK. **Correct behavioural differences LEFT AS-IS (not
+  drift — backend wins on behaviour):** RBAC-gated nav density, the multi-tenant nav chip, real data/empty
+  states, and — sharpest — the prototype odontogram's **"DMFT" caries-index score + "finding" count**
+  (computed clinical judgment the electric fence forbids; the live app correctly OMITS them and they stay
+  out), plus the portal's absent pay button (PSP deferred). **With F1+F2 the UI matches the Eucalyptus Glow
+  prototype at both the root and per-page level; what still differs is correct behavioural content.** NO
+  test changed. Verified: npm build green; composer check green (Pest 707/5741 unchanged); smoke green.
 
 - **Current phase:** ALL BUILD PHASES COMPLETE. Phases 0/A/B/C/D/E/F/G + Phase-P hardening (P.1–P.16) +
   the CLAUDE design pass (Eucalyptus Glow) + clinic delivery wiring (CLINIC.W1–W7) + QA remediation
