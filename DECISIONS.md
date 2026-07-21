@@ -1243,3 +1243,25 @@ references the old ID.
   (3, incl. reconcile δ=0 + chain-verify + idempotent); the FIX.5 route smoke gains `/dental` (dentist 200 /
   reception 403). VERIFIED: npm build green; PHPStan L5 `[OK]`; Pint passed; composer check green. With G9
   the dental vertical is REACHABLE + DEMO-READY. (DENTAL.G9) See [[Dental]], [[D-106]], [[D-090]].
+
+- **D-108 — Visual fidelity is a ROOT-token/shared-component concern; the "everything feels off" was one
+  root cause: the app never delivered its own webfont.** The Eucalyptus Glow design tokens name
+  `--font-sans: 'Inter'`, but nothing loaded Inter — no `@font-face`, no `<link>`, no font package, zero
+  woff2 in the repo. So the app rendered Inter only where it was system-installed and fell back to
+  `ui-sans-serif, system-ui` (Segoe UI / San Francisco / Roboto) on every other machine, shifting type
+  metrics and vertical rhythm on every page vs the prototype (which loads Inter via Google Fonts). UI.F1
+  fixes this at the source by SELF-HOSTING Inter via `@fontsource/inter` (weights 400/500/600/700, imported
+  in `resources/js/app.ts`; Vite bundles the subset woff2 with `font-display: swap`) — CSP-safe, no external
+  CDN, guaranteed on every machine and offline. Chose self-hosting over a Google-Fonts `<link>` (the
+  prototype's approach) because a healthcare SaaS may deploy behind strict CSP / restricted egress; the
+  fonts ship in the build. Two smaller shared drifts were aligned to the prototype's actual values in the
+  same pass: `.glass-card` shadow `0 14px 40px` → `0 16px 44px` and border white-hairline opacity `0.6` →
+  `0.8`; `.euca-wash` top glow `rgba(198,218,191,0.5)` → `0.55`. The euca colour ramp, ink, surfaces, radii
+  (2xl = 20px), and card blur (24px) were verified to ALREADY match the prototype — colours were never
+  drifted. Because all three shells (app/auth/portal) use the shared `.euca-wash`/`.glass-card` classes and
+  one JS entry, these root fixes correct every page at once. PURELY VISUAL (P0D.GU): no data/props/logic/
+  route/fence/RBAC/billing change; no omitted behaviour reintroduced; no `.vue` template/prop change, so
+  every assertInertia/behaviour test passes UNCHANGED. Per-page residuals (heading sizes, the native date
+  input, the prototype's nav tenant-chip) are page-specific and go to UI.F2. VERIFIED: npm build green (28
+  woff2 emitted + the app fetches its own Inter); composer check green (Pest 707/5741 unchanged); smoke
+  green. (UI.F1) See [[D-107]], [[D-083]].

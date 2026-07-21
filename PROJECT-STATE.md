@@ -36,7 +36,7 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
   unlocks **eMAR + the CH statutory billing pack** when confirmed. The well of safe build-without-a-
   customer-need work is done — do not open a new gate unless a customer need pulls a specific feature
   forward. Discovery brief: `docs/DISCOVERY.md`; outreach: `docs/outreach-de.md`.
-- **Latest verified quality:** DENTAL.G9; `composer check` FULLY green — Pint `passed`, PHPStan L5
+- **Latest verified quality:** UI.F1 (visual-only; test count unchanged); `composer check` FULLY green — Pint `passed`, PHPStan L5
   `[OK] No errors`, **Pest 707 passed / 5741 assertions**, 0 failed; `npm run build` green; **CI green on
   MySQL 8 + Redis 7** (check-run `success`). (G8 baseline: `0d93a36`, Pest 700/5623.) A route-reachability smoke (**FIX.5**, `composer test:smoke`)
   drives every major route through the real middleware stack to guard against request-time 500s (the C-1
@@ -318,6 +318,23 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
   "Governance"). NEW `DentalLandingTest` (4) + `DemoDentalSeederTest` (3); route smoke gains `/dental`
   (dentist 200 / reception 403). Verified: npm build green; PHPStan L5 `[OK]`; Pint passed; composer check
   green. Seed: `php artisan db:seed --class=DemoDentalSeeder`.
+
+- **UI.F1 — visual-fidelity pass, part 1: fixed the ROOT design-token/shared-component drift from the
+  Eucalyptus Glow prototype (D-108). PURELY VISUAL** (P0D.GU) — no data/props/logic/route/fence/RBAC/billing
+  change, no omitted behaviour reintroduced, no `.vue` template/prop change (every behaviour test passes
+  UNCHANGED). Diagnosed by rendering the prototype (`resources/prototype/*.html`) vs the live app and
+  comparing computed styles. **THE root cause: the app never delivered its own webfont** — `--font-sans:
+  'Inter'` named Inter but nothing loaded it (no `@font-face`/link/package/woff2), so the app rendered Inter
+  only where it was system-installed and fell back to system-ui elsewhere — shifting type + rhythm on every
+  page vs the prototype (which loads Inter). **Fix (root/shared, corrects every page + all 3 shells at
+  once):** self-host Inter via `@fontsource/inter` (weights 400/500/600/700, imported in `app.ts` → 28
+  bundled woff2, `font-display: swap`, CSP-safe, no CDN); align the shared `.glass-card` (shadow
+  `14px/40px` → `16px/44px`, hairline opacity `0.6` → `0.8`) and `.euca-wash` glow (`0.5` → `0.55`) to the
+  prototype's actual values. The euca ramp/ink/surfaces/radii/blur were verified to ALREADY match — colours
+  were never drifted. **Per-page residuals → UI.F2:** heading sizes (page h1 24px vs the prototype's 22px),
+  the native `<input type=date>` styling, the nav tenant-chip (content) and nav density (RBAC content, not
+  styling). New dep `@fontsource/inter`; NO test changed. Verified: npm build green (28 woff2 + the app
+  fetches its own Inter); composer check green (Pest 707/5741 unchanged); smoke green.
 
 - **Current phase:** ALL BUILD PHASES COMPLETE. Phases 0/A/B/C/D/E/F/G + Phase-P hardening (P.1–P.16) +
   the CLAUDE design pass (Eucalyptus Glow) + clinic delivery wiring (CLINIC.W1–W7) + QA remediation
