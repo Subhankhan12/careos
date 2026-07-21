@@ -3,26 +3,54 @@
 Short, factual snapshot of where the project stands. Updated at consolidations and after gates
 (per the MEMORY PROTOCOL in AGENTS.md).
 
-## CURRENT FOCUS: DISCOVERY (not building)
+## STATUS: BACKEND FEATURE-COMPLETE · THREE VERTICALS · CURRENT FOCUS = DEPLOY (not building)
 
-**Read this before starting any work. The next unit of progress is NOT another gate.**
+**Read this before starting any work. The next unit of progress is DELIVERY, not another gate.**
+(Latest reconciliation: `0d93a36`, DENTAL.G8 — general-dentist feature set complete.)
 
-- **State:** the backend is feature-complete for MVP+ (~93 gates through Phase P; the P0P sequence
-  G1–G11 is complete). The CLAUDE design pass (**Eucalyptus Glow**) is in progress across the 34
-  screens (22 Inertia pages + 11 nurse-PWA screens; see `docs/SCREENS.md`). **The next action is
-  CUSTOMER DISCOVERY — talking to Swiss Spitex coordinators and clinics — NOT a new module.** Do not
-  start building a gate unless discovery produces evidence that pulls a specific feature forward.
-- **The single riskiest assumption to test — Swiss Spitex billing is probably NOT clean cash-pay.**
-  It is largely **KVG/KLV insurance reimbursement to Krankenkassen + canton/municipal contributions
-  + patient co-pays** — a THIRD model, distinct from both US X12 claims and simple patient-pay. The
-  **CH statutory billing pack is deferred/unbuilt** (see DEFERRED.md). Therefore "our EU-Generic
-  billing fits Spitex" is **UNPROVEN and possibly false.** If coordinators confirm it, the **CH
-  billing/reimbursement pack becomes the likely real first build**, and the offline nurse PWA is the
-  wedge to get in the door — not the first thing monetized. (This is a HYPOTHESIS to confirm in the
-  first 2–3 coordinator calls, not established fact — nobody has verified current KVG rules from here.)
-- **The market-decision rule:** the **reimbursement mechanics**, heard consistently across the first
-  ~3 coordinators, decide the market (EU-cash vs CH-insurance-funded vs US-claims). Everything else is
-  prioritization. Full brief: `docs/DISCOVERY.md`; outreach: `docs/outreach-de.md`.
+- **Product:** **CareOS** — a multi-tenant, agentic healthcare-operations SaaS, EU-first. Stack:
+  Laravel 12 · Inertia v2 + Vue 3 + TS + Tailwind v4 (**Eucalyptus Glow** design system) · a separate
+  offline **Nurse PWA**. Dev DB MariaDB 10.4 @3306; **prod + CI = MySQL 8 + Redis 7 + Node 22**; Horizon
+  via Memurai locally. Money is integer minor units; ledgers + clinical records are append-only (model
+  guards + DB triggers); tenancy is fail-closed; the **electric fence** (record-not-judge, no AI in the
+  clinical-decision path) holds everywhere.
+- **State:** **BACKEND FEATURE-COMPLETE** (Phases 0/A/B/C/D/E/F/G + Phase-P hardening P.1–P.16). **THREE
+  verticals for THREE prospective paying customers:**
+  - **CLINIC — fully delivered.** Every clinic + shared screen wired to the exact Eucalyptus Glow design
+    (CLINIC.W1–W7), QA-audited in a real browser with all findings fixed (FIX.1–FIX.5 + a final QA pass),
+    and the **ADMIN vertical** built: W8 settings + RBAC/roles, W8b settings backends (editable profile,
+    branch CRUD, opening hours, timezone — scheduling-safe), W8c resource (rooms/chairs) CRUD, W9
+    governance dashboard + AI approval-queue, W10 KB admin + staff telehealth.
+  - **DENTAL — general-dentist feature set built (DENTAL.G1–G8).** G1 tooth/odontogram data model · G2
+    odontogram chart UI · G3 procedure catalog + billing integration · G4 perform-a-procedure atomic
+    workflow · G5 phased fee-scheduled treatment plan · G6 perio charting · G7 dentist-authored diagnosis
+    · G8 imaging upload/view/read. Record-not-judge throughout; billing reuses the tested engine
+    (reconciles-to-the-unit); catalogs tenant-authored (no licensed CDT/ICD bundled); imaging
+    live-capture/DICOM/3D/AI-detection are partner-gated / non-goal (see DEFERRED.md).
+  - **INSURANCE / CLAIMS — NOT built.** Needs a clearinghouse partner; its own future phase, to be built
+    with the same proven wiring/build patterns.
+- **CURRENT FOCUS — DEPLOY the built verticals to the paying customers, not more building.** Deploy to a
+  Linux host, wire real email + LiveKit, import each customer's data via the P.6 CSV tool, onboard. The
+  next real progress is DELIVERY. The insurance vertical follows. The **Spitex / CH-billing discovery
+  answer** (is Swiss Spitex billing KVG/KLV insurance-reimbursed, not clean cash-pay? — UNPROVEN) still
+  unlocks **eMAR + the CH statutory billing pack** when confirmed. The well of safe build-without-a-
+  customer-need work is done — do not open a new gate unless a customer need pulls a specific feature
+  forward. Discovery brief: `docs/DISCOVERY.md`; outreach: `docs/outreach-de.md`.
+- **Latest verified quality:** commit `0d93a36`; `composer check` FULLY green — Pint `passed`, PHPStan L5
+  `[OK] No errors`, **Pest 700 passed / 5623 assertions**, 0 failed; `npm run build` green; **CI green on
+  MySQL 8 + Redis 7** (check-run `success`). A route-reachability smoke (**FIX.5**, `composer test:smoke`)
+  drives every major route through the real middleware stack to guard against request-time 500s (the C-1
+  class). See the detailed quality block below.
+- **Demo tenants (both reconcile-to-the-unit + chain-verify):** `DemoClinicSeeder` (Praxis Lindenhof, CHF,
+  clinic resources, realistic vitals) + `DemoSpitexSeeder` (Spitex Sonnengarten, EU-Generic home-care).
+  Seed: `php artisan migrate:fresh --seed` then `php artisan db:seed --class=DemoClinicSeeder` /
+  `--class=DemoSpitexSeeder`. **No dental demo seeder yet** (a documented follow-up).
+- **Deploy-ready status:** MySQL 8 parity proven (`docs/DB-PARITY.md`); **NOT yet deployed**. Still needed:
+  real email transport, a production LiveKit key/secret, production config/secrets. **Documented
+  follow-ups:** full per-widget timezone *display* (W8b stores/normalizes tz; per-widget rendering
+  pending) · the resource-availability admin screen (flagged in W8c) · dental: the patient/chart → dental
+  cross-link, a dental demo seeder, and the dental long-poles (live imaging capture/DICOM/3D overlay,
+  licensed code sets, G9–G11) — all in DEFERRED.md.
 
 - **QA-audit remediation (post-clinic-delivery, `docs/QA-AUDIT-REPORT.md`) — COMPLETE.** The live-browser audit
   found one Critical (C-1) and a set of Medium/Low polish items; all are now cleared. **C-1** (FIX.1, string-id
@@ -268,15 +296,16 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
   scan-compare; live imaging capture/DICOM/3D overlay + AI radiology (partner-gated/non-goal); licensed
   CDT/ICD code sets (tenant-authored, never bundled).
 
-- **Current phase:** Phase G COMPLETE - Comms, telehealth & patient portal. Consolidated at P0G.C:
-  the functional staff-facing surface is FROZEN for the design pass, and `docs/SCREENS.md` is the
-  factual re-skin brief (22 Inertia pages + 11 nurse-PWA screens with routes/guards/props/actions).
-  Next: CLAUDE DESIGN PASS across all screens, then Phase H per the master plan.
-- **Commits:** 70 on `main` after P0G.C.
-  Phase A = 11 (P0A.G1-G8, P0A.GM, P0A.GF, P0A.GF3), pushed to `origin/main`
-  (https://github.com/Subhankhan12/careos).
-- **Verified quality (from actual output):** `composer check` green - Pint `passed`,
-  PHPStan level 5 `[OK] No errors`, Pest **418 passed / 2752 assertions** (P0P.G1); npm build green.
+- **Current phase:** ALL BUILD PHASES COMPLETE. Phases 0/A/B/C/D/E/F/G + Phase-P hardening (P.1–P.16) +
+  the CLAUDE design pass (Eucalyptus Glow) + clinic delivery wiring (CLINIC.W1–W7) + QA remediation
+  (FIX.1–FIX.5 + a final QA pass) + the ADMIN vertical (CLINIC.W8/W8b/W8c/W9/W10) + the DENTAL vertical
+  (DENTAL.G1–G8). **Next is DEPLOYMENT, not a new phase** (see the STATUS block at the top).
+- **Commits:** **117 on `main`** (latest `0d93a36`, DENTAL.G8), pushed to `origin/main`
+  (https://github.com/Subhankhan12/careos). `main` is up to date with origin; CI green.
+- **Verified quality (from actual output, latest = `0d93a36`):** `composer check` FULLY green — Pint
+  `passed`, PHPStan level 5 `[OK] No errors`, **Pest 700 passed / 5623 assertions**, 0 failed; npm build
+  green; `composer test:smoke` green (3 passed). CI green on MySQL 8 + Redis 7 (check-run `success`).
+  (Earlier-phase baseline for reference: Pest 418/2752 at P0P.G1.)
   CI-failure root cause (P0G.G2/G3 runs): ci.yml exports QUEUE_CONNECTION=redis at the job level
   and phpunit's <env> does NOT override OS env vars, so the G.2 queue-idempotency test parked its
   job on real Redis in CI and the delivery row never appeared. Fixed in P0G.G4 by pinning
