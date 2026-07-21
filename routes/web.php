@@ -38,6 +38,7 @@ use Modules\Comms\Http\Controllers\InboxController;
 use Modules\Comms\Http\Controllers\PortalMessageController;
 use Modules\Comms\Http\Controllers\PortalTelehealthController;
 use Modules\Comms\Http\Controllers\StaffTelehealthController;
+use Modules\Dental\Http\Controllers\DiagnosisController;
 use Modules\Dental\Http\Controllers\FeeScheduleController;
 use Modules\Dental\Http\Controllers\OdontogramController;
 use Modules\Dental\Http\Controllers\PerioChartController;
@@ -221,6 +222,15 @@ Route::middleware('auth')->group(function () {
     // String-id {patient} (FIX.1).
     Route::get('/dental/perio/{patient}', [PerioChartController::class, 'show'])->name('dental.perio');
     Route::post('/dental/perio/{patient}', [PerioChartController::class, 'store'])->name('dental.perio.store');
+
+    // Dental diagnosis (DENTAL.G7) — a DENTIST-AUTHORED clinical diagnosis, recorded. The sharpest
+    // fence: NO AI, NO suggested/proposed diagnosis, NO auto-ranked differential — the dentist
+    // enters it (from their own tenant pick-list or free text) and sets the status; the system only
+    // records. show = patient.view (read), store = dental.chart. The term route adds to the tenant's
+    // own pick-list (dental.chart). String-id {patient} (FIX.1).
+    Route::get('/dental/diagnoses/{patient}', [DiagnosisController::class, 'show'])->name('dental.diagnoses');
+    Route::post('/dental/diagnoses/{patient}', [DiagnosisController::class, 'store'])->name('dental.diagnoses.store');
+    Route::post('/dental/diagnosis-terms', [DiagnosisController::class, 'storeTerm'])->name('dental.diagnosis-terms.store');
 
     // Dental treatment plans (DENTAL.G5) — a DENTIST-AUTHORED phased plan with a fee-schedule
     // ESTIMATE (snapshotted at proposal, reusing the G3 pricing). The plan ESTIMATES; performing

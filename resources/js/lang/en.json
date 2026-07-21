@@ -1527,6 +1527,51 @@
             "legend": "Each site shows pocket depth / recession in mm; a dot marks bleeding on probing. Raw values as recorded."
         }
     },
+    "diagnosis": {
+        "eyebrow": "Dental diagnosis",
+        "title": "Diagnosis",
+        "subtitle": "Record your clinical diagnosis. You author it; this screen records it.",
+        "fenceNote": "You write the diagnosis. Nothing here suggests, proposes, ranks, or auto-fills a diagnosis, and no diagnosis is derived from the charting, perio, or imaging. The status is your determination.",
+        "flash": {
+            "recorded": "Diagnosis recorded.",
+            "term_added": "Term added to your list."
+        },
+        "record": {
+            "title": "Record a diagnosis",
+            "subtitle": "Pick from your own list or write free text — either way, it is yours.",
+            "fromList": "Pick from your list (optional)",
+            "freeTextOption": "Free text…",
+            "label": "Diagnosis",
+            "status": "Status (you determine)",
+            "tooth": "Tooth",
+            "noTooth": "No specific tooth",
+            "findings": "Supporting findings (optional)",
+            "reason": "Reason, if changing a prior diagnosis (optional)",
+            "submit": "Record diagnosis"
+        },
+        "dentition": {
+            "permanent": "Permanent",
+            "primary": "Primary"
+        },
+        "status": {
+            "provisional": "Provisional",
+            "confirmed": "Confirmed",
+            "ruled_out": "Ruled out"
+        },
+        "terms": {
+            "title": "Your diagnosis list",
+            "subtitle": "Your own terms, for convenience. Not a coded set, not ranked, not suggested.",
+            "add": "Add a term",
+            "addButton": "Add",
+            "empty": "No terms yet — add your own, or just use free text above."
+        },
+        "history": {
+            "title": "Diagnosis history",
+            "empty": "No diagnoses recorded yet.",
+            "freeText": "free text",
+            "reason": "Reason"
+        }
+    },
     "feeSchedule": {
         "eyebrow": "Dental billing",
         "title": "Fee schedule",

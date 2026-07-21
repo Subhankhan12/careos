@@ -1144,3 +1144,37 @@ references the old ID.
   marks BOP (data entry), not severity. Route smoke gains `/dental/perio/{patient}` (doctor 200 /
   billing 403). Money/clinical/existing behavior unchanged; no existing test modified;
   reconciliation/fence/immutability/eval + G1–G5 suites green. (DENTAL.G6)
+- **D-105 — A dental diagnosis is DENTIST-AUTHORED and merely RECORDED; there is NO AI, NO suggested/
+  proposed diagnosis, NO auto-ranked differential, and NOTHING auto-populates a diagnosis. The
+  SHARPEST fence in the vertical.** DENTAL.G7. Domain: `diagnoses` (BelongsToTenant, LogsReads,
+  **APPEND-ONLY** model + DB-trigger SIGNAL-45000 — a change [provisional→confirmed, or a correction]
+  is a NEW record + `reason`; history preserved) stores what the DENTIST decided: `label` (the
+  diagnosis text they wrote OR picked), optional `tooth`/`surface` (FDI, reuses G1), `findings` (their
+  supporting notes), and `status` ∈ {provisional, confirmed, ruled_out} that the DENTIST sets;
+  `diagnosis_term_id` is PROVENANCE ONLY (which pick-list term was chosen, null = free text). A
+  separate `diagnosis_terms` (BelongsToTenant, plain catalog — NOT append-only) is the tenant's OWN
+  pick-list: a flat `{label, is_active}` list, TENANT-AUTHORED like the procedure catalog — **NO
+  licensed diagnostic code set (ICD/SNODENT) bundled**. **ELECTRIC FENCE (do not compromise): the
+  system NEVER proposes, ranks, suggests, auto-populates, or computes a likelihood for a diagnosis —
+  there is NO AI in this path at all this gate** (the prototype's "agent's proposed diagnosis /
+  auto-ranked differential" is built WITHOUT it — purely dentist-authored; a governed-AI diagnosis
+  draft was DELIBERATELY not added: a diagnosis is the one place we want no AI in the loop for now).
+  `status` is the dentist's determination — recorded, never decided/suggested by the system. The
+  schema/service/UI carry NO suggested/proposed/differential/likelihood/confidence/ranked/ai/
+  recommended field; `Diagnosis::assertValid` is pure data-entry validation (non-empty label, valid
+  FDI/surface, known status) — it never infers or ranks. The pick-list is a plain alphabetical list,
+  never sorted/filtered by a computed judgment. **Proven by the STRICTEST fence test yet**: a recursive
+  `dxAssertNoSuggestion` over the page props AND terms, PLUS an explicit no-auto-populate proof —
+  charting caries (G2) + probing 9mm perio pockets (G6) yields ZERO diagnoses (nothing derived one from
+  the clinical data); only what the dentist explicitly recorded exists. **Service** `DiagnosisService`:
+  `record` (gate `dental.chart`, tenant+patient fail-closed, term-id must be this tenant's, audited
+  `dental.diagnosis_recorded`); `diagnosesFor` (gate `patient.view`, patient-scoped `read` audit,
+  history = every row newest-first); `terms`/`addTerm` (the tenant's pick-list; addTerm audited
+  `dental.diagnosis_term.created`). **RBAC:** record = `dental.chart`; read = `patient.view` (reception
+  views but can't record; billing lacking patient.view can't view). **UI:** `DiagnosisController` +
+  `Dental/Diagnoses.vue` (`/dental/diagnoses/{patient}`, string-id FIX.1) — the dentist writes/picks a
+  diagnosis, sets the status THEY determine, ties an optional tooth, references findings, and manages
+  their own term list; diagnosis history newest-first. PRESENTATIONAL (P0D.GU): NO "suggested
+  diagnosis" UI, NO differential ranking, NO AI panel, NO auto-fill from charting. Route smoke gains
+  `/dental/diagnoses/{patient}` (doctor 200 / billing 403). Money/clinical/existing behavior unchanged;
+  no existing test modified; reconciliation/fence/immutability/eval + G1–G6 suites green. (DENTAL.G7)

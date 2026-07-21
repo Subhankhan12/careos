@@ -225,6 +225,25 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
   feature tests + route smoke gains the perio route (doctor 200 / billing 403). No existing behavior changed;
   reconciliation/immutability/fence/eval + G1–G5 suites green. Next: G7 diagnosis record · G8 imaging.
 
+- **DENTAL.G7 built the DENTIST-AUTHORED DIAGNOSIS RECORD — the SHARPEST fence in the vertical (D-105).**
+  `diagnoses` (BelongsToTenant, LogsReads, **APPEND-ONLY** model + DB-trigger — a change/correction is a NEW
+  record + `reason`, history preserved) stores what the DENTIST decided: `label` (text they wrote OR picked),
+  optional `tooth`/`surface` (FDI, reuses G1), `findings`, and `status` ∈ {provisional, confirmed, ruled_out}
+  the DENTIST sets; `diagnosis_term_id` is provenance only (null = free text). A `diagnosis_terms`
+  (BelongsToTenant, plain catalog) is the tenant's OWN pick-list — TENANT-AUTHORED like the procedure
+  catalog, **NO licensed diagnostic code set bundled**. **CRITICAL FENCE (do not compromise): NO AI, NO
+  suggested/proposed diagnosis, NO auto-ranked differential, NO computed likelihood, and NOTHING
+  auto-populates a diagnosis** — the system only records what the dentist entered; `status` is the dentist's
+  determination, recorded not decided. The schema/service/UI carry no suggested/proposed/differential/
+  likelihood/confidence/ranked/ai/recommended field. **Proven by the strictest fence test yet**: a recursive
+  no-suggestion assertion over the payload PLUS a no-auto-populate proof (charting caries + 9mm perio pockets
+  yields ZERO diagnoses). `DiagnosisService`: `record` (dental.chart, tenant+patient fail-closed, audited);
+  `diagnosesFor` (patient.view, read-log); `terms`/`addTerm` (the tenant's plain pick-list). UI:
+  `Dental/Diagnoses.vue` (`/dental/diagnoses/{patient}`, string-id FIX.1) — dentist writes/picks + sets the
+  status + manages their own term list; NO suggestion/differential/AI panel. 6 feature tests + route smoke
+  gains the diagnosis route (doctor 200 / billing 403). No existing behavior changed;
+  reconciliation/immutability/fence/eval + G1–G6 suites green. Next: G8 imaging/scans.
+
 - **Current phase:** Phase G COMPLETE - Comms, telehealth & patient portal. Consolidated at P0G.C:
   the functional staff-facing surface is FROZEN for the design pass, and `docs/SCREENS.md` is the
   factual re-skin brief (22 Inertia pages + 11 nurse-PWA screens with routes/guards/props/actions).

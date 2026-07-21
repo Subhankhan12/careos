@@ -93,9 +93,11 @@ model (foundation). G2 = interactive odontogram chart UI, render-not-judge. G3 =
 logic). G4 = the perform-a-procedure workflow — one atomic action recording the clinical fact + charge +
 tooth-state change. G5 = the phased, fee-scheduled treatment plan — dentist-authored, estimate reuses G3
 pricing (snapshotted at proposal), estimates without billing (G4 charges). **G6 = perio charting** —
-per-tooth, per-site periodontal measurements as RAW recorded facts (record-not-judge). **A general dentist
-can now chart the mouth → record + bill procedures → build/present/track a phased fee-scheduled plan → chart
-periodontal status.**
+per-tooth, per-site periodontal measurements as RAW recorded facts (record-not-judge). **G7 = the
+dentist-authored diagnosis record** — the SHARPEST fence: NO AI, NO suggested/proposed diagnosis, NO
+auto-ranked differential; the dentist enters it and sets the status, the system only records. **A general
+dentist can now chart the mouth → record + bill procedures → build/present/track a phased fee-scheduled plan
+→ chart periodontal status → record their clinical diagnosis.**
 
 ## Perform workflow (DENTAL.G4)
 
@@ -162,10 +164,36 @@ periodontal status.**
   stage badge (a dot marks BOP = data entry, not severity). NEW `perio.*` i18n. No G1–G5 code changed. See
   [[D-104]], [[Dental]], [[Clinical]].
 
+## Diagnosis record (DENTAL.G7) — the sharpest fence
+
+- `diagnoses` (BelongsToTenant, LogsReads, **APPEND-ONLY** model `updating`/`deleting`-throw + DB triggers
+  `diagnoses_no_update`/`_no_delete`) stores what the DENTIST decided: `label` (text they wrote OR picked),
+  optional `tooth`/`surface` (FDI, reuses `ToothNotation`), `findings`, `reason` (a change), and `status` ∈
+  `Diagnosis::STATUSES` {provisional, confirmed, ruled_out} the DENTIST sets; `diagnosis_term_id` is
+  PROVENANCE only (null = free text). `diagnosis_terms` (BelongsToTenant, plain catalog, NOT append-only) =
+  the tenant's OWN pick-list `{label, is_active}` — TENANT-AUTHORED like the procedure catalog, **NO licensed
+  diagnostic code set (ICD/SNODENT) bundled**. **ELECTRIC FENCE — THE SHARPEST (do not compromise): NO AI in
+  the diagnosis path at all this gate — NO suggested/proposed diagnosis, NO auto-ranked differential, NO
+  computed likelihood/confidence, and NOTHING auto-populates a diagnosis from the charting/perio/imaging.**
+  The system only records what the dentist entered; `status` is the dentist's determination, recorded not
+  decided/suggested. `Diagnosis::assertValid` is pure data-entry validation (non-empty label, valid
+  FDI/surface, known status) — never infers/ranks. The pick-list is a plain ALPHABETICAL list, never sorted/
+  filtered by a computed judgment. `Services\DiagnosisService`: `record` (gate `dental.chart`, tenant+patient
+  fail-closed, term-id must be this tenant's, audited `dental.diagnosis_recorded`); `diagnosesFor` (gate
+  `patient.view`, patient-scoped `read` audit, history = every row newest-first); `terms`/`addTerm` (the
+  tenant's pick-list, addTerm audited `dental.diagnosis_term.created`). `Http\Controllers\DiagnosisController`
+  (GET `/dental/diagnoses/{patient}` = show, POST = store, POST `/dental/diagnosis-terms` = storeTerm,
+  string-id FIX.1) + `Dental/Diagnoses.vue` — the dentist writes/picks a diagnosis, sets the status, ties an
+  optional tooth, references findings, manages their own term list; diagnosis history newest-first.
+  PRESENTATIONAL (P0D.GU): NO "suggested diagnosis" UI, NO differential ranking, NO AI panel, NO auto-fill.
+  **Proven by the strictest fence test yet**: recursive `dxAssertNoSuggestion` over the payload + terms PLUS
+  a no-auto-populate proof (charting caries [G2] + probing 9mm perio pockets [G6] yields ZERO diagnoses).
+  NEW `diagnosis.*` i18n. No G1–G6 code changed. See [[D-105]], [[Dental]], [[AiCore]].
+
 ## Open items / next gates (per docs/DENTAL-DELIVERY-MAP.md)
 
 - (done: G2 odontogram UI · G3 catalog+billing · G4 perform workflow · G5 treatment plan [CORE spine
-  complete] · G6 perio charting) · G7 diagnosis record · G8 imaging/scans; later: G9 chair-view (reuse), G10
+  complete] · G6 perio charting · G7 diagnosis record) · G8 imaging/scans; later: G9 chair-view (reuse), G10
   sterilization/inventory, G11 ortho/scan-comparison. Long poles: imaging-device/scanner integration
   (partner-gated), licensed procedure codes (CDT licensed — tenant-authored catalog, do NOT bundle).
 - All later gates keep the fence: build the prototype's AI-diagnosis / AI-overlay / auto-grade features
