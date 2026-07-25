@@ -1313,3 +1313,21 @@ references the old ID.
   VERIFIED: npm build green; composer check green (Pint · PHPStan L5 · **Pest 707 passed / 2 skipped
   [Redis + reminder infra, green in CI on Redis 7] / 5747 assertions**, 0 failed); smoke green. (POLISH.1)
   See [[D-093]] (route-smoke / C-1 nav-gating), [[D-107]] (dental-navigability precedent).
+
+- **D-111 — POLISH.2: group the admin/governance nav under one "Admin" dropdown (nav-density cosmetic).**
+  Presentational nav reorganization ONLY (`resources/js/layouts/AppLayout.vue` + one i18n key
+  `app.nav.admin`) — NO route/permission/controller/page/domain-logic/fence/billing/RBAC change. Fixes the
+  standing L-A/L-E finding (org_admin's 15 flat top-nav items + "Knowledge base" wrapping to two lines at
+  1440px, worsened by POLISH.1's +2), flagged by all three audits. **Split:** day-to-day items stay
+  top-level (Dashboard/Patients/Orders/Scheduling/Nursing/Inbox/Telehealth/Dental/Billing/Reporting = 10);
+  the admin/oversight/config cluster (Governance/Approvals/Knowledge base/Import/Settings = 5) collapses
+  under the "Admin" menu. **Gating is identical:** `NAV_PERMISSIONS` is UNCHANGED, each item keeps its exact
+  permission, the menu renders only when the user has ≥1 item, and the server Gate stays authoritative — so
+  a role with no admin permissions (reception) sees NO menu and a menu route is still 403 by URL for it
+  (200 for an admin). Browser-verified live: org_admin single-row nav + Admin menu with its 5 items;
+  reception no menu + `/settings` 403; org_admin `/settings` 200; nav height 40px = single row (no wrap).
+  **Accessible menu:** aria-haspopup/aria-expanded, role=menu/menuitem, arrow-key focus, Escape-to-close +
+  refocus, outside-click close, active-trigger highlight. `NavAndErrorPageTest` (asserts the shared
+  permissions map, not markup) passes UNCHANGED; no test modified. VERIFIED: npm build green; composer check
+  green (Pest 707 / 2 skipped / 5747 — unchanged); test:smoke green. (POLISH.2) See [[D-110]] (POLISH.1 nav
+  additions), [[D-093]] (nav-gating pattern).

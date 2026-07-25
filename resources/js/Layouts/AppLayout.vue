@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Link, router, usePage } from '@inertiajs/vue3';
-import { computed } from 'vue';
+import { computed, nextTick, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import BrandMark from '@/Components/BrandMark.vue';
 
@@ -29,7 +29,10 @@ const initials = computed(() => {
 // links a role can't use — the server Gate stays authoritative, so a hidden route is
 // still blocked by URL, and a shown one still 403s if the user truly lacks access.
 // Dashboard has no permission (any authenticated staff member reaches /app).
-const nav: { key: string; href: string; permission?: string }[] = [
+type NavItem = { key: string; href: string; permission?: string };
+
+// Day-to-day clinical / operational surfaces stay top-level.
+const primaryNav: NavItem[] = [
     { key: 'app.nav.dashboard', href: '/app' },
     { key: 'app.nav.patients', href: '/patients', permission: 'patient.view' },
     { key: 'app.nav.ordersReview', href: '/clinical/orders/review', permission: 'order.manage' },
@@ -40,6 +43,12 @@ const nav: { key: string; href: string; permission?: string }[] = [
     { key: 'app.nav.dental', href: '/dental', permission: 'dental.chart' },
     { key: 'app.nav.billing', href: '/billing/invoices', permission: 'billing.view' },
     { key: 'app.nav.reporting', href: '/reporting', permission: 'reporting.view' },
+];
+
+// Administrative / oversight / config surfaces collapse under one "Admin" menu (POLISH.2 — nav-density
+// only). Each item keeps the SAME permission it uses today; the menu is shown only if the user has at
+// least one item in it (a role with no admin permissions sees no menu). Server Gate stays authoritative.
+const adminNav: NavItem[] = [
     { key: 'app.nav.governance', href: '/governance', permission: 'audit.view' },
     { key: 'app.nav.approvals', href: '/governance/approvals', permission: 'ai.manage' },
     { key: 'app.nav.knowledge', href: '/governance/kb', permission: 'ai.manage' },
@@ -47,11 +56,37 @@ const nav: { key: string; href: string; permission?: string }[] = [
     { key: 'app.nav.settings', href: '/settings', permission: 'admin.manage' },
 ];
 
-const visibleNav = computed(() => nav.filter((item) => !item.permission || permissions.value[item.permission] === true));
+const canSee = (item: NavItem): boolean => !item.permission || permissions.value[item.permission] === true;
+const visiblePrimary = computed(() => primaryNav.filter(canSee));
+const visibleAdmin = computed(() => adminNav.filter(canSee));
 
 function isActive(href: string): boolean {
     const url = page.url;
     return href === '/app' ? url === '/app' || url === '/admin' : url.startsWith(href);
+}
+const adminActive = computed(() => visibleAdmin.value.some((item) => isActive(item.href)));
+
+// Accessible dropdown state (trigger + menu refs for focus management).
+const adminOpen = ref(false);
+const adminTrigger = ref<HTMLElement | null>(null);
+const adminMenu = ref<HTMLElement | null>(null);
+
+function openAdmin(): void {
+    adminOpen.value = true;
+    nextTick(() => adminMenu.value?.querySelector<HTMLElement>('[role="menuitem"]')?.focus());
+}
+function closeAdmin(refocus = false): void {
+    adminOpen.value = false;
+    if (refocus) nextTick(() => adminTrigger.value?.focus());
+}
+function toggleAdmin(): void {
+    adminOpen.value ? closeAdmin() : openAdmin();
+}
+function focusItem(delta: number): void {
+    const items = Array.from(adminMenu.value?.querySelectorAll<HTMLElement>('[role="menuitem"]') ?? []);
+    if (!items.length) return;
+    const idx = items.indexOf(document.activeElement as HTMLElement);
+    items[(idx + delta + items.length) % items.length]?.focus();
 }
 
 function signOut(): void {
@@ -73,10 +108,11 @@ function signOut(): void {
                         </div>
                     </div>
 
-                    <!-- Center pill nav on an ivory well; active = gradient white pill. -->
+                    <!-- Center pill nav on an ivory well; active = gradient white pill. Day-to-day items
+                         are top-level; admin/oversight items collapse under the "Admin" menu (POLISH.2). -->
                     <nav class="hidden items-center gap-1 rounded-full bg-euca-50/80 p-1 md:flex">
                         <Link
-                            v-for="item in visibleNav"
+                            v-for="item in visiblePrimary"
                             :key="item.href"
                             :href="item.href"
                             class="rounded-full px-3.5 py-1.5 text-sm font-medium transition"
@@ -84,6 +120,50 @@ function signOut(): void {
                         >
                             {{ t(item.key) }}
                         </Link>
+
+                        <!-- Admin & oversight menu — SAME items, SAME per-item permission gating; shown
+                             only when the user has >=1 item. Server Gate stays authoritative. -->
+                        <div v-if="visibleAdmin.length" class="relative">
+                            <button
+                                ref="adminTrigger"
+                                type="button"
+                                class="flex items-center gap-1 rounded-full px-3.5 py-1.5 text-sm font-medium transition"
+                                :class="adminActive || adminOpen ? 'nav-pill-active text-ink' : 'text-ink-muted hover:text-ink'"
+                                aria-haspopup="menu"
+                                :aria-expanded="adminOpen"
+                                @click="toggleAdmin"
+                                @keydown.escape="closeAdmin(true)"
+                            >
+                                {{ t('app.nav.admin') }}
+                                <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                                    <path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+                                </svg>
+                            </button>
+                            <!-- backdrop: outside-click closes -->
+                            <div v-if="adminOpen" class="fixed inset-0 z-40" @click="closeAdmin()"></div>
+                            <div
+                                v-if="adminOpen"
+                                ref="adminMenu"
+                                role="menu"
+                                :aria-label="t('app.nav.admin')"
+                                class="glass-card absolute right-0 z-50 mt-2 w-52 origin-top-right p-1.5"
+                                @keydown.escape="closeAdmin(true)"
+                                @keydown.down.prevent="focusItem(1)"
+                                @keydown.up.prevent="focusItem(-1)"
+                            >
+                                <Link
+                                    v-for="item in visibleAdmin"
+                                    :key="item.href"
+                                    :href="item.href"
+                                    role="menuitem"
+                                    class="block rounded-xl px-3 py-2 text-sm font-medium transition"
+                                    :class="isActive(item.href) ? 'nav-pill-active text-ink' : 'text-ink-muted hover:bg-euca-50 hover:text-ink'"
+                                    @click="closeAdmin()"
+                                >
+                                    {{ t(item.key) }}
+                                </Link>
+                            </div>
+                        </div>
                     </nav>
 
                     <!-- Right icon cluster + avatar + sign out. -->

@@ -144,7 +144,8 @@
             "telehealth": "Telehealth",
             "dental": "Dental",
             "import": "Import",
-            "settings": "Settings"
+            "settings": "Settings",
+            "admin": "Admin"
         }
     },
     "kiosk": {

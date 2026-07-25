@@ -36,7 +36,7 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
   unlocks **eMAR + the CH statutory billing pack** when confirmed. The well of safe build-without-a-
   customer-need work is done — do not open a new gate unless a customer need pulls a specific feature
   forward. Discovery brief: `docs/DISCOVERY.md`; outreach: `docs/outreach-de.md`.
-- **Latest verified quality:** POLISH.1 (category-G polish — nav wiring + series-end UI + odontogram tokens + 2 coverage tests + doc refresh; no domain/fence/billing logic changed); `composer check` FULLY green — Pint `passed`, PHPStan L5
+- **Latest verified quality:** POLISH.2 (nav-density cosmetic — admin/governance grouped under one "Admin" dropdown; browser-verified gating unchanged; no domain/fence/billing/RBAC change) atop POLISH.1 (category-G polish — nav wiring + series-end UI + odontogram tokens + 2 coverage tests + doc refresh; no domain/fence/billing logic changed); `composer check` FULLY green — Pint `passed`, PHPStan L5
   `[OK] No errors`, **Pest 707 passed / 2 skipped / 5747 assertions**, 0 failed (the 2 skips = Redis-Horizon + one reminder infra case, green in CI on Redis 7); `npm run build` green; **CI green on
   MySQL 8 + Redis 7** (check-run `success`). (G8 baseline: `0d93a36`, Pest 700/5623.) A route-reachability smoke (**FIX.5**, `composer test:smoke`)
   drives every major route through the real middleware stack to guard against request-time 500s (the C-1
@@ -1181,6 +1181,16 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
   FEATURE-INVENTORY 13→14 + Dental-built, both delivery maps, AGENTS module map) are re-bannered to point
   at `docs/MASTER-STATUS-REPORT.md`. **No must-fix safety item existed**; this is demo-readiness polish.
   Verified: npm build green; composer check green (Pest 707 / 2-skip / 5747, 0 failed); smoke green.
+- **POLISH.2 — grouped the admin/governance nav under one "Admin" dropdown (nav-density cosmetic; D-111).**
+  PURELY presentational (`AppLayout.vue` + one i18n key) — no route/permission/controller/page/domain/fence/
+  billing/RBAC change; `NAV_PERMISSIONS` unchanged so `NavAndErrorPageTest` passes as-is. Fixes the standing
+  L-A/L-E density (org_admin's 15 flat top-nav items, "Knowledge base" wrapping at 1440px, worsened by
+  POLISH.1's +2): day-to-day items stay top-level (10); Governance/Approvals/Knowledge base/Import/Settings
+  collapse under an **accessible "Admin" menu** (aria + keyboard + outside-click + active-highlight). **Gating
+  identical, browser-verified:** each item keeps its permission; the menu shows only with ≥1 item (reception
+  sees none, nav unchanged); a menu route is still 403 by URL for a role that lacks it (200 for an admin);
+  server Gate authoritative. Nav is now a single row (no wrap). Verified: live Playwright + npm build + composer
+  check green (Pest 707/2-skip/5747 unchanged) + smoke green.
 - **Next action:** the standing focus is again **DISCOVERY** — the CH/KVG-vs-EU-generic billing model must
   be confirmed with Spitex coordinators before the CH statutory pack (the likely real first NEW build) is
   committed. Remaining billing backend-only surfaces (camt.053 reconciliation, AI dunning drafts,
