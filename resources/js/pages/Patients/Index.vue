@@ -8,6 +8,8 @@ import { ageFromDateOnly, formatDateOnly } from '@/lib/date';
 const { t } = useI18n();
 const page = usePage();
 const locale = computed(() => (page.props.locale as string) || 'en');
+// Nav-gating for the "import your patients" empty-state link (server Gate stays authoritative).
+const canImport = computed(() => (page.props.auth as { user?: { permissions?: Record<string, boolean> } }).user?.permissions?.['data.import'] === true);
 
 const props = defineProps<{
     filters: { q: string; date_of_birth: string };
@@ -184,6 +186,13 @@ function statusLabel(status: string): string {
                             class="btn-glow inline-flex items-center rounded-xl px-4 py-2 text-sm font-semibold"
                         >
                             {{ t('patients.index.register') }}
+                        </Link>
+                        <Link
+                            v-if="canImport"
+                            href="/imports"
+                            class="inline-flex items-center rounded-xl border border-line bg-surface/70 px-4 py-2 text-sm font-semibold text-ink transition hover:bg-surface-2"
+                        >
+                            {{ t('patients.index.import') }}
                         </Link>
                     </div>
                 </div>

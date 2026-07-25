@@ -3,6 +3,7 @@ import { Head, router, usePage } from '@inertiajs/vue3';
 import { computed, reactive, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import AppLayout from '@/Layouts/AppLayout.vue';
+import EmptyState from '@/Components/EmptyState.vue';
 
 const { t } = useI18n();
 const page = usePage();
@@ -144,7 +145,7 @@ const typeFilters = [
                             </button>
                         </li>
                     </ul>
-                    <p v-else class="px-3 py-8 text-center text-sm text-ink-muted">{{ t('comms.inbox.empty') }}</p>
+                    <EmptyState v-else :title="t('comms.inbox.emptyTitle')" :message="t('comms.inbox.empty')" />
                 </div>
 
                 <!-- Center: thread -->

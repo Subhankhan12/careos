@@ -36,8 +36,8 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
   unlocks **eMAR + the CH statutory billing pack** when confirmed. The well of safe build-without-a-
   customer-need work is done — do not open a new gate unless a customer need pulls a specific feature
   forward. Discovery brief: `docs/DISCOVERY.md`; outreach: `docs/outreach-de.md`.
-- **Latest verified quality:** POLISH.2 (nav-density cosmetic — admin/governance grouped under one "Admin" dropdown; browser-verified gating unchanged; no domain/fence/billing/RBAC change) atop POLISH.1 (category-G polish — nav wiring + series-end UI + odontogram tokens + 2 coverage tests + doc refresh; no domain/fence/billing logic changed); `composer check` FULLY green — Pint `passed`, PHPStan L5
-  `[OK] No errors`, **Pest 707 passed / 2 skipped / 5747 assertions**, 0 failed (the 2 skips = Redis-Horizon + one reminder infra case, green in CI on Redis 7); `npm run build` green; **CI green on
+- **Latest verified quality:** POLISH.3 (presentational — guided first-run checklist + warm shared empty states + shell favicon/splash polish; empty-detected purely from the existing landing props, permission-gated links, fence-safe with no new metric; tests are additions-only) atop POLISH.2 (nav-density cosmetic — admin/governance under one "Admin" dropdown) and POLISH.1 (category-G polish); `composer check` FULLY green — Pint `passed`, PHPStan L5
+  `[OK] No errors`, **Pest 708 passed / 2 skipped / 5771 assertions**, 0 failed (the 2 skips = Redis-Horizon + one reminder infra case, green in CI on Redis 7); `npm run build` green + `npm run test:unit` green (21 Vitest); **CI green on
   MySQL 8 + Redis 7** (check-run `success`). (G8 baseline: `0d93a36`, Pest 700/5623.) A route-reachability smoke (**FIX.5**, `composer test:smoke`)
   drives every major route through the real middleware stack to guard against request-time 500s (the C-1
   class). See the detailed quality block below.
@@ -1191,6 +1191,28 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
   sees none, nav unchanged); a menu route is still 403 by URL for a role that lacks it (200 for an admin);
   server Gate authoritative. Nav is now a single row (no wrap). Verified: live Playwright + npm build + composer
   check green (Pest 707/2-skip/5747 unchanged) + smoke green.
+- **POLISH.3 — guided first-run + warm empty states + dashboard-hero polish (presentational; D-112).** PURELY
+  presentational (P0D.GU) — no domain logic, new metric, data write, new query, or fence/billing/clinical/RBAC
+  change; tests are additions-only (no existing behaviour test modified). (A) A dismissible **first-run "Get
+  started" checklist** (`FirstRunPanel.vue` on the landing) shows ONLY for an empty/new tenant, decided purely
+  from the EXISTING landing props via the new pure module `resources/js/lib/firstRun.ts` (`isNewTenant()` =
+  operational present + appointments/active_patients both 0 + outstanding 0 — distinguishes an empty tenant
+  from a quiet day with a balance; NO new backend query, it reuses FIX.2's figures); its 5 setup-step links
+  are **permission-gated** (`visibleSetupSteps()` — a role only sees steps it can reach; server Gate
+  authoritative), and it hides on a populated tenant or when the actor has 0 steps. (B) A shared on-brand
+  **`EmptyState.vue`** (icon + one-line + optional next-action Link that renders only when a real action
+  exists) warms the bare screens a new tenant hits: the **day-board no-availability gap** (looked "broken" →
+  "set up resources" gated on admin.manage), **patients index** (Import link gated on data.import), **billing
+  invoices**, **comms inbox**. Consciously kept (documented): **Reporting/Dashboard** (genuine zeros per FIX.2
+  — an EmptyState would hide honest facts) and **Dental/Index** (already a warm search-empty with a clearSearch
+  reset). (C) **Shell polish:** a branded favicon (inline leaf SVG), a token-only pre-mount splash (`#app-splash`,
+  removed right after mount → no blank flash), tab title + BrandMark confirmed; the landing hero was already
+  facts-only so no metric/trend-grade was invented (fence). Tokens only (no hex); 17 new i18n keys (single
+  locale). NEW tests (additions): Vitest `firstRun.test.ts` (isNewTenant + visibleSetupSteps) + an
+  `AppLandingTest` case (empty tenant = the panel-show signal; a billed tenant = hidden). NOTE: an unrelated
+  `docs/DEPLOY-RUNBOOK.md` (a production deploy runbook) is left UNTRACKED — out of scope for this
+  presentational gate, deserves its own commit. Verified: npm build green; npm run test:unit green (21);
+  composer check FULLY green (**Pest 708 / 2-skip / 5771**, 0 failed) + smoke green (3).
 - **Next action:** the standing focus is again **DISCOVERY** — the CH/KVG-vs-EU-generic billing model must
   be confirmed with Spitex coordinators before the CH statutory pack (the likely real first NEW build) is
   committed. Remaining billing backend-only surfaces (camt.053 reconciliation, AI dunning drafts,

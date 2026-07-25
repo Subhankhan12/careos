@@ -181,3 +181,30 @@ test('landing figures are RBAC-gated: operational needs reporting.view, financia
             ->where('operational', null)
             ->where('financial', null));
 });
+
+test('the landing exposes the first-run signal from existing props: empty tenant is all-zero, a billed tenant is not (POLISH.3)', function () {
+    Storage::fake('local');
+
+    // Empty / new tenant — the client-side first-run panel keys on all-zero operational + zero outstanding
+    // (derived purely from these EXISTING landing props; no new query). isNewTenant() -> true -> panel shows.
+    $empty = laFixture('freshtenant');
+    $this->actingAs(laUser($empty['tenant'], 'org_admin'))
+        ->get('/app')
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('App/Landing')
+            ->where('operational.appointments', 0)
+            ->where('operational.active_patients', 0)
+            ->where('financial.outstanding_minor', 0));
+
+    // A tenant that has billed is NOT new — an outstanding balance means isNewTenant() -> false -> hidden.
+    $billed = laFixture('billedtenant');
+    $manager = laUser($billed['tenant'], 'org_admin');
+    laIssueInvoice($billed, laPatient('Val'), $manager);
+    $this->actingAs($manager)
+        ->get('/app')
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('App/Landing')
+            ->where('financial.outstanding_minor', 12000));
+});

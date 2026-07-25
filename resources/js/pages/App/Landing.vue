@@ -3,6 +3,7 @@ import { Head, Link, usePage } from '@inertiajs/vue3';
 import { computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 import AppLayout from '@/Layouts/AppLayout.vue';
+import FirstRunPanel from '@/Components/FirstRunPanel.vue';
 import StatCard from '@/Components/StatCard.vue';
 
 const { t } = useI18n();
@@ -46,6 +47,10 @@ function money(minor: number, currency: string): string {
 <template>
     <AppLayout>
         <Head :title="t('shell.app.title')" />
+
+        <!-- First-run "Get started" checklist — shows only for a new/empty tenant, derived from the
+             existing landing props (POLISH.3); dismissible; links permission-gated. -->
+        <FirstRunPanel :operational="operational" :financial="financial" />
 
         <!-- Greeting hero + the deep-eucalyptus "today at a glance" tile (now real). -->
         <section class="grid gap-5 lg:grid-cols-[1fr_auto] lg:items-end">

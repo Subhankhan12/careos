@@ -3,12 +3,17 @@ import { Head, router, usePage } from '@inertiajs/vue3';
 import { computed, reactive, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import AppLayout from '@/Layouts/AppLayout.vue';
+import EmptyState from '@/Components/EmptyState.vue';
 import ScheduleGrid from '@/Components/ScheduleGrid.vue';
 import SlotPicker from '@/Components/SlotPicker.vue';
 
 const { t } = useI18n();
 const page = usePage();
 const locale = computed(() => (page.props.locale as string) || 'en');
+// Nav-gating for the empty-state "set up resources" link (server Gate stays authoritative).
+const canSetupResources = computed(
+    () => (page.props.auth as { user?: { permissions?: Record<string, boolean> } }).user?.permissions?.['admin.manage'] === true,
+);
 
 const props = defineProps<{
     filters: { date: string; branch_id: string };
@@ -282,14 +287,24 @@ const legend = [
                 </div>
             </div>
 
-            <ScheduleGrid :resources="visibleResources" :appointments="appointments" @action="transition" @open-encounter="openEncounter" />
+            <!-- New/empty tenant: a resource-less day-board reads as "broken" — guide the setup (POLISH.3). -->
+            <EmptyState
+                v-if="resources.length === 0"
+                :title="t('scheduling.dayBoard.emptyResourcesTitle')"
+                :message="t('scheduling.dayBoard.emptyResourcesMessage')"
+                :action-label="canSetupResources ? t('scheduling.dayBoard.emptyResourcesAction') : undefined"
+                :action-href="canSetupResources ? '/admin/branches' : undefined"
+            />
+            <template v-else>
+                <ScheduleGrid :resources="visibleResources" :appointments="appointments" @action="transition" @open-encounter="openEncounter" />
 
-            <div class="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-ink-subtle">
-                <span class="font-semibold uppercase tracking-wide">{{ t('scheduling.dayBoard.statusEdges') }}</span>
-                <span v-for="item in legend" :key="item.key" class="flex items-center gap-1.5">
-                    <span class="h-2.5 w-2.5 rounded-full" :class="item.dot"></span>{{ t(`scheduling.status.${item.key}`) }}
-                </span>
-            </div>
+                <div class="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-ink-subtle">
+                    <span class="font-semibold uppercase tracking-wide">{{ t('scheduling.dayBoard.statusEdges') }}</span>
+                    <span v-for="item in legend" :key="item.key" class="flex items-center gap-1.5">
+                        <span class="h-2.5 w-2.5 rounded-full" :class="item.dot"></span>{{ t(`scheduling.status.${item.key}`) }}
+                    </span>
+                </div>
+            </template>
 
             <!-- Waitlist auto-fill (P.9) -->
             <div class="glass-card p-6">

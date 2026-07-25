@@ -27,6 +27,19 @@
             "body": "An unexpected error occurred. Please try again."
         }
     },
+    "firstRun": {
+        "eyebrow": "Welcome to CareOS",
+        "title": "Let's get your practice set up",
+        "subtitle": "A few steps to go from empty to ready — work through them in any order. You can dismiss this anytime.",
+        "dismiss": "Dismiss",
+        "steps": {
+            "practice": "Set up your practice (name, currency, contact)",
+            "team": "Add your team and assign roles",
+            "resources": "Add branches, opening hours and rooms",
+            "patients": "Import your patient list",
+            "appointment": "Open the day-board and book your first appointment"
+        }
+    },
     "settings": {
         "eyebrow": "Administration",
         "title": "Practice settings",
@@ -343,6 +356,7 @@
             "title": "Patients",
             "subtitle": "Find a record by name or date of birth.",
             "register": "Register patient",
+            "import": "Import patients",
             "searchName": "Name",
             "searchPlaceholder": "Search by name",
             "searchDob": "Date of birth",
@@ -451,6 +465,9 @@
             "quickBookHint": "Find a free slot and book through the safe booking path.",
             "freeSlots": "Free slots",
             "statusEdges": "Status edges",
+            "emptyResourcesTitle": "No bookable resources yet",
+            "emptyResourcesMessage": "Rooms and chairs are set up under Admin → Branches. A resource needs its availability set before it can be booked.",
+            "emptyResourcesAction": "Set up resources",
             "close": "Close",
             "book": "Book",
             "actionReason": "Updated from day-board"
@@ -882,6 +899,7 @@
                 "everyone": "Everyone"
             },
             "unread": "{count} unread",
+            "emptyTitle": "No messages",
             "empty": "No threads match the filters.",
             "noSelection": "Select a thread to read it.",
             "assignedTo": "Assigned to",
@@ -998,7 +1016,8 @@
             "balanceDue": "Balance due",
             "billedTo": "Billed to",
             "forPatient": "For patient",
-            "empty": "No invoices yet."
+            "emptyTitle": "No invoices yet",
+            "empty": "Invoices appear here as you bill for care."
         },
         "lines": {
             "code": "Code",

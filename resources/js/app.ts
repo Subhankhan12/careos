@@ -30,6 +30,8 @@ createInertiaApp({
             .use(plugin)
             .use(i18n)
             .mount(el);
+        // Remove the branded pre-mount splash (POLISH.3) now that the app has rendered.
+        document.getElementById('app-splash')?.remove();
     },
     progress: {
         color: '#5c7d55',

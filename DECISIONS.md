@@ -1331,3 +1331,39 @@ references the old ID.
   permissions map, not markup) passes UNCHANGED; no test modified. VERIFIED: npm build green; composer check
   green (Pest 707 / 2 skipped / 5747 — unchanged); test:smoke green. (POLISH.2) See [[D-110]] (POLISH.1 nav
   additions), [[D-093]] (nav-gating pattern).
+
+- **D-112 — POLISH.3: guided first-run + warm empty states + dashboard-hero polish (presentational).**
+  PURELY presentational (P0D.GU) — NO domain logic, no new metric, no data write, no new query, no
+  fence/billing/clinical/RBAC change; tests are ADDITIONS only (no existing behaviour test modified). Makes a
+  brand-new tenant's first impression feel designed and self-guiding instead of bare. **(A) First-run
+  checklist** (`resources/js/Components/FirstRunPanel.vue` on `App/Landing`): shown ONLY for an empty/new
+  tenant, decided purely from the EXISTING landing props — the new pure module `resources/js/lib/firstRun.ts`
+  `isNewTenant()` = operational present (reporting.view) with `appointments`+`active_patients` both 0 AND
+  `outstanding_minor` 0, which deliberately distinguishes an *empty tenant* from a *quiet day that still has
+  an outstanding balance*. No new backend query — it reuses FIX.2's landing figures. Dismissible per-tenant
+  (`localStorage` `careos.firstRun.dismissed.<tenantId>`). Its 5 step links (practice→/settings,
+  team→/admin/roles, resources→/admin/branches, patients→/imports, appointment→/scheduling/day-board) are
+  each **permission-gated** by `visibleSetupSteps(permissions)` so a role only sees steps it can reach — the
+  same UX-hint pattern as the nav; the server Gate stays authoritative. Hidden on a populated tenant and when
+  the actor has 0 steps. **(B) Shared `EmptyState.vue`** (icon slot + one-liner + OPTIONAL next-action Link —
+  the Link renders only when both href+label are passed, so a screen with no self-serve action shows honest
+  message-only copy) applied to the bare screens a new tenant hits: the **day-board no-availability gap** (a
+  resource-less board looks broken → "set up resources" link gated on `admin.manage`, else message-only),
+  **patients index** (Import link gated on `data.import`), **billing invoices**, **comms inbox**. Two screens
+  were CONSCIOUSLY KEPT (documented, not silently skipped): **Reporting/Dashboard** shows genuine zeros for an
+  empty tenant — the FIX.2 principle — and wrapping it in an EmptyState would suppress honest facts (fence);
+  **Dental/Index** already has a warm centered empty state with a `clearSearch` reset button (good existing
+  copy, and the reset is a button not a navigable Link). **(C) Shell polish:** a branded **favicon** (inline
+  deep-eucalyptus leaf SVG data-URI in `app.blade.php`, no external asset), a branded pre-mount **splash**
+  (`#app-splash`, design tokens only, removed in `app.ts` immediately after `.mount()` → no blank flash), tab
+  title + shell BrandMark confirmed; the landing hero was already facts-only/on-brand so NO new metric or
+  trend-grade was invented (fence: facts only). Tokens only (no hardcoded hex); all 17 new i18n keys present
+  (en.json is the single locale). **Tests (additions only):** NEW Vitest `firstRun.test.ts` (isNewTenant
+  empty→true / appointments>0→false / outstanding>0 quiet-day→false / null-operational→false;
+  visibleSetupSteps org_admin→all, single-perm→one, none→[]) and a NEW `AppLandingTest` case (an empty
+  tenant's landing = all-zero operational + zero outstanding = the panel-show signal; a billed tenant ≠ new =
+  panel-hidden). VERIFIED: npm run build green; npm run test:unit green (**21 passed**); composer check FULLY
+  green (Pint `passed` · PHPStan L5 `[OK] No errors` · **Pest 708 passed / 2 skipped / 5771 assertions**, 0
+  failed — +1 test/+24 assertions vs POLISH.2's 707/5747); composer test:smoke green (3 passed). (POLISH.3)
+  See [[D-110]] (POLISH.1 nav-reachability), [[D-111]] (POLISH.2 nav grouping), and FIX.2 (the landing
+  figures + genuine-zeros principle this builds on).

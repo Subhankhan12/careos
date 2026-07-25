@@ -3,6 +3,7 @@ import { Head, Link, router, usePage } from '@inertiajs/vue3';
 import { computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 import AppLayout from '@/Layouts/AppLayout.vue';
+import EmptyState from '@/Components/EmptyState.vue';
 import { formatDateOnly } from '@/lib/date';
 
 const { t, te } = useI18n();
@@ -142,7 +143,7 @@ function setStatus(status: string | null): void {
                             </tr>
                         </tbody>
                     </table>
-                    <p v-else class="px-4 py-12 text-center text-sm text-ink-muted">{{ t('billing.invoices.empty') }}</p>
+                    <EmptyState v-else :title="t('billing.invoices.emptyTitle')" :message="t('billing.invoices.empty')" />
                 </div>
             </div>
         </div>
