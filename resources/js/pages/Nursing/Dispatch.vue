@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Head, router, usePage } from '@inertiajs/vue3';
+import { Head, Link, router, usePage } from '@inertiajs/vue3';
 import { computed, reactive } from 'vue';
 import { useI18n } from 'vue-i18n';
 import AppLayout from '@/Layouts/AppLayout.vue';
@@ -57,6 +57,11 @@ const assignmentWarnings = computed(() => {
     return flash?.assignmentWarnings ?? null;
 });
 
+// Nav-gating for the competency-matrix cross-link (server Gate stays authoritative).
+const canManageCompetencies = computed(
+    () => (page.props.auth as { user?: { permissions?: Record<string, boolean> } }).user?.permissions?.['competency.manage'] === true,
+);
+
 function reload(): void {
     router.get('/nursing/dispatch', filters, { preserveState: true, replace: true });
 }
@@ -84,6 +89,7 @@ function unassign(visitId: string): void {
                 <div>
                     <h1 class="text-2xl font-semibold text-ink">{{ t('nursing.dispatch.title') }}</h1>
                     <p class="mt-1 text-sm text-ink-muted">{{ t('nursing.dispatch.subtitle') }}</p>
+                    <Link v-if="canManageCompetencies" href="/nursing/competencies" class="mt-2 inline-flex text-sm font-semibold text-euca-700 transition hover:text-euca-800">{{ t('nursing.dispatch.manageCompetencies') }}</Link>
                 </div>
                 <form class="grid gap-3 sm:grid-cols-[180px_220px_120px]" @submit.prevent="reload">
                     <Input id="dispatch-date" v-model="filters.date" type="date" :label="t('nursing.dispatch.fields.date')" />

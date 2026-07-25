@@ -69,6 +69,23 @@
     --color-info: #5b7a8c;
     --color-info-soft: #e6edf2;
 
+    /* Dental odontogram — FACTUAL charted-condition legend (categorical hues, NOT a severity
+       ramp). Tokenized (POLISH.1) so the odontogram carries no hardcoded hex; each colour means
+       "the condition the dentist charted", never "how severe it is". No score/grade/gradient. */
+    --color-dental-implant: #4a4a6a;
+    --color-dental-pontic: #8a7a5c;
+    --color-dental-crown: #b8862f;
+    --color-dental-root-canal: #7a3f6a;
+    --color-dental-bridge-retainer: #5c6a8a;
+    --color-dental-caries: #c0532e;
+    --color-dental-restoration: #3f6f9f;
+    --color-dental-fracture: #8a5cc0;
+    --color-dental-sealant: #3f9f8a;
+    --color-dental-veneer: #9f5c8a;
+    --color-dental-erosion: #7a8a3f;
+    --color-dental-abrasion: #6a6a6a;
+    --color-dental-unknown: #9aa79a;
+
     /* Type scale (+ display sizes for the landing greeting). Heading steps align to the
        Eucalyptus Glow prototype (UI.F2): page title 2xl = 22px (was 24), landing hero 5xl =
        40px (was 44). lg = 18px already matches the prototype's section headings. */

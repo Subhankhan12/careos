@@ -32,6 +32,7 @@ const initials = computed(() => {
 const nav: { key: string; href: string; permission?: string }[] = [
     { key: 'app.nav.dashboard', href: '/app' },
     { key: 'app.nav.patients', href: '/patients', permission: 'patient.view' },
+    { key: 'app.nav.ordersReview', href: '/clinical/orders/review', permission: 'order.manage' },
     { key: 'app.nav.scheduling', href: '/scheduling/day-board', permission: 'appointment.manage' },
     { key: 'app.nav.nursing', href: '/nursing/dispatch', permission: 'dispatch.manage' },
     { key: 'app.nav.inbox', href: '/comms/inbox', permission: 'comms.manage' },
@@ -42,6 +43,7 @@ const nav: { key: string; href: string; permission?: string }[] = [
     { key: 'app.nav.governance', href: '/governance', permission: 'audit.view' },
     { key: 'app.nav.approvals', href: '/governance/approvals', permission: 'ai.manage' },
     { key: 'app.nav.knowledge', href: '/governance/kb', permission: 'ai.manage' },
+    { key: 'app.nav.import', href: '/imports', permission: 'data.import' },
     { key: 'app.nav.settings', href: '/settings', permission: 'admin.manage' },
 ];
 

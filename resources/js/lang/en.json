@@ -36,6 +36,11 @@
             "unchanged": "No changes to save.",
             "profileSaved": "Practice profile saved."
         },
+        "kiosks": {
+            "title": "Check-in kiosks",
+            "subtitle": "Provision and revoke the tablet devices used for patient self check-in at reception.",
+            "link": "Manage check-in kiosks"
+        },
         "profile": {
             "title": "Practice profile",
             "subtitle": "The details shown on invoices, the portal and public booking.",
@@ -125,6 +130,7 @@
         "nav": {
             "dashboard": "Dashboard",
             "patients": "Patients",
+            "ordersReview": "Orders",
             "register": "Register",
             "schedule": "Schedule",
             "scheduling": "Scheduling",
@@ -475,7 +481,11 @@
             "time": "Time",
             "availability": "Availability",
             "free": "Free",
-            "conflict": "Conflict"
+            "conflict": "Conflict",
+            "activeTitle": "Active recurring series",
+            "activeSubtitle": "Series still generating future appointments. Ending a series stops new occurrences — already-booked ones are untouched.",
+            "endSeries": "End series",
+            "endConfirm": "End this recurring series? Future occurrences stop generating. Already-booked appointments are not affected."
         },
         "waitlist": {
             "title": "Waitlist auto-fill",
@@ -520,6 +530,7 @@
         "snippets": {
             "title": "Text snippets",
             "subtitle": "Reusable dot-phrases you can expand while writing notes. Personal are private to you; shared are tenant-wide.",
+            "manageLink": "Manage text snippets",
             "placeholders": "Available placeholders",
             "placeholdersHint": "These non-clinical placeholders are filled in when a snippet is inserted. Nothing else is substituted.",
             "add": "Add a snippet",
@@ -556,7 +567,8 @@
             "eyebrow": "Clinical · Results to review",
             "title": "Orders to review",
             "subtitle": "Resulted orders awaiting a clinician's review. Results are shown as entered.",
-            "empty": "No orders awaiting review."
+            "empty": "No orders awaiting review.",
+            "manageCatalog": "Manage orderable items"
         },
         "orderableItems": {
             "title": "Orderable items",
@@ -900,6 +912,7 @@
         "dispatch": {
             "title": "Dispatch",
             "subtitle": "Assign planned visits to nurse resources.",
+            "manageCompetencies": "Nurse competencies",
             "fields": {
                 "date": "Date",
                 "branch": "Branch"

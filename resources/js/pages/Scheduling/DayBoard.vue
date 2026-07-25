@@ -19,6 +19,7 @@ const props = defineProps<{
     patients: Array<{ id: string; name: string; mrn: string }>;
     slotPreview: Array<{ starts_at: string; ends_at: string; resource_ids: string[] }>;
     waitlistOffers: Array<{ id: string; patient: string | null; service_id: string; starts_at: string; ends_at: string; status: string; expires_at: string; booked_appointment_id: string | null }>;
+    activeSeries: Array<{ id: string; patient: string | null; service: string | null; start_time: string; starts_on: string | null; rrule: string }>;
     actions: {
         transitionUrl: string;
         quickBookUrl: string;
@@ -30,6 +31,7 @@ const props = defineProps<{
         waitlistDeclineUrl: string;
         seriesPreviewUrl: string;
         seriesStoreUrl: string;
+        seriesEndUrl: string;
     };
 }>();
 
@@ -111,6 +113,10 @@ async function previewSeries(): Promise<void> {
 }
 function createSeries(): void {
     router.post(props.actions.seriesStoreUrl, seriesPayload(), { preserveScroll: true });
+}
+function endSeries(seriesId: string): void {
+    if (!window.confirm(t('scheduling.series.endConfirm'))) return;
+    router.post(props.actions.seriesEndUrl, { series_id: seriesId }, { preserveScroll: true });
 }
 
 // --- waitlist auto-fill (P.9) ------------------------------------------------
@@ -436,6 +442,36 @@ const legend = [
                                 <td class="py-2">
                                     <span v-if="occ.free" class="text-euca-700">{{ t('scheduling.series.free') }}</span>
                                     <span v-else class="text-danger">{{ t('scheduling.series.conflict') }} ({{ occ.reason }})</span>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Active recurring series (POLISH.1) — end a series through the existing route. -->
+            <div v-if="activeSeries.length" class="glass-card p-6">
+                <h2 class="text-lg font-semibold tracking-tight text-ink">{{ t('scheduling.series.activeTitle') }}</h2>
+                <p class="mt-1 text-sm text-ink-muted">{{ t('scheduling.series.activeSubtitle') }}</p>
+                <div class="mt-4 overflow-x-auto">
+                    <table class="w-full text-left text-sm">
+                        <thead class="text-xs uppercase tracking-wide text-ink-subtle">
+                            <tr class="border-b border-line">
+                                <th class="py-2 pr-4 font-semibold">{{ t('scheduling.waitlist.patient') }}</th>
+                                <th class="py-2 pr-4 font-semibold">{{ t('scheduling.fields.service') }}</th>
+                                <th class="py-2 pr-4 font-semibold">{{ t('scheduling.series.startTime') }}</th>
+                                <th class="py-2 pr-4 font-semibold">{{ t('scheduling.series.startsOn') }}</th>
+                                <th class="py-2"></th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-line/60">
+                            <tr v-for="s in activeSeries" :key="s.id">
+                                <td class="py-2 pr-4 text-ink">{{ s.patient ?? '—' }}</td>
+                                <td class="py-2 pr-4 text-ink-muted">{{ s.service ?? '—' }}</td>
+                                <td class="py-2 pr-4 text-ink-muted">{{ s.start_time }}</td>
+                                <td class="py-2 pr-4 text-ink-muted">{{ s.starts_on ?? '—' }}</td>
+                                <td class="py-2 text-right">
+                                    <button type="button" class="font-semibold text-danger transition hover:opacity-80" @click="endSeries(s.id)">{{ t('scheduling.series.endSeries') }}</button>
                                 </td>
                             </tr>
                         </tbody>

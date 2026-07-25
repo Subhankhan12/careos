@@ -1287,3 +1287,29 @@ references the old ID.
   button — PSP deferred). PURELY VISUAL (P0D.GU): no data/props/logic/route/fence/RBAC/billing change; the
   only `.vue` edit is one heading class; every behaviour test passes UNCHANGED (Pest 707/5741). VERIFIED:
   npm build green; composer check green; smoke green. (UI.F2) See [[D-108]], [[D-083]].
+
+- **D-110 — POLISH.1: category-G loose-end cleanup (nav wiring + series-end surface + odontogram
+  tokens + 2 coverage tests + doc refresh).** From `docs/MASTER-STATUS-REPORT.md` §PART 2/4. Presentation,
+  nav, test, and docs ONLY — NO domain/fence/billing/clinical/RBAC logic changed. (a) **Navigability:** the
+  6 built-but-unreachable pages are now reachable — Import + OrdersReview as top-nav items, and
+  OrderableItems/Snippets/Competencies/Kiosks as inbound links from their logical parent pages — each
+  gated by the SAME permission the server Gate already enforces (the `AppLayout` + `NAV_PERMISSIONS`
+  pattern, which gained `order.manage`/`competency.manage`/`data.import`; the server Gate stays
+  authoritative, nav is a UX hint). The `NavAndErrorPageTest` permissions map was synced (a tracking
+  update, the W10 precedent): reception=false, org_admin=true for the 3 new keys (verified against
+  `RbacProvisioner`). (b) **Series-end SURFACED, not removed** (the report's A2 choice): the
+  `scheduling.series.end` route was UI-unreachable; rather than delete a real capability, the day-board
+  now lists a branch's active recurring series with an End action (`window.confirm`) through the EXISTING
+  route — chosen because `SchedulingUiTest` uses lenient prop assertions and `AppointmentSeries` has a
+  clean status/branch query, so the added `activeSeries` prop is safe/additive. (c) **The one pattern-drift
+  item:** the Odontogram condition palette (the app's only hardcoded hex) is now `@theme` tokens
+  (`--color-dental-*`) referenced by `var()` — identical colours, the "charted-condition not severity"
+  meaning + disclaimer kept; no visual/fence change. (d) **Two coverage tests** (money + fence): a
+  rendered-invoice-PDF CONTENT assertion (printed totals/VAT/per-line + a credit note's negative Total
+  equal the stored minor values — guards the customer document, which DB-only reconciliation does not)
+  and a `CircuitBreaker` open→half-open→closed state test. (e) **Stale docs**
+  (SCREENS/FEATURE-INVENTORY/both delivery maps/AGENTS module map) re-bannered to point at
+  `docs/MASTER-STATUS-REPORT.md`. No must-fix safety item existed; this is demo-readiness polish.
+  VERIFIED: npm build green; composer check green (Pint · PHPStan L5 · **Pest 707 passed / 2 skipped
+  [Redis + reminder infra, green in CI on Redis 7] / 5747 assertions**, 0 failed); smoke green. (POLISH.1)
+  See [[D-093]] (route-smoke / C-1 nav-gating), [[D-107]] (dental-navigability precedent).

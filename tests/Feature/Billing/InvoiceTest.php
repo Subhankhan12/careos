@@ -12,6 +12,7 @@ use Modules\Billing\Models\Invoice;
 use Modules\Billing\Models\InvoiceBalance;
 use Modules\Billing\Models\TariffCatalog;
 use Modules\Billing\Models\TariffItem;
+use Modules\Billing\Services\InvoicePdfRenderer;
 use Modules\Billing\Services\IssueService;
 use Modules\Patients\Models\Patient;
 use Modules\Patients\Services\PatientService;
@@ -342,4 +343,41 @@ test('invoice issue is tenant isolated audited fail closed and RBAC guarded', fu
 
     expect(fn () => Invoice::query()->count())->toThrow(TenantContextMissingException::class)
         ->and(fn () => InvoiceBalance::query()->count())->toThrow(TenantContextMissingException::class);
+});
+
+test('rendered invoice PDF states the money totals correctly and a credit note prints negative (POLISH.1)', function () {
+    Storage::fake('local');
+    $fixture = f4Fixture();
+    $itemA = f4Item($fixture['catalog'], ['code' => 'VAT-810', 'description' => 'VAT 8.1 percent', 'unit_price_minor' => 1000, 'vat_rate_bp' => 810]);
+    $itemB = f4Item($fixture['catalog'], ['code' => 'VAT-1900', 'description' => 'VAT 19 percent', 'unit_price_minor' => 333, 'vat_rate_bp' => 1900]);
+    $chargeA = f4Charge($fixture['patient'], $fixture['branch'], $fixture['catalog'], $itemA, $fixture['actor']);
+    $chargeB = f4Charge($fixture['patient'], $fixture['branch'], $fixture['catalog'], $itemB, $fixture['actor'], 3);
+    $invoice = f4Issue($fixture, [$chargeA, $chargeB]);
+    $lineA = $invoice->lines()->where('code', 'VAT-810')->firstOrFail();
+    $lineB = $invoice->lines()->where('code', 'VAT-1900')->firstOrFail();
+
+    // Render the customer-facing document and read its exact content back. Reconciliation checks the
+    // DB; THIS guards the printed DOCUMENT — a renderer bug that misstated a printed total would pass
+    // otherwise. The printed figures must equal the invoice's stored integer-minor economics.
+    $content = Storage::disk('local')->get(app(InvoicePdfRenderer::class)->render($invoice));
+
+    expect($content)
+        ->toContain('Invoice: '.$invoice->series.'-'.$invoice->number)
+        ->toContain('Currency: '.$invoice->currency)
+        ->toContain('Subtotal: '.$invoice->subtotal_minor)
+        ->toContain('VAT total: '.$invoice->vat_total_minor)
+        ->toContain('Total: '.$invoice->total_minor)
+        ->toContain('net='.$lineA->line_total_minor.' | vat='.$lineA->line_vat_minor)
+        ->toContain('net='.$lineB->line_total_minor.' | vat='.$lineB->line_vat_minor);
+
+    // The credit-note SIGN is on the printed document: its Total is negative.
+    $creditNote = app(IssueService::class)->creditNote($invoice->refresh(), [[
+        'invoice_line_id' => $lineA->id,
+        'quantity' => 1,
+    ]], 'Partial correction', $fixture['actor']);
+    $creditContent = Storage::disk('local')->get(app(InvoicePdfRenderer::class)->render($creditNote));
+
+    expect($creditNote->total_minor)->toBeLessThan(0)
+        ->and($creditContent)->toContain('Invoice: '.Invoice::SERIES_CREDIT_NOTE.'-'.$creditNote->number)
+        ->and($creditContent)->toContain('Total: '.$creditNote->total_minor);
 });

@@ -10,6 +10,7 @@ use Inertia\Response;
 use Modules\Patients\Models\Patient;
 use Modules\Platform\Models\Branch;
 use Modules\Scheduling\Models\Appointment;
+use Modules\Scheduling\Models\AppointmentSeries;
 use Modules\Scheduling\Models\Resource;
 use Modules\Scheduling\Models\Service;
 use Modules\Scheduling\Models\WaitlistOffer;
@@ -80,6 +81,16 @@ class DayBoardController
                 ->get()
                 ->map(fn (WaitlistOffer $offer): array => $this->offerSummary($offer))
                 ->all(),
+            // Active recurring series for this branch — so a coordinator can END a series
+            // (through the existing scheduling.series.end route) instead of it being URL-only.
+            'activeSeries' => AppointmentSeries::query()
+                ->where('branch_id', $branch->id)
+                ->where('status', AppointmentSeries::STATUS_ACTIVE)
+                ->orderByDesc('starts_on')
+                ->limit(50)
+                ->get()
+                ->map(fn (AppointmentSeries $series): array => $this->seriesSummary($series))
+                ->all(),
             'actions' => [
                 'transitionUrl' => route('scheduling.day-board.transition'),
                 'quickBookUrl' => route('scheduling.day-board.quick-book'),
@@ -91,6 +102,7 @@ class DayBoardController
                 'waitlistDeclineUrl' => route('scheduling.waitlist.decline'),
                 'seriesPreviewUrl' => route('scheduling.series.preview'),
                 'seriesStoreUrl' => route('scheduling.series.store'),
+                'seriesEndUrl' => route('scheduling.series.end'),
             ],
         ]);
     }
@@ -134,6 +146,24 @@ class DayBoardController
             'status' => $offer->status,
             'expires_at' => $offer->expires_at->toDateTimeString(),
             'booked_appointment_id' => $offer->booked_appointment_id,
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function seriesSummary(AppointmentSeries $series): array
+    {
+        $patient = Patient::query()->find($series->patient_id);
+        $service = Service::query()->find($series->service_id);
+
+        return [
+            'id' => $series->id,
+            'patient' => $patient !== null ? trim($patient->first_name.' '.$patient->last_name) : null,
+            'service' => $service?->name,
+            'start_time' => $series->start_time,
+            'starts_on' => $series->starts_on->toDateString(),
+            'rrule' => $series->rrule,
         ];
     }
 }

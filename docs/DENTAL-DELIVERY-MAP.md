@@ -1,5 +1,11 @@
 # CareOS — Dental Vertical: Reconciliation + Build-Sequence Map
 
+> **✅ BUILT — this pre-build plan has been executed.** The dental vertical (`Modules\Dental`, described
+> as "absent today" below) is now **built and shipped as DENTAL.G1–G9** (odontogram, perio, procedures,
+> treatment plans, diagnosis, imaging, demo seeder + navigability). For CURRENT status read
+> [`docs/MASTER-STATUS-REPORT.md`](MASTER-STATUS-REPORT.md) and `PROJECT-STATE.md`; keep this file for
+> the build-sequence rationale only — its "absent today / to build" framing is historical.
+
 **Status:** READ-ONLY plan. No code / `.vue` / controller / route / test / migration was changed to
 produce this document. It is a **build plan**, produced before writing the dental module, for a paying
 **general/family dentist** customer (charting, common procedures, treatment plans, billing) — **not** a

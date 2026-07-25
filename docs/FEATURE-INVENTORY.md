@@ -7,6 +7,12 @@ cheap-and-safe items from the real long poles that need a partner or a market an
 
 **Top commit at time of writing:** `12e0386 CLINIC.W10: KB admin + staff telehealth join — admin vertical complete`.
 
+> **⚠️ SUPERSEDED by [`docs/MASTER-STATUS-REPORT.md`](MASTER-STATUS-REPORT.md) (HEAD).** This inventory
+> predates the **DENTAL vertical (G1–G9)** and UI.F1/F2. Where it says "**13 modules**" and "the
+> `Dental` module … neither exists on disk", read instead: **14 modules — `Dental` IS built**; only
+> `Interop` remains a planned placeholder. The dental screens filed below under gap category (A) as an
+> unbuilt vertical are **built and shipped**. Use the master report for current counts + classification.
+
 **Supersedes the snapshot in `docs/CLINIC-DELIVERY-MAP.md`** (written at `aa4a04f`, *before* the W1–W10
 delivery). That map's "❌ none / no built page" annotations for billing, reporting, settings, branches,
 governance, KB, and staff-telehealth are now **out of date** — W6–W10 built exactly those. This document
@@ -16,7 +22,7 @@ is the post-W10 reconciliation.
 
 ## Section 1 — What's BUILT (the "done" map)
 
-### 1a. Modules (`Modules/*`) — 13, each fail-closed tenant-owned
+### 1a. Modules (`Modules/*`) — 13 at `12e0386`; **14 at HEAD** (`Dental` since built), each fail-closed tenant-owned
 
 | Module | Domain it provides (services / models) |
 |---|---|
@@ -40,8 +46,9 @@ Inbox agents), audit glue (`app/Audit`), Comms bridges (`app/Comms`), Clinical�
 (`app/Clinical`), and the cross-module admin/governance controllers (`app/Http/Controllers`: AppLanding,
 Branch, Resource, KbArticle, GovernanceDashboard, AiApprovalQueue, ClinicalSummary, Portal).
 
-> **Module map note:** AGENTS.md lists `Dental` and `Interop` in the module map; **neither exists on
-> disk** — they are planned placeholders, not built modules (see gap category A/B below).
+> **Module map note (updated at HEAD):** AGENTS.md lists `Dental` and `Interop`. **`Dental` IS now
+> built** (DENTAL.G1–G9 — odontogram, perio, procedures, plans, diagnosis, imaging); only `Interop`
+> remains a planned placeholder not on disk. (At `12e0386`, when this file was written, neither existed.)
 
 ### 1b. Wired screens (49 Inertia pages + Nurse PWA), by area
 

@@ -86,6 +86,10 @@ later. This rule keeps that swap a re-skin, not a rewrite.
 Platform · Audit · People · Patients · Scheduling · Clinical · Nursing · Billing · Comms ·
 AiCore · Dental · Interop.
 
+> **On-disk note:** 14 modules are built and PSR-4-registered — every name above **except `Interop`**,
+> which remains a *planned placeholder* (the deferred lab-HL7/FHIR + claims lane, not on disk). `Dental`
+> IS built (DENTAL.G1–G9). See `docs/MASTER-STATUS-REPORT.md` for the authoritative map.
+
 **Boundary rule:** cross-module contact goes through **services + domain events**, never
 cross-module Eloquent. Where two modules must be composed (e.g. Audit needs the Platform tenant
 context), the composition lives in the **application layer (`app/`)**, which may depend on both;

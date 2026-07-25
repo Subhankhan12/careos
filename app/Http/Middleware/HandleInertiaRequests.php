@@ -32,6 +32,11 @@ class HandleInertiaRequests extends Middleware
         'ai.manage',
         'admin.manage',
         'dental.chart',
+        // POLISH.1 — nav-gating for the newly-wired clinical/admin surfaces (server Gate
+        // stays authoritative; these only decide whether a link is shown).
+        'order.manage',
+        'competency.manage',
+        'data.import',
     ];
 
     public function version(Request $request): ?string

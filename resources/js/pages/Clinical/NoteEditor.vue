@@ -179,6 +179,9 @@ watch(
                     </template>
 
                     <template v-else>
+                        <div v-if="actions.can_write" class="flex justify-end">
+                            <Link href="/clinical/snippets" class="text-sm font-semibold text-euca-700 transition hover:text-euca-800">{{ t('clinical.snippets.manageLink') }}</Link>
+                        </div>
                         <div v-if="actions.can_write && (snippets?.length ?? 0) > 0" class="glass-card flex flex-wrap items-end gap-2 p-4">
                             <label class="text-sm">
                                 <span class="mb-1 block text-xs font-medium text-ink-muted">{{ t('clinical.snippets.insertInto') }}</span>

@@ -237,3 +237,6 @@ Local `composer check` is green: 205 tests / 1013 assertions. Local `cmd /c npm 
 ## Open items
 
 - Later gates add realtime day-board refresh and UI surfaces for agent proposals.
+- (POLISH.1, D-110) The recurring-series **end** action is now surfaced on the day-board (an
+  "active recurring series" panel -> the existing `scheduling.series.end` route; `DayBoardController`
+  passes `activeSeries` + `seriesEndUrl`). Presentational/additive only; no series domain logic changed.

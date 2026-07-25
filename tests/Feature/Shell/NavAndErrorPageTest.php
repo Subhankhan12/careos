@@ -58,6 +58,9 @@ test('the shell shares nav permissions so a role only sees links it can use', fu
                 'ai.manage' => false,
                 'admin.manage' => false,
                 'dental.chart' => false,
+                'order.manage' => false,
+                'competency.manage' => false,
+                'data.import' => false,
             ]));
 
     // org_admin holds every nav permission.
@@ -77,6 +80,9 @@ test('the shell shares nav permissions so a role only sees links it can use', fu
                 'ai.manage' => true,
                 'admin.manage' => true,
                 'dental.chart' => true,
+                'order.manage' => true,
+                'competency.manage' => true,
+                'data.import' => true,
             ]));
 });
 

@@ -29,10 +29,13 @@ function review(orderId: string): void {
     <AppLayout>
         <Head :title="t('clinical.ordersReview.title')" />
         <div class="space-y-5">
-            <div>
-                <p class="text-xs font-semibold uppercase tracking-[0.14em] text-ink-subtle">{{ t('clinical.ordersReview.eyebrow') }}</p>
-                <h1 class="mt-1 text-2xl font-semibold tracking-tight text-ink">{{ t('clinical.ordersReview.title') }}</h1>
-                <p class="mt-1 text-sm text-ink-muted">{{ t('clinical.ordersReview.subtitle') }}</p>
+            <div class="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                    <p class="text-xs font-semibold uppercase tracking-[0.14em] text-ink-subtle">{{ t('clinical.ordersReview.eyebrow') }}</p>
+                    <h1 class="mt-1 text-2xl font-semibold tracking-tight text-ink">{{ t('clinical.ordersReview.title') }}</h1>
+                    <p class="mt-1 text-sm text-ink-muted">{{ t('clinical.ordersReview.subtitle') }}</p>
+                </div>
+                <Link href="/clinical/orderable-items" class="shrink-0 text-sm font-semibold text-euca-700 transition hover:text-euca-800">{{ t('clinical.ordersReview.manageCatalog') }}</Link>
             </div>
 
             <div class="glass-card p-2">

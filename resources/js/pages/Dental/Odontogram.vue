@@ -52,25 +52,25 @@ const CONDITION_COLOUR: Record<string, string> = {
     present: 'transparent',
     missing: 'transparent',
     unerupted: 'transparent',
-    implant: '#4a4a6a',
-    pontic: '#8a7a5c',
-    crown: '#b8862f',
-    root_canal: '#7a3f6a',
-    bridge_retainer: '#5c6a8a',
+    implant: 'var(--color-dental-implant)',
+    pontic: 'var(--color-dental-pontic)',
+    crown: 'var(--color-dental-crown)',
+    root_canal: 'var(--color-dental-root-canal)',
+    bridge_retainer: 'var(--color-dental-bridge-retainer)',
     // surface
     sound: 'transparent',
-    caries: '#c0532e',
-    restoration: '#3f6f9f',
-    fracture: '#8a5cc0',
-    sealant: '#3f9f8a',
-    veneer: '#9f5c8a',
-    erosion: '#7a8a3f',
-    abrasion: '#6a6a6a',
+    caries: 'var(--color-dental-caries)',
+    restoration: 'var(--color-dental-restoration)',
+    fracture: 'var(--color-dental-fracture)',
+    sealant: 'var(--color-dental-sealant)',
+    veneer: 'var(--color-dental-veneer)',
+    erosion: 'var(--color-dental-erosion)',
+    abrasion: 'var(--color-dental-abrasion)',
 } as unknown as Record<string, string>;
 
 function colour(condition: string | null | undefined): string {
     if (!condition) return 'transparent';
-    return CONDITION_COLOUR[condition] ?? '#9aa79a';
+    return CONDITION_COLOUR[condition] ?? 'var(--color-dental-unknown)';
 }
 
 const dentition = ref<'permanent' | 'primary'>('permanent');
@@ -389,7 +389,7 @@ function dateTime(iso: string): string {
     background: var(--color-surface);
 }
 .tooth-selected {
-    outline: 2px solid var(--color-euca-500, #6f8f5f);
+    outline: 2px solid var(--color-euca-500);
     outline-offset: 1px;
 }
 .tooth-missing {

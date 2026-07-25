@@ -3,8 +3,9 @@
 > **⚠️ HISTORICAL PLANNING ARTIFACT (written at `aa4a04f`, P0P.G16 — pre-delivery).** The "not yet
 > built / ❌" and "to wire" marks below are STALE: the clinic vertical was subsequently DELIVERED
 > (CLINIC.W1–W7), QA-fixed (FIX.1–FIX.5 + final pass), and the ADMIN vertical built
-> (W8/W8b/W8c/W9/W10). For CURRENT status read **`PROJECT-STATE.md`** (authoritative snapshot) and
-> **`docs/FEATURE-INVENTORY.md`** (classified gap map). Keep this file for the screen→backend mapping
+> (W8/W8b/W8c/W9/W10) and the DENTAL vertical (G1–G9). For CURRENT status read **`PROJECT-STATE.md`**
+> (authoritative snapshot) and **`docs/MASTER-STATUS-REPORT.md`** (authoritative status + gap audit at
+> HEAD; supersedes `docs/FEATURE-INVENTORY.md`). Keep this file for the screen→backend mapping
 > rationale only; do not treat its build-status marks as current.
 
 **Status:** READ-ONLY reconciliation. No `.vue` / controller / route / test was changed to produce this

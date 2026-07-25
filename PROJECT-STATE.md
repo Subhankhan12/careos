@@ -36,8 +36,8 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
   unlocks **eMAR + the CH statutory billing pack** when confirmed. The well of safe build-without-a-
   customer-need work is done — do not open a new gate unless a customer need pulls a specific feature
   forward. Discovery brief: `docs/DISCOVERY.md`; outreach: `docs/outreach-de.md`.
-- **Latest verified quality:** UI.F2 (visual-only; test count unchanged); `composer check` FULLY green — Pint `passed`, PHPStan L5
-  `[OK] No errors`, **Pest 707 passed / 5741 assertions**, 0 failed; `npm run build` green; **CI green on
+- **Latest verified quality:** POLISH.1 (category-G polish — nav wiring + series-end UI + odontogram tokens + 2 coverage tests + doc refresh; no domain/fence/billing logic changed); `composer check` FULLY green — Pint `passed`, PHPStan L5
+  `[OK] No errors`, **Pest 707 passed / 2 skipped / 5747 assertions**, 0 failed (the 2 skips = Redis-Horizon + one reminder infra case, green in CI on Redis 7); `npm run build` green; **CI green on
   MySQL 8 + Redis 7** (check-run `success`). (G8 baseline: `0d93a36`, Pest 700/5623.) A route-reachability smoke (**FIX.5**, `composer test:smoke`)
   drives every major route through the real middleware stack to guard against request-time 500s (the C-1
   class). See the detailed quality block below.
@@ -1165,6 +1165,22 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
   zeros replace the "awaiting data" stub. NEW `tests/Feature/AppLandingTest.php` (3 tests). No new
   metric invented. composer check FULLY green (**Pest 604 passed / 4590 assertions**). QA-audit
   Mediums still OPEN: M-2 date-rendering tz-shift, M-3 vitals units (g/mm→kg/cm), M-5 bare-403 UX.
+- **POLISH.1 — category-G loose-end cleanup from `docs/MASTER-STATUS-REPORT.md` (§PART 2/4). Presentation/
+  nav/test/docs ONLY; no domain/fence/billing/clinical/RBAC logic changed (D-110).** (A) The **6
+  built-but-URL-only pages are now reachable**: Import + Orders(review) as role-gated top-nav items;
+  OrderableItems/Snippets/Competencies/Kiosks as inbound links from their logical parents — all gated by
+  the SAME permission the server Gate enforces (`NAV_PERMISSIONS` gained order.manage/competency.manage/
+  data.import; `NavAndErrorPageTest` map synced per the W10 tracking precedent). The **"end a series"**
+  action is now SURFACED on the day-board (an active-series panel → the existing `scheduling.series.end`
+  route; chosen over removal since it is a real capability and the add is additive). (B) The Odontogram's
+  13-colour palette (the app's only hardcoded hex) is now `@theme` tokens — same colours, same
+  "charted-condition not severity" meaning, zero visual/fence change. (C) Two coverage tests added
+  (appended; no existing case changed): an **invoice-PDF content** assertion (printed totals/VAT/lines + a
+  credit note's negative total = the stored minor values — guards the customer document reconciliation
+  doesn't) and a **CircuitBreaker** open→half-open→closed test. (D) The stale docs (SCREENS 22→57,
+  FEATURE-INVENTORY 13→14 + Dental-built, both delivery maps, AGENTS module map) are re-bannered to point
+  at `docs/MASTER-STATUS-REPORT.md`. **No must-fix safety item existed**; this is demo-readiness polish.
+  Verified: npm build green; composer check green (Pest 707 / 2-skip / 5747, 0 failed); smoke green.
 - **Next action:** the standing focus is again **DISCOVERY** — the CH/KVG-vs-EU-generic billing model must
   be confirmed with Spitex coordinators before the CH statutory pack (the likely real first NEW build) is
   committed. Remaining billing backend-only surfaces (camt.053 reconciliation, AI dunning drafts,

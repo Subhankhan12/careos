@@ -7,6 +7,12 @@ rule (P0D.GU: components are presentational; authorization, validation, and stat
 enforced and tested SERVER-SIDE), replacing a `.vue` file cannot change a rule. Routes, controllers,
 props, guards, and tests stay untouched by a redesign; CI fails instantly if a contract breaks.
 
+> **⚠️ SUPERSEDED for counts/coverage by [`docs/MASTER-STATUS-REPORT.md`](MASTER-STATUS-REPORT.md)
+> (HEAD).** This file was frozen at P0G.C and documents **22** Inertia pages; the product now ships
+> **57** (billing, dental, governance, reporting, telehealth, admin, and import screens are not
+> catalogued here). The route/guard/prop contracts below stay accurate for the pages they cover and
+> remain the re-skin reference for those; for the full current inventory use the master report.
+
 **Frozen as of P0G.C** (Phases 0 + A–G complete). 22 Inertia pages + the nurse PWA (11 internal
 screens/states). Grouped by area below.
 

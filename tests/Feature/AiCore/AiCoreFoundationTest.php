@@ -236,3 +236,37 @@ test('agent actions and interactions are tenant isolated', function () {
     expect(AgentAction::pluck('proposed_by')->all())->toBe([(string) $alphaUser->id])
         ->and(AiInteraction::pluck('agent')->all())->toBe(['demo-agent']);
 });
+
+test('circuit breaker opens on the failure threshold, half-opens after cooldown, and closes on success (POLISH.1)', function () {
+    $tenant = aiTenant('alpha');
+    aiCtx()->set($tenant);
+    config()->set('aicore.circuit_failure_threshold', 3);
+    config()->set('aicore.circuit_open_seconds', 300);
+
+    $breaker = app(CircuitBreaker::class);
+
+    // Closed initially — no failures, assertClosed does not throw.
+    $breaker->assertClosed('anthropic', 'demo.echo');
+
+    // Below the threshold stays closed.
+    $breaker->recordFailure('anthropic', 'demo.echo');
+    $breaker->recordFailure('anthropic', 'demo.echo');
+    $breaker->assertClosed('anthropic', 'demo.echo');
+
+    // Hitting the threshold OPENS the circuit — assertClosed now throws (route to manual workflow).
+    $breaker->recordFailure('anthropic', 'demo.echo');
+    expect(fn () => $breaker->assertClosed('anthropic', 'demo.echo'))->toThrow(AiCoreException::class);
+
+    // The breaker is keyed per tenant+provider+feature — a different feature is unaffected.
+    $breaker->assertClosed('anthropic', 'other.feature');
+
+    // HALF-OPEN: once the cooldown window elapses, a trial call is allowed again.
+    $this->travel(301)->seconds();
+    $breaker->assertClosed('anthropic', 'demo.echo');
+
+    // CLOSE on success: recordSuccess resets the counters, so a single fresh failure does NOT
+    // immediately re-open (proving the failure counter was cleared, not merely the open flag).
+    $breaker->recordSuccess('anthropic', 'demo.echo');
+    $breaker->recordFailure('anthropic', 'demo.echo');
+    $breaker->assertClosed('anthropic', 'demo.echo');
+});
