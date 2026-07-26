@@ -36,9 +36,8 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
   unlocks **eMAR + the CH statutory billing pack** when confirmed. The well of safe build-without-a-
   customer-need work is done — do not open a new gate unless a customer need pulls a specific feature
   forward. Discovery brief: `docs/DISCOVERY.md`; outreach: `docs/outreach-de.md`.
-- **Latest verified quality:** POLISH.3 (presentational — guided first-run checklist + warm shared empty states + shell favicon/splash polish; empty-detected purely from the existing landing props, permission-gated links, fence-safe with no new metric; tests are additions-only) atop POLISH.2 (nav-density cosmetic — admin/governance under one "Admin" dropdown) and POLISH.1 (category-G polish); `composer check` FULLY green — Pint `passed`, PHPStan L5
-  `[OK] No errors`, **Pest 708 passed / 2 skipped / 5771 assertions**, 0 failed (the 2 skips = Redis-Horizon + one reminder infra case, green in CI on Redis 7); `npm run build` green + `npm run test:unit` green (21 Vitest); **CI green on
-  MySQL 8 + Redis 7** (check-run `success`). (G8 baseline: `0d93a36`, Pest 700/5623.) A route-reachability smoke (**FIX.5**, `composer test:smoke`)
+- **Latest verified quality:** HOSPITAL.G1 (the FIRST hospital-vertical gate — inpatient/ADT foundation: NET-NEW `Modules\Hospital` bed/ward/unit model + a concurrency-safe bed-claim primitive [8-process hammer, one winner] + additive inpatient RBAC; a bed is NOT a Scheduling Resource [continuous occupancy], a ward is Hospital-owned; fence-clean [housekeeping status, no patient/acuity/score]) atop POLISH.3 (guided first-run + warm empty states) and the POLISH.1/2 cosmetics; `composer check` FULLY green — Pint `passed`, PHPStan L5
+  `[OK] No errors`, **Pest 717 passed / 2 skipped / 5841 assertions**, 0 failed (the 2 skips = Redis-Horizon + one reminder infra case, green in CI on Redis 7); no frontend this gate. (G8 baseline: `0d93a36`, Pest 700/5623.) A route-reachability smoke (**FIX.5**, `composer test:smoke`)
   drives every major route through the real middleware stack to guard against request-time 500s (the C-1
   class). See the detailed quality block below.
 - **Demo tenants (all reconcile-to-the-unit + chain-verify):** `DemoClinicSeeder` (Praxis Lindenhof, CHF,
@@ -1213,7 +1212,24 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
   `docs/DEPLOY-RUNBOOK.md` (a production deploy runbook) is left UNTRACKED — out of scope for this
   presentational gate, deserves its own commit. Verified: npm build green; npm run test:unit green (21);
   composer check FULLY green (**Pest 708 / 2-skip / 5771**, 0 failed) + smoke green (3).
-- **Next action:** the standing focus is again **DISCOVERY** — the CH/KVG-vs-EU-generic billing model must
-  be confirmed with Spitex coordinators before the CH statutory pack (the likely real first NEW build) is
-  committed. Remaining billing backend-only surfaces (camt.053 reconciliation, AI dunning drafts,
-  accounting-export UI) wait on that. Then Phase H per the master plan.
+- **HOSPITAL.G1 — the inpatient/ADT vertical foundation (Phase 1 of a phased hospital build; D-113).** The
+  FIRST hospital gate, built per `docs/HOSPITAL-PHASE1-ADT-MAP.md`. NEW `Modules\Hospital` (14→15 built
+  modules; arch rule mirrors Dental). (1) **`Bed` is NET-NEW, not a Scheduling `Resource`** — a bed is
+  occupied CONTINUOUSLY for a multi-day stay (no `starts_at`/`ends_at`); it reuses Resource's *pattern* +
+  the `BookingService` lock idiom, not its table. (2) **`Ward` is a Hospital-owned model** (documented
+  choice over Platform's unwired `Department` stub — clean bidirectional Ward↔Bed, inpatient-specific growth,
+  the `Nursing\Visit → Branch` pattern). (3) **Housekeeping status** {free, occupied, cleaning, blocked} is a
+  legal-only state machine; **free→occupied only via the concurrency-safe `BedService::claim()`** (row lock +
+  assert-free), proven by an 8-process parallel hammer (exactly one winner). (4) Every transition → append-
+  only `bed.status_changed` audit via an app-layer listener (Hospital free of Audit). (5) **Additive inpatient
+  RBAC** (dental.chart precedent): +4 permissions (ward/bed/admission.manage, document.view) + 6 role
+  templates (ward/charge nurse, hospitalist, bed manager, admissions clerk, HIM). **FENCE:** operational only —
+  no patient/acuity/severity/score column; NEWS2 = certified-partner/non-goal, never homemade. NO ADT workflow
+  (G2), NO UI (G3). Verified: composer check FULLY green (**Pest 717 / 2-skip / 5841**, 0 failed).
+- **Next action:** **HOSPITAL.G2 — the ADT `Stay` + state machine** (pre-admit→admitted→transferred→
+  discharged) above a reused, unmodified `Encounter`, wrapping `BedService::claim()`, each transition an
+  append-only `admission.<state>` audit row — per `docs/HOSPITAL-PHASE1-ADT-MAP.md` §5. (The parallel
+  DISCOVERY track still stands: the CH/KVG-vs-EU-generic billing model must be confirmed with Spitex
+  coordinators before the CH statutory pack — the likely real first NEW billing build — is committed;
+  remaining billing backend-only surfaces (camt.053 reconciliation, AI dunning drafts, accounting-export UI)
+  wait on that.) Then Phase H per the master plan.

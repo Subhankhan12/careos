@@ -1367,3 +1367,41 @@ references the old ID.
   failed — +1 test/+24 assertions vs POLISH.2's 707/5747); composer test:smoke green (3 passed). (POLISH.3)
   See [[D-110]] (POLISH.1 nav-reachability), [[D-111]] (POLISH.2 nav grouping), and FIX.2 (the landing
   figures + genuine-zeros principle this builds on).
+
+- **D-113 — HOSPITAL.G1: bed/ward/unit model + concurrency-safe bed-claim + inpatient RBAC (Phase 1
+  foundation).** The FIRST hospital-vertical gate (inpatient/ADT), built per `docs/HOSPITAL-PHASE1-ADT-MAP.md`
+  — the domain foundation everything else (ADT stay, ward board, bedside charting, bed-to-billing, discharge)
+  depends on. **NEW module `Modules\Hospital`** (PSR-4 + provider registered; arch rule mirrors Dental — may
+  use care modules + Audit **services**, never Audit models/AiCore/Nursing/Comms; in G1 it depends only on the
+  Platform foundation). **KEY DECISION 1 — Bed is NET-NEW, not a Scheduling `Resource`** (the map's §2.1
+  finding): a bed is occupied CONTINUOUSLY for a multi-day stay (no `starts_at`/`ends_at`), so it reuses
+  Resource's *pattern* (tenant + one branch + typed enum + `active`) and the `BookingService` lock idiom, NOT
+  its table — forcing beds onto Appointment/Resource was the abstraction trap the map warned against.
+  **KEY DECISION 2 — Ward is a Hospital-owned model, not Platform's unwired `Department` stub** (both were
+  map-endorsed; documented): a Hospital `Ward` gives a clean bidirectional `Ward hasMany Bed` (a
+  `Department::beds()` back-relation is impossible — Platform must not depend on Hospital), lets ward
+  attributes grow inpatient-specific, and mirrors the `Nursing\Visit → Branch` pattern; `Department` is left
+  for its generic clinic-department purpose (swapping the FK later is localized). **Housekeeping status**
+  {free, occupied, cleaning, blocked} is a legal-only state machine (`Bed::TRANSITIONS`: free→{occupied,
+  blocked}, occupied→{cleaning}, cleaning→{free,blocked}, blocked→{free}); **free→occupied is reached ONLY via
+  the concurrency-safe `BedService::claim()`** (`DB::transaction` + `SELECT status … FOR UPDATE` + assert
+  still-free under the lock), proven by `BedClaimParallelHammerTest` (8 OS processes race one free bed →
+  exactly 1 winner, 7 conflicts — the `BookingParallelHammer`/`VisitAssignmentParallelHammer` sibling; the
+  map's §6.3 concurrent-bed-move risk). Each transition fires `BedStatusChanged` → an **app-layer listener** →
+  one append-only `bed.status_changed` audit row; ward/bed CRUD via app-layer model hooks — so Hospital stays
+  free of Audit (the Branch/Resource + AppointmentTransitioned pattern). **Inpatient RBAC additive** (the
+  `dental.chart` precedent; `Gate::before`/`PermissionService` unchanged): +4 permissions (`ward.manage`,
+  `bed.manage`, `admission.manage`, `document.view`) + 6 role templates (ward_nurse ← nurse; charge_nurse ←
+  coordinator+nurse+bed.manage; hospitalist ← doctor−dental.chart+admission.manage; bed_manager; admissions_
+  clerk ← reception+patient.edit+admission.manage; him_records); `org_admin` gains all four; management gated
+  on `bed`/`ward.manage`, the bed claim on `admission.manage` (placing occupancy is an admission act);
+  ward-level scope is branch-level for Phase 1 (deeper scoping = a later `abac_conditions` gate). **ELECTRIC
+  FENCE (operational, not clinical):** a bed/ward has NO patient/acuity/severity/score/risk/grade/flag column
+  (schema fence test) — status is housekeeping, never a patient judgment; a NEWS2-style deterioration score is
+  a non-goal / certified-partner integration, never homemade (map §3). NO ADT workflow (G2), NO UI (G3). No
+  existing behavior test modified; the relative permission-count assertion (`RbacTest`) + the hardcoded RBAC
+  negative-sweep stay green. VERIFIED: composer check FULLY green (Pint `passed` · PHPStan L5 `[OK] No errors`
+  · **Pest 717 passed / 2 skipped / 5841 assertions**, 0 failed — +9 tests/+70 assertions vs POLISH.3's
+  708/5771: `WardBedManagementTest` (7) + `BedClaimParallelHammerTest` (1) + the Hospital arch rule (1)); no
+  frontend this gate. (HOSPITAL.G1) See [[D-096]] (the beds-vs-Resource reuse precedent), the ADT map, and
+  [[Hospital]].

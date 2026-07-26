@@ -10,6 +10,7 @@ use Modules\Clinical\Providers\ClinicalServiceProvider;
 use Modules\Comms\Providers\CommsServiceProvider;
 use Modules\Dental\Providers\DentalServiceProvider;
 use Modules\FrontDesk\Providers\FrontDeskServiceProvider;
+use Modules\Hospital\Providers\HospitalServiceProvider;
 use Modules\Import\Providers\ImportServiceProvider;
 use Modules\Nursing\Providers\NursingServiceProvider;
 use Modules\Patients\Providers\PatientsServiceProvider;
@@ -29,6 +30,7 @@ return [
     CommsServiceProvider::class,
     DentalServiceProvider::class,
     FrontDeskServiceProvider::class,
+    HospitalServiceProvider::class,
     ImportServiceProvider::class,
     NursingServiceProvider::class,
     PatientsServiceProvider::class,

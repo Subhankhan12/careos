@@ -38,6 +38,9 @@ use Modules\Clinical\Models\Encounter;
 use Modules\Comms\Contracts\InboxDraftProvider;
 use Modules\Comms\Models\NotificationTemplate;
 use Modules\Comms\Services\NotificationService;
+use Modules\Hospital\Events\BedStatusChanged;
+use Modules\Hospital\Models\Bed;
+use Modules\Hospital\Models\Ward;
 use Modules\Nursing\Events\CompetencyChanged;
 use Modules\Nursing\Events\IncidentReported;
 use Modules\Nursing\Events\NurseCompetencyChanged;
@@ -201,6 +204,60 @@ class AppServiceProvider extends ServiceProvider
                 'resource_type' => 'resource',
                 'resource_id' => $m->id,
                 'context' => ['fields' => array_keys($m->getChanges())],
+            ]);
+        });
+
+        // Inpatient ward/bed CRUD + status (HOSPITAL.G1). Hooks + the BedStatusChanged
+        // listener live here so Hospital stays free of Audit (the Branch/Resource +
+        // AppointmentTransitioned pattern). Bed status transitions are audited via the
+        // domain event (it carries actor/from/to/reason); Bed::updated deliberately
+        // skips status changes so a transition is not double-audited.
+        Ward::created(fn (Ward $m) => $this->auditChange('ward.created', [
+            'resource_type' => 'ward',
+            'resource_id' => $m->id,
+            'context' => ['name' => $m->name, 'code' => $m->code, 'branch_id' => $m->branch_id],
+        ]));
+        Ward::updated(function (Ward $m): void {
+            $action = $m->wasChanged('active')
+                ? ($m->active ? 'ward.activated' : 'ward.deactivated')
+                : 'ward.updated';
+            $this->auditChange($action, [
+                'resource_type' => 'ward',
+                'resource_id' => $m->id,
+                'context' => ['fields' => array_keys($m->getChanges())],
+            ]);
+        });
+        Bed::created(fn (Bed $m) => $this->auditChange('bed.created', [
+            'resource_type' => 'bed',
+            'resource_id' => $m->id,
+            'context' => ['label' => $m->label, 'bed_type' => $m->bed_type, 'ward_id' => $m->ward_id, 'branch_id' => $m->branch_id],
+        ]));
+        Bed::updated(function (Bed $m): void {
+            if ($m->wasChanged('status')) {
+                return; // status transitions are audited via BedStatusChanged below
+            }
+            $action = $m->wasChanged('active')
+                ? ($m->active ? 'bed.activated' : 'bed.deactivated')
+                : 'bed.updated';
+            $this->auditChange($action, [
+                'resource_type' => 'bed',
+                'resource_id' => $m->id,
+                'context' => ['fields' => array_keys($m->getChanges())],
+            ]);
+        });
+        Event::listen(BedStatusChanged::class, function (BedStatusChanged $event): void {
+            $this->auditChange('bed.status_changed', [
+                'actor_type' => 'user',
+                'actor_id' => (string) $event->actor->getKey(),
+                'resource_type' => 'bed',
+                'resource_id' => $event->bed->id,
+                'reason' => $event->reason,
+                'context' => [
+                    'from_status' => $event->fromStatus,
+                    'to_status' => $event->toStatus,
+                    'ward_id' => $event->bed->ward_id,
+                    'branch_id' => $event->bed->branch_id,
+                ],
             ]);
         });
 

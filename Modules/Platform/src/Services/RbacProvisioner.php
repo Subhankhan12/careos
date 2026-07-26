@@ -48,6 +48,11 @@ class RbacProvisioner
         'admin.manage' => 'Manage tenant settings and users',
         'data.import' => 'Import patients from CSV',
         'dental.chart' => 'Chart teeth and dental findings (odontogram)',
+        // Inpatient / hospital vertical (HOSPITAL.G1). Additive — see docs/HOSPITAL-PHASE1-ADT-MAP.md §4.
+        'ward.manage' => 'Manage inpatient wards and units',
+        'bed.manage' => 'Manage inpatient beds and their housekeeping status',
+        'admission.manage' => 'Admit, transfer, and discharge inpatients (ADT)',
+        'document.view' => 'View and download patient clinical documents (HIM/records)',
     ];
 
     /**
@@ -65,6 +70,7 @@ class RbacProvisioner
                 'timesheet.approve', 'note.write', 'note.sign', 'note.supervise', 'allergy.override',
                 'snippet.manage.shared', 'order.manage', 'ai.manage', 'comms.manage', 'billing.view',
                 'billing.manage', 'reporting.view', 'audit.view', 'data.import', 'dental.chart',
+                'ward.manage', 'bed.manage', 'admission.manage', 'document.view',
             ],
         ],
         'coordinator' => [
@@ -100,6 +106,62 @@ class RbacProvisioner
         'billing' => [
             'name' => 'Billing',
             'permissions' => ['billing.view', 'billing.manage'],
+        ],
+        // Inpatient / hospital vertical starter roles (HOSPITAL.G1). Additive; each
+        // maps to an existing clinical role plus the minimal inpatient permission it
+        // needs (docs/HOSPITAL-PHASE1-ADT-MAP.md §4). Ward-level scope is branch-level
+        // for Phase 1 (deeper ward scoping is a later abac_conditions gate).
+        'ward_nurse' => [
+            'name' => 'Ward Nurse',
+            'permissions' => [
+                // Bedside inpatient nursing = the existing nurse clinical set (charting,
+                // notes, orders). Bed/ward administration is the charge nurse / bed manager.
+                'patient.view', 'appointment.manage', 'encounter.manage',
+                'note.write', 'note.sign', 'order.manage',
+            ],
+        ],
+        'charge_nurse' => [
+            'name' => 'Charge Nurse',
+            'permissions' => [
+                // The ward's shift lead: the nurse clinical set + chart-completion
+                // oversight (note.supervise) + ward-census/bed oversight + reporting.
+                'patient.view', 'appointment.manage', 'encounter.manage',
+                'note.write', 'note.sign', 'note.supervise', 'order.manage',
+                'reporting.view', 'bed.manage',
+            ],
+        ],
+        'hospitalist' => [
+            'name' => 'Hospitalist',
+            'permissions' => [
+                // Treating inpatient physician = the doctor clinical set (minus
+                // dental.chart) plus admit/transfer/discharge authority.
+                'patient.view', 'patient.edit', 'appointment.manage', 'encounter.manage',
+                'note.write', 'note.sign', 'order.manage', 'snippet.manage.shared',
+                'allergy.override', 'admission.manage',
+            ],
+        ],
+        'bed_manager' => [
+            'name' => 'Bed Manager',
+            'permissions' => [
+                // Runs bed/ward operations (housekeeping status, ward layout); sees who
+                // is where + occupancy reporting. No clinical charting.
+                'ward.manage', 'bed.manage', 'patient.view', 'reporting.view',
+            ],
+        ],
+        'admissions_clerk' => [
+            'name' => 'Admissions Clerk',
+            'permissions' => [
+                // Registration + admission intake: reception's set + patient.edit + ADT.
+                'patient.view', 'patient.edit', 'appointment.manage', 'comms.manage',
+                'admission.manage',
+            ],
+        ],
+        'him_records' => [
+            'name' => 'Health Information / Records',
+            'permissions' => [
+                // Chart-completion oversight + clinical-document access + audit visibility.
+                'patient.view', 'note.supervise', 'document.view', 'audit.view',
+            ],
         ],
     ];
 

@@ -159,3 +159,17 @@ arch('Dental may use care modules + Audit services but not Audit models, AiCore,
         'Modules\Nursing',
         'Modules\Comms',
     ]);
+
+// Hospital is the inpatient/ADT vertical (HOSPITAL.G1): it may use Platform +
+// care modules (Patients/Scheduling/Clinical/Billing) + Audit SERVICES, but never
+// Audit models directly, AiCore, the peer Nursing vertical, or Comms. Cross-module
+// composition (audit of bed/ward changes) lives in app/, so Hospital stays free of
+// Audit — the same posture as Dental.
+arch('Hospital may use care modules + Audit services but not Audit models, AiCore, Nursing, or Comms')
+    ->expect('Modules\Hospital')
+    ->not->toUse([
+        'Modules\Audit\Models',
+        'Modules\AiCore',
+        'Modules\Nursing',
+        'Modules\Comms',
+    ]);
