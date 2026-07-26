@@ -2,6 +2,7 @@
 
 namespace Modules\Hospital\Services;
 
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\Gate;
 use Modules\Hospital\Models\Ward;
 use Modules\Platform\Models\User;
@@ -42,5 +43,16 @@ class WardService
         $ward->forceFill(['active' => false])->save();
 
         return $ward;
+    }
+
+    /**
+     * The tenant's active wards, ordered by name — the ward board's read source (HOSPITAL.G3).
+     * Tenant-scoped by BelongsToTenant. A read; the board controller gates it on `patient.view`.
+     *
+     * @return Collection<int, Ward>
+     */
+    public function activeWards(): Collection
+    {
+        return Ward::query()->where('active', true)->orderBy('name')->get();
     }
 }

@@ -36,8 +36,8 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
   unlocks **eMAR + the CH statutory billing pack** when confirmed. The well of safe build-without-a-
   customer-need work is done — do not open a new gate unless a customer need pulls a specific feature
   forward. Discovery brief: `docs/DISCOVERY.md`; outreach: `docs/outreach-de.md`.
-- **Latest verified quality:** HOSPITAL.G2 (the ADT CORE — a NET-NEW `Stay` above an UNMODIFIED `Encounter`; admit/transfer/discharge as an atomic, bed-safe, legal-only state machine reusing G1's concurrency-safe bed claim/release; append-only `stay_events` history; one-active-stay guarded; fence-clean, no charge [billing is G6]) atop HOSPITAL.G1 (bed/ward model + bed-claim + inpatient RBAC) and POLISH.3; `composer check` FULLY green — Pint `passed`, PHPStan L5
-  `[OK] No errors`, **Pest 729 passed / 2 skipped / 5921 assertions**, 0 failed (the 2 skips = Redis-Horizon + one reminder infra case, green in CI on Redis 7); npm run build green. (G8 baseline: `0d93a36`, Pest 700/5623.) A route-reachability smoke (**FIX.5**, `composer test:smoke`)
+- **Latest verified quality:** HOSPITAL.G3 (the ward board — the live bed-occupancy cockpit + first inpatient UI: beds by housekeeping status + the current patient per occupied bed + a plain occupancy count, with the ADT/bed actions surfaced through the EXISTING G1/G2 services [admit-from-board uses the proven claim]; PRESENTATIONAL, fence-clean [no acuity/severity/priority — status colour is housekeeping, LOS is elapsed time]) atop HOSPITAL.G2 (ADT stay + state machine) and G1; `composer check` FULLY green — Pint `passed`, PHPStan L5
+  `[OK] No errors`, **Pest 734 passed / 2 skipped / 6023 assertions**, 0 failed (the 2 skips = Redis-Horizon + one reminder infra case, green in CI on Redis 7); npm run build green. (G8 baseline: `0d93a36`, Pest 700/5623.) A route-reachability smoke (**FIX.5**, `composer test:smoke`)
   drives every major route through the real middleware stack to guard against request-time 500s (the C-1
   class). See the detailed quality block below.
 - **Demo tenants (all reconcile-to-the-unit + chain-verify):** `DemoClinicSeeder` (Praxis Lindenhof, CHF,
@@ -1238,9 +1238,22 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
   append-only** (DB triggers). (6) **FENCE:** operational only — no acuity/severity/triage column; **no charge
   posted (billing is G6)**. Minimal action surface (rich board = G3); FIX.5 smoke extended. Verified: npm
   build green; composer check FULLY green (**Pest 729 / 2-skip / 5921**, 0 failed); smoke green (3).
-- **Next action:** **HOSPITAL.G3 — the ward board** (a live view of beds per ward: free/occupied/cleaning +
-  current patient + LOS-so-far, over the Bed+Stay model, reusing the `ScheduleGrid` column-per-entity idiom
-  on a continuous timeline — the first inpatient UI) — per `docs/HOSPITAL-PHASE1-ADT-MAP.md` §5. (The parallel
+- **HOSPITAL.G3 — the ward board: the live bed-occupancy cockpit (the first inpatient UI; D-115).**
+  PRESENTATIONAL over G1/G2 (P0D.GU): `WardBoardController::show` (GET `/hospital/wards`, gate `patient.view`)
+  renders `Hospital/WardBoard.vue` — each active ward → its beds by **housekeeping status** (free/occupied/
+  cleaning/blocked), the current patient + `admitted_at` per occupied bed, and a plain **occupancy count**.
+  (1) **Reuses the day-board tile/status idiom for LAYOUT, but the data is beds/stays (continuous occupancy)
+  — never the scheduling slot engine.** (2) **Actions surfaced from the board go through the EXISTING G1/G2
+  services** — admit/transfer/discharge POST the G2 routes (**admit-from-board uses the proven claim, atomic
+  — tested**), bed status via a new `setBedStatus` (bed.manage). (3) **FENCE:** operational only — status is
+  housekeeping (its colour a housekeeping state, not acuity), LOS is elapsed time, the summary is a count; NO
+  acuity/severity/risk/priority field (recursive-payload fence test). (4) Read = `patient.view` (ward nurses
+  incl.); write actions keep their gates. **No charge (billing is G6).** FIX.5 smoke extended (board route,
+  doctor 200 / billing 403). Verified: npm build green; composer check FULLY green (**Pest 734 / 2-skip /
+  6023**, 0 failed); smoke green (3).
+- **Next action:** **HOSPITAL.G4 — bedside charting** (reuse Clinical per ward-round: an `Encounter` under
+  the stay + sign-and-lock notes + raw `Vital`s [a `forStay()` read affordance, no schema change] + orders —
+  the recurring ward observations, record-not-judge) — per `docs/HOSPITAL-PHASE1-ADT-MAP.md` §5. (The parallel
   DISCOVERY track still stands: the CH/KVG-vs-EU-generic billing model must be confirmed with Spitex
   coordinators before the CH statutory pack — the likely real first NEW billing build — is committed;
   remaining billing backend-only surfaces (camt.053 reconciliation, AI dunning drafts, accounting-export UI)

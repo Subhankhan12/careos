@@ -159,6 +159,7 @@ test('every major staff route is reachable through the real middleware stack (20
         'payment.show (C-1)' => '/billing/payments/'.$fx['payment']->id,
         'import.show (C-1)' => '/imports/'.$fx['batch']->id,
         'hospital.admission (C-1)' => '/hospital/admissions/'.$fx['stay']->id,
+        'hospital.wards' => '/hospital/wards',
     ];
 
     $failures = [];
@@ -235,6 +236,10 @@ test('per-role RBAC smoke: each role reaches its pages (200) and is denied other
         // reception (patient.view but NOT dental.chart) is denied — same gate as the nav entry.
         [$u['doctor'], '/dental', 200],
         [$u['reception'], '/dental', 403],
+        // HOSPITAL.G3: the ward board is patient.view-gated (inpatient clinical staff incl. ward
+        // nurses reach it); billing (no patient.view) is denied.
+        [$u['doctor'], '/hospital/wards', 200],
+        [$u['billing'], '/hospital/wards', 403],
         // settings + roles are admin.manage only — reception is denied, org_admin reaches them.
         [$u['reception'], '/settings', 403],
         [$u['reception'], '/admin/roles', 403],

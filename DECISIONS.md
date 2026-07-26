@@ -1440,3 +1440,30 @@ references the old ID.
   +12 tests/+80 assertions vs G1's 717/5841: `HospitalAdmissionTest`); composer test:smoke green (3).
   (HOSPITAL.G2) See [[D-113]] (G1 bed/ward foundation), the ADT map, [[Clinical]] (the Encounter left intact),
   and [[Hospital]].
+
+- **D-115 — HOSPITAL.G3: ward board (live bed-occupancy cockpit) over the ADT domain.** The first inpatient
+  UI, built per `docs/HOSPITAL-PHASE1-ADT-MAP.md`. **PRESENTATIONAL over G1/G2 (P0D.GU)** — the board READS a
+  ward's beds + status + the current patient per occupied bed, and SURFACES the existing actions; it computes
+  no ADT/occupancy logic and never bypasses the G2 atomicity/concurrency guarantees. `WardBoardController::show`
+  (GET `/hospital/wards`, gate `patient.view`) renders `Hospital/WardBoard.vue` from `WardService::activeWards()`
+  + `BedService::forWard` + a Stay query keyed by `current_bed_id` (the occupant): each ward → beds (label,
+  bed_type, housekeeping status), occupant name + `admitted_at` per occupied bed, and a plain occupancy count.
+  **KEY: reuses the day-board TILE/STATUS idiom for LAYOUT, but the data is beds/stays (continuous occupancy) —
+  the board NEVER routes through the scheduling slot engine** (the map's §6.1 abstraction warning). **Actions
+  surfaced from the board go through the EXISTING G1/G2 services:** admit/transfer/discharge POST to the G2
+  admission routes (**admit-from-the-board uses the proven `AdmissionService::admit` → concurrency-safe
+  `BedService::claim`**, tested atomic), and NEW `setBedStatus` (POST `/hospital/beds/{bed}/status`, gate
+  `bed.manage`, string-id FIX.1) → `BedService::setStatus` (legal-only). **Read gate = `patient.view`** — the
+  only permission ALL inpatient clinical staff (incl. ward nurses) share, so ward nurses can view; billing
+  (no patient.view) is denied. The write actions keep their own gates (admit/transfer/discharge =
+  admission.manage, bed status = bed.manage); the payload's `can_admit`/`can_manage_beds` + the admit pickers
+  reflect the actor (server Gate authoritative). The board is NOT per-occupant read-logged — it is an
+  operational overview (the day-board posture); deep read-logging is the G2 admission `show`. **ELECTRIC FENCE
+  (operational only):** housekeeping status + occupant name + `admitted_at` (LOS-so-far = plain elapsed time
+  the client renders) + a plain occupancy count. NO acuity/severity/risk/priority/deterioration field; the
+  status COLOUR is the housekeeping state, never a clinical judgment (asserted by a recursive `wbAssertNoJudgment`
+  over the payload). No charge posted (billing is G6). No existing behavior test modified (the FIX.5 route
+  smoke was EXTENDED with the board route — doctor 200 / billing 403). VERIFIED: npm run build green; composer
+  check FULLY green (Pint `passed` · PHPStan L5 `[OK] No errors` · **Pest 734 passed / 2 skipped / 6023
+  assertions**, 0 failed — +5 tests/+102 assertions vs G2's 729/5921: `WardBoardTest`); composer test:smoke
+  green (3). (HOSPITAL.G3) See [[D-113]] (bed model), [[D-114]] (ADT domain), the ADT map, and [[Hospital]].

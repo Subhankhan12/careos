@@ -124,13 +124,39 @@ The core of the vertical — admit / transfer / discharge a multi-day `Stay`.
   + `store`/`transfer`/`discharge` (POST, `admission.manage`). Route-smoke extended (org_admin GET 200,
   reception POST admit 403).
 
+## Ward board (HOSPITAL.G3)
+
+The live bed-occupancy cockpit — the first inpatient UI. PRESENTATIONAL over G1/G2 (P0D.GU): it READS and
+SURFACES the existing actions; it computes no ADT/occupancy logic.
+
+- `Services\WardService::activeWards()` — read helper (the tenant's active wards). The board data source is
+  WardService (wards) + `BedService::forWard` (beds+status) + a Stay query (occupant per bed).
+- `Http\Controllers\WardBoardController` — `show` (GET `/hospital/wards`, gate `patient.view`) renders
+  `Hospital/WardBoard.vue`: each active ward → its beds (label, bed_type, **housekeeping status**), the
+  current patient + `admitted_at` per OCCUPIED bed (the active Stay keyed by `current_bed_id`), and a plain
+  **occupancy count** (occupied/total). It reuses the day-board TILE/STATUS idiom for layout, but the data
+  is beds/stays (continuous occupancy) — it never touches the scheduling slot engine. `setBedStatus` (POST
+  `/hospital/beds/{bed}/status`, gate `bed.manage`, string-id FIX.1) sets a bed's housekeeping status via
+  `BedService::setStatus` (legal-only). The ADT actions (admit/transfer/discharge) POST to the EXISTING G2
+  routes — **admit-from-the-board uses the proven `AdmissionService::admit` → concurrency-safe claim**, no
+  new ADT logic, atomicity/concurrency untouched (tested). The board is NOT per-occupant read-logged (it is
+  an operational overview, the day-board posture; deep read-logging is the G2 admission `show`).
+- **Read gate = `patient.view`** (all inpatient clinical staff, incl. ward nurses, hold it; billing is
+  denied). Surfaced actions keep their own gates: admit/transfer/discharge = `admission.manage`, bed status
+  = `bed.manage`; the payload's `can_admit`/`can_manage_beds` reflect the actor (server Gate authoritative).
+- **ELECTRIC FENCE:** the payload is OPERATIONAL ONLY — housekeeping status, occupant name + `admitted_at`
+  (LOS-so-far is plain elapsed time the client renders), a plain occupancy count. NO acuity/severity/risk/
+  priority/deterioration field; the status COLOUR is the housekeeping state, never a clinical judgment
+  (asserted by a recursive `wbAssertNoJudgment` over the payload). No charge posted (billing is G6).
+
 ## Status
 
-**HOSPITAL.G1–G2 complete.** G1 = Bed/Ward model + concurrency-safe bed-claim + inpatient RBAC. **G2 = the
-ADT `Stay` + admit/transfer/discharge state machine (atomic, bed-safe, above an unmodified Encounter).**
-Verified: npm build green; composer check FULLY green; targeted — `WardBedManagementTest` (7),
-`BedClaimParallelHammerTest` (1), `HospitalAdmissionTest` (12), arch + RBAC suites unchanged; smoke green.
-See [[D-113]], [[D-114]], `docs/HOSPITAL-PHASE1-ADT-MAP.md`.
+**HOSPITAL.G1–G3 complete.** G1 = Bed/Ward model + concurrency-safe bed-claim + inpatient RBAC. G2 = the ADT
+`Stay` + admit/transfer/discharge state machine (atomic, bed-safe, above an unmodified Encounter). **G3 = the
+ward board (live bed-occupancy cockpit) — the first inpatient UI, presentational over G1/G2.** Verified: npm
+build green; composer check FULLY green; targeted — `WardBedManagementTest` (7), `BedClaimParallelHammerTest`
+(1), `HospitalAdmissionTest` (12), `WardBoardTest` (5), arch + RBAC suites unchanged; smoke green (board
+route added). See [[D-113]], [[D-114]], [[D-115]], `docs/HOSPITAL-PHASE1-ADT-MAP.md`.
 
 ## Open items / next gates (per docs/HOSPITAL-PHASE1-ADT-MAP.md)
 
@@ -138,9 +164,10 @@ See [[D-113]], [[D-114]], `docs/HOSPITAL-PHASE1-ADT-MAP.md`.
   `Encounter`; each transition an append-only `admission.<event>` audit row + a `stay_events` history row; the
   admission wraps `BedService::claim()`, discharge/transfer `release()` the bed (occupied→cleaning); atomic +
   one-active-stay guarded. **Next: G3.**
-- **G3** ward board (over Bed+Stay, the column-per-entity idiom on a continuous timeline) · **G4** bedside
-  charting (reuse Clinical `Encounter`/notes/`Vital` + a `forStay()` read affordance) · **G5** shift handover
-  (net-new SBAR artifact) · **G6** bed-to-billing (per-diem `TariffItem` + `billing:accrue-bed-days` idempotent
-  command, no new math) · **G7** discharge + LOS + discharge summary.
+- **G3** *(done — D-115)* — ward board (live bed-occupancy cockpit over Bed+Stay, the tile/status idiom on a
+  continuous timeline; the first inpatient UI, presentational over G1/G2). **Next: G4.**
+- **G4** bedside charting (reuse Clinical `Encounter`/notes/`Vital` + a `forStay()` read affordance) · **G5**
+  shift handover (net-new SBAR artifact) · **G6** bed-to-billing (per-diem `TariffItem` +
+  `billing:accrue-bed-days` idempotent command, no new math) · **G7** discharge + LOS + discharge summary.
 - Long poles (partner-gated / non-goal): HL7/FHIR ADT feed (`Interop`), bedside device capture, certified
   early-warning/deterioration engine (NEWS2 — fence + regulated device, never homemade), DRG/case-mix grouper.

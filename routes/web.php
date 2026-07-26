@@ -50,6 +50,7 @@ use Modules\FrontDesk\Http\Controllers\KioskCheckInController;
 use Modules\FrontDesk\Http\Controllers\KioskDeviceController;
 use Modules\FrontDesk\Http\Controllers\PortalCheckInController;
 use Modules\Hospital\Http\Controllers\AdmissionController;
+use Modules\Hospital\Http\Controllers\WardBoardController;
 use Modules\Import\Http\Controllers\ImportBatchController;
 use Modules\Nursing\Http\Controllers\CompetencyController;
 use Modules\Nursing\Http\Controllers\DispatchActionController;
@@ -281,6 +282,14 @@ Route::middleware('auth')->group(function () {
     Route::post('/hospital/admissions', [AdmissionController::class, 'store'])->name('hospital.admissions.store');
     Route::post('/hospital/admissions/{stay}/transfer', [AdmissionController::class, 'transfer'])->name('hospital.admissions.transfer');
     Route::post('/hospital/admissions/{stay}/discharge', [AdmissionController::class, 'discharge'])->name('hospital.admissions.discharge');
+
+    // Ward board (HOSPITAL.G3) — the live bed-occupancy cockpit: a ward's beds by housekeeping status +
+    // the current patient per occupied bed + a plain occupancy count, with the ADT/bed actions surfaced
+    // through the EXISTING G1/G2 services (no new ADT logic; admit-from-board uses the proven claim).
+    // Read = patient.view (inpatient staff incl. ward nurses); bed-status write = bed.manage. Operational
+    // only — NO acuity/severity/priority. String-id {bed} (FIX.1).
+    Route::get('/hospital/wards', [WardBoardController::class, 'show'])->name('hospital.wards');
+    Route::post('/hospital/beds/{bed}/status', [WardBoardController::class, 'setBedStatus'])->name('hospital.beds.status');
 
     // Onboarding/migration: generic CSV patient import (RBAC 'data.import' enforced
     // in each controller action). Mandatory dry-run before commit.

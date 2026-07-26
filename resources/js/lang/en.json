@@ -67,6 +67,49 @@
                 "transferred": "Transferred",
                 "discharged": "Discharged"
             }
+        },
+        "board": {
+            "title": "Ward board",
+            "eyebrow": "Inpatient",
+            "subtitle": "Live bed occupancy across your wards.",
+            "empty": "No wards yet. Add a ward and beds to see the board.",
+            "occupancy": "{occupied}/{total} occupied",
+            "admittedSince": "In bed {elapsed}",
+            "losDaysHours": "{days}d {hours}h",
+            "losHours": "{hours}h",
+            "losMinutes": "{minutes}m",
+            "admit": "Admit",
+            "transfer": "Transfer",
+            "discharge": "Discharge",
+            "confirm": "Confirm",
+            "cancel": "Cancel",
+            "patient": "Select patient",
+            "clinician": "Admitting clinician",
+            "type": "Admission type",
+            "targetBed": "Move to bed",
+            "disposition": "Discharge disposition",
+            "bedType": {
+                "general": "General",
+                "icu": "ICU",
+                "isolation": "Isolation"
+            },
+            "bedStatus": {
+                "free": "Free",
+                "occupied": "Occupied",
+                "cleaning": "Cleaning",
+                "blocked": "Blocked"
+            },
+            "setStatus": {
+                "free": "Mark free",
+                "cleaning": "Mark cleaning",
+                "blocked": "Block"
+            },
+            "dispositions": {
+                "home": "Home",
+                "transferred_out": "Transferred out",
+                "deceased": "Deceased",
+                "against_advice": "Against advice"
+            }
         }
     },
     "settings": {
