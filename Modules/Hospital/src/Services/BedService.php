@@ -132,6 +132,34 @@ class BedService
     }
 
     /**
+     * Release an occupied bed (occupied -> cleaning) when a patient leaves it on discharge
+     * or transfer-out. Row-locked + legal-only, gated on `admission.manage` (it is an
+     * admission act, not housekeeping), and audited via BedStatusChanged. Called by
+     * AdmissionService inside the ADT transaction so the release is atomic with the stay change.
+     */
+    public function release(User $actor, Bed $bed): Bed
+    {
+        Gate::forUser($actor)->authorize('admission.manage');
+
+        $bed = DB::transaction(function () use ($bed): Bed {
+            $current = $this->lockBedStatus($bed->tenant_id, $bed->id);
+
+            if ($current !== Bed::STATUS_OCCUPIED) {
+                throw BedStatusTransitionException::illegal($bed->id, $current, Bed::STATUS_CLEANING);
+            }
+
+            $bed->status = Bed::STATUS_CLEANING;
+            $bed->save();
+
+            return $bed;
+        });
+
+        Event::dispatch(new BedStatusChanged($bed, Bed::STATUS_OCCUPIED, Bed::STATUS_CLEANING, $actor));
+
+        return $bed;
+    }
+
+    /**
      * Lock a single bed row FOR UPDATE and return its authoritative current status.
      * The tenant-scoped WHERE means a cross-tenant id is invisible and rejected —
      * the same shape as BookingService::lockResource().

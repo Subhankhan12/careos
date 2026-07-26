@@ -89,17 +89,55 @@ management gates on `bed.manage`/`ward.manage`; claiming a bed on `admission.man
 an admission act). **Ward-level scope is branch-level for Phase 1** (deeper ward scoping = a later
 `abac_conditions` gate). The permission-count test (`RbacTest`) is relative, so additions stay green.
 
+## ADT workflow (HOSPITAL.G2)
+
+The core of the vertical — admit / transfer / discharge a multi-day `Stay`.
+
+- `stays` (BelongsToTenant, **LogsReads** — patient-scoped read-logged) — a patient's inpatient episode, a
+  NET-NEW entity **ABOVE an UNMODIFIED `Encounter`** (map §2.2; the `VisitPlan→Visit` analogue — G2 does NOT
+  touch Clinical, so Encounter's one-open-per-practitioner invariant holds for every vertical; bedside
+  charting reuses Encounter per ward-round in G4). The MUTABLE current state: `patient_id`, `branch_id`,
+  `admitting_clinician_id` (StaffProfile), `current_bed_id`/`current_ward_id`, `admitted_at`,
+  `discharged_at`, `status`, `admission_type`, `admission_reason`, `discharge_disposition`. **State machine:**
+  `STATUSES` {admitted, discharged}; `TRANSITIONS` = admitted→discharged. A **transfer is a bed-move WITHIN
+  admitted** (not a status change). `admission_type` ∈ {elective, emergency, transfer} (an operational ROUTE)
+  is validated in the model's `creating` hook; cross-tenant refs rejected there too.
+- `stay_events` (BelongsToTenant, **APPEND-ONLY** at model + DB-trigger level `stay_events_no_update`/
+  `_no_delete`) — one immutable row per admit/transfer/discharge preserving the full bed journey (bed_id,
+  from_bed_id, ward_id, reason, disposition, occurred_at, performed_by). A correction is a NEW event.
+- `Services\AdmissionService` — `admit` / `transfer` / `discharge`, gated `admission.manage`, tenant+branch
+  fail-closed (rejects a cross-tenant bed UP FRONT). **Each is ATOMIC** (the dental-perform discipline): the
+  stay change + the bed claim/release (via G1's proven `BedService::claim`/`release` — NOT reimplemented) +
+  the append-only `StayEvent` all happen in ONE `DB::transaction`, so a forced failure rolls back everything
+  — no orphan stay, no stuck bed, and even the bed's audit row rolls back (proven). **admit** creates the
+  stay + `claim`s the bed (free→occupied); **transfer** `claim`s the new bed then `release`s the old
+  (occupied→cleaning), moves the stay; **discharge** `release`s the bed, sets disposition + discharged_at,
+  transitions to discharged. **One-active-stay guard:** a patient row lock + `lockForUpdate()->exists()`
+  check refuses a second active admission (the one-open-encounter analogue). Legal-only (illegal transitions
+  throw `AdmissionException`). **No charge posted — bed-to-billing is G6.**
+- `Events\StayTransitioned` → app-layer listener → one append-only `admission.<eventType>` audit row (keyed
+  by event type since a transfer keeps status=admitted); the AppointmentTransitioned pattern. `BedService`
+  gained `release()` (occupied→cleaning, `admission.manage`, same lock idiom). NEW `admission.manage` now
+  also gates the ADT actions (it existed since G1).
+- `Http\Controllers\AdmissionController` (string-id FIX.1) — the MINIMAL action surface (rich board = G3):
+  `show` (GET `/hospital/admissions/{stay}`, `patient.view`, read-logged, renders `Hospital/Admission.vue`)
+  + `store`/`transfer`/`discharge` (POST, `admission.manage`). Route-smoke extended (org_admin GET 200,
+  reception POST admit 403).
+
 ## Status
 
-**HOSPITAL.G1 = the inpatient FOUNDATION (complete):** Bed/Ward model + concurrency-safe bed-claim + inpatient
-RBAC. Verified: composer check FULLY green; targeted — `WardBedManagementTest` (7), `BedClaimParallelHammerTest`
-(1, the concurrency proof), arch + RBAC suites unchanged. See [[D-113]], `docs/HOSPITAL-PHASE1-ADT-MAP.md`.
+**HOSPITAL.G1–G2 complete.** G1 = Bed/Ward model + concurrency-safe bed-claim + inpatient RBAC. **G2 = the
+ADT `Stay` + admit/transfer/discharge state machine (atomic, bed-safe, above an unmodified Encounter).**
+Verified: npm build green; composer check FULLY green; targeted — `WardBedManagementTest` (7),
+`BedClaimParallelHammerTest` (1), `HospitalAdmissionTest` (12), arch + RBAC suites unchanged; smoke green.
+See [[D-113]], [[D-114]], `docs/HOSPITAL-PHASE1-ADT-MAP.md`.
 
 ## Open items / next gates (per docs/HOSPITAL-PHASE1-ADT-MAP.md)
 
-- **G2** — ADT `Stay` + state machine (pre-admit→admitted→transferred→discharged) ABOVE a reused, unmodified
-  `Encounter`; each transition an append-only `admission.<state>` audit row; the admission wraps
-  `BedService::claim()`; discharge transitions the bed occupied→cleaning.
+- **G2** *(done — D-114)* — ADT `Stay` + admit/transfer/discharge state machine ABOVE a reused, unmodified
+  `Encounter`; each transition an append-only `admission.<event>` audit row + a `stay_events` history row; the
+  admission wraps `BedService::claim()`, discharge/transfer `release()` the bed (occupied→cleaning); atomic +
+  one-active-stay guarded. **Next: G3.**
 - **G3** ward board (over Bed+Stay, the column-per-entity idiom on a continuous timeline) · **G4** bedside
   charting (reuse Clinical `Encounter`/notes/`Vital` + a `forStay()` read affordance) · **G5** shift handover
   (net-new SBAR artifact) · **G6** bed-to-billing (per-diem `TariffItem` + `billing:accrue-bed-days` idempotent

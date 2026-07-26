@@ -49,6 +49,7 @@ use Modules\Dental\Http\Controllers\TreatmentPlanController;
 use Modules\FrontDesk\Http\Controllers\KioskCheckInController;
 use Modules\FrontDesk\Http\Controllers\KioskDeviceController;
 use Modules\FrontDesk\Http\Controllers\PortalCheckInController;
+use Modules\Hospital\Http\Controllers\AdmissionController;
 use Modules\Import\Http\Controllers\ImportBatchController;
 use Modules\Nursing\Http\Controllers\CompetencyController;
 use Modules\Nursing\Http\Controllers\DispatchActionController;
@@ -270,6 +271,16 @@ Route::middleware('auth')->group(function () {
     Route::post('/dental/fee-schedule', [FeeScheduleController::class, 'store'])->name('dental.fee-schedule.store');
     Route::post('/dental/fee-schedule/seed', [FeeScheduleController::class, 'seed'])->name('dental.fee-schedule.seed');
     Route::post('/dental/fee-schedule/{id}', [FeeScheduleController::class, 'update'])->name('dental.fee-schedule.update');
+
+    // Inpatient ADT (HOSPITAL.G2) — admit / transfer / discharge a Stay. The admit/transfer/
+    // discharge WRITES are ATOMIC + concurrency-safe in AdmissionService (stay change + bed
+    // claim/release + append-only event in one transaction); no charge is posted (billing is G6).
+    // show = patient.view (a ward nurse views an admission, read-logged); writes = admission.manage.
+    // String-id {stay} (FIX.1). The rich ward board is HOSPITAL.G3.
+    Route::get('/hospital/admissions/{stay}', [AdmissionController::class, 'show'])->name('hospital.admissions.show');
+    Route::post('/hospital/admissions', [AdmissionController::class, 'store'])->name('hospital.admissions.store');
+    Route::post('/hospital/admissions/{stay}/transfer', [AdmissionController::class, 'transfer'])->name('hospital.admissions.transfer');
+    Route::post('/hospital/admissions/{stay}/discharge', [AdmissionController::class, 'discharge'])->name('hospital.admissions.discharge');
 
     // Onboarding/migration: generic CSV patient import (RBAC 'data.import' enforced
     // in each controller action). Mandatory dry-run before commit.

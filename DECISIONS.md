@@ -1405,3 +1405,38 @@ references the old ID.
   708/5771: `WardBedManagementTest` (7) + `BedClaimParallelHammerTest` (1) + the Hospital arch rule (1)); no
   frontend this gate. (HOSPITAL.G1) See [[D-096]] (the beds-vs-Resource reuse precedent), the ADT map, and
   [[Hospital]].
+
+- **D-114 — HOSPITAL.G2: ADT stay + admit/transfer/discharge state machine (atomic, bed-safe).** The core of
+  the inpatient vertical, built per `docs/HOSPITAL-PHASE1-ADT-MAP.md`. **KEY DECISION — a `Stay` is a NET-NEW
+  entity ABOVE an UNMODIFIED `Encounter`** (the map's §2.2 recommendation, the `VisitPlan→Visit` analogue): G2
+  does NOT touch Clinical, so `Encounter`'s one-open-per-practitioner invariant stays intact for every vertical
+  (stretching Encounter to span a stay would have broken it for all consumers); bedside charting reuses
+  Encounter per ward-round in G4. `stays` (BelongsToTenant, `LogsReads`) is the MUTABLE current state
+  (patient, admitting clinician, current bed/ward, dates, status, admission_type/reason, disposition); the
+  immutable admit/transfer/discharge history is **append-only `stay_events`** (model + DB triggers). **State
+  machine (legal-only):** admitted → discharged; a **transfer is a bed-move WITHIN admitted, not a status
+  change** (the map's endorsed clean set — pre-admit/scheduled admission is the optional later G8; documented).
+  `admission_type` {elective, emergency, transfer} is a human-recorded operational ROUTE. **`AdmissionService`
+  — each of admit/transfer/discharge is ATOMIC** (the dental-perform G4 discipline): the stay change + the bed
+  claim/release (**via G1's proven concurrency-safe `BedService::claim`/`release` — reused, NOT reimplemented,
+  per the gate**) + the append-only `StayEvent` in ONE `DB::transaction`; a forced failure rolls back
+  everything — no orphan stay, no stuck bed, and the bed's audit row too (proven: an invalid admission_type,
+  validated at Stay creation AFTER the claim, rolls the claim back — the sibling of dental's invalid-tooth-state
+  rollback). admit `claim`s (free→occupied); transfer `claim`s new + `release`s old (occupied→cleaning);
+  discharge `release`s + sets disposition/discharged_at. **`BedService::release()`** was ADDED (occupied→
+  cleaning, `admission.manage`, the same lock idiom; additive, no existing method/test changed). **One-active-
+  stay guard** (patient row-lock + `lockForUpdate()->exists()`, the one-open-encounter analogue). Bed
+  concurrency is G1's hammer-proven `claim` (a second admit to the same bed → `BedNotAvailableException`,
+  tested). Every transition → `StayTransitioned` → an app-layer listener → one append-only
+  `admission.<eventType>` audit row (keyed by event type since a transfer keeps status=admitted; the
+  AppointmentTransitioned pattern, so Hospital stays free of Audit). **NO charge posted (bed-to-billing is
+  G6).** Minimal action surface: `AdmissionController` (string-id FIX.1) — show (`patient.view`, read-logged)
+  + store/transfer/discharge (`admission.manage`); FIX.5 route smoke extended (the rich ward board is G3).
+  **ELECTRIC FENCE (operational, not clinical):** no acuity/severity/score/triage/deterioration column
+  (schema fence test); bed/ward/route/disposition are facts a human sets. No existing behavior test modified
+  (the smoke was EXTENDED with the ADT fixture+routes — the ImportBatch precedent); Encounter untouched
+  (asserted: an admit creates zero Encounters). VERIFIED: npm run build green; composer check FULLY green
+  (Pint `passed` · PHPStan L5 `[OK] No errors` · **Pest 729 passed / 2 skipped / 5921 assertions**, 0 failed —
+  +12 tests/+80 assertions vs G1's 717/5841: `HospitalAdmissionTest`); composer test:smoke green (3).
+  (HOSPITAL.G2) See [[D-113]] (G1 bed/ward foundation), the ADT map, [[Clinical]] (the Encounter left intact),
+  and [[Hospital]].

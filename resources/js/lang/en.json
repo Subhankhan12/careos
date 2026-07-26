@@ -40,6 +40,35 @@
             "appointment": "Open the day-board and book your first appointment"
         }
     },
+    "hospital": {
+        "admission": {
+            "title": "Admission",
+            "eyebrow": "Inpatient admission",
+            "type": "Admission type",
+            "clinician": "Admitting clinician",
+            "bed": "Bed",
+            "ward": "Ward",
+            "reason": "Reason",
+            "admittedAt": "Admitted",
+            "dischargedAt": "Discharged",
+            "disposition": "Discharge disposition",
+            "journey": "Bed journey",
+            "status": {
+                "admitted": "Admitted",
+                "discharged": "Discharged"
+            },
+            "types": {
+                "elective": "Elective",
+                "emergency": "Emergency",
+                "transfer": "Transfer"
+            },
+            "events": {
+                "admitted": "Admitted to bed",
+                "transferred": "Transferred",
+                "discharged": "Discharged"
+            }
+        }
+    },
     "settings": {
         "eyebrow": "Administration",
         "title": "Practice settings",

@@ -7,11 +7,17 @@ use Modules\Billing\Models\Invoice;
 use Modules\Billing\Models\Payment;
 use Modules\Clinical\Models\ClinicalNote;
 use Modules\Clinical\Models\Encounter;
+use Modules\Hospital\Models\Bed;
+use Modules\Hospital\Models\Stay;
+use Modules\Hospital\Services\AdmissionService;
+use Modules\Hospital\Services\BedService;
+use Modules\Hospital\Services\WardService;
 use Modules\Import\Models\ImportBatch;
 use Modules\Patients\Models\ConsentTemplate;
 use Modules\Patients\Models\Patient;
 use Modules\Patients\Models\PortalAccount;
 use Modules\Patients\Services\ConsentService;
+use Modules\People\Models\StaffProfile;
 use Modules\Platform\Models\Branch;
 use Modules\Platform\Models\Role;
 use Modules\Platform\Models\RoleAssignment;
@@ -79,7 +85,17 @@ function smokeSeed(object $test): array
         'created_by' => (string) $users['org_admin']->id,
     ]);
 
-    return compact('tenant', 'users', 'invoice', 'creditNote', 'payment', 'patient', 'encounter', 'note', 'batch');
+    // HOSPITAL.G2: the demo clinic has no inpatient data — create a ward + bed and admit a patient
+    // so the ADT admission-detail route (a C-1-class request-time surface) is covered. org_admin
+    // holds ward.manage / bed.manage / admission.manage.
+    $admin = $users['org_admin'];
+    $branch = Branch::query()->where('active', true)->firstOrFail();
+    $ward = app(WardService::class)->create($admin, $branch->id, 'Smoke Ward', 'SMK');
+    $bed = app(BedService::class)->create($admin, $ward, '1', Bed::TYPE_GENERAL);
+    $clinician = StaffProfile::query()->firstOrFail();
+    $stay = app(AdmissionService::class)->admit($admin, $patient, $bed, $clinician, Stay::TYPE_ELECTIVE);
+
+    return compact('tenant', 'users', 'invoice', 'creditNote', 'payment', 'patient', 'encounter', 'note', 'batch', 'stay');
 }
 
 /** One request through the real stack with NO ambient tenant context (the C-1 condition). */
@@ -142,6 +158,7 @@ test('every major staff route is reachable through the real middleware stack (20
         'credit-note.show (C-1)' => '/billing/credit-notes/'.$fx['creditNote']->id,
         'payment.show (C-1)' => '/billing/payments/'.$fx['payment']->id,
         'import.show (C-1)' => '/imports/'.$fx['batch']->id,
+        'hospital.admission (C-1)' => '/hospital/admissions/'.$fx['stay']->id,
     ];
 
     $failures = [];
@@ -273,6 +290,16 @@ test('per-role RBAC smoke: each role reaches its pages (200) and is denied other
         ->status();
     if ($performStatus !== 403) {
         $failures[] = "dental.perform as reception -> {$performStatus} (expected 403)";
+    }
+
+    // HOSPITAL.G2: the ADT admit WRITE is admission.manage-gated. Reception (no admission.manage) is
+    // denied at the gate through the real stack, before any bed/stay is touched (no 500).
+    smokeCtx()->forget();
+    $admitStatus = $this->actingAs($u['reception'])
+        ->post('/hospital/admissions', ['patient_id' => 'x', 'bed_id' => 'y', 'admitting_clinician_id' => 'z', 'admission_type' => 'elective'])
+        ->status();
+    if ($admitStatus !== 403) {
+        $failures[] = "hospital.admit as reception -> {$admitStatus} (expected 403)";
     }
 
     expect(implode("\n", $failures))->toBe('');

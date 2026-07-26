@@ -39,6 +39,7 @@ use Modules\Comms\Contracts\InboxDraftProvider;
 use Modules\Comms\Models\NotificationTemplate;
 use Modules\Comms\Services\NotificationService;
 use Modules\Hospital\Events\BedStatusChanged;
+use Modules\Hospital\Events\StayTransitioned;
 use Modules\Hospital\Models\Bed;
 use Modules\Hospital\Models\Ward;
 use Modules\Nursing\Events\CompetencyChanged;
@@ -257,6 +258,24 @@ class AppServiceProvider extends ServiceProvider
                     'to_status' => $event->toStatus,
                     'ward_id' => $event->bed->ward_id,
                     'branch_id' => $event->bed->branch_id,
+                ],
+            ]);
+        });
+        // Inpatient ADT transitions (HOSPITAL.G2) — one append-only audit row per admit/transfer/
+        // discharge, keyed by the event type (a transfer keeps status = admitted). Same pattern as
+        // AppointmentTransitioned, so Hospital stays free of Audit.
+        Event::listen(StayTransitioned::class, function (StayTransitioned $event): void {
+            $this->auditChange('admission.'.$event->eventType, [
+                'actor_type' => 'user',
+                'actor_id' => (string) $event->actor->getKey(),
+                'patient_id' => $event->stay->patient_id,
+                'resource_type' => 'stay',
+                'resource_id' => $event->stay->id,
+                'reason' => $event->reason,
+                'context' => [
+                    'from_status' => $event->fromStatus,
+                    'to_status' => $event->toStatus,
+                    ...$event->context,
                 ],
             ]);
         });
