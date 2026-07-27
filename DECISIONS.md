@@ -1563,3 +1563,43 @@ references the old ID.
   FULLY green (Pint `passed` · PHPStan L5 `[OK] No errors` · **Pest 754 passed / 2 skipped / 6340 assertions**,
   0 failed — +7 tests vs G5's 747); composer test:smoke green (3). (HOSPITAL.G6) See [[D-114]] (the Stay),
   [[D-117]] (G5 — the reuse-vs-net-new posture), the ADT map §2.3/§5, [[Billing]], and [[Hospital]].
+- **D-119 — HOSPITAL.G7: discharge summary + LOS + episode close-out (Phase-1 COMPLETE).** The final Phase-1
+  gate ties off the inpatient episode, per `docs/HOSPITAL-PHASE1-ADT-MAP.md` §6. Mostly REUSE. **(1) LOS is a
+  DERIVED fact, never a judgment:** `Stay::lengthOfStayMinutes(): ?int` = `discharged_at − admitted_at` in
+  whole minutes, computed on read (null while admitted) — a read affordance on the Stay, NOT a stored column.
+  ELECTRIC FENCE: the map flags an LOS-outlier flag as a clinician-/ops-set threshold, NOT a system grade, so
+  there is deliberately NO outlier/rating/expected-vs-actual anywhere (asserted by a schema fence + a payload
+  no-judgment scan); the UI renders raw days/hours reusing the ward board's LOS idiom. **(2) DISCOVERY — the
+  discharge summary is a NET-NEW stay-scoped SIGN-AND-LOCK record, NOT a `ClinicalNote` or an uploaded
+  `Document` (the G5 handover posture):** `ClinicalNote` is SOAP + encounter-scoped (mandatory encounter_id);
+  `Document` is file/path-shaped (no authored content) — a discharge summary is a stay-scoped clinician
+  NARRATIVE, so it OWNS `discharge_summaries` while REUSING the patterns: the `ClinicalNote` sign-and-lock
+  discipline + the **`clinical_notes_signed_*` CONDITIONAL immutability trigger** (`IF OLD.status =
+  'finalized'` → draft editable, finalized immutable; the invoices/timesheet_lines precedent too),
+  `BelongsToTenant`, `LogsReads`, app-layer audit hooks. Columns: stay_id + patient_id (denormalized for
+  read-logging) + authored_by + `summary` (required to finalize) + `instructions` (nullable) + status
+  {draft, finalized} + finalized_at/by; `unique(tenant, stay)` (one per episode). `DischargeSummaryService`:
+  `saveDraft` (**`note.write`**, updateOrCreate, refuses once finalized) + `finalize` (**`note.sign`**,
+  row-locked + idempotent + requires a narrative — the `ClinicalNoteService::sign` discipline). **RBAC reuses
+  the existing clinical permissions — NO new permission** (every inpatient clinical role holds note.write +
+  note.sign; read = patient.view). **FENCE: no acuity/severity/score/risk/rating/outlier/readmission column;
+  the narrative is the clinician's own words, nothing is computed or auto-populated** (proven: a fresh stay
+  has 0 summaries, a saved summary is verbatim, and the payload carries no judgment key). **(3) Episode
+  close-out:** `DischargeSummaryController::show` (`patient.view`, read-logged) renders the closed episode —
+  LOS + disposition + the summary (draft editor OR finalized read-only) + the stay's EXISTING records
+  read-only (ADT journey [G2], ward rounds [G4], handovers [G5], invoice[s] [G6] via the new ADDITIVE pure
+  read `BedBillingService::invoicesForStay`). `AdmissionController::show` gained `los_minutes` + a
+  `summary_url`; `Admission.vue` shows LOS + a "Discharge summary" link. **No change to G2's discharge
+  state-change or G6's billing (additive).** No existing behavior test modified; the FIX.5 smoke was EXTENDED
+  (discharge-summary GET 200 + reception write 403); a partial `@property` block on the G4 `WardRound` gained
+  the timestamp annotations (docblock only). Added tests: `DischargeSummaryTest` (6 — LOS derived + no-flag
+  fence, sign-and-lock [draft editable, finalize locks, model + DB-trigger immutable, no delete], audited +
+  read-logged, closed-episode read-only, RBAC [note.write / note.sign / patient.view], tenant fail-closed).
+  VERIFIED: npm run build green; composer check FULLY green (Pint `passed` · PHPStan L5 `[OK] No errors` ·
+  **Pest 760 passed / 2 skipped / 6479 assertions**, 0 failed — +6 tests vs G6's 754); composer test:smoke
+  green (3). **With G7, HOSPITAL PHASE 1 (inpatient / ADT) is COMPLETE (G1 beds → G2 ADT → G3 board → G4
+  charting → G5 handover → G6 billing → G7 discharge):** a hospital can admit to a bed, run the ward board,
+  chart bedside, hand over shifts (SBAR), bill the stay, and discharge with LOS + a signed discharge summary +
+  a coherent closed episode. Phases 2–7 (pharmacy/eMAR, lab, radiology, OR, ED) remain the phased roadmap.
+  (HOSPITAL.G7) See [[D-117]] (G5 — the reuse-vs-net-new posture it mirrors), [[D-118]] (G6 — the invoice it
+  composes), the ADT map §6, [[Clinical]] (sign-and-lock), and [[Hospital]].

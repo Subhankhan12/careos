@@ -50,6 +50,21 @@ class AdmissionException extends RuntimeException
         return new self("Stay {$stayId} has no accrued charges to invoice.");
     }
 
+    public static function dischargeSummaryFinalized(): self
+    {
+        return new self('A finalized discharge summary is immutable: it cannot be edited or deleted.');
+    }
+
+    public static function dischargeSummaryRequiresNarrative(): self
+    {
+        return new self('A discharge summary requires a narrative before it can be finalized.');
+    }
+
+    public static function dischargeSummaryMissing(string $stayId): self
+    {
+        return new self("Stay {$stayId} has no discharge summary to finalize — save a draft first.");
+    }
+
     public static function appendOnly(): self
     {
         return new self('stay_events are append-only: a correction is a new event, never an edit.');

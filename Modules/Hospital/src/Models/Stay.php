@@ -134,6 +134,21 @@ class Stay extends Model
         return in_array($to, self::TRANSITIONS[$from] ?? [], true);
     }
 
+    /**
+     * Length-of-stay in whole minutes — DERIVED elapsed time (discharged_at − admitted_at), null while
+     * still admitted. A raw FACT computed on read: never stored, never a judgment. ELECTRIC FENCE: there
+     * is deliberately no "too long"/outlier grade, no expected-vs-actual, no LOS rating — the map (§3) flags
+     * an LOS-outlier flag as a clinician-/ops-set threshold, NOT a system grade. The UI renders days/hours.
+     */
+    public function lengthOfStayMinutes(): ?int
+    {
+        if ($this->discharged_at === null) {
+            return null;
+        }
+
+        return (int) abs($this->admitted_at->diffInMinutes($this->discharged_at));
+    }
+
     public function patient(): BelongsTo
     {
         return $this->belongsTo(Patient::class);

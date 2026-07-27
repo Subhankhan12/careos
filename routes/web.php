@@ -52,6 +52,7 @@ use Modules\FrontDesk\Http\Controllers\PortalCheckInController;
 use Modules\Hospital\Http\Controllers\AdmissionController;
 use Modules\Hospital\Http\Controllers\BedBillingController;
 use Modules\Hospital\Http\Controllers\BedsideChartController;
+use Modules\Hospital\Http\Controllers\DischargeSummaryController;
 use Modules\Hospital\Http\Controllers\HandoverController;
 use Modules\Hospital\Http\Controllers\WardBoardController;
 use Modules\Import\Http\Controllers\ImportBatchController;
@@ -317,6 +318,14 @@ Route::middleware('auth')->group(function () {
     // which reconciles-to-the-unit. NO new billing math. billing.manage-gated; redirects to the existing
     // invoice page. String-id {stay} (FIX.1). Accrual itself is the scheduled `hospital:accrue-bed-days`.
     Route::post('/hospital/admissions/{stay}/invoice', [BedBillingController::class, 'invoice'])->name('hospital.admissions.invoice');
+
+    // Discharge summary + closed-episode view (HOSPITAL.G7) — the Phase-1 close-out. `show` renders the
+    // closed stay (LOS + disposition + summary + the referenced ADT/rounds/handovers/invoice records),
+    // read-logged, `patient.view`. Sign-and-lock: `save` a draft (`note.write`) then `finalize` (`note.sign`)
+    // → immutable. String-id {stay} (FIX.1). Additive to the ADT flow — G2's discharge is untouched.
+    Route::get('/hospital/admissions/{stay}/discharge-summary', [DischargeSummaryController::class, 'show'])->name('hospital.admissions.discharge-summary');
+    Route::post('/hospital/admissions/{stay}/discharge-summary', [DischargeSummaryController::class, 'save'])->name('hospital.admissions.discharge-summary.save');
+    Route::post('/hospital/admissions/{stay}/discharge-summary/finalize', [DischargeSummaryController::class, 'finalize'])->name('hospital.admissions.discharge-summary.finalize');
 
     // Onboarding/migration: generic CSV patient import (RBAC 'data.import' enforced
     // in each controller action). Mandatory dry-run before commit.

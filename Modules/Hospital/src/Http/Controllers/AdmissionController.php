@@ -51,6 +51,8 @@ class AdmissionController
                 'admitted_at' => $record->admitted_at->toIso8601String(),
                 'discharged_at' => $record->discharged_at?->toIso8601String(),
                 'discharge_disposition' => $record->discharge_disposition,
+                // Derived length-of-stay (HOSPITAL.G7) — elapsed fact, null while admitted; the client renders days/hours.
+                'los_minutes' => $record->lengthOfStayMinutes(),
             ],
             'journey' => $events->map(fn (StayEvent $e): array => [
                 'id' => $e->id,
@@ -68,6 +70,8 @@ class AdmissionController
                 // Bed-to-billing (HOSPITAL.G6): a discharged stay can be invoiced through the existing engine.
                 'can_invoice' => Gate::allows('billing.manage') && $record->status === Stay::STATUS_DISCHARGED,
                 'invoice_url' => route('hospital.admissions.invoice', $record->id),
+                // Discharge summary + closed-episode view (HOSPITAL.G7) — the summary page handles its own gating.
+                'summary_url' => route('hospital.admissions.discharge-summary', $record->id),
             ],
         ]);
     }

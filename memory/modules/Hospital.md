@@ -254,22 +254,72 @@ clinical acuity). The map's endorsed shape: a bed-day is a `TariffItem`; a stay 
   the authored per-diem RATE (`unit_price_minor`/`vat_rate_bp=0` keys on the tariff item). All charge/VAT/
   line-total math lives in Billing. Tenant+branch scoped, fail-closed.
 
+## Discharge summary + LOS + episode close-out (HOSPITAL.G7 — Phase-1 close-out)
+
+The FINAL Phase-1 gate — tie off the inpatient episode with a discharge summary, length-of-stay, and a
+clean, coherent, read-only-where-finalized closed episode. Mostly REUSE.
+
+- **LOS is DERIVED, never a judgment.** `Stay::lengthOfStayMinutes(): ?int` = `discharged_at − admitted_at`
+  in whole minutes, computed on read (null while admitted). A read affordance on the Stay — no column, no
+  storage. **ELECTRIC FENCE:** the map (§3) flags an LOS-outlier flag as a clinician-/ops-set threshold, NOT
+  a system grade — so there is deliberately NO "too long"/outlier/rating/expected-vs-actual anywhere; the UI
+  renders raw days/hours (reusing the ward board's `board.losDaysHours/losHours/losMinutes` idiom).
+- **Discovery — the discharge summary is a NET-NEW stay-scoped SIGN-AND-LOCK record (the G5 posture).** It is
+  NOT a `ClinicalNote` (SOAP + encounter-scoped, mandatory encounter_id) nor an uploaded `Document`
+  (file/path-shaped, no authored content) — a discharge summary is a stay-scoped clinician-authored NARRATIVE.
+  So it OWNS its table while REUSING the patterns: the `ClinicalNote` sign-and-lock discipline + the
+  **`clinical_notes_signed_*` CONDITIONAL immutability trigger** (`IF OLD.status = 'finalized'`),
+  `BelongsToTenant`, `LogsReads`, and app-layer audit hooks.
+- `discharge_summaries` (BelongsToTenant, **LogsReads**, sign-and-lock) — `stay_id`, `patient_id`
+  (denormalized for read-logging), `authored_by` (User), `summary` (the clinician's episode narrative —
+  required to finalize), `instructions` (nullable, patient discharge instructions), `status` ∈ {draft,
+  finalized}, `finalized_at`, `finalized_by` (User). `unique(tenant_id, stay_id)` — one summary per episode.
+  Conditional DB triggers `discharge_summaries_finalized_no_update`/`_no_delete` (immutable once finalized;
+  a draft stays editable) + model guards (belt). **FENCE: no acuity/severity/score/risk/rating/outlier/
+  readmission column** — `summary`/`instructions` are the clinician's own words.
+- `Models\DischargeSummary` — `STATUS_DRAFT`/`STATUS_FINALIZED`; `isFinalized()`; model guards throw
+  `AdmissionException::dischargeSummaryFinalized()` on update/delete of a finalized row; `auditPatientId`.
+- `Services\DischargeSummaryService` — `saveDraft` (gate **`note.write`**; `updateOrCreate` one draft per
+  stay; refuses once finalized) + `finalize` (gate **`note.sign`**; row-locked, idempotent, requires a
+  non-empty narrative → sets finalized/finalized_at/by; the `ClinicalNoteService::sign` discipline) +
+  `forStay`. Tenant fail-closed off the `Stay`. NOTHING computed/auto-populated. **RBAC reuses the existing
+  clinical permissions — NO new permission** (every inpatient clinical role holds note.write + note.sign).
+- `Services\BedBillingService::invoicesForStay(Stay): Collection<Invoice>` — an ADDITIVE pure READ (no
+  billing math) traversing the bed-day ledger → charges → invoice, for the closed-episode view.
+- `Http\Controllers\DischargeSummaryController` (string-id FIX.1) — `show` (GET
+  `/hospital/admissions/{stay}/discharge-summary`, `patient.view`, **read-logged**) renders the closed
+  episode: LOS + disposition + the summary (draft editor OR finalized read-only) + the stay's EXISTING
+  records read-only (ADT journey [G2], ward rounds [G4], handovers [G5], invoices [G6]); `save` (POST,
+  `note.write`), `finalize` (POST, `note.sign`). `AdmissionController::show` gained `los_minutes` + a
+  `summary_url`; `Admission.vue` shows LOS + a "Discharge summary" link. Audited via app-layer
+  `DischargeSummary::created`/`updated` hooks (`discharge_summary.drafted`/`.finalized`).
+- **Episode close-out:** the discharge (G2) already stamps discharged_at + disposition + releases the bed; G7
+  composes the summary + LOS + the full record (ADT/rounds/handovers/charges/invoice) into a coherent closed
+  episode, read-only where finalized. No change to G2's discharge state-change or G6's billing (additive).
+
 ## Status
 
-**HOSPITAL.G1–G6 complete.** G1 = Bed/Ward model + concurrency-safe bed-claim + inpatient RBAC. G2 = the ADT
-`Stay` + admit/transfer/discharge state machine (atomic, bed-safe, above an unmodified Encounter). **G3 = the
-ward board (live bed-occupancy cockpit) — the first inpatient UI, presentational over G1/G2. **G4 = bedside
-charting — REUSES Clinical (a ward round is a reused Encounter tied to the stay by a Hospital-side WardRound;
-notes/vitals/orders reused; the only new affordance is the stay-scoped `vitalsForStay` read); Encounter
-UNMODIFIED, fence holds. **G5 = nursing shift handover — a NET-NEW structured SBAR artifact (nurse-authored,
-append-only, record-not-judge, stay-scoped), reusing platform patterns; NOT a ClinicalNote reuse.** **G6 =
-bed-to-billing — inpatient per-diem + service accrual through the EXISTING billing engine + a discharge
-invoice that reconciles-to-the-unit (I4 δ=0); STRICTLY ORCHESTRATION, no new money math (adversarial-grep
-proven).** Verified: npm build green; composer check FULLY green; targeted — `WardBedManagementTest` (7),
-`BedClaimParallelHammerTest` (1), `HospitalAdmissionTest` (12), `WardBoardTest` (5), `BedsideChartTest` (7),
-`HandoverTest` (6), `BedBillingTest` (7), Clinical/Encounter + Billing/Reconciliation + arch + RBAC suites
-unchanged; smoke green (invoice route added). See [[D-113]], [[D-114]], [[D-115]], [[D-116]], [[D-117]],
-[[D-118]], `docs/HOSPITAL-PHASE1-ADT-MAP.md`.
+**HOSPITAL PHASE 1 (inpatient / ADT) COMPLETE — G1–G7 shipped.** G1 = Bed/Ward model + concurrency-safe
+bed-claim + inpatient RBAC. G2 = the ADT `Stay` + admit/transfer/discharge state machine (atomic, bed-safe,
+above an unmodified Encounter). **G3 = the ward board (live bed-occupancy cockpit) — the first inpatient UI,
+presentational over G1/G2. **G4 = bedside charting — REUSES Clinical (a ward round is a reused Encounter tied
+to the stay by a Hospital-side WardRound; notes/vitals/orders reused; the only new affordance is the
+stay-scoped `vitalsForStay` read); Encounter UNMODIFIED, fence holds. **G5 = nursing shift handover — a
+NET-NEW structured SBAR artifact (nurse-authored, append-only, record-not-judge, stay-scoped), reusing
+platform patterns; NOT a ClinicalNote reuse.** **G6 = bed-to-billing — inpatient per-diem + service accrual
+through the EXISTING billing engine + a discharge invoice that reconciles-to-the-unit (I4 δ=0); STRICTLY
+ORCHESTRATION, no new money math (adversarial-grep proven).** **G7 = discharge summary + LOS + episode
+close-out — LOS is a DERIVED elapsed fact (no outlier/grade); the discharge summary is a NET-NEW stay-scoped
+SIGN-AND-LOCK record (reuses the ClinicalNote sign-and-lock discipline + conditional immutability trigger);
+the closed episode composes G2/G4/G5/G6 read-only.** **The day-one inpatient spine is now end-to-end:** admit
+to a bed on a ward → live ward board → bedside chart (reused Clinical) → nursing SBAR handover → bed-to-billing
+invoice → discharge with LOS + a signed discharge summary + a coherent closed episode. Verified: npm build
+green; composer check FULLY green; targeted — `WardBedManagementTest` (7), `BedClaimParallelHammerTest` (1),
+`HospitalAdmissionTest` (12), `WardBoardTest` (5), `BedsideChartTest` (7), `HandoverTest` (6), `BedBillingTest`
+(7), `DischargeSummaryTest` (6), Clinical/Encounter + Billing/Reconciliation + arch + RBAC suites unchanged;
+smoke green (discharge-summary route added). Phases 2–7 (pharmacy/eMAR, lab, radiology, OR, ED) remain the
+phased roadmap — each mapped before building. See [[D-113]], [[D-114]], [[D-115]], [[D-116]], [[D-117]],
+[[D-118]], [[D-119]], `docs/HOSPITAL-PHASE1-ADT-MAP.md`.
 
 ## Open items / next gates (per docs/HOSPITAL-PHASE1-ADT-MAP.md)
 
@@ -287,6 +337,15 @@ unchanged; smoke green (invoice route added). See [[D-113]], [[D-114]], [[D-115]
 - **G6** *(done — D-118)* — bed-to-billing: per-diem `TariffItem` (tenant-authored, no licensed code set) +
   the idempotent `hospital:accrue-bed-days` sweep + a discharge invoice via the existing validate→draft→issue
   flow that reconciles-to-the-unit (I4 δ=0). STRICTLY orchestration — no new billing/pricing/VAT math. **Next: G7.**
-- **G7** discharge + LOS + discharge summary.
+- **G7** *(done — D-119)* — discharge summary + LOS + episode close-out: LOS = `Stay::lengthOfStayMinutes()`
+  (derived elapsed fact, no grade/outlier); the discharge summary is a NET-NEW stay-scoped SIGN-AND-LOCK
+  record (`discharge_summaries`, draft→finalized-immutable, reusing the ClinicalNote sign-and-lock discipline +
+  the `clinical_notes_signed_*` conditional trigger; `note.write`/`note.sign`, no new permission); the
+  closed-episode view composes G2/G4/G5/G6 read-only. **PHASE 1 COMPLETE.**
+- **PHASE 1 (inpatient / ADT) COMPLETE (G1→G7).** Next phases (each mapped before building): **Phase 2**
+  pharmacy / eMAR · **Phase 3** lab · **Phase 4** radiology · **Phase 5** OR/theatre · **Phase 6** ED · (an
+  optional G8 scheduled-admissions was noted in the map). Long poles remain partner-gated / non-goal:
+  HL7/FHIR ADT feed (`Interop`), bedside device capture, certified early-warning/deterioration engine (NEWS2),
+  DRG/case-mix grouper.
 - Long poles (partner-gated / non-goal): HL7/FHIR ADT feed (`Interop`), bedside device capture, certified
   early-warning/deterioration engine (NEWS2 — fence + regulated device, never homemade), DRG/case-mix grouper.

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Head, router } from '@inertiajs/vue3';
+import { Head, Link, router } from '@inertiajs/vue3';
 import { computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 import AppLayout from '@/Layouts/AppLayout.vue';
@@ -32,12 +32,33 @@ const props = defineProps<{
         admitted_at: string | null;
         discharged_at: string | null;
         discharge_disposition: string | null;
+        los_minutes: number | null;
     };
     journey: JourneyEvent[];
-    actions: { can_manage: boolean; transfer_url: string; discharge_url: string; can_invoice: boolean; invoice_url: string };
+    actions: {
+        can_manage: boolean;
+        transfer_url: string;
+        discharge_url: string;
+        can_invoice: boolean;
+        invoice_url: string;
+        summary_url: string;
+    };
 }>();
 
 const isActive = computed(() => props.stay.status === 'admitted');
+
+// Length-of-stay = plain elapsed time (a fact), rendered from the derived minutes. No judgment/grade.
+const losText = computed<string | null>(() => {
+    const mins = props.stay.los_minutes;
+    if (mins === null) {
+        return null;
+    }
+    const days = Math.floor(mins / 1440);
+    const hours = Math.floor((mins % 1440) / 60);
+    if (days > 0) return t('hospital.board.losDaysHours', { days, hours });
+    if (hours > 0) return t('hospital.board.losHours', { hours });
+    return t('hospital.board.losMinutes', { minutes: mins });
+});
 
 function invoiceStay(): void {
     router.post(props.actions.invoice_url, {}, { preserveScroll: true });
@@ -72,6 +93,12 @@ function invoiceStay(): void {
                     >
                         {{ t('hospital.admission.invoiceStay') }}
                     </button>
+                    <Link
+                        :href="actions.summary_url"
+                        class="rounded-full bg-white/15 px-3 py-1 text-xs font-semibold text-euca-50 transition hover:bg-white/25"
+                    >
+                        {{ t('hospital.admission.dischargeSummary') }}
+                    </Link>
                 </div>
             </div>
 
@@ -96,6 +123,10 @@ function invoiceStay(): void {
                 <div v-if="stay.discharge_disposition">
                     <p class="text-xs font-semibold uppercase tracking-wide text-ink-subtle">{{ t('hospital.admission.disposition') }}</p>
                     <p class="mt-1 text-sm font-medium text-ink">{{ stay.discharge_disposition }}</p>
+                </div>
+                <div v-if="losText">
+                    <p class="text-xs font-semibold uppercase tracking-wide text-ink-subtle">{{ t('hospital.admission.los') }}</p>
+                    <p class="mt-1 text-sm font-medium text-ink">{{ losText }}</p>
                 </div>
                 <div v-if="stay.admission_reason">
                     <p class="text-xs font-semibold uppercase tracking-wide text-ink-subtle">{{ t('hospital.admission.reason') }}</p>

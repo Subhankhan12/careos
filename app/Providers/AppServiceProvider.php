@@ -41,6 +41,7 @@ use Modules\Comms\Services\NotificationService;
 use Modules\Hospital\Events\BedStatusChanged;
 use Modules\Hospital\Events\StayTransitioned;
 use Modules\Hospital\Models\Bed;
+use Modules\Hospital\Models\DischargeSummary;
 use Modules\Hospital\Models\Handover;
 use Modules\Hospital\Models\Ward;
 use Modules\Nursing\Events\CompetencyChanged;
@@ -288,6 +289,25 @@ class AppServiceProvider extends ServiceProvider
             'resource_id' => $m->id,
             'context' => ['stay_id' => $m->stay_id, 'shift' => $m->shift],
         ]));
+
+        // Discharge summary (HOSPITAL.G7) — the sign-and-lock write is audited here so Hospital stays free
+        // of Audit. Patient-scoped; the narrative is the discharging clinician's own words. A draft create
+        // is `drafted`; the finalize (a status change to finalized) is `finalized`; a draft edit is `drafted`.
+        DischargeSummary::created(fn (DischargeSummary $m) => $this->auditChange('discharge_summary.drafted', [
+            'patient_id' => $m->patient_id,
+            'resource_type' => 'discharge_summary',
+            'resource_id' => $m->id,
+            'context' => ['stay_id' => $m->stay_id, 'status' => $m->status],
+        ]));
+        DischargeSummary::updated(fn (DischargeSummary $m) => $this->auditChange(
+            $m->status === DischargeSummary::STATUS_FINALIZED ? 'discharge_summary.finalized' : 'discharge_summary.drafted',
+            [
+                'patient_id' => $m->patient_id,
+                'resource_type' => 'discharge_summary',
+                'resource_id' => $m->id,
+                'context' => ['stay_id' => $m->stay_id, 'status' => $m->status],
+            ],
+        ));
 
         // People credential vault changes. The observer lives here so People
         // stays independent from Audit while still using the Platform audit context.

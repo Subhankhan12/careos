@@ -54,6 +54,8 @@
             "disposition": "Discharge disposition",
             "journey": "Bed journey",
             "invoiceStay": "Invoice stay",
+            "dischargeSummary": "Discharge summary",
+            "los": "Length of stay",
             "status": {
                 "admitted": "Admitted",
                 "discharged": "Discharged"
@@ -68,6 +70,31 @@
                 "transferred": "Transferred",
                 "discharged": "Discharged"
             }
+        },
+        "dischargeSummary": {
+            "title": "Discharge summary",
+            "eyebrow": "Episode close-out",
+            "heading": "Discharge summary",
+            "los": "Length of stay",
+            "stillAdmitted": "Still admitted",
+            "disposition": "Disposition",
+            "summaryLabel": "Summary",
+            "instructionsLabel": "Discharge instructions",
+            "summaryPlaceholder": "The episode course and outcome, in your own words.",
+            "instructionsPlaceholder": "Instructions for the patient at discharge.",
+            "saveDraft": "Save draft",
+            "finalize": "Finalize",
+            "finalizedBadge": "Finalized",
+            "draftBadge": "Draft",
+            "finalizedAt": "Finalized {at}",
+            "empty": "No discharge summary yet.",
+            "timeline": "Admission timeline",
+            "rounds": "Ward rounds",
+            "handovers": "Shift handovers",
+            "invoices": "Invoices",
+            "noRounds": "No ward rounds recorded.",
+            "noHandovers": "No handovers recorded.",
+            "noInvoices": "No invoice for this stay yet."
         },
         "board": {
             "title": "Ward board",

@@ -36,8 +36,8 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
   unlocks **eMAR + the CH statutory billing pack** when confirmed. The well of safe build-without-a-
   customer-need work is done — do not open a new gate unless a customer need pulls a specific feature
   forward. Discovery brief: `docs/DISCOVERY.md`; outreach: `docs/outreach-de.md`.
-- **Latest verified quality:** HOSPITAL.G6 (bed-to-billing — an inpatient stay accrues bed-day + service charges through the EXISTING billing engine and discharge produces an invoice that reconciles-to-the-unit [I4 δ=0]; STRICTLY ORCHESTRATION — no new billing/pricing/VAT math, adversarial-grep proven; per-diem tenant-authored [no licensed code set]; idempotent `hospital:accrue-bed-days` sweep) atop HOSPITAL.G5 (nursing shift handover) / G4 (bedside charting) / G3 (ward board) / G2 (ADT stay) / G1; `composer check` FULLY green — Pint `passed`, PHPStan L5
-  `[OK] No errors`, **Pest 754 passed / 2 skipped / 6340 assertions**, 0 failed (the 2 skips = Redis-Horizon + one reminder infra case, green in CI on Redis 7); npm run build green. (G8 baseline: `0d93a36`, Pest 700/5623.) A route-reachability smoke (**FIX.5**, `composer test:smoke`)
+- **Latest verified quality:** HOSPITAL.G7 (discharge summary + LOS + episode close-out — the FINAL Phase-1 gate: LOS is a DERIVED elapsed fact [no outlier/grade — fence]; the discharge summary is a NET-NEW stay-scoped SIGN-AND-LOCK record reusing the ClinicalNote sign-and-lock discipline + conditional immutability trigger [not a ClinicalNote/Document]; the closed episode composes G2/G4/G5/G6 read-only) — **with G7, HOSPITAL PHASE 1 (inpatient/ADT) is COMPLETE (G1 beds → G2 ADT → G3 board → G4 charting → G5 handover → G6 billing → G7 discharge)** — atop HOSPITAL.G6 (bed-to-billing) / G5 (handover) / G4 (charting) / G3 (ward board) / G2 (ADT stay) / G1; `composer check` FULLY green — Pint `passed`, PHPStan L5
+  `[OK] No errors`, **Pest 760 passed / 2 skipped / 6479 assertions**, 0 failed (the 2 skips = Redis-Horizon + one reminder infra case, green in CI on Redis 7); npm run build green. (G8 baseline: `0d93a36`, Pest 700/5623.) A route-reachability smoke (**FIX.5**, `composer test:smoke`)
   drives every major route through the real middleware stack to guard against request-time 500s (the C-1
   class). See the detailed quality block below.
 - **Demo tenants (all reconcile-to-the-unit + chain-verify):** `DemoClinicSeeder` (Praxis Lindenhof, CHF,
@@ -1295,10 +1295,34 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
   got the new sweep, as prior gates did for nursing/billing); FIX.5 smoke extended (invoice route, reception 403).
   Added `BedBillingTest` (7). Verified: npm build green; composer check FULLY green (**Pest 754 / 2-skip / 6340**,
   0 failed); smoke green (3).
-- **Next action:** **HOSPITAL.G7 — discharge + LOS + discharge summary** (the discharge-side artifact: length-of-stay
-  as plain elapsed time [record-not-judge, no computed acuity], a structured discharge summary composing the
-  stay's existing records, closing out the Phase-1 ADT spine) — per `docs/HOSPITAL-PHASE1-ADT-MAP.md`. (The parallel
-  DISCOVERY track still stands: the CH/KVG-vs-EU-generic billing model must be confirmed with Spitex
-  coordinators before the CH statutory pack — the likely real first NEW billing build — is committed;
-  remaining billing backend-only surfaces (camt.053 reconciliation, AI dunning drafts, accounting-export UI)
-  wait on that.) Then Phase H per the master plan.
+- **HOSPITAL.G7 — discharge summary + LOS + episode close-out; PHASE 1 COMPLETE (D-119).** The final Phase-1
+  gate, mostly REUSE. **(1) LOS is a DERIVED fact:** `Stay::lengthOfStayMinutes()` = `discharged_at − admitted_at`
+  in whole minutes, on read (null while admitted) — a read affordance on the Stay, NO stored column. Fence: NO
+  outlier/rating/expected-vs-actual (the map flags an LOS-outlier flag as a threshold, not a system grade); the
+  UI renders raw days/hours. **(2) The discharge summary is a NET-NEW stay-scoped SIGN-AND-LOCK record** (the
+  G5 posture — NOT a `ClinicalNote` [SOAP + encounter-scoped] nor an uploaded `Document` [file-shaped]):
+  `discharge_summaries` (draft→finalized-immutable) reuses the `ClinicalNote` sign-and-lock discipline + the
+  **`clinical_notes_signed_*` conditional immutability trigger** (`IF OLD.status='finalized'`), `BelongsToTenant`,
+  `LogsReads`, audit hooks. `DischargeSummaryService`: `saveDraft` (`note.write`) + `finalize` (`note.sign`,
+  row-locked, requires a narrative) — RBAC reuses existing clinical permissions, NO new permission. Fence: no
+  acuity/severity/score/risk/rating/outlier/readmission column, the narrative is the clinician's own words,
+  nothing auto-populates. **(3) Episode close-out:** `DischargeSummaryController::show` (`patient.view`,
+  read-logged) renders the closed episode — LOS + disposition + the summary (draft editor OR finalized read-only)
+  + the stay's EXISTING records read-only (ADT journey [G2], rounds [G4], handovers [G5], invoice[s] [G6] via the
+  additive pure read `BedBillingService::invoicesForStay`); `Admission.vue` gained LOS + a summary link. No change
+  to G2's discharge or G6's billing (additive); the G4 `WardRound` gained timestamp `@property` annotations.
+  FIX.5 smoke extended (discharge-summary GET 200 + reception write 403). Added `DischargeSummaryTest` (6).
+  Verified: npm build green; composer check FULLY green (**Pest 760 / 2-skip / 6479**, 0 failed); smoke green (3).
+- **PHASE 1 (inpatient / ADT) COMPLETE — G1 beds → G2 ADT → G3 board → G4 charting → G5 handover → G6 billing →
+  G7 discharge.** A hospital can now, end-to-end: admit a patient to a bed on a ward → work the live ward board →
+  chart bedside (reused Clinical, Encounter unmodified) → hand over shifts (SBAR) → bill the stay through the
+  existing engine (reconciles-to-the-unit) → discharge with LOS + a signed discharge summary + a coherent closed
+  episode. Record-not-judge throughout; tenancy fail-closed; append-only/sign-and-lock where it is the record.
+- **Next action:** **Phase 2+ of the hospital build is the phased roadmap** (each mapped before building):
+  Phase 2 pharmacy / eMAR · Phase 3 lab · Phase 4 radiology · Phase 5 OR/theatre · Phase 6 ED (an optional
+  scheduled-admissions G8 was noted in the map). Long poles stay partner-gated / non-goal: HL7/FHIR ADT feed,
+  bedside device capture, a certified early-warning/deterioration engine (NEWS2), a DRG/case-mix grouper. **The
+  standing strategic posture is unchanged — the next real progress is DELIVERY** (deploy the built verticals to
+  the paying customers); the parallel DISCOVERY track still stands (the CH/KVG-vs-EU-generic billing model must
+  be confirmed with Spitex coordinators before the CH statutory pack — the likely first NEW billing build — is
+  committed; remaining billing backend-only surfaces wait on that).

@@ -2,6 +2,7 @@
 
 namespace Modules\Hospital\Services;
 
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
@@ -192,6 +193,34 @@ class BedBillingService
         );
 
         return $this->issuer->issue($draft, $actor);
+    }
+
+    /**
+     * The invoice(s) a stay's charges landed on — a pure READ for the closed-episode view (HOSPITAL.G7),
+     * traversing the bed-day ledger → charges → invoice. NO billing math. Since a stay's bed-day + service
+     * charges assemble onto one invoice, the bed-day ledger is the reliable stay→invoice bridge.
+     *
+     * @return Collection<int, Invoice>
+     */
+    public function invoicesForStay(Stay $stay): Collection
+    {
+        $chargeIds = BedDayAccrual::query()->where('stay_id', $stay->id)->pluck('charge_id');
+        if ($chargeIds->isEmpty()) {
+            return new Collection;
+        }
+
+        $invoiceIds = Charge::query()
+            ->whereIn('id', $chargeIds)
+            ->whereNotNull('invoice_id')
+            ->pluck('invoice_id')
+            ->unique()
+            ->values();
+
+        if ($invoiceIds->isEmpty()) {
+            return new Collection;
+        }
+
+        return Invoice::query()->whereIn('id', $invoiceIds)->orderBy('issue_date')->orderBy('id')->get();
     }
 
     private function patient(Stay $stay): Patient

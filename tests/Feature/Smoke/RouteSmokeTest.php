@@ -162,6 +162,7 @@ test('every major staff route is reachable through the real middleware stack (20
         'hospital.wards' => '/hospital/wards',
         'hospital.stay-chart' => '/hospital/admissions/'.$fx['stay']->id.'/chart',
         'hospital.handover' => '/hospital/admissions/'.$fx['stay']->id.'/handover',
+        'hospital.discharge-summary' => '/hospital/admissions/'.$fx['stay']->id.'/discharge-summary',
     ];
 
     $failures = [];
@@ -323,6 +324,16 @@ test('per-role RBAC smoke: each role reaches its pages (200) and is denied other
         ->status();
     if ($invoiceStatus !== 403) {
         $failures[] = "hospital.admissions.invoice as reception -> {$invoiceStatus} (expected 403)";
+    }
+
+    // HOSPITAL.G7: the discharge-summary WRITE is note.write-gated. Reception (patient.view, so it can VIEW
+    // the closed episode, but NO note.write) is denied on the author route at the gate through the real stack.
+    smokeCtx()->forget();
+    $summaryStatus = $this->actingAs($u['reception'])
+        ->post('/hospital/admissions/'.$fx['stay']->id.'/discharge-summary', ['summary' => 'x'])
+        ->status();
+    if ($summaryStatus !== 403) {
+        $failures[] = "hospital.discharge-summary.save as reception -> {$summaryStatus} (expected 403)";
     }
 
     expect(implode("\n", $failures))->toBe('');
