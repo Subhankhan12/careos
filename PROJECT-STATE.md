@@ -36,8 +36,8 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
   unlocks **eMAR + the CH statutory billing pack** when confirmed. The well of safe build-without-a-
   customer-need work is done — do not open a new gate unless a customer need pulls a specific feature
   forward. Discovery brief: `docs/DISCOVERY.md`; outreach: `docs/outreach-de.md`.
-- **Latest verified quality:** HOSPITAL.G3 (the ward board — the live bed-occupancy cockpit + first inpatient UI: beds by housekeeping status + the current patient per occupied bed + a plain occupancy count, with the ADT/bed actions surfaced through the EXISTING G1/G2 services [admit-from-board uses the proven claim]; PRESENTATIONAL, fence-clean [no acuity/severity/priority — status colour is housekeeping, LOS is elapsed time]) atop HOSPITAL.G2 (ADT stay + state machine) and G1; `composer check` FULLY green — Pint `passed`, PHPStan L5
-  `[OK] No errors`, **Pest 734 passed / 2 skipped / 6023 assertions**, 0 failed (the 2 skips = Redis-Horizon + one reminder infra case, green in CI on Redis 7); npm run build green. (G8 baseline: `0d93a36`, Pest 700/5623.) A route-reachability smoke (**FIX.5**, `composer test:smoke`)
+- **Latest verified quality:** HOSPITAL.G4 (bedside charting — clinical documentation for an inpatient stay by REUSING the existing tested Clinical module: a ward round is a reused `Encounter` tied to the stay by a Hospital-side `WardRound` link [Encounter UNMODIFIED — its one-open invariant intact], notes/vitals/orders reused, the only new affordance a stay-scoped `vitalsForStay` read; fence holds — raw vitals, no computed acuity/early-warning) atop HOSPITAL.G3 (ward board) / G2 (ADT stay) / G1; `composer check` FULLY green — Pint `passed`, PHPStan L5
+  `[OK] No errors`, **Pest 741 passed / 2 skipped / 6104 assertions**, 0 failed (the 2 skips = Redis-Horizon + one reminder infra case, green in CI on Redis 7); npm run build green. (G8 baseline: `0d93a36`, Pest 700/5623.) A route-reachability smoke (**FIX.5**, `composer test:smoke`)
   drives every major route through the real middleware stack to guard against request-time 500s (the C-1
   class). See the detailed quality block below.
 - **Demo tenants (all reconcile-to-the-unit + chain-verify):** `DemoClinicSeeder` (Praxis Lindenhof, CHF,
@@ -1251,9 +1251,22 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
   incl.); write actions keep their gates. **No charge (billing is G6).** FIX.5 smoke extended (board route,
   doctor 200 / billing 403). Verified: npm build green; composer check FULLY green (**Pest 734 / 2-skip /
   6023**, 0 failed); smoke green (3).
-- **Next action:** **HOSPITAL.G4 — bedside charting** (reuse Clinical per ward-round: an `Encounter` under
-  the stay + sign-and-lock notes + raw `Vital`s [a `forStay()` read affordance, no schema change] + orders —
-  the recurring ward observations, record-not-judge) — per `docs/HOSPITAL-PHASE1-ADT-MAP.md` §5. (The parallel
+- **HOSPITAL.G4 — bedside charting for an inpatient stay (reuses Clinical; Encounter unmodified; D-116).**
+  REUSE-heavy, not new clinical domain. (1) A **ward round is a reused Clinical `Encounter`** tied to the stay
+  by a **Hospital-side `ward_rounds` link** — Clinical UNTOUCHED (no `stay_id` on Encounter, the one-open-per-
+  practitioner invariant intact — a second concurrent round is refused, tested). (2) **`BedsideChartService`
+  reimplements nothing:** `startRound` reuses `EncounterService::open` + a note draft then redirects into the
+  EXISTING note editor (sign→lock→amend→version); vitals reuse `recordVital`; orders reuse `OrderService`.
+  (3) **The only new affordance is `vitalsForStay`** — a stay-scoped READ over the existing Vital store via
+  the existing `VitalsSeries` (raw, no schema change, no bands/scores). (4) **RBAC = the existing clinical
+  permissions** the inpatient roles hold (encounter.manage/note.write/order.manage; read patient.view). (5)
+  **FENCE holds:** raw vitals, sign-and-lock notes, NO computed acuity/early-warning score (NEWS2 = certified-
+  partner/non-goal). No charge (billing is G6). Clinical/Encounter suites stay green (reuse, not modify).
+  Verified: npm build green; composer check FULLY green (**Pest 741 / 2-skip / 6104**, 0 failed); smoke green (3).
+- **Next action:** **HOSPITAL.G5 — nursing shift handover** (a net-new structured, stay+shift-scoped handover
+  artifact [SBAR-style, clinician-authored — the Assessment/Recommendation are the nurse's words, never
+  system-generated], reusing the note-immutability pattern; an outgoing→incoming handover board) — per
+  `docs/HOSPITAL-PHASE1-ADT-MAP.md` §5. (The parallel
   DISCOVERY track still stands: the CH/KVG-vs-EU-generic billing model must be confirmed with Spitex
   coordinators before the CH statutory pack — the likely real first NEW billing build — is committed;
   remaining billing backend-only surfaces (camt.053 reconciliation, AI dunning drafts, accounting-export UI)

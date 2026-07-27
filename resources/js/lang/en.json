@@ -110,6 +110,40 @@
                 "deceased": "Deceased",
                 "against_advice": "Against advice"
             }
+        },
+        "chart": {
+            "title": "Bedside chart",
+            "eyebrow": "Inpatient chart",
+            "startRound": "Start ward round",
+            "rounds": "Ward rounds",
+            "noRounds": "No ward rounds yet. Start a round to begin charting.",
+            "openNote": "Open note",
+            "noteStatus": {
+                "draft": "Draft",
+                "signed": "Signed"
+            },
+            "vitals": "Observations",
+            "recordVital": "Record observation",
+            "noVitals": "No observations recorded yet.",
+            "save": "Save",
+            "systolic": "Systolic",
+            "diastolic": "Diastolic",
+            "heartRate": "Heart rate",
+            "temperature": "Temp °C",
+            "spo2": "SpO₂",
+            "metric": {
+                "systolic": "Systolic",
+                "diastolic": "Diastolic",
+                "heart_rate": "Heart rate",
+                "temperature_c": "Temp °C",
+                "spo2": "SpO₂",
+                "weight_g": "Weight (g)",
+                "height_mm": "Height (mm)"
+            },
+            "orders": "Orders",
+            "placeOrder": "Place order",
+            "noOrders": "No orders yet.",
+            "selectItem": "Select an orderable item"
         }
     },
     "settings": {

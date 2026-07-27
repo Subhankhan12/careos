@@ -149,14 +149,52 @@ SURFACES the existing actions; it computes no ADT/occupancy logic.
   priority/deterioration field; the status COLOUR is the housekeeping state, never a clinical judgment
   (asserted by a recursive `wbAssertNoJudgment` over the payload). No charge posted (billing is G6).
 
+## Bedside charting (HOSPITAL.G4)
+
+Clinical documentation for a stay — REUSE-heavy, NOT new clinical domain. It composes the EXISTING tested
+Clinical module against the stay WITHOUT modifying Clinical (Hospital MAY use Clinical — not forbidden by
+the arch rule — the allowed dep Dental also uses).
+
+- `ward_rounds` (BelongsToTenant) — the Hospital-SIDE link tying a Stay to the Clinical `Encounter`s created
+  during it (the map's §2.2 "Stay -> per-round Encounter"). **Clinical is UNTOUCHED** — no `stay_id` on
+  Encounter, no schema/invariant change; the association is Hospital-side. `WardRound` belongsTo `Stay` +
+  `Encounter` (Clinical); `unique(tenant_id, encounter_id)`.
+- `Services\BedsideChartService` — composes Clinical, reimplements nothing:
+  - `startRound` opens a reused `Encounter` (via `EncounterService::open`, type `other` — no inpatient type
+    added to Clinical; **the one-open-per-practitioner invariant is enforced UNCHANGED**), links it with a
+    `WardRound`, and creates the sign-and-lock note DRAFT (`ClinicalNoteService::saveDraft`) — atomically;
+    the controller then redirects into the EXISTING note editor (`clinical.notes.edit`). The round's
+    practitioner is the stay's admitting clinician.
+  - `recordVital` reuses `ClinicalListService::recordVital` (note.write) tied to the stay's latest round
+    Encounter (raw `Vital`, no interpretation). **`vitalsForStay` is the ONLY new affordance** (a
+    stay-scoped READ): it filters the existing `Vital` store to the stay's round Encounters and builds the
+    RAW per-metric series via the existing `VitalsSeries::build` — NO schema change, no bands/flags/scores.
+  - `placeOrder` reuses `OrderService::place` (order.manage) tied to the round; `ordersForStay` reads them.
+  - `roundsForStay` lists the rounds (+ Encounter). All required-FK models resolved via typed model queries
+    (`Patient/Branch/StaffProfile::findOrFail`) for the reused Clinical services.
+- `Http\Controllers\BedsideChartController` (string-id FIX.1) — `show` (GET `/hospital/admissions/{stay}/chart`,
+  `patient.view`, **read-logged** via `Stay::auditRead`) renders `Hospital/StayChart.vue`: rounds (+ note
+  status + a link to the EXISTING editor), raw vitals-over-the-stay, orders. `startRound` (POST, encounter.manage)
+  redirects into the existing note editor; `recordVital` (POST, note.write); `placeOrder` (POST, order.manage).
+  Route-smoke extended (doctor 200 / billing 403).
+- **RBAC = the EXISTING clinical permissions the inpatient roles already hold** — ward_nurse + hospitalist
+  have encounter.manage / note.write / note.sign / order.manage; read = patient.view. No new permission.
+- **ELECTRIC FENCE carries through:** raw vitals (VitalsSeries, no bands/scores), sign-and-lock notes
+  unchanged (append-only versions), append-only order results — NO computed acuity/deterioration/early-warning
+  score (a NEWS2-style score is certified-partner/non-goal, NOT built). The stay-chart payload carries no
+  judgment field (asserted by a recursive scan). No charge posted (billing is G6).
+
 ## Status
 
-**HOSPITAL.G1–G3 complete.** G1 = Bed/Ward model + concurrency-safe bed-claim + inpatient RBAC. G2 = the ADT
+**HOSPITAL.G1–G4 complete.** G1 = Bed/Ward model + concurrency-safe bed-claim + inpatient RBAC. G2 = the ADT
 `Stay` + admit/transfer/discharge state machine (atomic, bed-safe, above an unmodified Encounter). **G3 = the
-ward board (live bed-occupancy cockpit) — the first inpatient UI, presentational over G1/G2.** Verified: npm
-build green; composer check FULLY green; targeted — `WardBedManagementTest` (7), `BedClaimParallelHammerTest`
-(1), `HospitalAdmissionTest` (12), `WardBoardTest` (5), arch + RBAC suites unchanged; smoke green (board
-route added). See [[D-113]], [[D-114]], [[D-115]], `docs/HOSPITAL-PHASE1-ADT-MAP.md`.
+ward board (live bed-occupancy cockpit) — the first inpatient UI, presentational over G1/G2. **G4 = bedside
+charting — REUSES Clinical (a ward round is a reused Encounter tied to the stay by a Hospital-side WardRound;
+notes/vitals/orders reused; the only new affordance is the stay-scoped `vitalsForStay` read); Encounter
+UNMODIFIED, fence holds.** Verified: npm build green; composer check FULLY green; targeted —
+`WardBedManagementTest` (7), `BedClaimParallelHammerTest` (1), `HospitalAdmissionTest` (12), `WardBoardTest`
+(5), `BedsideChartTest` (7), Clinical/Encounter + arch + RBAC suites unchanged; smoke green (stay-chart route
+added). See [[D-113]], [[D-114]], [[D-115]], [[D-116]], `docs/HOSPITAL-PHASE1-ADT-MAP.md`.
 
 ## Open items / next gates (per docs/HOSPITAL-PHASE1-ADT-MAP.md)
 
@@ -166,8 +204,10 @@ route added). See [[D-113]], [[D-114]], [[D-115]], `docs/HOSPITAL-PHASE1-ADT-MAP
   one-active-stay guarded. **Next: G3.**
 - **G3** *(done — D-115)* — ward board (live bed-occupancy cockpit over Bed+Stay, the tile/status idiom on a
   continuous timeline; the first inpatient UI, presentational over G1/G2). **Next: G4.**
-- **G4** bedside charting (reuse Clinical `Encounter`/notes/`Vital` + a `forStay()` read affordance) · **G5**
-  shift handover (net-new SBAR artifact) · **G6** bed-to-billing (per-diem `TariffItem` +
+- **G4** *(done — D-116)* — bedside charting: reuses Clinical (ward round = reused Encounter tied to the
+  stay via `WardRound`; notes/vitals/orders reused; new = the `vitalsForStay` read); Encounter unmodified,
+  fence holds. **Next: G5.**
+- **G5** shift handover (net-new SBAR artifact) · **G6** bed-to-billing (per-diem `TariffItem` +
   `billing:accrue-bed-days` idempotent command, no new math) · **G7** discharge + LOS + discharge summary.
 - Long poles (partner-gated / non-goal): HL7/FHIR ADT feed (`Interop`), bedside device capture, certified
   early-warning/deterioration engine (NEWS2 — fence + regulated device, never homemade), DRG/case-mix grouper.

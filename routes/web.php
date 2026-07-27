@@ -50,6 +50,7 @@ use Modules\FrontDesk\Http\Controllers\KioskCheckInController;
 use Modules\FrontDesk\Http\Controllers\KioskDeviceController;
 use Modules\FrontDesk\Http\Controllers\PortalCheckInController;
 use Modules\Hospital\Http\Controllers\AdmissionController;
+use Modules\Hospital\Http\Controllers\BedsideChartController;
 use Modules\Hospital\Http\Controllers\WardBoardController;
 use Modules\Import\Http\Controllers\ImportBatchController;
 use Modules\Nursing\Http\Controllers\CompetencyController;
@@ -290,6 +291,17 @@ Route::middleware('auth')->group(function () {
     // only — NO acuity/severity/priority. String-id {bed} (FIX.1).
     Route::get('/hospital/wards', [WardBoardController::class, 'show'])->name('hospital.wards');
     Route::post('/hospital/beds/{bed}/status', [WardBoardController::class, 'setBedStatus'])->name('hospital.beds.status');
+
+    // Bedside charting (HOSPITAL.G4) — a stay's chart REUSES the tested Clinical module: a ward round
+    // is a reused Encounter tied to the stay (a Hospital-side WardRound link; Encounter UNMODIFIED),
+    // its note is the existing sign-and-lock ClinicalNote (starting a round redirects into the existing
+    // editor), vitals reuse the raw Vital + a stay-scoped read, orders reuse the structured Order. show
+    // = patient.view (read-logged); writes = the existing clinical gates (encounter.manage / note.write
+    // / order.manage). No charge (billing is G6). Raw vitals only — no computed acuity. String-id {stay}.
+    Route::get('/hospital/admissions/{stay}/chart', [BedsideChartController::class, 'show'])->name('hospital.admissions.chart');
+    Route::post('/hospital/admissions/{stay}/rounds', [BedsideChartController::class, 'startRound'])->name('hospital.admissions.rounds.start');
+    Route::post('/hospital/admissions/{stay}/vitals', [BedsideChartController::class, 'recordVital'])->name('hospital.admissions.vitals');
+    Route::post('/hospital/admissions/{stay}/orders', [BedsideChartController::class, 'placeOrder'])->name('hospital.admissions.orders');
 
     // Onboarding/migration: generic CSV patient import (RBAC 'data.import' enforced
     // in each controller action). Mandatory dry-run before commit.

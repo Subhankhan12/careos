@@ -1467,3 +1467,33 @@ references the old ID.
   check FULLY green (Pint `passed` · PHPStan L5 `[OK] No errors` · **Pest 734 passed / 2 skipped / 6023
   assertions**, 0 failed — +5 tests/+102 assertions vs G2's 729/5921: `WardBoardTest`); composer test:smoke
   green (3). (HOSPITAL.G3) See [[D-113]] (bed model), [[D-114]] (ADT domain), the ADT map, and [[Hospital]].
+
+- **D-116 — HOSPITAL.G4: bedside charting for an inpatient stay (reuses Clinical; Encounter unmodified;
+  fence holds).** Clinical documentation for a stay by REUSING the existing tested Clinical module —
+  REUSE-heavy, NOT new clinical domain — per `docs/HOSPITAL-PHASE1-ADT-MAP.md`. **KEY DECISION — the Stay↔
+  Encounter link is HOSPITAL-SIDE so Clinical stays UNTOUCHED** (the map's §2.2 preference): a ward round IS
+  a reused Clinical `Encounter`, and a Hospital `ward_rounds` table (`WardRound` belongsTo `Stay` +
+  `Encounter`) records the association — NO `stay_id` column on Encounter, NO change to Encounter's schema or
+  its one-open-per-practitioner invariant. (Hospital MAY use Clinical — not forbidden by the module boundary,
+  the allowed dep Dental also uses for documents/encounters.) **`BedsideChartService` composes Clinical and
+  reimplements nothing:** `startRound` opens a reused Encounter via `EncounterService::open` (type `other` —
+  no inpatient type added to Clinical; **the invariant is enforced UNCHANGED**, a second concurrent round for
+  the stay is refused — tested) + the `WardRound` link + a sign-and-lock note draft (`ClinicalNoteService::
+  saveDraft`), atomically, then redirects into the EXISTING note editor (the write→sign→lock→amend→version
+  flow is reused, not rebuilt). Vitals reuse `ClinicalListService::recordVital` (note.write) tied to the
+  round; **the ONLY new affordance is `vitalsForStay`** — a stay-scoped READ that filters the existing Vital
+  store to the stay's round Encounters and builds the RAW series via the existing `VitalsSeries::build` (NO
+  schema change). Orders reuse `OrderService::place` (order.manage). Required-FK models are resolved via typed
+  model queries (`Patient/Branch/StaffProfile::findOrFail`) for the reused services. **RBAC = the EXISTING
+  clinical permissions the inpatient roles already hold** (ward_nurse + hospitalist: encounter.manage /
+  note.write / note.sign / order.manage; read = patient.view) — no new permission. `BedsideChartController`
+  (string-id FIX.1): `show` (patient.view, read-logged) renders `Hospital/StayChart.vue`; writes carry the
+  clinical gates. **ELECTRIC FENCE carries through:** raw vitals (VitalsSeries — no bands/scores), sign-and-
+  lock notes unchanged, append-only order results — NO computed acuity/deterioration/early-warning score
+  (NEWS2 = certified-partner/non-goal, NOT built); the stay-chart payload carries no judgment field (recursive
+  scan). No charge posted (billing is G6). No existing behavior test modified (the FIX.5 smoke was EXTENDED
+  with the stay-chart route); **Clinical's suite + Encounter's invariant tests stay green** (reuse, not
+  modify). VERIFIED: npm run build green; composer check FULLY green (Pint `passed` · PHPStan L5 `[OK] No
+  errors` · **Pest 741 passed / 2 skipped / 6104 assertions**, 0 failed — +7 tests/+81 assertions vs G3's
+  734/6023: `BedsideChartTest`); composer test:smoke green (3). (HOSPITAL.G4) See [[D-114]] (the Stay), the
+  ADT map, [[Clinical]] (reused unmodified), and [[Hospital]].
