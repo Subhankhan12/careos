@@ -248,6 +248,26 @@
                 "discontinued": "Discontinued",
                 "completed": "Completed"
             }
+        },
+        "emar": {
+            "title": "Medication administration",
+            "eyebrow": "Pharmacy · eMAR",
+            "subtitle": "Record each dose as given, held, or refused.",
+            "alerts": "Safety advisories",
+            "dueHeading": "Due medications",
+            "noneDue": "No active medication orders.",
+            "prn": "PRN",
+            "doseGivenPlaceholder": "Dose given (default {dose})",
+            "reasonPlaceholder": "Reason",
+            "record": "Record",
+            "marHeading": "Administration record",
+            "noneRecorded": "No administrations recorded yet.",
+            "scheduled": "scheduled {at}",
+            "outcomes": {
+                "given": "Given",
+                "held": "Held",
+                "refused": "Refused"
+            }
         }
     },
     "settings": {

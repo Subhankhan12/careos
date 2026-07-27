@@ -67,6 +67,7 @@ use Modules\Patients\Http\Controllers\PortalAuthController;
 use Modules\Patients\Http\Controllers\PortalConsentController;
 use Modules\Patients\Http\Controllers\PortalInvitationController;
 use Modules\Pharmacy\Http\Controllers\FormularyController;
+use Modules\Pharmacy\Http\Controllers\MedicationAdministrationController;
 use Modules\Pharmacy\Http\Controllers\MedicationOrderController;
 use Modules\Platform\Http\Controllers\SettingsController;
 use Modules\Platform\Http\Controllers\UserRoleController;
@@ -342,6 +343,13 @@ Route::middleware('auth')->group(function () {
     Route::get('/pharmacy/patients/{patient}/medications', [MedicationOrderController::class, 'index'])->name('pharmacy.patient-medications');
     Route::post('/pharmacy/patients/{patient}/medications', [MedicationOrderController::class, 'store'])->name('pharmacy.patient-medications.store');
     Route::post('/pharmacy/medication-orders/{order}/transition', [MedicationOrderController::class, 'transition'])->name('pharmacy.medication-orders.transition');
+
+    // eMAR (PHARMACY.G3) — the medication administration record. `index` shows the due worklist (active
+    // orders) + the MAR (given/held/refused); `administer` records against a G2 order (append-only, calls
+    // the safety seam's checkAdministration — advisory/null-object today). Read `patient.view` (read-logged);
+    // recording `note.write` (the nursing clinical-write permission). String-id. NO dispensing yet.
+    Route::get('/pharmacy/patients/{patient}/emar', [MedicationAdministrationController::class, 'index'])->name('pharmacy.patient-emar');
+    Route::post('/pharmacy/medication-orders/{order}/administer', [MedicationAdministrationController::class, 'record'])->name('pharmacy.medication-orders.administer');
 
     // Onboarding/migration: generic CSV patient import (RBAC 'data.import' enforced
     // in each controller action). Mandatory dry-run before commit.

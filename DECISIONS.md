@@ -1684,3 +1684,42 @@ references the old ID.
   768); composer test:smoke green (3). **Next: G3 eMAR** (scheduled doses + given/held/refused administration
   events, calling the seam's `checkAdministration`). (PHARMACY.G2) See [[D-120]] (G1 — the seam it threads),
   the pharmacy map §2.2, and [[Pharmacy]].
+- **D-122 — PHARMACY.G3: eMAR — medication administration record (append-only, safety-seam at
+  administration, record-not-judge).** The electronic MAR, per the map §2.4. **(1) A NET-NEW APPEND-ONLY
+  administration domain** (not a note/order reuse): `medication_administrations` (BelongsToTenant, LogsReads)
+  — one immutable row per administration against a G2 `medication_order`: `outcome` ∈ {given, held, refused}
+  (the nurse's FACT), `administered_by`, `administered_at`, `scheduled_at` (nullable — the due time; null for
+  PRN), `dose_amount`/`dose_unit` (the dose GIVEN — defaults from the order for 'given', null for held/
+  refused), `reason` (held/refused), soft `stay_id`. Model guards + DB triggers
+  (`medication_administrations_no_update`/`_no_delete`, the `medication_order_events` recipe) — a correction
+  is a NEW row. **The due worklist is FACTUAL** — the patient's ACTIVE orders (`dueForPatient`), NOT a
+  computed priority/acuity; a discontinued order drops off. **(2) THE SAFETY SEAM AT THE ADMINISTRATION
+  POINT:** `MedicationAdministrationService::record` (gate `note.write`; tenant fail-closed) **CALLS
+  `MedicationSafetyProvider::checkAdministration`** (already defined in the G1 interface + null-object — G3
+  wires the CALL-SITE), and `safetyReview` calls it for the display surface — today none(), so no alerts and
+  the administration is NEVER blocked. ADVISORY + HUMAN-OWNED: a future partner's findings are SURFACED (an
+  alerts area wired to `SafetyResult`, empty today), never auto-blocking, never auto-acting. **NO homemade
+  checking** — the module-wide `new SafetyAlert(` grep stays clean; a spy proves the seam is called at
+  administration and the record proceeds despite a returned alert. **(3) FENCE (record-not-judge):** the
+  outcome is the nurse's fact — the system computes no safety verdict and no "late/missed" grade; no
+  computed-safety/verdict/severity/score/late/missed/flag column (schema fence); **late/missed is a RAW
+  scheduled_at-vs-administered_at time comparison the UI renders, never a graded flag**; nothing
+  auto-populates the outcome; the payload carries no judgment key and the alerts area is empty. **(4) RBAC:**
+  administration **reuses `note.write`** — the nursing clinical-write permission the ward nurse holds (the G5
+  handover precedent; NO new permission); read = `patient.view`, read-logged.
+  `MedicationAdministrationController` (string-id FIX.1): `index` (GET `/pharmacy/patients/{patient}/emar`)
+  renders `Pharmacy/Emar.vue` (due worklist + MAR + empty alerts), `record` (POST
+  `/pharmacy/medication-orders/{order}/administer`); audited via an app-layer
+  `MedicationAdministration::created` hook (`medication.administered`). **No charge (billing is G5); no
+  dispensing.** *(Scope: a full frequency→times-of-day schedule materialization à la `VisitPlan→PlannedVisit`
+  was kept out — the due list is the active-orders worklist, factual; `scheduled_at` is a per-administration
+  recorded time.)* No existing behavior test modified (the FIX.5 smoke was EXTENDED — eMAR GET 200 +
+  reception administer 403); all vertical + arch + eval + fence suites stay green. Added
+  `MedicationAdministrationTest` (7 — record given/held/refused [dose defaults, scoped, audited + chain]; the
+  seam is called at administration + advisory + NEVER blocks [spy]; NO homemade finding [grep]; append-only
+  [model + raw-DB]; fence [no computed column, nothing auto-populates, late/missed a raw time pair, empty
+  alerts]; due worklist factual [active orders, discontinued drops off]; RBAC + read-logged + tenant/patient
+  fail-closed). VERIFIED: npm run build green; composer check FULLY green (Pint `passed` · PHPStan L5
+  `[OK] No errors` · **Pest 782 passed / 2 skipped / 6753 assertions**, 0 failed — +7 tests vs G2's
+  775); composer test:smoke green (3). **Next: G4 dispensing + inventory.** (PHARMACY.G3) See [[D-121]] (G2 —
+  the order it administers), the pharmacy map §2.4, and [[Pharmacy]].

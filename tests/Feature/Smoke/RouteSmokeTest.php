@@ -165,6 +165,7 @@ test('every major staff route is reachable through the real middleware stack (20
         'hospital.discharge-summary' => '/hospital/admissions/'.$fx['stay']->id.'/discharge-summary',
         'pharmacy.formulary' => '/pharmacy/formulary',
         'pharmacy.patient-medications' => '/pharmacy/patients/'.$fx['patient']->id.'/medications',
+        'pharmacy.patient-emar' => '/pharmacy/patients/'.$fx['patient']->id.'/emar',
     ];
 
     $failures = [];
@@ -356,6 +357,16 @@ test('per-role RBAC smoke: each role reaches its pages (200) and is denied other
         ->status();
     if ($rxStatus !== 403) {
         $failures[] = "pharmacy.patient-medications.store as reception -> {$rxStatus} (expected 403)";
+    }
+
+    // PHARMACY.G3: recording an eMAR administration is note.write-gated. Reception (patient.view, so it can
+    // VIEW the eMAR, but NO note.write) is denied on the administer route at the gate through the real stack.
+    smokeCtx()->forget();
+    $adminStatus = $this->actingAs($u['reception'])
+        ->post('/pharmacy/medication-orders/x/administer', ['outcome' => 'given'])
+        ->status();
+    if ($adminStatus !== 403) {
+        $failures[] = "pharmacy.medication-orders.administer as reception -> {$adminStatus} (expected 403)";
     }
 
     expect(implode("\n", $failures))->toBe('');

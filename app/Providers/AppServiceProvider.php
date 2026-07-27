@@ -54,6 +54,7 @@ use Modules\Nursing\Events\VisitEventRecorded;
 use Modules\Patients\Models\Patient;
 use Modules\People\Models\Credential;
 use Modules\Pharmacy\Models\FormularyItem;
+use Modules\Pharmacy\Models\MedicationAdministration;
 use Modules\Pharmacy\Models\MedicationOrderEvent;
 use Modules\Platform\Models\Branch;
 use Modules\Platform\Models\BranchHours;
@@ -331,6 +332,15 @@ class AppServiceProvider extends ServiceProvider
             'resource_type' => 'medication_order_event',
             'resource_id' => $m->id,
             'context' => ['medication_order_id' => $m->medication_order_id, 'event_type' => $m->event_type, 'reason' => $m->reason],
+        ]));
+
+        // eMAR administrations (PHARMACY.G3) — the append-only administration is audited here (patient-scoped)
+        // so Pharmacy stays free of Audit. The outcome (given/held/refused) is the nurse's recorded fact.
+        MedicationAdministration::created(fn (MedicationAdministration $m) => $this->auditChange('medication.administered', [
+            'patient_id' => $m->patient_id,
+            'resource_type' => 'medication_administration',
+            'resource_id' => $m->id,
+            'context' => ['medication_order_id' => $m->medication_order_id, 'outcome' => $m->outcome, 'reason' => $m->reason],
         ]));
 
         // People credential vault changes. The observer lives here so People

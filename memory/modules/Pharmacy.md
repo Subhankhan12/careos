@@ -126,16 +126,52 @@ reusing the proven patterns (the `Stay`/`StayEvent` mutable-state + append-only-
   the null-object. Drug-interaction/dose/contraindication/duplicate judgment stays a certified-partner /
   permanent-non-goal surface.
 
+## eMAR (PHARMACY.G3)
+
+The electronic medication administration record — recording that a nurse administered / held / refused a
+dose against a G2 order. A NET-NEW append-only domain, record-not-judge, threading the safety seam at the
+ADMINISTRATION point.
+
+- `medication_administrations` (BelongsToTenant, **LogsReads**, **APPEND-ONLY** — model guards + DB triggers
+  `medication_administrations_no_update`/`_no_delete`, the `medication_order_events` recipe) — one immutable
+  row per administration: `patient_id`, `medication_order_id` (the G2 order), `administered_by` (User),
+  `outcome` ∈ {given, held, refused} (the nurse's FACT), `administered_at`, `scheduled_at` (nullable — the
+  due/scheduled time; null for PRN), `dose_amount`/`dose_unit` (the dose GIVEN — defaults from the order for
+  'given', null for held/refused), `reason` (nullable — for held/refused), `stay_id` (soft nullable ref).
+  Explicit short index names (auto-names exceed MySQL's 64-char limit). **FENCE: no computed-safety/verdict/
+  severity/score/late/missed/graded-flag column** (schema fence); `scheduled_at` vs `administered_at` is a
+  RAW time comparison the UI renders — late/missed is an elapsed FACT, never a system grade.
+- `Models\MedicationAdministration` (outcomes + append-only guards, `@property-read MedicationOrder $order`)
+  + `MedicationAdministrationException`.
+- `Services\MedicationAdministrationService` — `record` (gate **`note.write`**; tenant fail-closed; **CALLS
+  `MedicationSafetyProvider::checkAdministration`** at the administration point [the seam call-site]; appends
+  the immutable row; defaults the given dose from the order) + `dueForPatient` (the FACTUAL worklist — the
+  patient's ACTIVE orders, not a computed priority) + `forPatient` (the MAR) + `safetyReview` (the
+  display-surface call-site — `checkAdministration` over active meds, none() today). **THREADS THE SEAM,
+  adds NO checking:** advisory + human-owned, NEVER blocks, NEVER auto-acts; the null-object returns none().
+- `Http\Controllers\MedicationAdministrationController` (string-id FIX.1) — `index` (GET
+  `/pharmacy/patients/{patient}/emar`, `patient.view`, **read-logged**) renders `Pharmacy/Emar.vue` (the due
+  worklist + the MAR + an **EMPTY alerts area wired to `SafetyResult`**); `record` (POST
+  `/pharmacy/medication-orders/{order}/administer`, `note.write`). Audited via app-layer
+  `MedicationAdministration::created` hook (`medication.administered`).
+- **RBAC:** administration **reuses `note.write`** (the nursing clinical-write permission the ward nurse
+  holds — the G5 handover precedent; NO new permission). Read = `patient.view`.
+- **THE SEAM at the administration layer:** `checkAdministration` was already defined in the G1 interface +
+  null-object; G3 wires the CALL-SITE. No homemade checking (the module-wide `new SafetyAlert(` grep stays
+  clean); the administration is never auto-blocked on safety grounds (the nurse owns the decision).
+
 ## Status
 
-**PHARMACY.G1–G2 complete.** G1 = the foundation (module + tenant-authored formulary + the medication-safety
-SEAM [null-object, built empty] + pharmacy RBAC). **G2 = medication orders — a NET-NEW prescribing entity
-(dose/route/frequency/PRN, a mutable status machine + an append-only event log, tied to a patient + an
-optional SOFT stay ref) that THREADS the G1 safety seam (calls `checkOrder` at placement, advisory +
-non-blocking, null-object today; NO homemade checking — CareOS never manufactures a `SafetyAlert`).** No
-eMAR/dispensing/billing yet (later gates); no charge this gate. Verified: npm build green; composer check
-FULLY green (Pint · PHPStan L5 `[OK]` · **Pest 775 passed / 2 skipped / 6646 assertions**, 0 failed);
-smoke green (med-order route added). See [[D-120]], [[D-121]], `docs/HOSPITAL-PHASE2-PHARMACY-MAP.md`.
+**PHARMACY.G1–G3 complete.** G1 = the foundation (module + tenant-authored formulary + the medication-safety
+SEAM [null-object, built empty] + pharmacy RBAC). G2 = medication orders (a NET-NEW prescribing entity —
+dose/route/frequency/PRN, mutable status machine + append-only event log, soft stay ref — threading the seam
+at placement). **G3 = the eMAR — a NET-NEW append-only administration record (given/held/refused against a
+G2 order, the nurse's FACT; the due worklist is the factual set of active orders) that THREADS the safety
+seam at the ADMINISTRATION point (`checkAdministration`, advisory + non-blocking, null-object today; NO
+homemade checking); reuses `note.write`.** No dispensing/billing yet (G4/G5); no charge this gate. Verified:
+npm build green; composer check FULLY green (Pint · PHPStan L5 `[OK]` · **Pest 782 passed / 2 skipped /
+6753 assertions**, 0 failed); smoke green (eMAR route added). See [[D-120]], [[D-121]], [[D-122]],
+`docs/HOSPITAL-PHASE2-PHARMACY-MAP.md`.
 
 ## Open items / next gates (per docs/HOSPITAL-PHASE2-PHARMACY-MAP.md)
 
@@ -146,9 +182,13 @@ smoke green (med-order route added). See [[D-120]], [[D-121]], `docs/HOSPITAL-PH
   `medication.prescribe`; THREADS the safety SEAM (`checkOrder` at placement, advisory + non-blocking,
   null-object today) — never homemade. **Next: G3.** *(Note: the exact-match `AllergyGuard` hard-stop wiring
   is deferred to when the med-order write path integrates it — G2 established the safety-seam call-site.)*
-- **G3** eMAR (scheduled doses via the `VisitPlan→PlannedVisit` engine + append-only given/held/refused
-  administration events, calling the seam's `checkAdministration`) ·
-  **G4** dispensing + inventory (net-new stock model + dispensing events; `dispense.manage`) · **G5**
+- **G3** *(done — D-122)* — the eMAR: a NET-NEW append-only `medication_administrations` (given/held/refused
+  against a G2 order; the due worklist = the factual set of active orders, no computed priority) reusing the
+  append-only recipe + `note.write`; THREADS the seam at the administration point (`checkAdministration`,
+  advisory + non-blocking, null-object today) — never homemade. **Next: G4.** *(Scope note: the due list is
+  the active-orders worklist [factual] — a full frequency→times-of-day materialization à la
+  `VisitPlan→PlannedVisit` was kept out as over-scope; scheduled_at is a per-administration recorded time.)*
+- **G4** dispensing + inventory (net-new stock model + dispensing events; `dispense.manage`) · **G5**
   pharmacy billing (a formulary item's `TariffItem` → `captureManual` → invoice → reconcile-to-the-unit, the
   bed-day precedent, no new math).
 - **The safety seam stays EMPTY** through every gate — invoked at G2 (order) + G3 (administration), no-op at

@@ -36,8 +36,8 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
   unlocks **eMAR + the CH statutory billing pack** when confirmed. The well of safe build-without-a-
   customer-need work is done — do not open a new gate unless a customer need pulls a specific feature
   forward. Discovery brief: `docs/DISCOVERY.md`; outreach: `docs/outreach-de.md`.
-- **Latest verified quality:** PHARMACY.G2 (medication orders — a NET-NEW prescribing entity [dose/route/frequency/PRN, a mutable status machine + an append-only event log, tied to a patient + an optional SOFT inpatient-stay ref] that THREADS the G1 medication-safety SEAM: it CALLS `MedicationSafetyProvider::checkOrder` at placement — advisory + human-owned, NEVER blocking; the null-object returns none() today; NO homemade checking [CareOS never manufactures a `SafetyAlert`]) atop PHARMACY.G1 (the pharmacy foundation) — **HOSPITAL PHASE 2 (pharmacy) in progress** atop the COMPLETE Phase 1 (inpatient/ADT, G1→G7); `composer check` FULLY green — Pint `passed`, PHPStan L5
-  `[OK] No errors`, **Pest 775 passed / 2 skipped / 6646 assertions**, 0 failed (the 2 skips = Redis-Horizon + one reminder infra case, green in CI on Redis 7); npm run build green. (G8 baseline: `0d93a36`, Pest 700/5623.) A route-reachability smoke (**FIX.5**, `composer test:smoke`)
+- **Latest verified quality:** PHARMACY.G3 (the eMAR — a NET-NEW append-only medication-administration record [given/held/refused against a G2 order, the nurse's FACT; the due worklist is the factual set of active orders, no computed priority] that THREADS the medication-safety SEAM at the ADMINISTRATION point: it CALLS `MedicationSafetyProvider::checkAdministration` — advisory + human-owned, NEVER blocking; the null-object returns none() today; NO homemade checking; late/missed is a raw time comparison, never a graded flag) atop PHARMACY.G2 (medication orders) / G1 (the foundation) — **HOSPITAL PHASE 2 (pharmacy) in progress** atop the COMPLETE Phase 1 (inpatient/ADT, G1→G7); `composer check` FULLY green — Pint `passed`, PHPStan L5
+  `[OK] No errors`, **Pest 782 passed / 2 skipped / 6753 assertions**, 0 failed (the 2 skips = Redis-Horizon + one reminder infra case, green in CI on Redis 7); npm run build green. (G8 baseline: `0d93a36`, Pest 700/5623.) A route-reachability smoke (**FIX.5**, `composer test:smoke`)
   drives every major route through the real middleware stack to guard against request-time 500s (the C-1
   class). See the detailed quality block below.
 - **Demo tenants (all reconcile-to-the-unit + chain-verify):** `DemoClinicSeeder` (Praxis Lindenhof, CHF,
@@ -1346,12 +1346,24 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
   auto-populates, the alerts area is empty. `MedicationOrders.vue` (place + active + history + empty alerts).
   No charge (billing is G5). Added `MedicationOrderTest` (7); FIX.5 smoke extended (med-order route). Verified:
   npm build green; composer check FULLY green (**Pest 775 / 2-skip / 6646**, 0 failed); smoke green (3).
-- **Next action:** **PHARMACY.G3 — eMAR (administration record).** Scheduled doses via the
-  `VisitPlan→PlannedVisit` recurrence→occurrence engine (an idempotent materialize command) + PRN;
-  append-only administration events (**given / held / refused** + administered_by + time + reason — a FACT,
-  the `VisitVital`/`Handover` record-not-judge posture), tied to the G2 order + the stay; the seam's
-  `checkAdministration` is called (no-op today). Then G4 dispensing/inventory · G5 pharmacy billing. (Phases
-  3–7 — lab, radiology, OR, ED — remain, each mapped first.) **The standing strategic posture is unchanged —
-  the next real progress is DELIVERY** (deploy the built verticals to paying customers); the parallel
-  DISCOVERY track still stands (the CH/KVG billing model must be confirmed with Spitex coordinators before the
-  CH statutory pack is committed).
+- **PHARMACY.G3 — the eMAR: an append-only administration record threading the seam at administration (D-122).**
+  A **NET-NEW append-only `medication_administrations`** (given / held / refused against a G2 order — the
+  nurse's FACT + administered_by + time + reason + the dose given; model guards + DB triggers, the
+  `medication_order_events` recipe). **Threads the seam at the administration point:** `record` CALLS
+  `MedicationSafetyProvider::checkAdministration` (defined in G1) — advisory + human-owned, **NEVER blocking**;
+  the null-object returns none() today; **NO homemade checking** (module-wide `new SafetyAlert(` grep clean +
+  a spy proves the call). **The due worklist is FACTUAL** — the patient's active orders, not a computed
+  priority (a discontinued order drops off). Record-not-judge: no computed safety/verdict column, nothing
+  auto-populates the outcome, **late/missed is a raw `scheduled_at`-vs-`administered_at` time comparison, never
+  a graded flag**. RBAC **reuses `note.write`** (the nursing clinical-write permission the ward nurse holds —
+  the G5 handover precedent, no new permission). `Emar.vue` (due worklist + MAR + empty alerts). No charge
+  (billing is G5). Added `MedicationAdministrationTest` (7); FIX.5 smoke extended (eMAR route). Verified: npm
+  build green; composer check FULLY green (**Pest 782 / 2-skip / 6753**, 0 failed); smoke green (3).
+- **Next action:** **PHARMACY.G4 — dispensing + inventory.** A net-new pharmacy stock model (product, on-hand
+  qty, optional lot/expiry) + append-only dispensing events (decrement-on-dispense, order-linked), gated
+  `dispense.manage` (the pharmacy_technician/pharmacist permission from G1). Then G5 pharmacy billing (a
+  formulary item's `TariffItem` → `captureManual` → invoice → reconcile-to-the-unit, the bed-day precedent,
+  no new math). (Phases 3–7 — lab, radiology, OR, ED — remain, each mapped first.) **The standing strategic
+  posture is unchanged — the next real progress is DELIVERY** (deploy the built verticals to paying
+  customers); the parallel DISCOVERY track still stands (the CH/KVG billing model must be confirmed with
+  Spitex coordinators before the CH statutory pack is committed).
