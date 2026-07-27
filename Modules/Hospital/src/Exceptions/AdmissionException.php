@@ -45,6 +45,11 @@ class AdmissionException extends RuntimeException
         return new self("Stay {$stayId} has no ward round yet — start a ward round before charting.");
     }
 
+    public static function nothingToInvoice(string $stayId): self
+    {
+        return new self("Stay {$stayId} has no accrued charges to invoice.");
+    }
+
     public static function appendOnly(): self
     {
         return new self('stay_events are append-only: a correction is a new event, never an edit.');

@@ -50,6 +50,7 @@ use Modules\FrontDesk\Http\Controllers\KioskCheckInController;
 use Modules\FrontDesk\Http\Controllers\KioskDeviceController;
 use Modules\FrontDesk\Http\Controllers\PortalCheckInController;
 use Modules\Hospital\Http\Controllers\AdmissionController;
+use Modules\Hospital\Http\Controllers\BedBillingController;
 use Modules\Hospital\Http\Controllers\BedsideChartController;
 use Modules\Hospital\Http\Controllers\HandoverController;
 use Modules\Hospital\Http\Controllers\WardBoardController;
@@ -310,6 +311,12 @@ Route::middleware('auth')->group(function () {
     // (the nursing roles hold it — no new permission). No charge (billing is G6). String-id {stay} (FIX.1).
     Route::get('/hospital/admissions/{stay}/handover', [HandoverController::class, 'show'])->name('hospital.admissions.handover');
     Route::post('/hospital/admissions/{stay}/handover', [HandoverController::class, 'store'])->name('hospital.admissions.handover.store');
+
+    // Bed-to-billing (HOSPITAL.G6) — "invoice this stay": assemble the stay's accrued bed-day + service
+    // charges into an invoice via the EXISTING billing engine (validate -> createDraftFromCharges -> issue),
+    // which reconciles-to-the-unit. NO new billing math. billing.manage-gated; redirects to the existing
+    // invoice page. String-id {stay} (FIX.1). Accrual itself is the scheduled `hospital:accrue-bed-days`.
+    Route::post('/hospital/admissions/{stay}/invoice', [BedBillingController::class, 'invoice'])->name('hospital.admissions.invoice');
 
     // Onboarding/migration: generic CSV patient import (RBAC 'data.import' enforced
     // in each controller action). Mandatory dry-run before commit.

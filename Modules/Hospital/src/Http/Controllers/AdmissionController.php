@@ -65,6 +65,9 @@ class AdmissionController
                 'can_manage' => Gate::allows('admission.manage'),
                 'transfer_url' => route('hospital.admissions.transfer', $record->id),
                 'discharge_url' => route('hospital.admissions.discharge', $record->id),
+                // Bed-to-billing (HOSPITAL.G6): a discharged stay can be invoiced through the existing engine.
+                'can_invoice' => Gate::allows('billing.manage') && $record->status === Stay::STATUS_DISCHARGED,
+                'invoice_url' => route('hospital.admissions.invoice', $record->id),
             ],
         ]);
     }

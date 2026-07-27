@@ -36,8 +36,8 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
   unlocks **eMAR + the CH statutory billing pack** when confirmed. The well of safe build-without-a-
   customer-need work is done — do not open a new gate unless a customer need pulls a specific feature
   forward. Discovery brief: `docs/DISCOVERY.md`; outreach: `docs/outreach-de.md`.
-- **Latest verified quality:** HOSPITAL.G5 (nursing shift handover — a NET-NEW structured SBAR artifact the outgoing nurse authors for the oncoming shift, tied to the stay, append-only; record-not-judge [no acuity/score — `assessment` is the nurse's own words, nothing auto-populates]; reuses platform patterns, NOT a ClinicalNote reuse) atop HOSPITAL.G4 (bedside charting) / G3 (ward board) / G2 (ADT stay) / G1; `composer check` FULLY green — Pint `passed`, PHPStan L5
-  `[OK] No errors`, **Pest 747 passed / 2 skipped / 6161 assertions**, 0 failed (the 2 skips = Redis-Horizon + one reminder infra case, green in CI on Redis 7); npm run build green. (G8 baseline: `0d93a36`, Pest 700/5623.) A route-reachability smoke (**FIX.5**, `composer test:smoke`)
+- **Latest verified quality:** HOSPITAL.G6 (bed-to-billing — an inpatient stay accrues bed-day + service charges through the EXISTING billing engine and discharge produces an invoice that reconciles-to-the-unit [I4 δ=0]; STRICTLY ORCHESTRATION — no new billing/pricing/VAT math, adversarial-grep proven; per-diem tenant-authored [no licensed code set]; idempotent `hospital:accrue-bed-days` sweep) atop HOSPITAL.G5 (nursing shift handover) / G4 (bedside charting) / G3 (ward board) / G2 (ADT stay) / G1; `composer check` FULLY green — Pint `passed`, PHPStan L5
+  `[OK] No errors`, **Pest 754 passed / 2 skipped / 6340 assertions**, 0 failed (the 2 skips = Redis-Horizon + one reminder infra case, green in CI on Redis 7); npm run build green. (G8 baseline: `0d93a36`, Pest 700/5623.) A route-reachability smoke (**FIX.5**, `composer test:smoke`)
   drives every major route through the real middleware stack to guard against request-time 500s (the C-1
   class). See the detailed quality block below.
 - **Demo tenants (all reconcile-to-the-unit + chain-verify):** `DemoClinicSeeder` (Praxis Lindenhof, CHF,
@@ -1275,11 +1275,29 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
   score; no acuity/severity/score/risk/priority/flag column, nothing auto-populates (proven). No charge (G6).
   FIX.5 smoke extended (handover route, doctor 200 / billing 403). Verified: npm build green; composer check
   FULLY green (**Pest 747 / 2-skip / 6161**, 0 failed); smoke green (3).
-- **Next action:** **HOSPITAL.G6 — bed-to-billing** (the per-diem accrual: one bed-day `TariffItem` + an
-  additive dated-capture method + an idempotent `billing:accrue-bed-days` command shaped like
-  `nursing:materialize-visits`; discharge invoice = the existing `validateForPatientPeriod` →
-  `createDraftFromCharges` → `issue` filtered by stay — reuse the billing engine, **zero new billing math**) —
-  per `docs/HOSPITAL-PHASE1-ADT-MAP.md` §2.3/§5. (The parallel
+- **HOSPITAL.G6 — bed-to-billing: inpatient accrual + discharge invoice via the EXISTING engine, reconciles-to-the-unit (D-118).**
+  An inpatient stay accrues charges (bed-days + services) through the existing billing engine, and discharge
+  produces an invoice that **reconciles-to-the-unit** — per `docs/HOSPITAL-PHASE1-ADT-MAP.md` §2.3/§5.
+  **STRICTLY ORCHESTRATION — zero new billing/pricing/VAT/line-total math** (adversarial-grep proven: Hospital
+  names none of `line_total_minor`/`vat_total_minor`/`subtotal_minor`/`vatMinor`/`intdiv(`): the engine prices
+  everything. A bed-day is a **tenant-authored `TariffItem`** (generic BED-DAY-GENERAL/ICU/ISOLATION starter,
+  integer minor units, **no licensed code set**); accrual is the existing `ChargeCaptureService::captureManual`
+  (the engine resolves + **snapshots** the fee + computes the line total), made **idempotent** by the new
+  `bed_day_accruals` ledger `unique(tenant, stay, service_date)`; the discharge invoice is the existing
+  `validateForPatientPeriod` → `createDraftFromCharges` → `issue` flow (gapless number + PDF); reconciliation
+  is the existing `ReconciliationEngine` (I4 handles N charges → 1 invoice natively). `hospital:accrue-bed-days`
+  — the unattended sweep shaped like `nursing:materialize-visits` (per-tenant, resolves the tenant's org_admin
+  as billing actor, ADMITTED stays only), scheduled 05:30 before the dunning/reconcile sweeps. `BedBillingController::invoice`
+  (POST `/hospital/admissions/{stay}/invoice`, `billing.manage`) redirects to the EXISTING invoice page; light
+  ADT wiring adds an "Invoice stay" button to a discharged stay. **THE key proof (tested):** a discharged stay's
+  charges assemble into one gapless invoice and `ReconciliationEngine::check` passes with **I4 δ=0**. Fee-snapshot
+  proven. One existing test updated by necessity (`ScheduleRegistrationTest` — the scheduled-command inventory
+  got the new sweep, as prior gates did for nursing/billing); FIX.5 smoke extended (invoice route, reception 403).
+  Added `BedBillingTest` (7). Verified: npm build green; composer check FULLY green (**Pest 754 / 2-skip / 6340**,
+  0 failed); smoke green (3).
+- **Next action:** **HOSPITAL.G7 — discharge + LOS + discharge summary** (the discharge-side artifact: length-of-stay
+  as plain elapsed time [record-not-judge, no computed acuity], a structured discharge summary composing the
+  stay's existing records, closing out the Phase-1 ADT spine) — per `docs/HOSPITAL-PHASE1-ADT-MAP.md`. (The parallel
   DISCOVERY track still stands: the CH/KVG-vs-EU-generic billing model must be confirmed with Spitex
   coordinators before the CH statutory pack — the likely real first NEW billing build — is committed;
   remaining billing backend-only surfaces (camt.053 reconciliation, AI dunning drafts, accounting-export UI)

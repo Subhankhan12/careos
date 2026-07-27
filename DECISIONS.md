@@ -1524,3 +1524,42 @@ references the old ID.
   6161 assertions**, 0 failed — +6 tests/+57 assertions vs G4's 741/6104: `HandoverTest`); composer test:smoke
   green (3). (HOSPITAL.G5) See [[D-114]] (the Stay), [[D-116]] (bedside charting — the reuse posture), the
   ADT map, and [[Hospital]].
+- **D-118 — HOSPITAL.G6: bed-to-billing (inpatient accrual + discharge invoice via the EXISTING engine;
+  reconciles-to-the-unit).** An inpatient stay accrues charges (bed-days + services) through the existing
+  billing engine, and discharge produces an invoice that reconciles-to-the-unit, per
+  `docs/HOSPITAL-PHASE1-ADT-MAP.md` §2.3/§5. **KEY DECISION — NET-NEW is STRICTLY ORCHESTRATION, zero new
+  billing/pricing/VAT/line-total math:** a bed-day is a tenant-authored `TariffItem`; accrual is the
+  existing `ChargeCaptureService::captureManual` (the engine resolves + **snapshots** the fee and computes
+  `line_total`); the discharge invoice is the existing `ChargeValidator::validateForPatientPeriod` →
+  `IssueService::createDraftFromCharges` → `issue` flow (gapless number + PDF); reconciliation is the
+  existing `ReconciliationEngine` (I4 "N charges → 1 invoice" natively). Hospital added NO money math —
+  proven by an adversarial-grep test (`Modules\Hospital` contains none of `line_total_minor`/
+  `vat_total_minor`/`subtotal_minor`/`vatMinor`/`intdiv(`; the only money it names is the authored per-diem
+  RATE). **`BedBillingService`** (orchestration only): `CATALOG_KEY='hospital'`; `STARTER` = 3 GENERIC
+  bed-day items (BED-DAY-GENERAL/ICU/ISOLATION, placeholder minor-unit rates, **NO licensed code set** — the
+  tenant edits them like any tariff); `seedStarter` (gate `billing.manage`, idempotent by code, unit
+  'bed-day', vat 0); `accrueBedDays` loops each occupied calendar day and captures one bed-day Charge via
+  the engine, **idempotent** via the NEW `bed_day_accruals` ledger `unique(tenant_id, stay_id, service_date)`
+  (the `nursing:materialize-visits` discipline — fast-check then capture+ledger in one `DB::transaction`, a
+  race rolls back on the unique key); `invoiceStay` (gate `billing.manage`, cross-tenant fail-closed) accrues
+  the final bed-days then runs the existing validate→draft→issue flow filtered to the stay window. The bed
+  resolves via a typed `Bed::findOrFail` (fail-closed, no mis-price fallback). **`hospital:accrue-bed-days`**
+  — the unattended sweep, shaped exactly like `nursing:materialize-visits`: iterate ACTIVE tenants, resolve
+  the tenant's `org_admin` as the automated billing actor (holds `billing.manage`; skip+warn if none),
+  accrue every ADMITTED stay; registered in `HospitalServiceProvider`, scheduled `->dailyAt('05:30')
+  ->withoutOverlapping(30)->onOneServer()` (before the 06:00 dunning / 06:30 reconcile sweeps).
+  `BedBillingController::invoice` (POST `/hospital/admissions/{stay}/invoice`, `billing.manage`, string-id
+  FIX.1) → redirect to the EXISTING `billing.invoices.show`; light ADT wiring adds `can_invoice`/`invoice_url`
+  + an "Invoice stay" button on a discharged stay. **RECONCILES-TO-THE-UNIT (THE key proof, tested):** a
+  discharged stay's bed-day + service charges assemble into one gapless invoice and
+  `ReconciliationEngine::check(period)` passes with **I4 `delta_minor === 0`**. Fee-snapshot proven. **One
+  existing test updated by necessity, NOT weakened:** `ScheduleRegistrationTest` is the canonical
+  scheduled-command inventory ("guards against a future gate quietly scheduling something unattended") — the
+  new sweep was added to its expected cadence map + exact-set list, exactly as prior gates did for the
+  nursing/billing sweeps (the two Pest suites otherwise unchanged; the FIX.5 smoke was EXTENDED with the
+  invoice route, reception POST 403). Added tests: `BedBillingTest` (7 — per-diem tenant-authored, accrue via
+  the engine + snapshot, idempotent command [twice ≠ double-charge], discharge invoice + **reconcile δ=0**,
+  fee snapshot, no-money-math grep, RBAC + tenant fail-closed). VERIFIED: npm run build green; composer check
+  FULLY green (Pint `passed` · PHPStan L5 `[OK] No errors` · **Pest 754 passed / 2 skipped / 6340 assertions**,
+  0 failed — +7 tests vs G5's 747); composer test:smoke green (3). (HOSPITAL.G6) See [[D-114]] (the Stay),
+  [[D-117]] (G5 — the reuse-vs-net-new posture), the ADT map §2.3/§5, [[Billing]], and [[Hospital]].

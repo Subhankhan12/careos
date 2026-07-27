@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Head } from '@inertiajs/vue3';
+import { Head, router } from '@inertiajs/vue3';
 import { computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 import AppLayout from '@/Layouts/AppLayout.vue';
@@ -34,10 +34,14 @@ const props = defineProps<{
         discharge_disposition: string | null;
     };
     journey: JourneyEvent[];
-    actions: { can_manage: boolean; transfer_url: string; discharge_url: string };
+    actions: { can_manage: boolean; transfer_url: string; discharge_url: string; can_invoice: boolean; invoice_url: string };
 }>();
 
 const isActive = computed(() => props.stay.status === 'admitted');
+
+function invoiceStay(): void {
+    router.post(props.actions.invoice_url, {}, { preserveScroll: true });
+}
 </script>
 
 <template>
@@ -53,12 +57,22 @@ const isActive = computed(() => props.stay.status === 'admitted');
                         {{ t('hospital.admission.bed') }}: {{ stay.ward ?? '—' }} · {{ stay.bed ?? '—' }}
                     </p>
                 </div>
-                <span
-                    class="inline-flex items-center gap-1.5 self-start rounded-full px-3 py-1 text-xs font-semibold"
-                    :class="isActive ? 'bg-euca-400 text-euca-900' : 'bg-white/15 text-euca-50'"
-                >
-                    {{ t(`hospital.admission.status.${stay.status}`) }}
-                </span>
+                <div class="flex flex-col items-start gap-2 sm:items-end">
+                    <span
+                        class="inline-flex items-center gap-1.5 self-start rounded-full px-3 py-1 text-xs font-semibold"
+                        :class="isActive ? 'bg-euca-400 text-euca-900' : 'bg-white/15 text-euca-50'"
+                    >
+                        {{ t(`hospital.admission.status.${stay.status}`) }}
+                    </span>
+                    <button
+                        v-if="actions.can_invoice"
+                        type="button"
+                        class="rounded-full bg-white/15 px-3 py-1 text-xs font-semibold text-euca-50 transition hover:bg-white/25"
+                        @click="invoiceStay"
+                    >
+                        {{ t('hospital.admission.invoiceStay') }}
+                    </button>
+                </div>
             </div>
 
             <!-- Summary -->

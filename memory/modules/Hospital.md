@@ -207,19 +207,69 @@ STAY-scoped (ClinicalNote is Encounter-scoped, mandatory encounter_id). It REUSE
 - **RBAC:** record = `note.write` (ward_nurse + charge_nurse hold it), read = `patient.view` — reused, no new
   permission. **No charge (billing is G6).**
 
+## Bed-to-billing (HOSPITAL.G6)
+
+An inpatient stay accrues charges (bed-days + services) through the **EXISTING** billing engine, and
+discharge produces an invoice that **reconciles-to-the-unit**. **NET-NEW is STRICTLY ORCHESTRATION — no
+new billing/pricing/VAT/line-total math** (the engine prices everything; a per-diem is a RATE, not a
+clinical acuity). The map's endorsed shape: a bed-day is a `TariffItem`; a stay accrues `Charge`s
+(many-per-patient); the discharge invoice is the existing `validateForPatientPeriod` →
+`createDraftFromCharges` → `issue` flow; `ReconciliationEngine` I4 handles "N charges → 1 invoice" natively.
+
+- `bed_day_accruals` (BelongsToTenant) — the **idempotency ledger** (the `nursing:materialize-visits`
+  discipline mirrored for bed-days): id (ULID), tenant_id, `stay_id` (FK stays cascade), `service_date`
+  (date), `charge_id` (FK charges cascade), timestamps. `unique(tenant_id, stay_id, service_date)` — the
+  hard guard that a re-run never double-charges; index (tenant_id, stay_id). **No money stored** (the
+  Charge is the money).
+- `Models\BedDayAccrual` — BelongsToTenant + HasUlids; fillable stay_id, service_date, charge_id.
+- `Services\BedBillingService` — the orchestration core (constructor: `ChargeCaptureService`,
+  `ChargeValidator`, `IssueService`, `TenantContext`). `CATALOG_KEY='hospital'`; `STARTER` = 3 GENERIC
+  bed-day items (BED-DAY-GENERAL 50000, BED-DAY-ICU 200000, BED-DAY-ISOLATION 80000 minor units — **the
+  tenant's own codes, NO licensed code set**, placeholder rates it edits). `catalog()` firstOrCreate the
+  effective-dated hospital catalog (valid_from 2020, open-ended, ACTIVE); `seedStarter(actor)` (gate
+  `billing.manage`, idempotent by code, unit='bed-day', vat 0); `bedDayCode(bedType)` → 'BED-DAY-'.upper;
+  `accrueBedDays(actor, stay, ?upTo)` loops each calendar day admitted→(upTo ?? discharged ?? now),
+  **fast-checks the ledger then captures via `ChargeCaptureService::captureManual`** (the engine resolves
+  + **snapshots** the fee and computes line_total) inside a `DB::transaction` + writes the ledger row (a
+  race rolls back on the unique key); `invoiceStay(actor, stay)` (gate `billing.manage`, cross-tenant
+  fail-closed) accrues the final bed-days, `validateForPatientPeriod`, gathers the VALIDATED/uninvoiced
+  charges in the stay window, `createDraftFromCharges`(SELF_PAY) → `issue` (gapless number). **The bed
+  resolves via a typed `Bed::findOrFail` (fail-closed) — no `??` fallback.** No pricing/VAT anywhere.
+- `Console\AccrueBedDaysCommand` (`hospital:accrue-bed-days`) — the unattended sweep, shaped exactly like
+  `nursing:materialize-visits`: iterate ACTIVE tenants, set context, **resolve the tenant's `org_admin`
+  as the billing actor** (holds `billing.manage`; skip+warn if none), accrue every ADMITTED stay,
+  restore context. Idempotent (twice ≠ double-charge). Registered in `HospitalServiceProvider`; scheduled
+  in `routes/console.php` `->dailyAt('05:30')` (before the 06:00 dunning / 06:30 reconcile sweeps).
+- `Http\Controllers\BedBillingController` (string-id FIX.1) — `invoice` (POST
+  `/hospital/admissions/{stay}/invoice`, gate `billing.manage`) → `invoiceStay` → redirect to the EXISTING
+  `billing.invoices.show`. PRESENTATIONAL over the service. Light ADT wiring: `AdmissionController::show`
+  adds `actions.can_invoice` (billing.manage && discharged) + `invoice_url`; `Admission.vue` shows an
+  "Invoice stay" button on a discharged stay. Route-smoke extended (reception POST 403).
+- **RECONCILES-TO-THE-UNIT (THE key proof):** a discharged stay's bed-day + service charges assemble into
+  one gapless invoice and the existing `ReconciliationEngine::check(period)` passes with I4
+  `delta_minor === 0` — proven in `BedBillingTest` (6 bed-days × 50000 + 1 consult × 12000 = 312000,
+  every invariant green). Fee-snapshot proven (editing the tariff later never changes a past charge).
+- **ELECTRIC FENCE / no-money-math (adversarial grep, tested):** `Modules\Hospital` contains **none** of
+  `line_total_minor`/`vat_total_minor`/`subtotal_minor`/`vatMinor`/`intdiv(` — the only money it names is
+  the authored per-diem RATE (`unit_price_minor`/`vat_rate_bp=0` keys on the tariff item). All charge/VAT/
+  line-total math lives in Billing. Tenant+branch scoped, fail-closed.
+
 ## Status
 
-**HOSPITAL.G1–G5 complete.** G1 = Bed/Ward model + concurrency-safe bed-claim + inpatient RBAC. G2 = the ADT
+**HOSPITAL.G1–G6 complete.** G1 = Bed/Ward model + concurrency-safe bed-claim + inpatient RBAC. G2 = the ADT
 `Stay` + admit/transfer/discharge state machine (atomic, bed-safe, above an unmodified Encounter). **G3 = the
 ward board (live bed-occupancy cockpit) — the first inpatient UI, presentational over G1/G2. **G4 = bedside
 charting — REUSES Clinical (a ward round is a reused Encounter tied to the stay by a Hospital-side WardRound;
 notes/vitals/orders reused; the only new affordance is the stay-scoped `vitalsForStay` read); Encounter
 UNMODIFIED, fence holds. **G5 = nursing shift handover — a NET-NEW structured SBAR artifact (nurse-authored,
-append-only, record-not-judge, stay-scoped), reusing platform patterns; NOT a ClinicalNote reuse.** Verified:
-npm build green; composer check FULLY green; targeted — `WardBedManagementTest` (7), `BedClaimParallelHammerTest`
-(1), `HospitalAdmissionTest` (12), `WardBoardTest` (5), `BedsideChartTest` (7), `HandoverTest` (6), Clinical/
-Encounter + arch + RBAC suites unchanged; smoke green (handover route added). See [[D-113]], [[D-114]],
-[[D-115]], [[D-116]], [[D-117]], `docs/HOSPITAL-PHASE1-ADT-MAP.md`.
+append-only, record-not-judge, stay-scoped), reusing platform patterns; NOT a ClinicalNote reuse.** **G6 =
+bed-to-billing — inpatient per-diem + service accrual through the EXISTING billing engine + a discharge
+invoice that reconciles-to-the-unit (I4 δ=0); STRICTLY ORCHESTRATION, no new money math (adversarial-grep
+proven).** Verified: npm build green; composer check FULLY green; targeted — `WardBedManagementTest` (7),
+`BedClaimParallelHammerTest` (1), `HospitalAdmissionTest` (12), `WardBoardTest` (5), `BedsideChartTest` (7),
+`HandoverTest` (6), `BedBillingTest` (7), Clinical/Encounter + Billing/Reconciliation + arch + RBAC suites
+unchanged; smoke green (invoice route added). See [[D-113]], [[D-114]], [[D-115]], [[D-116]], [[D-117]],
+[[D-118]], `docs/HOSPITAL-PHASE1-ADT-MAP.md`.
 
 ## Open items / next gates (per docs/HOSPITAL-PHASE1-ADT-MAP.md)
 
@@ -234,7 +284,9 @@ Encounter + arch + RBAC suites unchanged; smoke green (handover route added). Se
   fence holds. **Next: G5.**
 - **G5** *(done — D-117)* — nursing shift handover: a net-new structured SBAR artifact (nurse-authored,
   append-only, record-not-judge, stay-scoped); reuses platform patterns, not a ClinicalNote reuse. **Next: G6.**
-- **G6** bed-to-billing (per-diem `TariffItem` + `billing:accrue-bed-days` idempotent command, no new math) ·
-  **G7** discharge + LOS + discharge summary.
+- **G6** *(done — D-118)* — bed-to-billing: per-diem `TariffItem` (tenant-authored, no licensed code set) +
+  the idempotent `hospital:accrue-bed-days` sweep + a discharge invoice via the existing validate→draft→issue
+  flow that reconciles-to-the-unit (I4 δ=0). STRICTLY orchestration — no new billing/pricing/VAT math. **Next: G7.**
+- **G7** discharge + LOS + discharge summary.
 - Long poles (partner-gated / non-goal): HL7/FHIR ADT feed (`Interop`), bedside device capture, certified
   early-warning/deterioration engine (NEWS2 — fence + regulated device, never homemade), DRG/case-mix grouper.

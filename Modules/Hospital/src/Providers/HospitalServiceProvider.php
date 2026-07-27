@@ -3,6 +3,7 @@
 namespace Modules\Hospital\Providers;
 
 use Illuminate\Support\ServiceProvider;
+use Modules\Hospital\Console\AccrueBedDaysCommand;
 use Modules\Hospital\Console\AttemptBedClaimCommand;
 
 /**
@@ -21,6 +22,7 @@ class HospitalServiceProvider extends ServiceProvider
         if ($this->app->runningInConsole()) {
             $this->commands([
                 AttemptBedClaimCommand::class,
+                AccrueBedDaysCommand::class,
             ]);
         }
     }

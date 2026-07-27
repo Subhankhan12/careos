@@ -59,6 +59,14 @@ Schedule::command('clinical:evaluate-recalls')
     ->withoutOverlapping(30)
     ->onOneServer();
 
+// Inpatient per-diem accrual (HOSPITAL.G6): accrue bed-day charges for active stays through the
+// existing billing engine, idempotently (the bed_day_accruals unique key). Runs before the billing
+// sweeps so a day's bed-days are captured ahead of dunning/reconcile. Same sweep discipline.
+Schedule::command('hospital:accrue-bed-days')
+    ->dailyAt('05:30')
+    ->withoutOverlapping(30)
+    ->onOneServer();
+
 // Staged dunning. A legal communication, so not consent-gated (D-F7); a level
 // fires at most once per invoice.
 Schedule::command('billing:dunning-run')

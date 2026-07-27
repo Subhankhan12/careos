@@ -53,6 +53,7 @@
             "dischargedAt": "Discharged",
             "disposition": "Discharge disposition",
             "journey": "Bed journey",
+            "invoiceStay": "Invoice stay",
             "status": {
                 "admitted": "Admitted",
                 "discharged": "Discharged"

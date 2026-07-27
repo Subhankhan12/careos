@@ -315,6 +315,16 @@ test('per-role RBAC smoke: each role reaches its pages (200) and is denied other
         $failures[] = "hospital.admit as reception -> {$admitStatus} (expected 403)";
     }
 
+    // HOSPITAL.G6: the bed-to-billing "invoice this stay" WRITE is billing.manage-gated. Reception (no
+    // billing.manage) is denied at the gate through the real stack, before any charge/invoice is touched.
+    smokeCtx()->forget();
+    $invoiceStatus = $this->actingAs($u['reception'])
+        ->post('/hospital/admissions/'.$fx['stay']->id.'/invoice')
+        ->status();
+    if ($invoiceStatus !== 403) {
+        $failures[] = "hospital.admissions.invoice as reception -> {$invoiceStatus} (expected 403)";
+    }
+
     expect(implode("\n", $failures))->toBe('');
 });
 
