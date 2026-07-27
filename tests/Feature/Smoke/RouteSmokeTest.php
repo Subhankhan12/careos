@@ -166,6 +166,8 @@ test('every major staff route is reachable through the real middleware stack (20
         'pharmacy.formulary' => '/pharmacy/formulary',
         'pharmacy.patient-medications' => '/pharmacy/patients/'.$fx['patient']->id.'/medications',
         'pharmacy.patient-emar' => '/pharmacy/patients/'.$fx['patient']->id.'/emar',
+        'pharmacy.inventory' => '/pharmacy/inventory',
+        'pharmacy.patient-dispensing' => '/pharmacy/patients/'.$fx['patient']->id.'/dispensing',
     ];
 
     $failures = [];
@@ -367,6 +369,16 @@ test('per-role RBAC smoke: each role reaches its pages (200) and is denied other
         ->status();
     if ($adminStatus !== 403) {
         $failures[] = "pharmacy.medication-orders.administer as reception -> {$adminStatus} (expected 403)";
+    }
+
+    // PHARMACY.G4: dispensing is dispense.manage-gated. Reception (patient.view, no dispense.manage) is
+    // denied on the dispense route at the gate through the real stack, before any stock is touched.
+    smokeCtx()->forget();
+    $dispenseStatus = $this->actingAs($u['reception'])
+        ->post('/pharmacy/medication-orders/x/dispense', ['quantity' => 1])
+        ->status();
+    if ($dispenseStatus !== 403) {
+        $failures[] = "pharmacy.medication-orders.dispense as reception -> {$dispenseStatus} (expected 403)";
     }
 
     expect(implode("\n", $failures))->toBe('');

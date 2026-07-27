@@ -1723,3 +1723,40 @@ references the old ID.
   `[OK] No errors` · **Pest 782 passed / 2 skipped / 6753 assertions**, 0 failed — +7 tests vs G2's
   775); composer test:smoke green (3). **Next: G4 dispensing + inventory.** (PHARMACY.G3) See [[D-121]] (G2 —
   the order it administers), the pharmacy map §2.4, and [[Pharmacy]].
+- **D-123 — PHARMACY.G4: dispensing + inventory (safe/concurrency-safe stock decrement, append-only).** The
+  operational dispensing + stock domain, per the map §1. **(1) NET-NEW inventory:** `medication_stocks`
+  (BelongsToTenant) is the MUTABLE current on-hand per formulary item (the Bed-status analogue) — `on_hand`,
+  `unit`, `reorder_threshold` (a plain number); mutated ONLY under a FOR UPDATE row lock
+  (`MedicationStock::lockOnHand` — the `BedService::lockBedStatus` idiom). `stock_movements` (append-only,
+  model guards + DB triggers) is the immutable ledger (type received/dispensed/adjusted, signed
+  `quantity_change`, `resulting_on_hand`) — the current on_hand stays consistent with the latest movement.
+  `StockService` = `receive` (+qty) + `adjust` (stock-take to an absolute count) + reads, each locking then
+  writing a movement. **(2) DISPENSING:** `dispenses` (append-only, LogsReads) records a pharmacist
+  dispensing a quantity against a G2 order. `DispensingService::dispense` (gate `dispense.manage`; tenant +
+  patient fail-closed) does a **factual state check** (the order must be active — can't dispense a
+  discontinued order) then, in ONE transaction, **locks the stock FOR UPDATE → asserts on_hand ≥ qty (else
+  `insufficientStock`) → creates the Dispense → decrements on_hand → appends the 'dispensed' movement** —
+  ATOMIC (a forced failure rolls back all) and CONCURRENCY-SAFE. **(3) THE SAFE + CONCURRENCY-SAFE DECREMENT
+  (the crux):** no oversell, no negative on-hand; proven by `DispenseParallelHammerTest` — 8 OS processes
+  race to dispense the last unit, exactly ONE wins + 7 get `INSUFFICIENT` + on_hand=0 (the
+  `BedClaimParallelHammer`/`pharmacy:attempt-dispense` sibling). **(4) FENCE (operational sanity):** stock +
+  dispensing are operational FACTS — a reorder threshold is a plain number, "below stock" is a factual
+  `on_hand <= reorder_threshold` comparison (`isBelowThreshold`), NEVER a graded/severity/alert judgment (the
+  eMAR late/missed rule); **NO safety checking in dispensing** (the medication-safety seam is
+  orders/administration, not dispensing); no computed-judgment/safety column on any of the three tables
+  (schema fence). **(5) RBAC:** dispensing/inventory **reuse `dispense.manage`** (the G1
+  pharmacist/pharmacy_technician permission — NO new permission); the per-patient dispensing view reads
+  `patient.view`, read-logged. `InventoryController` (GET `/pharmacy/inventory`, `dispense.manage`) →
+  `Inventory.vue`; `DispensingController` (GET `/pharmacy/patients/{patient}/dispensing`) → `Dispensing.vue`;
+  audited via app-layer `Dispense::created` (`medication.dispensed`, patient) + `StockMovement::created`
+  (`stock.<type>`, tenant) hooks. **No charge (pharmacy billing is G5).** No existing behavior test modified
+  (the FIX.5 smoke was EXTENDED — inventory + dispensing GET 200 + reception dispense 403); all vertical +
+  arch + eval + fence suites stay green. Added `DispensingTest` (6 — receive/adjust [append-only, on-hand
+  consistent, audited]; dispense [decrements, atomic, tied to order, audited + read-logged]; the stock guard
+  [no oversell, no negative]; discontinued-order refused [factual state]; fence [below-threshold factual, no
+  graded/safety column]; RBAC + tenant/patient) + `DispenseParallelHammerTest` (1 — the concurrency proof).
+  VERIFIED: npm run build green; composer check FULLY green (Pint `passed` · PHPStan L5 `[OK] No errors` ·
+  **Pest 789 passed / 2 skipped / 6846 assertions**, 0 failed — +7 tests vs G3's 782); composer
+  test:smoke green (3). **Next: G5 pharmacy billing** (a formulary item's TariffItem → captureManual →
+  invoice → reconcile-to-the-unit, the bed-day precedent, no new math). (PHARMACY.G4) See [[D-122]] (G3 — the
+  administration it complements), [[D-114]]/bed-claim (the lock idiom), the pharmacy map §1, and [[Pharmacy]].

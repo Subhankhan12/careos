@@ -268,6 +268,40 @@
                 "held": "Held",
                 "refused": "Refused"
             }
+        },
+        "inventory": {
+            "title": "Inventory",
+            "eyebrow": "Pharmacy · Stock",
+            "subtitle": "Medication stock on hand and movements.",
+            "medication": "Medication",
+            "quantity": "Quantity",
+            "unit": "Unit",
+            "unitPlaceholder": "e.g. tablet",
+            "receive": "Receive",
+            "stockHeading": "On hand",
+            "noStock": "No stock recorded yet.",
+            "belowThreshold": "Below threshold",
+            "newCount": "New count",
+            "reason": "Reason",
+            "adjust": "Adjust",
+            "movements": "Movement log",
+            "noMovements": "No stock movements yet.",
+            "types": {
+                "received": "Received",
+                "dispensed": "Dispensed",
+                "adjusted": "Adjusted"
+            }
+        },
+        "dispensing": {
+            "title": "Dispensing",
+            "eyebrow": "Pharmacy · Dispensing",
+            "subtitle": "Dispense a patient's active medication orders.",
+            "ordersHeading": "Active orders",
+            "noOrders": "No active medication orders.",
+            "onHand": "{count} on hand",
+            "dispense": "Dispense",
+            "historyHeading": "Dispensing history",
+            "noHistory": "No dispenses recorded yet."
         }
     },
     "settings": {

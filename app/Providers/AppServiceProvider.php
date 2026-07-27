@@ -53,9 +53,11 @@ use Modules\Nursing\Events\ServiceAgreementChanged;
 use Modules\Nursing\Events\VisitEventRecorded;
 use Modules\Patients\Models\Patient;
 use Modules\People\Models\Credential;
+use Modules\Pharmacy\Models\Dispense;
 use Modules\Pharmacy\Models\FormularyItem;
 use Modules\Pharmacy\Models\MedicationAdministration;
 use Modules\Pharmacy\Models\MedicationOrderEvent;
+use Modules\Pharmacy\Models\StockMovement;
 use Modules\Platform\Models\Branch;
 use Modules\Platform\Models\BranchHours;
 use Modules\Platform\Models\FeatureFlag;
@@ -341,6 +343,20 @@ class AppServiceProvider extends ServiceProvider
             'resource_type' => 'medication_administration',
             'resource_id' => $m->id,
             'context' => ['medication_order_id' => $m->medication_order_id, 'outcome' => $m->outcome, 'reason' => $m->reason],
+        ]));
+
+        // Dispensing + inventory (PHARMACY.G4) — audited here so Pharmacy stays free of Audit. A dispense is
+        // patient-scoped; a stock movement (received/dispensed/adjusted) is tenant-level inventory.
+        Dispense::created(fn (Dispense $m) => $this->auditChange('medication.dispensed', [
+            'patient_id' => $m->patient_id,
+            'resource_type' => 'medication_dispense',
+            'resource_id' => $m->id,
+            'context' => ['medication_order_id' => $m->medication_order_id, 'quantity' => $m->quantity],
+        ]));
+        StockMovement::created(fn (StockMovement $m) => $this->auditChange('stock.'.$m->type, [
+            'resource_type' => 'stock_movement',
+            'resource_id' => $m->id,
+            'context' => ['medication_stock_id' => $m->medication_stock_id, 'quantity_change' => $m->quantity_change, 'resulting_on_hand' => $m->resulting_on_hand, 'reason' => $m->reason],
         ]));
 
         // People credential vault changes. The observer lives here so People

@@ -160,18 +160,60 @@ ADMINISTRATION point.
   null-object; G3 wires the CALL-SITE. No homemade checking (the module-wide `new SafetyAlert(` grep stays
   clean); the administration is never auto-blocked on safety grounds (the nurse owns the decision).
 
+## Dispensing + inventory (PHARMACY.G4)
+
+Pharmacy stock + the dispensing workflow — a net-new OPERATIONAL domain (no fence subtlety, but safe +
+concurrency-safe stock math). Dispensing decrements stock against a G2 order.
+
+- `medication_stocks` (BelongsToTenant) — the MUTABLE current on-hand per formulary item (the Bed-status
+  analogue): `formulary_item_id`, `location` (nullable), `on_hand` (int), `unit`, `reorder_threshold`
+  (nullable int — a plain configured NUMBER). `unique(tenant, formulary_item_id)`. `on_hand` is mutated
+  ONLY under a FOR UPDATE row lock (`MedicationStock::lockOnHand` — the `BedService::lockBedStatus` idiom).
+  `isBelowThreshold()` is a FACTUAL `on_hand <= reorder_threshold` comparison, never a graded alert.
+- `stock_movements` (BelongsToTenant, **APPEND-ONLY** — model guards + DB triggers) — the immutable ledger:
+  `type` ∈ {received, dispensed, adjusted}, signed `quantity_change`, `resulting_on_hand`, `reason`,
+  `dispense_id` (soft link), `performed_by`. The current `on_hand` stays consistent with the latest
+  movement.
+- `dispenses` (BelongsToTenant, **LogsReads**, **APPEND-ONLY**) — one immutable dispensing event against a
+  G2 order: `patient_id`, `medication_order_id`, `formulary_item_id`, `quantity`, `dispensed_by`,
+  `dispensed_at`, soft `stay_id`.
+- `Services\StockService` — `receive` (+qty, creates the stock row on first receipt) + `adjust` (stock-take
+  to an absolute count, reason required) + `forTenant`/`recentMovements`. Each mutation is UNDER THE LOCK +
+  writes a movement. Gate `dispense.manage`.
+- `Services\DispensingService` — `dispense(actor, order, qty)`: gate `dispense.manage`; **factual state
+  check** (order must be active); resolve stock; **DB::transaction { lock on_hand FOR UPDATE → assert
+  on_hand ≥ qty (else `insufficientStock`) → create the Dispense → decrement on_hand → append the
+  'dispensed' movement }** — ATOMIC + concurrency-safe (the `BedService::claim` idiom). NO safety judgment
+  (medication safety is the orders/administration seam, not dispensing). `historyForPatient`/`onHandForItem`.
+- `Console\AttemptDispenseCommand` (`pharmacy:attempt-dispense`) — the parallel-hammer command (mirrors
+  `hospital:attempt-bed-claim`); registered in the provider.
+- `Http\Controllers\InventoryController` (GET `/pharmacy/inventory`, `dispense.manage`) → `Pharmacy/Inventory.vue`
+  (stock + below-threshold factual + receive + adjust + movement log) + `DispensingController` (GET
+  `/pharmacy/patients/{patient}/dispensing`, `patient.view`, **read-logged**) → `Pharmacy/Dispensing.vue`
+  (active orders + on-hand + dispense + history). Audited via app-layer `Dispense::created`
+  (`medication.dispensed`, patient-scoped) + `StockMovement::created` (`stock.<type>`, tenant-level) hooks.
+- **RBAC:** dispensing/inventory **reuse `dispense.manage`** (the G1 pharmacist/pharmacy_technician
+  permission — NO new permission); the per-patient dispensing view reads on `patient.view`.
+- **THE CONCURRENCY PROOF:** `DispenseParallelHammerTest` — 8 OS processes race to dispense the last unit;
+  exactly ONE wins, on_hand never goes negative (the `BedClaimParallelHammer` sibling). Dispense + movement
+  are atomic (a forced failure rolls back both). **No safety checking in dispensing** (the seam is
+  orders/administration); no judgment/graded column (schema fence).
+
 ## Status
 
-**PHARMACY.G1–G3 complete.** G1 = the foundation (module + tenant-authored formulary + the medication-safety
+**PHARMACY.G1–G4 complete.** G1 = the foundation (module + tenant-authored formulary + the medication-safety
 SEAM [null-object, built empty] + pharmacy RBAC). G2 = medication orders (a NET-NEW prescribing entity —
 dose/route/frequency/PRN, mutable status machine + append-only event log, soft stay ref — threading the seam
 at placement). **G3 = the eMAR — a NET-NEW append-only administration record (given/held/refused against a
 G2 order, the nurse's FACT; the due worklist is the factual set of active orders) that THREADS the safety
 seam at the ADMINISTRATION point (`checkAdministration`, advisory + non-blocking, null-object today; NO
-homemade checking); reuses `note.write`.** No dispensing/billing yet (G4/G5); no charge this gate. Verified:
-npm build green; composer check FULLY green (Pint · PHPStan L5 `[OK]` · **Pest 782 passed / 2 skipped /
-6753 assertions**, 0 failed); smoke green (eMAR route added). See [[D-120]], [[D-121]], [[D-122]],
-`docs/HOSPITAL-PHASE2-PHARMACY-MAP.md`.
+homemade checking); reuses `note.write`. **G4 = dispensing + inventory — a NET-NEW OPERATIONAL domain
+(append-only `stock_movements` + `dispenses`; on-hand consistent with the ledger) where dispensing against a
+G2 order decrements stock SAFELY + CONCURRENCY-SAFELY (FOR UPDATE lock, no oversell, no negative — the
+BedClaim parallel-hammer proof); reuses `dispense.manage`; no safety judgment in dispensing.** No billing yet
+(G5); no charge this gate. Verified: npm build green; composer check FULLY green (Pint · PHPStan L5 `[OK]` ·
+**Pest 789 passed / 2 skipped / 6846 assertions**, 0 failed); smoke green (inventory + dispensing
+routes added). See [[D-120]], [[D-121]], [[D-122]], [[D-123]], `docs/HOSPITAL-PHASE2-PHARMACY-MAP.md`.
 
 ## Open items / next gates (per docs/HOSPITAL-PHASE2-PHARMACY-MAP.md)
 
@@ -188,8 +230,11 @@ npm build green; composer check FULLY green (Pint · PHPStan L5 `[OK]` · **Pest
   advisory + non-blocking, null-object today) — never homemade. **Next: G4.** *(Scope note: the due list is
   the active-orders worklist [factual] — a full frequency→times-of-day materialization à la
   `VisitPlan→PlannedVisit` was kept out as over-scope; scheduled_at is a per-administration recorded time.)*
-- **G4** dispensing + inventory (net-new stock model + dispensing events; `dispense.manage`) · **G5**
-  pharmacy billing (a formulary item's `TariffItem` → `captureManual` → invoice → reconcile-to-the-unit, the
-  bed-day precedent, no new math).
+- **G4** *(done — D-123)* — dispensing + inventory: net-new `medication_stocks` (on-hand, mutated under a
+  FOR UPDATE lock) + append-only `stock_movements` + `dispenses`; dispensing against a G2 order decrements
+  stock SAFELY + CONCURRENCY-SAFELY (`BedService::claim` idiom; the parallel-hammer proof — 1 of 8 wins the
+  last unit); reuses `dispense.manage`; no safety judgment in dispensing. **Next: G5.**
+- **G5** pharmacy billing (a formulary item's `TariffItem` → `captureManual` → invoice → reconcile-to-the-unit,
+  the bed-day precedent, no new math). *(A `FormularyItem`→`TariffItem` pricing link/overlay is added here.)*
 - **The safety seam stays EMPTY** through every gate — invoked at G2 (order) + G3 (administration), no-op at
   each; the certified-partner engine + a licensed drug DB are the permanent partner surfaces (never homemade).

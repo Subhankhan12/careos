@@ -66,7 +66,9 @@ use Modules\Patients\Http\Controllers\PatientShowController;
 use Modules\Patients\Http\Controllers\PortalAuthController;
 use Modules\Patients\Http\Controllers\PortalConsentController;
 use Modules\Patients\Http\Controllers\PortalInvitationController;
+use Modules\Pharmacy\Http\Controllers\DispensingController;
 use Modules\Pharmacy\Http\Controllers\FormularyController;
+use Modules\Pharmacy\Http\Controllers\InventoryController;
 use Modules\Pharmacy\Http\Controllers\MedicationAdministrationController;
 use Modules\Pharmacy\Http\Controllers\MedicationOrderController;
 use Modules\Platform\Http\Controllers\SettingsController;
@@ -350,6 +352,15 @@ Route::middleware('auth')->group(function () {
     // recording `note.write` (the nursing clinical-write permission). String-id. NO dispensing yet.
     Route::get('/pharmacy/patients/{patient}/emar', [MedicationAdministrationController::class, 'index'])->name('pharmacy.patient-emar');
     Route::post('/pharmacy/medication-orders/{order}/administer', [MedicationAdministrationController::class, 'record'])->name('pharmacy.medication-orders.administer');
+
+    // Dispensing + inventory (PHARMACY.G4). Inventory (stock + receive/adjust + movements) is tenant-level,
+    // gated `dispense.manage`. Dispensing against a G2 order (concurrency-safe stock decrement) is
+    // patient-scoped (read `patient.view`; dispense `dispense.manage`). String-id. NO billing yet (G5).
+    Route::get('/pharmacy/inventory', [InventoryController::class, 'index'])->name('pharmacy.inventory');
+    Route::post('/pharmacy/inventory/receive', [InventoryController::class, 'receive'])->name('pharmacy.inventory.receive');
+    Route::post('/pharmacy/inventory/{stock}/adjust', [InventoryController::class, 'adjust'])->name('pharmacy.inventory.adjust');
+    Route::get('/pharmacy/patients/{patient}/dispensing', [DispensingController::class, 'index'])->name('pharmacy.patient-dispensing');
+    Route::post('/pharmacy/medication-orders/{order}/dispense', [DispensingController::class, 'dispense'])->name('pharmacy.medication-orders.dispense');
 
     // Onboarding/migration: generic CSV patient import (RBAC 'data.import' enforced
     // in each controller action). Mandatory dry-run before commit.

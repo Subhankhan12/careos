@@ -3,6 +3,7 @@
 namespace Modules\Pharmacy\Providers;
 
 use Illuminate\Support\ServiceProvider;
+use Modules\Pharmacy\Console\AttemptDispenseCommand;
 use Modules\Pharmacy\Contracts\MedicationSafetyProvider;
 use Modules\Pharmacy\Services\NullMedicationSafetyProvider;
 
@@ -28,5 +29,11 @@ class PharmacyServiceProvider extends ServiceProvider
     public function boot(): void
     {
         $this->loadMigrationsFrom(__DIR__.'/../../database/migrations');
+
+        if ($this->app->runningInConsole()) {
+            $this->commands([
+                AttemptDispenseCommand::class, // the parallel-hammer dispense (concurrency test only)
+            ]);
+        }
     }
 }

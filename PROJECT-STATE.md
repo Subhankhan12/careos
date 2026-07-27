@@ -36,8 +36,8 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
   unlocks **eMAR + the CH statutory billing pack** when confirmed. The well of safe build-without-a-
   customer-need work is done — do not open a new gate unless a customer need pulls a specific feature
   forward. Discovery brief: `docs/DISCOVERY.md`; outreach: `docs/outreach-de.md`.
-- **Latest verified quality:** PHARMACY.G3 (the eMAR — a NET-NEW append-only medication-administration record [given/held/refused against a G2 order, the nurse's FACT; the due worklist is the factual set of active orders, no computed priority] that THREADS the medication-safety SEAM at the ADMINISTRATION point: it CALLS `MedicationSafetyProvider::checkAdministration` — advisory + human-owned, NEVER blocking; the null-object returns none() today; NO homemade checking; late/missed is a raw time comparison, never a graded flag) atop PHARMACY.G2 (medication orders) / G1 (the foundation) — **HOSPITAL PHASE 2 (pharmacy) in progress** atop the COMPLETE Phase 1 (inpatient/ADT, G1→G7); `composer check` FULLY green — Pint `passed`, PHPStan L5
-  `[OK] No errors`, **Pest 782 passed / 2 skipped / 6753 assertions**, 0 failed (the 2 skips = Redis-Horizon + one reminder infra case, green in CI on Redis 7); npm run build green. (G8 baseline: `0d93a36`, Pest 700/5623.) A route-reachability smoke (**FIX.5**, `composer test:smoke`)
+- **Latest verified quality:** PHARMACY.G4 (dispensing + inventory — a NET-NEW operational domain [append-only `stock_movements` + `dispenses`; on-hand consistent with the ledger] where a pharmacist dispenses against a G2 order and stock decrements SAFELY + CONCURRENCY-SAFELY [a FOR UPDATE row lock — no oversell, no negative on-hand; proven by an 8-process parallel hammer, the BedClaim sibling]; reuses `dispense.manage`; no safety judgment in dispensing, below-stock is a factual comparison) atop PHARMACY.G3 (eMAR) / G2 (orders) / G1 (foundation) — **HOSPITAL PHASE 2 (pharmacy) in progress** atop the COMPLETE Phase 1 (inpatient/ADT, G1→G7); `composer check` FULLY green — Pint `passed`, PHPStan L5
+  `[OK] No errors`, **Pest 789 passed / 2 skipped / 6846 assertions**, 0 failed (the 2 skips = Redis-Horizon + one reminder infra case, green in CI on Redis 7); npm run build green. (G8 baseline: `0d93a36`, Pest 700/5623.) A route-reachability smoke (**FIX.5**, `composer test:smoke`)
   drives every major route through the real middleware stack to guard against request-time 500s (the C-1
   class). See the detailed quality block below.
 - **Demo tenants (all reconcile-to-the-unit + chain-verify):** `DemoClinicSeeder` (Praxis Lindenhof, CHF,
@@ -1359,11 +1359,24 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
   the G5 handover precedent, no new permission). `Emar.vue` (due worklist + MAR + empty alerts). No charge
   (billing is G5). Added `MedicationAdministrationTest` (7); FIX.5 smoke extended (eMAR route). Verified: npm
   build green; composer check FULLY green (**Pest 782 / 2-skip / 6753**, 0 failed); smoke green (3).
-- **Next action:** **PHARMACY.G4 — dispensing + inventory.** A net-new pharmacy stock model (product, on-hand
-  qty, optional lot/expiry) + append-only dispensing events (decrement-on-dispense, order-linked), gated
-  `dispense.manage` (the pharmacy_technician/pharmacist permission from G1). Then G5 pharmacy billing (a
-  formulary item's `TariffItem` → `captureManual` → invoice → reconcile-to-the-unit, the bed-day precedent,
-  no new math). (Phases 3–7 — lab, radiology, OR, ED — remain, each mapped first.) **The standing strategic
-  posture is unchanged — the next real progress is DELIVERY** (deploy the built verticals to paying
-  customers); the parallel DISCOVERY track still stands (the CH/KVG billing model must be confirmed with
-  Spitex coordinators before the CH statutory pack is committed).
+- **PHARMACY.G4 — dispensing + inventory: safe/concurrency-safe stock decrement (D-123).** A net-new
+  operational domain: `medication_stocks` (on-hand, mutated under a FOR UPDATE lock) + append-only
+  `stock_movements` (the ledger — on-hand stays consistent) + append-only `dispenses`. Dispensing against a
+  G2 order does a **factual state check** (order active) then, in one transaction, **locks the stock →
+  asserts sufficient → creates the dispense → decrements → appends the movement** — ATOMIC + concurrency-safe
+  (the `BedService::claim` idiom): no oversell, no negative on-hand. **Proven by an 8-process parallel hammer**
+  (1 wins the last unit, 7 refused — the BedClaim sibling). Reuses `dispense.manage` (no new permission).
+  Operational sanity: below-stock is a factual `on_hand <= reorder_threshold` comparison (no graded alert);
+  no safety checking in dispensing (the seam is orders/administration); no judgment column. `Inventory.vue`
+  (stock + receive/adjust + movements) + `Dispensing.vue` (per-patient, read-logged). No charge (billing is
+  G5). Added `DispensingTest` (6) + `DispenseParallelHammerTest` (1); FIX.5 smoke extended (inventory +
+  dispensing routes). Verified: npm build green; composer check FULLY green (**Pest 789 / 2-skip /
+  6846**, 0 failed); smoke green (3).
+- **Next action:** **PHARMACY.G5 — pharmacy billing (the LAST core pharmacy gate).** A dispensed med is a
+  `TariffItem` — a `FormularyItem`→`TariffItem` pricing link/overlay (the `DentalProcedure` shape) + capture
+  a `Charge` per dispense through the EXISTING engine (`captureManual`) → invoice → **reconciles-to-the-unit**
+  (the bed-day G6 precedent; **NO new billing/pricing/VAT math**, adversarial-grep). Completes the pharmacy
+  vertical (formulary → orders → eMAR → dispensing → billing). (Phases 3–7 — lab, radiology, OR, ED — remain,
+  each mapped first.) **The standing strategic posture is unchanged — the next real progress is DELIVERY**
+  (deploy the built verticals to paying customers); the parallel DISCOVERY track still stands (the CH/KVG
+  billing model must be confirmed with Spitex coordinators before the CH statutory pack is committed).
