@@ -67,6 +67,7 @@ use Modules\Patients\Http\Controllers\PortalAuthController;
 use Modules\Patients\Http\Controllers\PortalConsentController;
 use Modules\Patients\Http\Controllers\PortalInvitationController;
 use Modules\Pharmacy\Http\Controllers\FormularyController;
+use Modules\Pharmacy\Http\Controllers\MedicationOrderController;
 use Modules\Platform\Http\Controllers\SettingsController;
 use Modules\Platform\Http\Controllers\UserRoleController;
 use Modules\Reporting\Http\Controllers\ReportingDashboardController;
@@ -334,6 +335,13 @@ Route::middleware('auth')->group(function () {
     Route::get('/pharmacy/formulary', [FormularyController::class, 'index'])->name('pharmacy.formulary');
     Route::post('/pharmacy/formulary', [FormularyController::class, 'store'])->name('pharmacy.formulary.store');
     Route::post('/pharmacy/formulary/{item}/deactivate', [FormularyController::class, 'deactivate'])->name('pharmacy.formulary.deactivate');
+
+    // Medication orders (PHARMACY.G2) — the prescribing surface for a patient (+ optional inpatient stay).
+    // Read `patient.view` (read-logged); prescribing + lifecycle transitions `medication.prescribe`. The
+    // order CALLS the medication-safety seam (advisory, null-object today); NO eMAR/dispensing yet. String-id.
+    Route::get('/pharmacy/patients/{patient}/medications', [MedicationOrderController::class, 'index'])->name('pharmacy.patient-medications');
+    Route::post('/pharmacy/patients/{patient}/medications', [MedicationOrderController::class, 'store'])->name('pharmacy.patient-medications.store');
+    Route::post('/pharmacy/medication-orders/{order}/transition', [MedicationOrderController::class, 'transition'])->name('pharmacy.medication-orders.transition');
 
     // Onboarding/migration: generic CSV patient import (RBAC 'data.import' enforced
     // in each controller action). Mandatory dry-run before commit.

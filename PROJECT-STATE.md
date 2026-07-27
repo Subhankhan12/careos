@@ -36,8 +36,8 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
   unlocks **eMAR + the CH statutory billing pack** when confirmed. The well of safe build-without-a-
   customer-need work is done — do not open a new gate unless a customer need pulls a specific feature
   forward. Discovery brief: `docs/DISCOVERY.md`; outreach: `docs/outreach-de.md`.
-- **Latest verified quality:** PHARMACY.G1 (the Phase-2 pharmacy FOUNDATION: a new `Modules\Pharmacy` + the tenant-authored formulary [own codes, NO licensed drug data] + THE MEDICATION-SAFETY SEAM built EMPTY [a `MedicationSafetyProvider` null-object mirroring `ManualLabConnectivity` — drug-interaction/dose/contraindication checking is certified-partner/medical-device territory, a permanent homemade non-goal] + pharmacy RBAC [pharmacist/pharmacy_technician]) — **begins HOSPITAL PHASE 2 (pharmacy)** atop the COMPLETE Phase 1 (inpatient/ADT, G1→G7); `composer check` FULLY green — Pint `passed`, PHPStan L5
-  `[OK] No errors`, **Pest 768 passed / 2 skipped / 6548 assertions**, 0 failed (the 2 skips = Redis-Horizon + one reminder infra case, green in CI on Redis 7); npm run build green. (G8 baseline: `0d93a36`, Pest 700/5623.) A route-reachability smoke (**FIX.5**, `composer test:smoke`)
+- **Latest verified quality:** PHARMACY.G2 (medication orders — a NET-NEW prescribing entity [dose/route/frequency/PRN, a mutable status machine + an append-only event log, tied to a patient + an optional SOFT inpatient-stay ref] that THREADS the G1 medication-safety SEAM: it CALLS `MedicationSafetyProvider::checkOrder` at placement — advisory + human-owned, NEVER blocking; the null-object returns none() today; NO homemade checking [CareOS never manufactures a `SafetyAlert`]) atop PHARMACY.G1 (the pharmacy foundation) — **HOSPITAL PHASE 2 (pharmacy) in progress** atop the COMPLETE Phase 1 (inpatient/ADT, G1→G7); `composer check` FULLY green — Pint `passed`, PHPStan L5
+  `[OK] No errors`, **Pest 775 passed / 2 skipped / 6646 assertions**, 0 failed (the 2 skips = Redis-Horizon + one reminder infra case, green in CI on Redis 7); npm run build green. (G8 baseline: `0d93a36`, Pest 700/5623.) A route-reachability smoke (**FIX.5**, `composer test:smoke`)
   drives every major route through the real middleware stack to guard against request-time 500s (the C-1
   class). See the detailed quality block below.
 - **Demo tenants (all reconcile-to-the-unit + chain-verify):** `DemoClinicSeeder` (Praxis Lindenhof, CHF,
@@ -1333,11 +1333,25 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
   additive). A minimal formulary admin surface. NO orders/eMAR/dispensing (later gates). Added `FormularyTest`
   (4) + `MedicationSafetySeamTest` (3) + the Pharmacy arch rule; FIX.5 smoke extended (formulary route). Verified:
   npm build green; composer check FULLY green (**Pest 768 / 2-skip / 6548**, 0 failed); smoke green (3).
-- **Next action:** **PHARMACY.G2 — medication orders (prescribing).** A NET-NEW `MedicationOrder`
-  (dose/route/frequency/duration/PRN/start-stop — the generic `Order` has none) reusing the `Order`
-  status-machine + a new `medication.prescribe`; the exact-match `AllergyGuard` hard-stop fires at prescribe;
-  **the medication-safety SEAM is INVOKED at order time and returns no-op** (never homemade) — per the pharmacy
-  map §2.2/§5. Then G3 eMAR · G4 dispensing/inventory · G5 pharmacy billing. (Phases 3–7 — lab, radiology, OR,
-  ED — remain, each mapped first.) **The standing strategic posture is unchanged — the next real progress is
-  DELIVERY** (deploy the built verticals to paying customers); the parallel DISCOVERY track still stands (the
-  CH/KVG billing model must be confirmed with Spitex coordinators before the CH statutory pack is committed).
+- **PHARMACY.G2 — medication orders: a net-new prescribing entity that threads the safety seam (D-121).** A
+  **NET-NEW `MedicationOrder`** (NOT the generic `Order`, which has no dose/route/frequency/PRN) — the mutable
+  current state (dose/route/frequency/PRN, status machine active→held→discontinued/completed) + an
+  **append-only `medication_order_events`** history (the `stay_events` recipe), tied to a patient +
+  `prescribed_by` + the G1 formulary + a **SOFT nullable `stay_id`** (no FK — Pharmacy stays arch-independent
+  of Hospital). **Threads the G1 seam:** `prescribe` CALLS `MedicationSafetyProvider::checkOrder` at placement
+  (and `safetyReview` for a display surface) — advisory + human-owned, **NEVER blocking**; the null-object
+  returns none() today; **NO homemade checking** (proven: no `new SafetyAlert(` in `Modules\Pharmacy\src` +
+  a spy shows the order proceeds despite a returned alert). New `medication.prescribe` permission (physician
+  act — doctor/hospitalist, not nurse). Record-not-judge: no computed dose/suggestion/verdict, nothing
+  auto-populates, the alerts area is empty. `MedicationOrders.vue` (place + active + history + empty alerts).
+  No charge (billing is G5). Added `MedicationOrderTest` (7); FIX.5 smoke extended (med-order route). Verified:
+  npm build green; composer check FULLY green (**Pest 775 / 2-skip / 6646**, 0 failed); smoke green (3).
+- **Next action:** **PHARMACY.G3 — eMAR (administration record).** Scheduled doses via the
+  `VisitPlan→PlannedVisit` recurrence→occurrence engine (an idempotent materialize command) + PRN;
+  append-only administration events (**given / held / refused** + administered_by + time + reason — a FACT,
+  the `VisitVital`/`Handover` record-not-judge posture), tied to the G2 order + the stay; the seam's
+  `checkAdministration` is called (no-op today). Then G4 dispensing/inventory · G5 pharmacy billing. (Phases
+  3–7 — lab, radiology, OR, ED — remain, each mapped first.) **The standing strategic posture is unchanged —
+  the next real progress is DELIVERY** (deploy the built verticals to paying customers); the parallel
+  DISCOVERY track still stands (the CH/KVG billing model must be confirmed with Spitex coordinators before the
+  CH statutory pack is committed).

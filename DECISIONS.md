@@ -1643,3 +1643,44 @@ references the old ID.
   → G3 eMAR → G4 dispensing/inventory → G5 pharmacy billing remain, with the safety seam invoked-but-no-op
   throughout.** (PHARMACY.G1) See [[D-119]] (Phase-1 complete, the gate before), the pharmacy map, [[Clinical]]
   (the `LabConnectivity` seam + exact-match `AllergyGuard` precedents), and [[Pharmacy]].
+- **D-121 — PHARMACY.G2: medication orders (net-new prescribing entity, safety-seam call-site,
+  clinician-authored).** The prescribing entity of the pharmacy vertical, per the map §2.2/§5. **(1) A
+  NET-NEW `MedicationOrder`, NOT the generic `Order`:** the clinical `Order` is a code+status orderable with
+  ZERO dose/route/frequency/PRN — forcing meds onto it would break the lab/imaging worklists for every
+  consumer (the Stay-above-Encounter reasoning again). So a med order OWNS its tables while REUSING the
+  proven `Stay`/`StayEvent` shape: `medication_orders` (BelongsToTenant, LogsReads) is the MUTABLE current
+  state (patient, prescribed_by, formulary_item_id [the G1 formulary], `dose_amount`+`dose_unit`, `route`
+  [plain enum PO/IV/IM/SC/…], `frequency` [descriptor QID/BID/PRN], starts/stops, prn+prn_reason, note,
+  status ∈ {active, held, discontinued, completed} + status_reason) with a legal-only clinician-driven state
+  machine; `medication_order_events` is the **APPEND-ONLY** history (model guards + DB triggers — the
+  `stay_events` recipe: placed/held/resumed/discontinued/completed + reason + who + when). **`stay_id` is a
+  SOFT nullable reference** to a Phase-1 inpatient stay (NO FK/relation — Pharmacy stays arch-independent of
+  Hospital; null for outpatient). **(2) THE SAFETY SEAM THREADED (the crux):** `MedicationOrderService::prescribe`
+  (gate `medication.prescribe`; tenant+patient fail-closed) **CALLS `MedicationSafetyProvider::checkOrder`**
+  at placement, and `safetyReview` calls it for the display surface — today the G1 null-object returns
+  none(), so no alerts and the order is NEVER blocked. The result is ADVISORY + HUMAN-OWNED: a future
+  certified partner's findings are SURFACED (an alerts area wired to `SafetyResult`, empty today), NEVER
+  auto-blocking, NEVER auto-acting. **NO homemade interaction/dose/contraindication/duplicate checking** —
+  proven by a grep test (no `new SafetyAlert(` anywhere in `Modules\Pharmacy\src`: CareOS never manufactures
+  a finding) + a spy test (the seam IS called at placement and the order proceeds despite a returned alert).
+  The homemade judgment stays a permanent non-goal. **(3) RBAC:** a NEW `medication.prescribe` permission —
+  prescribing is a physician act (doctor / hospitalist / org_admin, NOT nurse), distinct from lab/imaging
+  `order.manage`; read = `patient.view`. **(4) FENCE (record-not-judge):** every field is the CLINICIAN'S
+  entry — the system computes no dose, suggests no med, ranks nothing; no computed-dose/suggested/recommended/
+  verdict/severity/score column (schema fence); nothing auto-populates; the payload carries no judgment key
+  and the alerts area is empty. `MedicationOrderController` (string-id FIX.1): `index` (`patient.view`,
+  read-logged) renders `Pharmacy/MedicationOrders.vue` (place form + active + history + the empty alerts
+  area), `store` + `transition` (`medication.prescribe`); events audited via an app-layer
+  `MedicationOrderEvent::created` hook (`medication_order.<type>`). **No charge (pharmacy billing is G5); no
+  eMAR/dispensing.** *(The exact-match `AllergyGuard` hard-stop is NOT wired this gate — the gate's safety
+  requirement was the MedicationSafetyProvider seam; AllergyGuard would need a formulary `substance_key`, a
+  later step.)* No existing behavior test modified (the FIX.5 smoke was EXTENDED — med-order GET 200 +
+  reception prescribe 403); all vertical + arch + eval + fence suites stay green. Added `MedicationOrderTest`
+  (7 — place [net-new, dose/route/frequency/PRN, patient + soft stay, audited]; the seam is called at
+  placement + advisory + NEVER blocks [spy]; NO homemade finding [grep]; append-only + legal-only
+  transitions; fence [no computed column, nothing auto-populates, empty alerts]; RBAC + read-logged; tenant/
+  patient fail-closed). VERIFIED: npm run build green; composer check FULLY green (Pint `passed` · PHPStan L5
+  `[OK] No errors` · **Pest 775 passed / 2 skipped / 6646 assertions**, 0 failed — +7 tests vs G1's
+  768); composer test:smoke green (3). **Next: G3 eMAR** (scheduled doses + given/held/refused administration
+  events, calling the seam's `checkAdministration`). (PHARMACY.G2) See [[D-120]] (G1 — the seam it threads),
+  the pharmacy map §2.2, and [[Pharmacy]].

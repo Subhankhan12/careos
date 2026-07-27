@@ -87,22 +87,67 @@ migration (`syncPermissionCatalog` + `provisionTenant` all tenants — the `add_
 pattern); new tenants get them via the Tenant `created` hook. The `RbacTest` permission-count assertion is
 relative to the const, so additions stay green.
 
+## Medication orders (PHARMACY.G2)
+
+The prescribing entity — a NET-NEW medication order that THREADS the G1 safety seam. The generic clinical
+`Order` has no dose/route/frequency/PRN (don't force it; map §2.2), so a med order OWNS its tables while
+reusing the proven patterns (the `Stay`/`StayEvent` mutable-state + append-only-history shape).
+
+- `medication_orders` (BelongsToTenant, **LogsReads**) — the MUTABLE current state: `patient_id`,
+  `prescribed_by` (User), `formulary_item_id` (the G1 formulary), `stay_id` (**SOFT nullable ref** to a
+  Phase-1 inpatient stay — **no FK/relation**, so Pharmacy stays arch-independent of Hospital; null for
+  outpatient), `dose_amount` + `dose_unit`, `route` (a plain enum — PO/IV/IM/SC/topical/inhaled/other),
+  `frequency` (a schedule descriptor — QID/BID/PRN, tenant-meaningful free text), `starts_at`/`stops_at`,
+  `prn` + `prn_reason`, `note`, `status` ∈ {active, held, discontinued, completed}, `status_reason`.
+  **State machine:** active→{held, discontinued, completed}, held→{active, discontinued, completed};
+  discontinued/completed terminal (legal-only, clinician-driven). **FENCE: no computed dose/suggestion/
+  ranking/safety-verdict column** (asserted by a schema fence) — every field is the clinician's entry.
+- `medication_order_events` (BelongsToTenant, **APPEND-ONLY** model guards + DB triggers
+  `medication_order_events_no_update`/`_no_delete` — the `stay_events` recipe) — one immutable row per
+  transition (placed / held / resumed / discontinued / completed) + reason + performed_by + occurred_at.
+- `Models\MedicationOrder` (status machine + ROUTES + `canTransition` + soft `stay_id`, no Stay relation) +
+  `MedicationOrderEvent` (append-only) + `MedicationOrderException`.
+- `Services\MedicationOrderService` — `prescribe` (gate **`medication.prescribe`**; tenant+patient
+  fail-closed; **CALLS `MedicationSafetyProvider::checkOrder` at placement** [the seam call-site]; creates
+  the order + a `placed` event in one transaction) + `transition` (legal-only; writes an event) +
+  `activeForPatient`/`historyForPatient` + `safetyReview` (the display-surface call-site — `checkOrder` over
+  the patient's active meds, none() today). **THREADS THE SEAM, adds NO checking:** the result is ADVISORY +
+  HUMAN-OWNED — it NEVER blocks the order and NEVER auto-acts; today the null-object returns none(). The
+  service computes no dose, suggests no med, ranks nothing.
+- `Http\Controllers\MedicationOrderController` (string-id FIX.1) — `index` (GET
+  `/pharmacy/patients/{patient}/medications`, `patient.view`, **read-logged**) renders
+  `Pharmacy/MedicationOrders.vue` (place form + active + history + an **EMPTY alerts area wired to
+  `SafetyResult`**); `store` (POST, `medication.prescribe`), `transition` (POST, `medication.prescribe`).
+  Lifecycle events audited via app-layer `MedicationOrderEvent::created` hook (`medication_order.<type>`).
+- **RBAC:** `medication.prescribe` (a NEW permission — prescribing is a physician act, held by doctor /
+  hospitalist / org_admin, NOT nurse — distinct from lab/imaging `order.manage`). Read = `patient.view`.
+- **THE CRUX — no homemade checking:** CareOS never manufactures a `SafetyAlert` (proven by a grep test:
+  no `new SafetyAlert(` anywhere in `Modules\Pharmacy\src`); the seam is the ONLY safety path and it goes to
+  the null-object. Drug-interaction/dose/contraindication/duplicate judgment stays a certified-partner /
+  permanent-non-goal surface.
+
 ## Status
 
-**PHARMACY.G1 complete (Phase 2 foundation).** The `Modules\Pharmacy` module + the tenant-authored formulary
-+ the medication-safety SEAM (null-object, built empty) + pharmacy RBAC (pharmacist/pharmacy_technician).
-NO orders/eMAR/dispensing/billing (later gates). Verified: npm build green; composer check FULLY green
-(Pint · PHPStan L5 `[OK]` · **Pest 768 passed / 2 skipped / 6548 assertions**, 0 failed); smoke
-green (formulary route added). See [[D-120]], `docs/HOSPITAL-PHASE2-PHARMACY-MAP.md`.
+**PHARMACY.G1–G2 complete.** G1 = the foundation (module + tenant-authored formulary + the medication-safety
+SEAM [null-object, built empty] + pharmacy RBAC). **G2 = medication orders — a NET-NEW prescribing entity
+(dose/route/frequency/PRN, a mutable status machine + an append-only event log, tied to a patient + an
+optional SOFT stay ref) that THREADS the G1 safety seam (calls `checkOrder` at placement, advisory +
+non-blocking, null-object today; NO homemade checking — CareOS never manufactures a `SafetyAlert`).** No
+eMAR/dispensing/billing yet (later gates); no charge this gate. Verified: npm build green; composer check
+FULLY green (Pint · PHPStan L5 `[OK]` · **Pest 775 passed / 2 skipped / 6646 assertions**, 0 failed);
+smoke green (med-order route added). See [[D-120]], [[D-121]], `docs/HOSPITAL-PHASE2-PHARMACY-MAP.md`.
 
 ## Open items / next gates (per docs/HOSPITAL-PHASE2-PHARMACY-MAP.md)
 
 - **G1** *(done — D-120)* — module + tenant-authored formulary + the medication-safety seam (null-object) +
   pharmacy RBAC. **Next: G2.**
-- **G2** medication orders: a NET-NEW `MedicationOrder` (dose/route/frequency/duration/PRN — the generic
-  `Order` has none) reusing the `Order` status-machine + `medication.prescribe`; the exact-match `AllergyGuard`
-  hard-stop fires; the safety SEAM is INVOKED (returns no-op) — never homemade. · **G3** eMAR (scheduled
-  doses via the `VisitPlan→PlannedVisit` engine + append-only given/held/refused administration events) ·
+- **G2** *(done — D-121)* — medication orders: a NET-NEW `MedicationOrder` (dose/route/frequency/PRN, mutable
+  status machine + append-only `medication_order_events`, soft `stay_id`) reusing the Stay/StayEvent shape +
+  `medication.prescribe`; THREADS the safety SEAM (`checkOrder` at placement, advisory + non-blocking,
+  null-object today) — never homemade. **Next: G3.** *(Note: the exact-match `AllergyGuard` hard-stop wiring
+  is deferred to when the med-order write path integrates it — G2 established the safety-seam call-site.)*
+- **G3** eMAR (scheduled doses via the `VisitPlan→PlannedVisit` engine + append-only given/held/refused
+  administration events, calling the seam's `checkAdministration`) ·
   **G4** dispensing + inventory (net-new stock model + dispensing events; `dispense.manage`) · **G5**
   pharmacy billing (a formulary item's `TariffItem` → `captureManual` → invoice → reconcile-to-the-unit, the
   bed-day precedent, no new math).

@@ -54,6 +54,7 @@ use Modules\Nursing\Events\VisitEventRecorded;
 use Modules\Patients\Models\Patient;
 use Modules\People\Models\Credential;
 use Modules\Pharmacy\Models\FormularyItem;
+use Modules\Pharmacy\Models\MedicationOrderEvent;
 use Modules\Platform\Models\Branch;
 use Modules\Platform\Models\BranchHours;
 use Modules\Platform\Models\FeatureFlag;
@@ -321,6 +322,15 @@ class AppServiceProvider extends ServiceProvider
             'resource_type' => 'formulary_item',
             'resource_id' => $m->id,
             'context' => ['code' => $m->code, 'name' => $m->name, 'active' => $m->active],
+        ]));
+
+        // Medication orders (PHARMACY.G2) — the append-only lifecycle event is audited here (patient-scoped)
+        // so Pharmacy stays free of Audit. One row per placed/held/resumed/discontinued/completed.
+        MedicationOrderEvent::created(fn (MedicationOrderEvent $m) => $this->auditChange('medication_order.'.$m->event_type, [
+            'patient_id' => $m->patient_id,
+            'resource_type' => 'medication_order_event',
+            'resource_id' => $m->id,
+            'context' => ['medication_order_id' => $m->medication_order_id, 'event_type' => $m->event_type, 'reason' => $m->reason],
         ]));
 
         // People credential vault changes. The observer lives here so People

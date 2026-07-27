@@ -56,6 +56,7 @@ class RbacProvisioner
         // Pharmacy / medication-management vertical (PHARMACY.G1). Additive — see docs/HOSPITAL-PHASE2-PHARMACY-MAP.md §4.
         'formulary.manage' => 'Author the tenant medication formulary',
         'dispense.manage' => 'Dispense medications and manage pharmacy stock',
+        'medication.prescribe' => 'Prescribe medication orders (dose/route/frequency)',
     ];
 
     /**
@@ -74,7 +75,7 @@ class RbacProvisioner
                 'snippet.manage.shared', 'order.manage', 'ai.manage', 'comms.manage', 'billing.view',
                 'billing.manage', 'reporting.view', 'audit.view', 'data.import', 'dental.chart',
                 'ward.manage', 'bed.manage', 'admission.manage', 'document.view',
-                'formulary.manage', 'dispense.manage',
+                'formulary.manage', 'dispense.manage', 'medication.prescribe',
             ],
         ],
         'coordinator' => [
@@ -93,7 +94,7 @@ class RbacProvisioner
                 // dedicated dentist/hygienist/assistant role split is a later dental gate.
                 'patient.view', 'patient.edit', 'appointment.manage', 'encounter.manage',
                 'note.write', 'note.sign', 'order.manage', 'snippet.manage.shared', 'allergy.override',
-                'dental.chart',
+                'dental.chart', 'medication.prescribe',
             ],
         ],
         'nurse' => [
@@ -141,7 +142,7 @@ class RbacProvisioner
                 // dental.chart) plus admit/transfer/discharge authority.
                 'patient.view', 'patient.edit', 'appointment.manage', 'encounter.manage',
                 'note.write', 'note.sign', 'order.manage', 'snippet.manage.shared',
-                'allergy.override', 'admission.manage',
+                'allergy.override', 'admission.manage', 'medication.prescribe',
             ],
         ],
         'bed_manager' => [

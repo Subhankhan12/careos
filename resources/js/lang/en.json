@@ -218,6 +218,36 @@
                 "topical": "Topical",
                 "other": "Other"
             }
+        },
+        "medications": {
+            "title": "Medication orders",
+            "eyebrow": "Pharmacy",
+            "subtitle": "Prescribed medications for this patient.",
+            "alerts": "Safety advisories",
+            "medication": "Medication",
+            "dose": "Dose",
+            "dosePlaceholder": "e.g. 500",
+            "unit": "Unit",
+            "unitPlaceholder": "e.g. mg",
+            "route": "Route",
+            "frequency": "Frequency",
+            "frequencyPlaceholder": "e.g. BID, QID, PRN",
+            "prn": "PRN",
+            "prnReason": "PRN reason",
+            "note": "Note",
+            "order": "Place order",
+            "activeHeading": "Active orders",
+            "noneActive": "No active medication orders.",
+            "historyHeading": "History",
+            "hold": "Hold",
+            "resume": "Resume",
+            "discontinue": "Discontinue",
+            "status": {
+                "active": "Active",
+                "held": "Held",
+                "discontinued": "Discontinued",
+                "completed": "Completed"
+            }
         }
     },
     "settings": {
