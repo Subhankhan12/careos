@@ -1603,3 +1603,43 @@ references the old ID.
   a coherent closed episode. Phases 2–7 (pharmacy/eMAR, lab, radiology, OR, ED) remain the phased roadmap.
   (HOSPITAL.G7) See [[D-117]] (G5 — the reuse-vs-net-new posture it mirrors), [[D-118]] (G6 — the invoice it
   composes), the ADT map §6, [[Clinical]] (sign-and-lock), and [[Hospital]].
+- **D-120 — PHARMACY.G1: pharmacy module + tenant-authored formulary + the medication-safety SEAM
+  (null-object) + RBAC (Phase-2 foundation).** The foundation of the pharmacy / medication-management
+  vertical (Phase 2 of the phased hospital build), per `docs/HOSPITAL-PHASE2-PHARMACY-MAP.md`. **(1) A new
+  peer `Modules\Pharmacy`** (psr-4 + `bootstrap/providers` + `PharmacyServiceProvider`) with its own arch
+  rule — it may use Platform + care modules (Patients/Clinical/Billing) + Audit SERVICES, but NOT Audit
+  models, AiCore, Comms, or the peer verticals Nursing/Dental/Hospital (the inpatient stay-link for G2 is
+  app-layer, not a direct Hospital dep); Pharmacy stays free of Audit (app-layer `FormularyItem` hooks).
+  **(2) The tenant-authored FORMULARY** — `formulary_items` (BelongsToTenant): `code` (the tenant's OWN
+  code, NOT a licensed identifier), `name`, `form` ∈ {tablet/capsule/liquid/injection/topical/other},
+  `strength` (free text), `active`; `unique(tenant, code)`. `FormularyService::seedStarter` lays a SMALL
+  GENERIC starter (5 common meds, the tenant's own `MED-*` codes) — the `DentalCatalogService`/
+  `BedBillingService` discipline. **NO licensed drug data bundled** (no First Databank / Medi-Span / RxNorm
+  / ATC / NDC) and **NO computed-safety column** (no interaction/dose/contraindication/severity/score) —
+  asserted by a schema fence. A licensed drug DB would later ENRICH a row at a partner seam (not attached).
+  **(3) THE MEDICATION-SAFETY SEAM, built EMPTY (the crux) —** drug-interaction / allergy-class /
+  dose-range / duplicate-therapy checking each COMPUTE a clinical-safety JUDGMENT (the fence refuses "dosing
+  logic … Ever"; medical-device territory, DEFERRED.md D-P0D.G3), so G1 builds the SEAM not the logic,
+  EXACTLY mirroring `LabConnectivity → ManualLabConnectivity`: a `MedicationSafetyProvider` interface
+  (`checkOrder`/`checkAdministration`) bound to a **`NullMedicationSafetyProvider`** returning
+  `SafetyResult::none()`. **A homemade checker is a PERMANENT non-goal** (it would contradict the
+  clinical-safety eval `ClinicalAgentsEvalTest`). `none()` = "CareOS asserts NOTHING about safety" (not
+  "safe") — a human, and when licensed a certified partner bound in place of the null-object, owns that
+  judgment; findings are ADVISORY + human-owned by design (surfaced, never auto-blocking). Proven by tests:
+  the bound provider IS the null-object + returns no alerts (even for warfarin+aspirin), AND a partner test
+  double is resolvable in its place (the seam is real + swappable). **(4) Pharmacy RBAC (additive)** —
+  `formulary.manage` + `dispense.manage` permissions + `pharmacist` + `pharmacy_technician` role templates
+  (RbacProvisioner consts + a `syncPermissionCatalog`/`provisionTenant`-all backfill migration, the
+  `add_billing_manage_permission` pattern; new tenants via the Tenant `created` hook; `RbacTest` count is
+  relative → green). A minimal formulary admin surface (`FormularyController` + `Pharmacy/Formulary.vue`,
+  gated `formulary.manage`). NO orders/eMAR/dispensing this gate. No existing behavior test modified (the
+  FIX.5 smoke was EXTENDED — formulary GET 200 + reception write 403); all vertical + arch + eval + fence
+  suites stay green. Added tests: `FormularyTest` (4 — tenant-authored [own codes, no licensed/computed
+  column, tenant-isolated], RBAC-gated + audited, admin surface gated, cross-tenant fail-closed) +
+  `MedicationSafetySeamTest` (3 — bound to the null-object + asserts no judgment, `none()` empty, real +
+  swappable partner double) + the `Pharmacy` arch rule. VERIFIED: npm run build green; composer check FULLY
+  green (Pint `passed` · PHPStan L5 `[OK] No errors` · **Pest 768 passed / 2 skipped / 6548
+  assertions**, 0 failed — +8 tests vs G7's 760); composer test:smoke green (3). **Phase 2 begun; G2 orders
+  → G3 eMAR → G4 dispensing/inventory → G5 pharmacy billing remain, with the safety seam invoked-but-no-op
+  throughout.** (PHARMACY.G1) See [[D-119]] (Phase-1 complete, the gate before), the pharmacy map, [[Clinical]]
+  (the `LabConnectivity` seam + exact-match `AllergyGuard` precedents), and [[Pharmacy]].

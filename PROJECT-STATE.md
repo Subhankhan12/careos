@@ -36,8 +36,8 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
   unlocks **eMAR + the CH statutory billing pack** when confirmed. The well of safe build-without-a-
   customer-need work is done — do not open a new gate unless a customer need pulls a specific feature
   forward. Discovery brief: `docs/DISCOVERY.md`; outreach: `docs/outreach-de.md`.
-- **Latest verified quality:** HOSPITAL.G7 (discharge summary + LOS + episode close-out — the FINAL Phase-1 gate: LOS is a DERIVED elapsed fact [no outlier/grade — fence]; the discharge summary is a NET-NEW stay-scoped SIGN-AND-LOCK record reusing the ClinicalNote sign-and-lock discipline + conditional immutability trigger [not a ClinicalNote/Document]; the closed episode composes G2/G4/G5/G6 read-only) — **with G7, HOSPITAL PHASE 1 (inpatient/ADT) is COMPLETE (G1 beds → G2 ADT → G3 board → G4 charting → G5 handover → G6 billing → G7 discharge)** — atop HOSPITAL.G6 (bed-to-billing) / G5 (handover) / G4 (charting) / G3 (ward board) / G2 (ADT stay) / G1; `composer check` FULLY green — Pint `passed`, PHPStan L5
-  `[OK] No errors`, **Pest 760 passed / 2 skipped / 6479 assertions**, 0 failed (the 2 skips = Redis-Horizon + one reminder infra case, green in CI on Redis 7); npm run build green. (G8 baseline: `0d93a36`, Pest 700/5623.) A route-reachability smoke (**FIX.5**, `composer test:smoke`)
+- **Latest verified quality:** PHARMACY.G1 (the Phase-2 pharmacy FOUNDATION: a new `Modules\Pharmacy` + the tenant-authored formulary [own codes, NO licensed drug data] + THE MEDICATION-SAFETY SEAM built EMPTY [a `MedicationSafetyProvider` null-object mirroring `ManualLabConnectivity` — drug-interaction/dose/contraindication checking is certified-partner/medical-device territory, a permanent homemade non-goal] + pharmacy RBAC [pharmacist/pharmacy_technician]) — **begins HOSPITAL PHASE 2 (pharmacy)** atop the COMPLETE Phase 1 (inpatient/ADT, G1→G7); `composer check` FULLY green — Pint `passed`, PHPStan L5
+  `[OK] No errors`, **Pest 768 passed / 2 skipped / 6548 assertions**, 0 failed (the 2 skips = Redis-Horizon + one reminder infra case, green in CI on Redis 7); npm run build green. (G8 baseline: `0d93a36`, Pest 700/5623.) A route-reachability smoke (**FIX.5**, `composer test:smoke`)
   drives every major route through the real middleware stack to guard against request-time 500s (the C-1
   class). See the detailed quality block below.
 - **Demo tenants (all reconcile-to-the-unit + chain-verify):** `DemoClinicSeeder` (Praxis Lindenhof, CHF,
@@ -1318,11 +1318,26 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
   chart bedside (reused Clinical, Encounter unmodified) → hand over shifts (SBAR) → bill the stay through the
   existing engine (reconciles-to-the-unit) → discharge with LOS + a signed discharge summary + a coherent closed
   episode. Record-not-judge throughout; tenancy fail-closed; append-only/sign-and-lock where it is the record.
-- **Next action:** **Phase 2+ of the hospital build is the phased roadmap** (each mapped before building):
-  Phase 2 pharmacy / eMAR · Phase 3 lab · Phase 4 radiology · Phase 5 OR/theatre · Phase 6 ED (an optional
-  scheduled-admissions G8 was noted in the map). Long poles stay partner-gated / non-goal: HL7/FHIR ADT feed,
-  bedside device capture, a certified early-warning/deterioration engine (NEWS2), a DRG/case-mix grouper. **The
-  standing strategic posture is unchanged — the next real progress is DELIVERY** (deploy the built verticals to
-  the paying customers); the parallel DISCOVERY track still stands (the CH/KVG-vs-EU-generic billing model must
-  be confirmed with Spitex coordinators before the CH statutory pack — the likely first NEW billing build — is
-  committed; remaining billing backend-only surfaces wait on that).
+- **HOSPITAL PHASE 2 (pharmacy) — mapped, then begun. PHARMACY.G1 = the foundation (D-120).** The map is
+  `docs/HOSPITAL-PHASE2-PHARMACY-MAP.md` (reuse-vs-net-new-vs-licensed-partner inventory; the medical-device
+  boundary drawn precisely; ~5 gates). **G1 ships:** a new peer **`Modules\Pharmacy`** (own arch rule; uses
+  Platform/Patients/Clinical/Billing + Audit services; app-layer composition — free of Audit) + the
+  **tenant-authored FORMULARY** (`formulary_items`: own `MED-*` codes, form, strength; `seedStarter` a generic
+  editable template — **NO licensed drug data** [FDB/Medi-Span/RxNorm/ATC/NDC], no computed-safety column) +
+  **THE MEDICATION-SAFETY SEAM built EMPTY** — a `MedicationSafetyProvider` interface bound to a
+  `NullMedicationSafetyProvider` returning `SafetyResult::none()`, mirroring `LabConnectivity → ManualLabConnectivity`;
+  drug-interaction/dose/contraindication/duplicate-therapy checking COMPUTES a clinical-safety judgment
+  (fence + medical-device territory) and is a **permanent homemade non-goal** — the seam is real + swappable
+  for a certified partner (proven by a partner test double) but ships empty (asserts nothing; the human owns
+  the judgment) + **pharmacy RBAC** (`formulary.manage`/`dispense.manage` + `pharmacist`/`pharmacy_technician`,
+  additive). A minimal formulary admin surface. NO orders/eMAR/dispensing (later gates). Added `FormularyTest`
+  (4) + `MedicationSafetySeamTest` (3) + the Pharmacy arch rule; FIX.5 smoke extended (formulary route). Verified:
+  npm build green; composer check FULLY green (**Pest 768 / 2-skip / 6548**, 0 failed); smoke green (3).
+- **Next action:** **PHARMACY.G2 — medication orders (prescribing).** A NET-NEW `MedicationOrder`
+  (dose/route/frequency/duration/PRN/start-stop — the generic `Order` has none) reusing the `Order`
+  status-machine + a new `medication.prescribe`; the exact-match `AllergyGuard` hard-stop fires at prescribe;
+  **the medication-safety SEAM is INVOKED at order time and returns no-op** (never homemade) — per the pharmacy
+  map §2.2/§5. Then G3 eMAR · G4 dispensing/inventory · G5 pharmacy billing. (Phases 3–7 — lab, radiology, OR,
+  ED — remain, each mapped first.) **The standing strategic posture is unchanged — the next real progress is
+  DELIVERY** (deploy the built verticals to paying customers); the parallel DISCOVERY track still stands (the
+  CH/KVG billing model must be confirmed with Spitex coordinators before the CH statutory pack is committed).

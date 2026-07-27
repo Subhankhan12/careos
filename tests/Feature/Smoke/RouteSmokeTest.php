@@ -163,6 +163,7 @@ test('every major staff route is reachable through the real middleware stack (20
         'hospital.stay-chart' => '/hospital/admissions/'.$fx['stay']->id.'/chart',
         'hospital.handover' => '/hospital/admissions/'.$fx['stay']->id.'/handover',
         'hospital.discharge-summary' => '/hospital/admissions/'.$fx['stay']->id.'/discharge-summary',
+        'pharmacy.formulary' => '/pharmacy/formulary',
     ];
 
     $failures = [];
@@ -334,6 +335,16 @@ test('per-role RBAC smoke: each role reaches its pages (200) and is denied other
         ->status();
     if ($summaryStatus !== 403) {
         $failures[] = "hospital.discharge-summary.save as reception -> {$summaryStatus} (expected 403)";
+    }
+
+    // PHARMACY.G1: the formulary WRITE is formulary.manage-gated. Reception (no formulary.manage) is denied
+    // at the gate through the real stack, before any formulary row is touched.
+    smokeCtx()->forget();
+    $formularyStatus = $this->actingAs($u['reception'])
+        ->post('/pharmacy/formulary', ['code' => 'MED-X', 'name' => 'X'])
+        ->status();
+    if ($formularyStatus !== 403) {
+        $failures[] = "pharmacy.formulary.store as reception -> {$formularyStatus} (expected 403)";
     }
 
     expect(implode("\n", $failures))->toBe('');

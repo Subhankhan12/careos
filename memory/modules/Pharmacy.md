@@ -1,0 +1,110 @@
+# Module: Pharmacy (`Modules\Pharmacy`)
+
+## Purpose
+
+The pharmacy / medication-management vertical — **Phase 2** of the phased hospital build (Phase 1 =
+inpatient/ADT, complete). Planned ~5 core gates (`docs/HOSPITAL-PHASE2-PHARMACY-MAP.md`): formulary +
+RBAC + the safety seam (G1) → medication orders (G2) → eMAR (G3) → dispensing + inventory (G4) → pharmacy
+billing (G5). **PHARMACY.G1 ships the FOUNDATION only:** the tenant-authored formulary + the
+medication-safety **SEAM (built empty)** + pharmacy RBAC. No orders/eMAR/dispensing/billing yet. Pharmacy
+inherits the whole tested platform (tenancy, patients, billing, audit, RBAC, the electric fence).
+
+## The medication-safety seam decision (G1 — THE crux)
+
+Drug–drug interaction · allergy-class contraindication · dose-range/max-dose · duplicate-therapy checking
+each **compute a clinical-safety JUDGMENT** — what the electric fence refuses (*"no dosing logic … Ever"*,
+`AGENTS.md`) and **medical-device territory** requiring a certified partner over a licensed drug database
+(`DEFERRED.md` D-P0D.G3; map §3). So G1 builds the **SEAM, not the logic**, EXACTLY mirroring Clinical's
+`LabConnectivity → ManualLabConnectivity` no-op: a `MedicationSafetyProvider` interface bound to a
+**`NullMedicationSafetyProvider`** that returns `SafetyResult::none()` for every call. **A homemade checker
+is a permanent non-goal** — it would contradict the clinical-safety eval (`ClinicalAgentsEvalTest` refuses
+"should we change meds?"). `none()` means "CareOS asserts nothing about safety", NOT "these meds are safe" —
+a human (and, when licensed, a certified partner bound in place of the null-object) owns that judgment.
+When a partner is wired, its findings are ADVISORY + human-owned (surfaced, never auto-blocking).
+
+## Key tables
+
+- `formulary_items` (BelongsToTenant) — the tenant's OWN medication list (the `TariffItem`/`OrderableItem`/
+  `DentalProcedure` catalog discipline). Columns: id (ULID), tenant_id, `code` (the tenant's OWN code — NOT
+  a licensed identifier), `name`, `form` (nullable — a plain dosage form ∈ {tablet, capsule, liquid,
+  injection, topical, other}), `strength` (nullable free text), `active`. `unique(tenant_id, code)`, index
+  (tenant_id, active). **NO licensed drug data bundled** (no First Databank / Medi-Span / RxNorm / ATC /
+  NDC); **NO computed-safety column** (no interaction/dose/contraindication/severity/score/risk). A licensed
+  drug DB would later ENRICH a row at a partner seam — deliberately NOT attached now.
+
+## Key classes
+
+- `Models\FormularyItem` — BelongsToTenant + HasUlids; `FORMS` vocabulary; a `saving` guard (non-empty
+  code+name, valid form) throwing `FormularyException`. No LogsReads (a tenant config catalog, like
+  `TariffItem`, not a patient record).
+- `Services\FormularyService` — `seedStarter` (gate `formulary.manage`, idempotent by code, a SMALL GENERIC
+  starter of 5 common meds with the tenant's own `MED-*` codes — NOT a licensed set) + `create`/`update`/
+  `deactivate` (gate `formulary.manage`, tenant fail-closed via `assertSameTenant`) + `forTenant` read.
+- `Contracts\MedicationSafetyProvider` — the safety SEAM: `checkOrder(SafetyContext): SafetyResult` +
+  `checkAdministration(...)` (the future G2/G3 call sites). Bound to the null-object in
+  `PharmacyServiceProvider::register` (swappable for a certified partner WITHOUT touching consumers).
+- `Services\NullMedicationSafetyProvider` — the ONLY shipped impl; returns `SafetyResult::none()`.
+- `Support\SafetyResult` (`::none()`, `hasAlerts()`, `alerts`), `Support\SafetyAlert` (code/message/source —
+  the shape a PARTNER returns; never constructed by CareOS), `Support\SafetyContext` (patientId +
+  `MedicationReference[]`), `Support\MedicationReference` (code/name/dose/route) — plain value objects, so
+  the seam is stable across later gates.
+- `Http\Controllers\FormularyController` (string-id FIX.1) — `index`/`store`/`deactivate`, gated
+  `formulary.manage`, renders `Pharmacy/Formulary.vue` (a minimal formulary admin surface). Formulary writes
+  audited via app-layer `FormularyItem::created`/`updated` hooks (`formulary.item.created`/`.updated`).
+- `Providers\PharmacyServiceProvider` — loadMigrations + `register()` binds the safety seam to the
+  null-object.
+
+## Invariants
+
+- **Tenant-authored, NO licensed drug data.** The formulary is the tenant's own list (own codes); the
+  starter is a generic editable template. Asserted by a test (own MED-* codes, tenant-isolated, and a schema
+  fence: no rxnorm/atc/ndc/gtin/interaction/severity/score column).
+- **The safety seam is EMPTY + swappable.** The bound provider is the null-object and returns no alerts (it
+  asserts no safety judgment); a test double implementing the interface is resolvable (proving the seam is
+  real for a future certified partner). NO homemade checking logic exists.
+- **Tenant + fail-closed:** `BelongsToTenant` confines every query; a cross-tenant formulary edit throws
+  `CrossTenantReferenceException`. **RBAC:** authoring is `formulary.manage` (server Gate authoritative);
+  audited.
+- **ELECTRIC FENCE:** a formulary item is a plain record; medication-safety judgment lives ONLY behind the
+  certified-partner seam, never on the row or in CareOS code.
+
+## Arch boundary
+
+`arch('Pharmacy may use care modules + Audit services but not Audit models, AiCore, peer verticals, or
+Comms')` — mirrors Dental/Hospital. Pharmacy may use Platform + care modules (Patients/Clinical/Billing) +
+Audit SERVICES; it must NOT use Audit models, AiCore, Comms, or the **peer verticals** Nursing/Dental/
+Hospital (the inpatient stay-link for G2 is composed at the **app layer**, not by a direct Hospital
+dependency). Cross-module audit composition (the `FormularyItem` hooks) lives in `app/AppServiceProvider`,
+so Pharmacy stays free of Audit. In G1 Pharmacy depends only on the Platform foundation.
+
+## RBAC (additive — the `dental.chart`/inpatient precedent)
+
+New permissions in the catalog: `formulary.manage` (author the formulary), `dispense.manage` (dispensing +
+stock — the G4 foundation, no consumer yet). New starter roles: `pharmacist` (patient.view +
+formulary.manage + dispense.manage) + `pharmacy_technician` (patient.view + dispense.manage, dispenses under
+a pharmacist). `org_admin` gains both new permissions. Added via the RbacProvisioner consts + a backfill
+migration (`syncPermissionCatalog` + `provisionTenant` all tenants — the `add_billing_manage_permission`
+pattern); new tenants get them via the Tenant `created` hook. The `RbacTest` permission-count assertion is
+relative to the const, so additions stay green.
+
+## Status
+
+**PHARMACY.G1 complete (Phase 2 foundation).** The `Modules\Pharmacy` module + the tenant-authored formulary
++ the medication-safety SEAM (null-object, built empty) + pharmacy RBAC (pharmacist/pharmacy_technician).
+NO orders/eMAR/dispensing/billing (later gates). Verified: npm build green; composer check FULLY green
+(Pint · PHPStan L5 `[OK]` · **Pest 768 passed / 2 skipped / 6548 assertions**, 0 failed); smoke
+green (formulary route added). See [[D-120]], `docs/HOSPITAL-PHASE2-PHARMACY-MAP.md`.
+
+## Open items / next gates (per docs/HOSPITAL-PHASE2-PHARMACY-MAP.md)
+
+- **G1** *(done — D-120)* — module + tenant-authored formulary + the medication-safety seam (null-object) +
+  pharmacy RBAC. **Next: G2.**
+- **G2** medication orders: a NET-NEW `MedicationOrder` (dose/route/frequency/duration/PRN — the generic
+  `Order` has none) reusing the `Order` status-machine + `medication.prescribe`; the exact-match `AllergyGuard`
+  hard-stop fires; the safety SEAM is INVOKED (returns no-op) — never homemade. · **G3** eMAR (scheduled
+  doses via the `VisitPlan→PlannedVisit` engine + append-only given/held/refused administration events) ·
+  **G4** dispensing + inventory (net-new stock model + dispensing events; `dispense.manage`) · **G5**
+  pharmacy billing (a formulary item's `TariffItem` → `captureManual` → invoice → reconcile-to-the-unit, the
+  bed-day precedent, no new math).
+- **The safety seam stays EMPTY** through every gate — invoked at G2 (order) + G3 (administration), no-op at
+  each; the certified-partner engine + a licensed drug DB are the permanent partner surfaces (never homemade).

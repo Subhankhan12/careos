@@ -53,6 +53,9 @@ class RbacProvisioner
         'bed.manage' => 'Manage inpatient beds and their housekeeping status',
         'admission.manage' => 'Admit, transfer, and discharge inpatients (ADT)',
         'document.view' => 'View and download patient clinical documents (HIM/records)',
+        // Pharmacy / medication-management vertical (PHARMACY.G1). Additive — see docs/HOSPITAL-PHASE2-PHARMACY-MAP.md §4.
+        'formulary.manage' => 'Author the tenant medication formulary',
+        'dispense.manage' => 'Dispense medications and manage pharmacy stock',
     ];
 
     /**
@@ -71,6 +74,7 @@ class RbacProvisioner
                 'snippet.manage.shared', 'order.manage', 'ai.manage', 'comms.manage', 'billing.view',
                 'billing.manage', 'reporting.view', 'audit.view', 'data.import', 'dental.chart',
                 'ward.manage', 'bed.manage', 'admission.manage', 'document.view',
+                'formulary.manage', 'dispense.manage',
             ],
         ],
         'coordinator' => [
@@ -161,6 +165,22 @@ class RbacProvisioner
             'permissions' => [
                 // Chart-completion oversight + clinical-document access + audit visibility.
                 'patient.view', 'note.supervise', 'document.view', 'audit.view',
+            ],
+        ],
+        // Pharmacy / medication-management vertical starter roles (PHARMACY.G1). Additive; the map §4.
+        'pharmacist' => [
+            'name' => 'Pharmacist',
+            'permissions' => [
+                // Authors the tenant formulary + dispenses. (Prescribing / billing / allergy-override are
+                // wired as later pharmacy gates build them.)
+                'patient.view', 'formulary.manage', 'dispense.manage',
+            ],
+        ],
+        'pharmacy_technician' => [
+            'name' => 'Pharmacy Technician',
+            'permissions' => [
+                // Dispenses + manages stock UNDER a pharmacist; no formulary authoring.
+                'patient.view', 'dispense.manage',
             ],
         ],
     ];

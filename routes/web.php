@@ -66,6 +66,7 @@ use Modules\Patients\Http\Controllers\PatientShowController;
 use Modules\Patients\Http\Controllers\PortalAuthController;
 use Modules\Patients\Http\Controllers\PortalConsentController;
 use Modules\Patients\Http\Controllers\PortalInvitationController;
+use Modules\Pharmacy\Http\Controllers\FormularyController;
 use Modules\Platform\Http\Controllers\SettingsController;
 use Modules\Platform\Http\Controllers\UserRoleController;
 use Modules\Reporting\Http\Controllers\ReportingDashboardController;
@@ -326,6 +327,13 @@ Route::middleware('auth')->group(function () {
     Route::get('/hospital/admissions/{stay}/discharge-summary', [DischargeSummaryController::class, 'show'])->name('hospital.admissions.discharge-summary');
     Route::post('/hospital/admissions/{stay}/discharge-summary', [DischargeSummaryController::class, 'save'])->name('hospital.admissions.discharge-summary.save');
     Route::post('/hospital/admissions/{stay}/discharge-summary/finalize', [DischargeSummaryController::class, 'finalize'])->name('hospital.admissions.discharge-summary.finalize');
+
+    // Pharmacy / medication management (PHARMACY.G1) — the tenant-authored formulary admin surface, gated
+    // `formulary.manage` (the pharmacist authors the tenant's OWN med list; NO licensed drug data). Orders/
+    // eMAR/dispensing are later pharmacy gates. String-id {item} (FIX.1).
+    Route::get('/pharmacy/formulary', [FormularyController::class, 'index'])->name('pharmacy.formulary');
+    Route::post('/pharmacy/formulary', [FormularyController::class, 'store'])->name('pharmacy.formulary.store');
+    Route::post('/pharmacy/formulary/{item}/deactivate', [FormularyController::class, 'deactivate'])->name('pharmacy.formulary.deactivate');
 
     // Onboarding/migration: generic CSV patient import (RBAC 'data.import' enforced
     // in each controller action). Mandatory dry-run before commit.

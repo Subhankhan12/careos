@@ -195,6 +195,31 @@
             }
         }
     },
+    "pharmacy": {
+        "formulary": {
+            "title": "Formulary",
+            "eyebrow": "Pharmacy",
+            "subtitle": "Your tenant's own medication list.",
+            "heading": "Medications",
+            "empty": "No medications yet. Add one above, or seed a starter set.",
+            "code": "Code",
+            "name": "Name",
+            "form": "Form",
+            "strength": "Strength",
+            "add": "Add medication",
+            "deactivate": "Deactivate",
+            "active": "Active",
+            "inactive": "Inactive",
+            "forms": {
+                "tablet": "Tablet",
+                "capsule": "Capsule",
+                "liquid": "Liquid",
+                "injection": "Injection",
+                "topical": "Topical",
+                "other": "Other"
+            }
+        }
+    },
     "settings": {
         "eyebrow": "Administration",
         "title": "Practice settings",

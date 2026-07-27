@@ -173,3 +173,19 @@ arch('Hospital may use care modules + Audit services but not Audit models, AiCor
         'Modules\Nursing',
         'Modules\Comms',
     ]);
+
+// Pharmacy is the medication-management vertical (PHARMACY.G1 — Phase 2). It may use Platform + care
+// modules (Patients/Clinical/Billing) + Audit SERVICES, but never Audit models directly, AiCore, the peer
+// verticals (Nursing/Dental/Hospital — the inpatient stay-link is composed at the app layer, not by a
+// direct dependency), or Comms. Cross-module audit composition lives in app/, so Pharmacy stays free of
+// Audit — the Dental/Hospital posture.
+arch('Pharmacy may use care modules + Audit services but not Audit models, AiCore, peer verticals, or Comms')
+    ->expect('Modules\Pharmacy')
+    ->not->toUse([
+        'Modules\Audit\Models',
+        'Modules\AiCore',
+        'Modules\Nursing',
+        'Modules\Dental',
+        'Modules\Hospital',
+        'Modules\Comms',
+    ]);

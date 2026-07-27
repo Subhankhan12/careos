@@ -48,7 +48,8 @@
             "Modules\\FrontDesk\\": "Modules/FrontDesk/src/",
             "Modules\\Reporting\\": "Modules/Reporting/src/",
             "Modules\\Dental\\": "Modules/Dental/src/",
-            "Modules\\Hospital\\": "Modules/Hospital/src/"
+            "Modules\\Hospital\\": "Modules/Hospital/src/",
+            "Modules\\Pharmacy\\": "Modules/Pharmacy/src/"
         }
     },
     "autoload-dev": {

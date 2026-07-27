@@ -53,6 +53,7 @@ use Modules\Nursing\Events\ServiceAgreementChanged;
 use Modules\Nursing\Events\VisitEventRecorded;
 use Modules\Patients\Models\Patient;
 use Modules\People\Models\Credential;
+use Modules\Pharmacy\Models\FormularyItem;
 use Modules\Platform\Models\Branch;
 use Modules\Platform\Models\BranchHours;
 use Modules\Platform\Models\FeatureFlag;
@@ -308,6 +309,19 @@ class AppServiceProvider extends ServiceProvider
                 'context' => ['stay_id' => $m->stay_id, 'status' => $m->status],
             ],
         ));
+
+        // Pharmacy formulary (PHARMACY.G1) — the tenant-authored catalog write is audited here so Pharmacy
+        // stays free of Audit. A tenant-config change (not patient-scoped), like a tariff/procedure edit.
+        FormularyItem::created(fn (FormularyItem $m) => $this->auditChange('formulary.item.created', [
+            'resource_type' => 'formulary_item',
+            'resource_id' => $m->id,
+            'context' => ['code' => $m->code, 'name' => $m->name, 'active' => $m->active],
+        ]));
+        FormularyItem::updated(fn (FormularyItem $m) => $this->auditChange('formulary.item.updated', [
+            'resource_type' => 'formulary_item',
+            'resource_id' => $m->id,
+            'context' => ['code' => $m->code, 'name' => $m->name, 'active' => $m->active],
+        ]));
 
         // People credential vault changes. The observer lives here so People
         // stays independent from Audit while still using the Platform audit context.

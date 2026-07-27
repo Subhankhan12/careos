@@ -15,6 +15,7 @@ use Modules\Import\Providers\ImportServiceProvider;
 use Modules\Nursing\Providers\NursingServiceProvider;
 use Modules\Patients\Providers\PatientsServiceProvider;
 use Modules\People\Providers\PeopleServiceProvider;
+use Modules\Pharmacy\Providers\PharmacyServiceProvider;
 use Modules\Platform\Providers\PlatformServiceProvider;
 use Modules\Reporting\Providers\ReportingServiceProvider;
 use Modules\Scheduling\Providers\SchedulingServiceProvider;
@@ -35,6 +36,7 @@ return [
     NursingServiceProvider::class,
     PatientsServiceProvider::class,
     PeopleServiceProvider::class,
+    PharmacyServiceProvider::class,
     PlatformServiceProvider::class,
     ReportingServiceProvider::class,
     SchedulingServiceProvider::class,
