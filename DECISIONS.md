@@ -1760,3 +1760,53 @@ references the old ID.
   test:smoke green (3). **Next: G5 pharmacy billing** (a formulary item's TariffItem → captureManual →
   invoice → reconcile-to-the-unit, the bed-day precedent, no new math). (PHARMACY.G4) See [[D-122]] (G3 — the
   administration it complements), [[D-114]]/bed-claim (the lock idiom), the pharmacy map §1, and [[Pharmacy]].
+
+- **D-124 — PHARMACY.G5: pharmacy billing — a dispensed med accrues a charge through the EXISTING engine
+  (reconciles-to-the-unit); Phase 2 core COMPLETE.** The final buildable pharmacy gate, per the map §2.1/§5.
+  **KEY POSTURE — NET-NEW is STRICTLY ORCHESTRATION, zero new billing/pricing/VAT/line-total math** (the
+  bed-day HOSPITAL.G6 [[D-118]] pattern, mirrored). **(1) MEDICATION PRICING — a formulary item maps to a
+  tenant-authored `TariffItem`:** a soft nullable `tariff_item_id` on `formulary_items` (no FK — Pharmacy
+  stays decoupled, the `stay_id` shape); `PharmacyBillingService::priceItem` (gate `billing.manage`, tenant
+  fail-closed) `updateOrCreate`s a `TariffItem` in a get-or-created `pharmacy` `TariffCatalog` (the tenant's
+  OWN `MED-*` code, integer minor units, **zero VAT**, `requires_service_documentation=false`) and links it —
+  pricing lives in the EXISTING billing/tariff store, **NOT duplicated in pharmacy**, and **NO licensed drug
+  pricing bundled** (the tenant authors placeholder rates it edits, the `BedBillingService::seedStarter`
+  discipline). **(2) CHARGE ON DISPENSE via the EXISTING engine:** `chargeForDispense(actor, Dispense)` →
+  `ChargeCaptureService::captureManual($patient, $branch, $dispensed_at, $item->code, $quantity, $actor)` —
+  **the engine resolves the tariff by code, SNAPSHOTS the fee, and computes `line_total` (qty × price)**;
+  Pharmacy does NO money math. IDEMPOTENT via a new `dispense_charges` link `unique(tenant, dispense_id)` (a
+  dispense is charged once; re-charging returns the same Charge). An UNPRICED med returns null (no charge, no
+  gate) so the G4 dispensing tests stay green. Wired BEST-EFFORT + DECOUPLED in `DispensingController` AFTER
+  the dispense commits (`try { … } catch (Throwable)`), so a billing hiccup NEVER blocks the
+  concurrency-critical dispense (reconcilable later). **(3) INVOICE + RECONCILE-TO-THE-UNIT (THE key proof):**
+  `invoicePatient(actor, patient, from, to)` runs the EXISTING `validateForPatientPeriod` →
+  `createDraftFromCharges(SELF_PAY)` → `issue` flow (gapless number + PDF) over the patient's validated,
+  uninvoiced charges in the window; a patient invoice INCLUDING a dispensed-med charge assembles into one
+  gapless invoice and `ReconciliationEngine::check(period)` passes with **I4 `delta_minor === 0`** (for
+  INPATIENT, pharmacy charges join the stay's discharge invoice via the existing G6 `invoiceStay` — same
+  gather-by-patient+period, no new invoice logic). **(4) RBAC:** the `pharmacist` role gains the EXISTING
+  `billing.manage` (the pharmacist bills dispensed meds through the engine) — RbacProvisioner const + a
+  `provisionTenant`-all backfill migration; **NO new permission** (billing.manage already exists), so the
+  `RbacTest` permission-count stays green. A `PricingController` (GET `/pharmacy/pricing` +
+  POST `/pharmacy/pricing/{item}`, `billing.manage`, string-id FIX.1) → `Pharmacy/Pricing.vue` (set a med's
+  price like any tariff item) + i18n. **(5) ELECTRIC FENCE / no-money-math (adversarial grep, tested):** a med
+  price is a RATE (financial), never a safety/appropriateness/substitution verdict — no cost-based
+  substitution suggestion (substitution/safety is the certified-partner seam, not billing); `Modules\Pharmacy`
+  contains none of `line_total_minor`/`vat_total_minor`/`subtotal_minor`/`vatMinor`/`intdiv(` (the only money
+  it names is the authored per-unit RATE; all charge/VAT/line-total math lives in Billing); no
+  cost/clinical-judgment column on `formulary_items`. No existing behavior test modified (the FIX.5 smoke was
+  EXTENDED — pricing GET 200 + reception price-set 403). Added `PharmacyBillingTest` (6 — med priced as a
+  tenant-authored TariffItem [own code, integer minor units, zero VAT, no licensed pricing]; dispense captures
+  a Charge via the engine + snapshot + idempotent [twice ≠ double-charge]; **patient invoice WITH a med charge
+  reconciles δ=0** [2 × 800 = 1600, I4 green]; no-money-math grep + no-judgment-column fence; fee snapshot
+  [re-pricing never changes a past charge]; RBAC billing.manage + cross-tenant fail-closed). VERIFIED: npm run
+  build green; composer check FULLY green (Pint `passed` · PHPStan L5 `[OK] No errors` · **Pest 795
+  passed / 2 skipped / 7056 assertions**, 0 failed — +6 tests vs G4's 789); composer test:smoke green
+  (3). **PHARMACY CORE COMPLETE: G1 formulary + safety-seam → G2 orders → G3 eMAR → G4 dispensing/inventory →
+  G5 billing.** The ONE deliberate gap is the medication-safety JUDGMENT (drug-interaction / allergy-class /
+  dose-range / duplicate-therapy) — an EMPTY `NullMedicationSafetyProvider` seam invoked-but-no-op throughout
+  (G2 placement, G3 administration), the certified-partner binding point; a homemade checker is a PERMANENT
+  non-goal (medical-device territory, contradicts the clinical-safety eval). Phases 3–7 (lab / radiology / OR
+  / ED) remain. (PHARMACY.G5) See [[D-123]] (G4 — the dispense it charges), [[D-118]]/bed-day (the
+  reconciles-to-the-unit orchestration precedent it mirrors), [[D-120]] (G1 — the safety seam it leaves
+  empty), the pharmacy map §2.1/§5, and [[Pharmacy]].

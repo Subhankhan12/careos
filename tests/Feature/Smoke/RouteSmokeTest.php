@@ -168,6 +168,7 @@ test('every major staff route is reachable through the real middleware stack (20
         'pharmacy.patient-emar' => '/pharmacy/patients/'.$fx['patient']->id.'/emar',
         'pharmacy.inventory' => '/pharmacy/inventory',
         'pharmacy.patient-dispensing' => '/pharmacy/patients/'.$fx['patient']->id.'/dispensing',
+        'pharmacy.pricing' => '/pharmacy/pricing',
     ];
 
     $failures = [];
@@ -379,6 +380,16 @@ test('per-role RBAC smoke: each role reaches its pages (200) and is denied other
         ->status();
     if ($dispenseStatus !== 403) {
         $failures[] = "pharmacy.medication-orders.dispense as reception -> {$dispenseStatus} (expected 403)";
+    }
+
+    // PHARMACY.G5: setting a med price is billing.manage-gated (a med is a tenant-authored tariff item).
+    // Reception (no billing.manage) is denied on the price-set route at the gate through the real stack.
+    smokeCtx()->forget();
+    $priceStatus = $this->actingAs($u['reception'])
+        ->post('/pharmacy/pricing/x', ['price_minor' => 800])
+        ->status();
+    if ($priceStatus !== 403) {
+        $failures[] = "pharmacy.pricing.set as reception -> {$priceStatus} (expected 403)";
     }
 
     expect(implode("\n", $failures))->toBe('');

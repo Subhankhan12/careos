@@ -302,6 +302,17 @@
             "dispense": "Dispense",
             "historyHeading": "Dispensing history",
             "noHistory": "No dispenses recorded yet."
+        },
+        "pricing": {
+            "title": "Medication pricing",
+            "eyebrow": "Pharmacy · Pricing",
+            "subtitle": "Set your own price for each medication.",
+            "heading": "Formulary prices",
+            "empty": "No medications to price yet.",
+            "current": "Current: {price}",
+            "price": "Price",
+            "unit": "Unit",
+            "set": "Set price"
         }
     },
     "settings": {

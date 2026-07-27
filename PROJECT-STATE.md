@@ -36,8 +36,8 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
   unlocks **eMAR + the CH statutory billing pack** when confirmed. The well of safe build-without-a-
   customer-need work is done — do not open a new gate unless a customer need pulls a specific feature
   forward. Discovery brief: `docs/DISCOVERY.md`; outreach: `docs/outreach-de.md`.
-- **Latest verified quality:** PHARMACY.G4 (dispensing + inventory — a NET-NEW operational domain [append-only `stock_movements` + `dispenses`; on-hand consistent with the ledger] where a pharmacist dispenses against a G2 order and stock decrements SAFELY + CONCURRENCY-SAFELY [a FOR UPDATE row lock — no oversell, no negative on-hand; proven by an 8-process parallel hammer, the BedClaim sibling]; reuses `dispense.manage`; no safety judgment in dispensing, below-stock is a factual comparison) atop PHARMACY.G3 (eMAR) / G2 (orders) / G1 (foundation) — **HOSPITAL PHASE 2 (pharmacy) in progress** atop the COMPLETE Phase 1 (inpatient/ADT, G1→G7); `composer check` FULLY green — Pint `passed`, PHPStan L5
-  `[OK] No errors`, **Pest 789 passed / 2 skipped / 6846 assertions**, 0 failed (the 2 skips = Redis-Horizon + one reminder infra case, green in CI on Redis 7); npm run build green. (G8 baseline: `0d93a36`, Pest 700/5623.) A route-reachability smoke (**FIX.5**, `composer test:smoke`)
+- **Latest verified quality:** PHARMACY.G5 (pharmacy billing — a dispensed med accrues a charge through the EXISTING billing engine, reconciling-to-the-unit: a formulary item maps to a tenant-authored `TariffItem`; `ChargeCaptureService::captureManual` snapshots the fee + computes the line total; `invoicePatient` runs the existing validate→draft→issue flow and `ReconciliationEngine::check` passes with I4 `delta_minor === 0`; the pharmacist gains the existing `billing.manage`; charge-on-dispense is best-effort + decoupled — STRICTLY ORCHESTRATION, zero new billing/pricing/VAT/line-total math, adversarial-grep clean) atop PHARMACY.G4 (dispensing/inventory) / G3 (eMAR) / G2 (orders) / G1 (foundation) — **HOSPITAL PHASE 2 PHARMACY CORE COMPLETE (G1→G5)** atop the COMPLETE Phase 1 (inpatient/ADT, G1→G7); the one deliberate gap is the medication-safety JUDGMENT (the `NullMedicationSafetyProvider` seam, invoked-but-no-op — a certified-partner binding point, homemade = permanent non-goal); Phases 3–7 (lab/radiology/OR/ED) remain. `composer check` FULLY green — Pint `passed`, PHPStan L5
+  `[OK] No errors`, **Pest 795 passed / 2 skipped / 7056 assertions**, 0 failed (the 2 skips = Redis-Horizon + one reminder infra case, green in CI on Redis 7); npm run build green. (G8 baseline: `0d93a36`, Pest 700/5623.) A route-reachability smoke (**FIX.5**, `composer test:smoke`)
   drives every major route through the real middleware stack to guard against request-time 500s (the C-1
   class). See the detailed quality block below.
 - **Demo tenants (all reconcile-to-the-unit + chain-verify):** `DemoClinicSeeder` (Praxis Lindenhof, CHF,
@@ -1372,11 +1372,34 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
   G5). Added `DispensingTest` (6) + `DispenseParallelHammerTest` (1); FIX.5 smoke extended (inventory +
   dispensing routes). Verified: npm build green; composer check FULLY green (**Pest 789 / 2-skip /
   6846**, 0 failed); smoke green (3).
-- **Next action:** **PHARMACY.G5 — pharmacy billing (the LAST core pharmacy gate).** A dispensed med is a
-  `TariffItem` — a `FormularyItem`→`TariffItem` pricing link/overlay (the `DentalProcedure` shape) + capture
-  a `Charge` per dispense through the EXISTING engine (`captureManual`) → invoice → **reconciles-to-the-unit**
-  (the bed-day G6 precedent; **NO new billing/pricing/VAT math**, adversarial-grep). Completes the pharmacy
-  vertical (formulary → orders → eMAR → dispensing → billing). (Phases 3–7 — lab, radiology, OR, ED — remain,
-  each mapped first.) **The standing strategic posture is unchanged — the next real progress is DELIVERY**
-  (deploy the built verticals to paying customers); the parallel DISCOVERY track still stands (the CH/KVG
-  billing model must be confirmed with Spitex coordinators before the CH statutory pack is committed).
+- **PHARMACY.G5 — pharmacy billing: a dispensed med accrues a charge through the EXISTING engine,
+  reconciling-to-the-unit; PHARMACY CORE COMPLETE (D-124).** STRICTLY ORCHESTRATION — zero new
+  billing/pricing/VAT/line-total math (the bed-day HOSPITAL.G6 pattern, mirrored). **(1)** A formulary item
+  maps to a tenant-authored `TariffItem` via a soft `formulary_items.tariff_item_id` (no FK);
+  `PharmacyBillingService::priceItem` (gate `billing.manage`) authors it in a `pharmacy` catalog (the tenant's
+  OWN `MED-*` code, integer minor units, zero VAT) — pricing lives in the existing tariff store, NOT
+  duplicated, NO licensed pricing bundled. **(2)** `chargeForDispense` → `ChargeCaptureService::captureManual`
+  (the engine resolves the tariff, **snapshots the fee**, computes the line total); idempotent via a
+  `dispense_charges` unique link; UNPRICED → null; wired BEST-EFFORT + DECOUPLED in the controller AFTER the
+  dispense commits (never blocks the concurrency-critical dispense). **(3)** `invoicePatient` runs the
+  existing validate→draft→issue flow; a patient invoice INCLUDING a med charge **reconciles-to-the-unit** (I4
+  `delta_minor === 0`) — the key proof (inpatient charges join the stay's G6 `invoiceStay`). **(4)** the
+  `pharmacist` role gains the EXISTING `billing.manage` (backfill migration; NO new permission, so `RbacTest`
+  stays green); `PricingController` + `Pricing.vue` (set a med price like any tariff item). **FENCE:** a med
+  price is a RATE, never a safety/substitution verdict; adversarial-grep finds zero money math in
+  `Modules\Pharmacy` (no `line_total_minor`/`vat_total_minor`/`subtotal_minor`/`vatMinor`/`intdiv(`); no
+  cost/judgment column. Added `PharmacyBillingTest` (6 — tenant-authored TariffItem, charge via engine +
+  snapshot + idempotent, **invoice-with-med-charge reconciles δ=0**, no-money-math + no-judgment fence, fee
+  snapshot, RBAC + cross-tenant). FIX.5 smoke extended (pricing GET 200 + reception 403). Verified: npm build
+  green; composer check FULLY green (**Pest 795 / 2-skip / 7056**, 0 failed); smoke green (3).
+  **PHARMACY CORE COMPLETE: G1 formulary + safety-seam → G2 orders → G3 eMAR → G4 dispensing/inventory → G5
+  billing.** The ONE deliberate gap is the medication-safety JUDGMENT (the `NullMedicationSafetyProvider`
+  seam, invoked-but-no-op at G2/G3 — a certified-partner binding point; homemade = permanent non-goal).
+- **Next action:** **DELIVERY, not another gate — the pharmacy core (Phase 2) is COMPLETE.** The standing
+  strategic posture is unchanged and now reasserts: the next real unit of progress is DEPLOYING the built
+  verticals (clinic / dental + the inpatient+pharmacy hospital core) to paying customers — Linux host, real
+  email + LiveKit, P.6 CSV import, onboarding. Hospital **Phases 3–7 (lab · radiology · OR · ED)** remain,
+  each to be MAPPED first (the read-only reconciliation-then-build discipline), and are pulled forward only by
+  a customer need — not opened speculatively. The parallel DISCOVERY track still stands (the CH/KVG billing
+  model must be confirmed with Spitex coordinators before the CH statutory pack is committed). Do not open a
+  new build gate unless a customer need pulls a specific feature forward.

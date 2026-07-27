@@ -71,6 +71,7 @@ use Modules\Pharmacy\Http\Controllers\FormularyController;
 use Modules\Pharmacy\Http\Controllers\InventoryController;
 use Modules\Pharmacy\Http\Controllers\MedicationAdministrationController;
 use Modules\Pharmacy\Http\Controllers\MedicationOrderController;
+use Modules\Pharmacy\Http\Controllers\PricingController;
 use Modules\Platform\Http\Controllers\SettingsController;
 use Modules\Platform\Http\Controllers\UserRoleController;
 use Modules\Reporting\Http\Controllers\ReportingDashboardController;
@@ -361,6 +362,12 @@ Route::middleware('auth')->group(function () {
     Route::post('/pharmacy/inventory/{stock}/adjust', [InventoryController::class, 'adjust'])->name('pharmacy.inventory.adjust');
     Route::get('/pharmacy/patients/{patient}/dispensing', [DispensingController::class, 'index'])->name('pharmacy.patient-dispensing');
     Route::post('/pharmacy/medication-orders/{order}/dispense', [DispensingController::class, 'dispense'])->name('pharmacy.medication-orders.dispense');
+
+    // Pharmacy pricing (PHARMACY.G5) — set a med's price as a tenant-authored TariffItem in the existing
+    // tariff store (integer minor units; NO licensed pricing). A dispensed priced med accrues a Charge through
+    // the existing engine → invoice → reconciles-to-the-unit. Gated `billing.manage`. String-id {item}.
+    Route::get('/pharmacy/pricing', [PricingController::class, 'index'])->name('pharmacy.pricing');
+    Route::post('/pharmacy/pricing/{item}', [PricingController::class, 'set'])->name('pharmacy.pricing.set');
 
     // Onboarding/migration: generic CSV patient import (RBAC 'data.import' enforced
     // in each controller action). Mandatory dry-run before commit.

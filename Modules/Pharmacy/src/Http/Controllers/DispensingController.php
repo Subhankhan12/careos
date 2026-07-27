@@ -13,8 +13,10 @@ use Modules\Pharmacy\Models\Dispense;
 use Modules\Pharmacy\Models\MedicationOrder;
 use Modules\Pharmacy\Services\DispensingService;
 use Modules\Pharmacy\Services\MedicationOrderService;
+use Modules\Pharmacy\Services\PharmacyBillingService;
 use Modules\Platform\Exceptions\CrossTenantReferenceException;
 use Modules\Platform\Models\User;
+use Throwable;
 
 /**
  * Dispensing against a patient's medication orders (PHARMACY.G4) — PRESENTATIONAL over `DispensingService`.
@@ -55,7 +57,7 @@ class DispensingController
         ]);
     }
 
-    public function dispense(Request $request, string $order, DispensingService $dispensing): RedirectResponse
+    public function dispense(Request $request, string $order, DispensingService $dispensing, PharmacyBillingService $billing): RedirectResponse
     {
         Gate::authorize('dispense.manage');
         $actor = $request->user();
@@ -68,9 +70,18 @@ class DispensingController
         $record = MedicationOrder::query()->whereKey($order)->firstOrFail();
 
         try {
-            $dispensing->dispense($actor, $record, (int) $data['quantity']);
+            $dispense = $dispensing->dispense($actor, $record, (int) $data['quantity']);
         } catch (DispensingException|CrossTenantReferenceException $e) {
             return back()->withErrors(['dispense' => $e->getMessage()]);
+        }
+
+        // PHARMACY.G5: accrue the Billing charge for the dispense through the existing engine (a priced med
+        // becomes a Charge). BEST-EFFORT + decoupled from the concurrency-critical dispense — the dispense
+        // already committed; an unpriced med or a billing hiccup just leaves it uncharged (reconcilable later).
+        try {
+            $billing->chargeForDispense($actor, $dispense);
+        } catch (Throwable) {
+            // best-effort billing; a charge failure must never block the (completed) dispense.
         }
 
         return redirect()->route('pharmacy.patient-dispensing', $record->patient_id)->with('status', 'medication-dispensed');

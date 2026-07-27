@@ -172,9 +172,9 @@ class RbacProvisioner
         'pharmacist' => [
             'name' => 'Pharmacist',
             'permissions' => [
-                // Authors the tenant formulary + dispenses. (Prescribing / billing / allergy-override are
-                // wired as later pharmacy gates build them.)
-                'patient.view', 'formulary.manage', 'dispense.manage',
+                // Authors the tenant formulary + dispenses + bills dispensed meds through the existing
+                // engine (billing.manage, PHARMACY.G5). (Prescribing / allergy-override stay physician acts.)
+                'patient.view', 'formulary.manage', 'dispense.manage', 'billing.manage',
             ],
         ],
         'pharmacy_technician' => [

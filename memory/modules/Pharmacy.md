@@ -199,9 +199,59 @@ concurrency-safe stock math). Dispensing decrements stock against a G2 order.
   are atomic (a forced failure rolls back both). **No safety checking in dispensing** (the seam is
   orders/administration); no judgment/graded column (schema fence).
 
+## Pharmacy billing (PHARMACY.G5)
+
+A dispensed medication accrues a charge through the **EXISTING** billing engine, reconciling-to-the-unit —
+the final buildable pharmacy gate (map §2.1/§5). **STRICTLY ORCHESTRATION: zero new billing/pricing/VAT/
+line-total math** (the bed-day HOSPITAL.G6 [[D-118]] pattern, mirrored — the engine prices everything).
+
+- **Medication pricing — a formulary item maps to a tenant-authored `TariffItem`.** A soft nullable
+  `tariff_item_id` on `formulary_items` (no FK — Pharmacy stays decoupled, the `stay_id` shape;
+  `FormularyItem::tariffItem()` belongsTo + `isPriced()`). Pricing lives in the EXISTING billing/tariff
+  store, **NOT duplicated in pharmacy**; **NO licensed drug pricing bundled** (the tenant authors placeholder
+  rates it edits — the `BedBillingService::seedStarter` discipline).
+- `Services\PharmacyBillingService` (orchestration; `CATALOG_KEY='pharmacy'`) —
+  - `catalog()` get-or-creates the tenant's `pharmacy` `TariffCatalog` (valid_from 2020, open-ended, active).
+  - `priceItem(actor, item, priceMinor, ?unit)` (gate `billing.manage`, tenant fail-closed, price>0 else
+    `PharmacyBillingException::nonPositivePrice`) `updateOrCreate`s a `TariffItem` keyed
+    (catalog, `item->code`) with the tenant's OWN code, integer minor units, **zero VAT**,
+    `requires_service_documentation=false`, and links it onto the formulary item. Re-pricing updates the
+    tariff item; PAST charges are unaffected (they snapshotted the fee).
+  - `chargeForDispense(actor, Dispense): ?Charge` — resolves the formulary item; **UNPRICED → null** (no
+    charge, no gate, so G4 tests stay green); IDEMPOTENT via a `dispense_charges` lookup (return the existing
+    Charge); else gate `billing.manage` + tenant fail-closed → `ChargeCaptureService::captureManual($patient,
+    $branch, $dispensed_at, $item->code, $quantity, $actor)` (**the engine resolves the tariff, SNAPSHOTS the
+    fee, computes `line_total`**) → write the `dispense_charges` link. NO money math here. `$branch` =
+    `Branch::firstOrFail()` (charges are branch-attributed).
+  - `invoicePatient(actor, patient, from, to): Invoice` (gate `billing.manage`, tenant fail-closed) — the
+    EXISTING `validateForPatientPeriod` → gather validated/uninvoiced charges in the window → `nothingToInvoice`
+    if empty → `createDraftFromCharges(SELF_PAY, now, now+30d)` → `issue`. NO new invoice logic.
+- `dispense_charges` (BelongsToTenant) — the dispense→charge link: `dispense_id` (FK cascade), `charge_id`
+  (**soft** ULID, no FK — Pharmacy stays decoupled from Billing), `unique(tenant, dispense_id)` makes
+  charge-on-dispense IDEMPOTENT. **NO money stored** — the Charge is the money (the `bed_day_accruals` /
+  `DentalProcedureCharge` precedent). `Models\DispenseCharge`.
+- **Charge-on-dispense is wired BEST-EFFORT + DECOUPLED** in `DispensingController::dispense` — AFTER the
+  dispense commits, `try { $billing->chargeForDispense(...) } catch (Throwable) {}`, so a billing hiccup NEVER
+  blocks the concurrency-critical G4 dispense (an uncharged dispense is reconcilable later).
+- `Http\Controllers\PricingController` (string-id FIX.1) — `index` (GET `/pharmacy/pricing`, `billing.manage`)
+  renders `Pharmacy/Pricing.vue` (each formulary item + its `price_minor`/`unit`, a set-price surface — "price
+  a med like any tariff item"); `set` (POST `/pharmacy/pricing/{item}`, `billing.manage`, validates
+  `price_minor` integer≥1) → `priceItem`.
+- **RBAC:** the `pharmacist` role gains the EXISTING `billing.manage` (the pharmacist bills dispensed meds
+  through the engine) — RbacProvisioner const + a `provisionTenant`-all backfill migration; **NO new
+  permission** (billing.manage already exists), so `RbacTest`'s permission-count stays green.
+- **RECONCILES-TO-THE-UNIT (THE key proof):** a patient invoice INCLUDING a dispensed-med charge assembles
+  into one gapless invoice and `ReconciliationEngine::check(period)` passes with **I4 `delta_minor === 0`**
+  (for INPATIENT, pharmacy charges join the stay's discharge invoice via the existing G6 `invoiceStay`).
+- **ELECTRIC FENCE / no-money-math (adversarial grep, tested):** a med price is a RATE (financial), never a
+  safety/appropriateness/substitution verdict — no cost-based substitution suggestion (that is the
+  certified-partner seam, not billing); `Modules\Pharmacy` contains none of `line_total_minor`/
+  `vat_total_minor`/`subtotal_minor`/`vatMinor`/`intdiv(` (the only money it names is the authored per-unit
+  RATE); no cost/clinical-judgment column on `formulary_items`.
+
 ## Status
 
-**PHARMACY.G1–G4 complete.** G1 = the foundation (module + tenant-authored formulary + the medication-safety
+**PHARMACY.G1–G5 complete — PHARMACY CORE COMPLETE.** G1 = the foundation (module + tenant-authored formulary + the medication-safety
 SEAM [null-object, built empty] + pharmacy RBAC). G2 = medication orders (a NET-NEW prescribing entity —
 dose/route/frequency/PRN, mutable status machine + append-only event log, soft stay ref — threading the seam
 at placement). **G3 = the eMAR — a NET-NEW append-only administration record (given/held/refused against a
@@ -210,10 +260,17 @@ seam at the ADMINISTRATION point (`checkAdministration`, advisory + non-blocking
 homemade checking); reuses `note.write`. **G4 = dispensing + inventory — a NET-NEW OPERATIONAL domain
 (append-only `stock_movements` + `dispenses`; on-hand consistent with the ledger) where dispensing against a
 G2 order decrements stock SAFELY + CONCURRENCY-SAFELY (FOR UPDATE lock, no oversell, no negative — the
-BedClaim parallel-hammer proof); reuses `dispense.manage`; no safety judgment in dispensing.** No billing yet
-(G5); no charge this gate. Verified: npm build green; composer check FULLY green (Pint · PHPStan L5 `[OK]` ·
-**Pest 789 passed / 2 skipped / 6846 assertions**, 0 failed); smoke green (inventory + dispensing
-routes added). See [[D-120]], [[D-121]], [[D-122]], [[D-123]], `docs/HOSPITAL-PHASE2-PHARMACY-MAP.md`.
+BedClaim parallel-hammer proof); reuses `dispense.manage`; no safety judgment in dispensing.** **G5 = pharmacy
+billing — a dispensed med accrues a charge through the EXISTING engine (a formulary item maps to a
+tenant-authored `TariffItem`; `ChargeCaptureService::captureManual` snapshots the fee + computes the line
+total; the invoice reconciles-to-the-unit, I4 `delta_minor === 0`) — STRICTLY ORCHESTRATION, zero new money
+math; the pharmacist gains the existing `billing.manage`; charge-on-dispense is best-effort + decoupled.**
+Verified: npm build green; composer check FULLY green (Pint · PHPStan L5 `[OK]` · **Pest 795 passed /
+2 skipped / 7056 assertions**, 0 failed); smoke green (pricing route added). **The ONE deliberate gap
+is the medication-safety JUDGMENT** — the `NullMedicationSafetyProvider` seam invoked-but-no-op throughout (G2
+placement + G3 administration), the certified-partner binding point; a homemade checker is a PERMANENT
+non-goal. Phases 3–7 (lab / radiology / OR / ED) remain. See [[D-120]], [[D-121]], [[D-122]], [[D-123]],
+[[D-124]], `docs/HOSPITAL-PHASE2-PHARMACY-MAP.md`.
 
 ## Open items / next gates (per docs/HOSPITAL-PHASE2-PHARMACY-MAP.md)
 
@@ -234,7 +291,15 @@ routes added). See [[D-120]], [[D-121]], [[D-122]], [[D-123]], `docs/HOSPITAL-PH
   FOR UPDATE lock) + append-only `stock_movements` + `dispenses`; dispensing against a G2 order decrements
   stock SAFELY + CONCURRENCY-SAFELY (`BedService::claim` idiom; the parallel-hammer proof — 1 of 8 wins the
   last unit); reuses `dispense.manage`; no safety judgment in dispensing. **Next: G5.**
-- **G5** pharmacy billing (a formulary item's `TariffItem` → `captureManual` → invoice → reconcile-to-the-unit,
-  the bed-day precedent, no new math). *(A `FormularyItem`→`TariffItem` pricing link/overlay is added here.)*
+- **G5** *(done — D-124)* — pharmacy billing: a soft `FormularyItem.tariff_item_id` → a tenant-authored
+  `TariffItem` (`priceItem`); a dispense accrues a Charge via the EXISTING `captureManual` (engine snapshots +
+  computes; idempotent `dispense_charges`; best-effort + decoupled in the controller); `invoicePatient` runs
+  the existing validate→draft→issue flow and **reconciles-to-the-unit** (I4 `delta_minor === 0`); the
+  pharmacist gains the existing `billing.manage`; STRICTLY ORCHESTRATION, no new money math. **PHARMACY CORE
+  COMPLETE.**
+- **PHARMACY CORE COMPLETE (G1–G5).** Next is **Phase 3+** of the phased hospital build (lab / radiology / OR
+  / ED — `docs/HOSPITAL-PHASE2-PHARMACY-MAP.md` and the phase map), NOT a further pharmacy gate.
 - **The safety seam stays EMPTY** through every gate — invoked at G2 (order) + G3 (administration), no-op at
   each; the certified-partner engine + a licensed drug DB are the permanent partner surfaces (never homemade).
+  A homemade medication-safety checker is a **permanent non-goal** (medical-device territory; contradicts the
+  clinical-safety eval).

@@ -4,7 +4,9 @@ namespace Modules\Pharmacy\Models;
 
 use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Carbon;
+use Modules\Billing\Models\TariffItem;
 use Modules\Pharmacy\Contracts\MedicationSafetyProvider;
 use Modules\Pharmacy\Exceptions\FormularyException;
 use Modules\Platform\Concerns\BelongsToTenant;
@@ -25,9 +27,11 @@ use Modules\Platform\Concerns\BelongsToTenant;
  * @property string $name
  * @property string|null $form
  * @property string|null $strength
+ * @property string|null $tariff_item_id
  * @property bool $active
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
+ * @property-read TariffItem|null $tariffItem
  */
 class FormularyItem extends Model
 {
@@ -60,6 +64,7 @@ class FormularyItem extends Model
         'name',
         'form',
         'strength',
+        'tariff_item_id',
         'active',
     ];
 
@@ -90,6 +95,20 @@ class FormularyItem extends Model
         return [
             'active' => 'boolean',
         ];
+    }
+
+    /**
+     * The Billing tariff item that prices this med (PHARMACY.G5) — tenant-authored pricing in the existing
+     * tariff store, NOT duplicated here. Null until priced. Pharmacy MAY use Billing (arch boundary).
+     */
+    public function tariffItem(): BelongsTo
+    {
+        return $this->belongsTo(TariffItem::class);
+    }
+
+    public function isPriced(): bool
+    {
+        return $this->tariff_item_id !== null;
     }
 
     protected function auditResourceType(): string
