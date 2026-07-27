@@ -1,6 +1,7 @@
 <?php
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -35,6 +36,10 @@ use Modules\Scheduling\Models\Service;
 use Modules\Scheduling\Services\BookingService;
 
 uses(RefreshDatabase::class);
+
+// Any test that freezes the clock resets it here (a no-op for tests that never set it), so a frozen
+// instant can never leak into a later test even if the freezing test fails mid-way.
+afterEach(fn () => Carbon::setTestNow());
 
 function g5Ctx(): TenantContext
 {
@@ -394,6 +399,11 @@ test('self-booking goes through the BookingService safe path', function () {
 });
 
 test('portal cancellation enforces the cancel window policy server-side', function () {
+    // Pin the clock to a fixed in-hours instant: the "soon" booking below is now()+2h, and with the
+    // 30-minute service against a 00:00–23:59 availability window a real now() near end-of-day would push
+    // the slot past midnight and trip `outsideAvailability` (a ~30-min daily flake window that only bit CI).
+    Carbon::setTestNow('2026-06-15 09:00:00');
+
     $fx = g5Fixture();
     $setup = g5BookableSetup($fx);
 
