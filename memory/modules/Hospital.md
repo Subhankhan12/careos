@@ -184,17 +184,42 @@ the arch rule — the allowed dep Dental also uses).
   score (a NEWS2-style score is certified-partner/non-goal, NOT built). The stay-chart payload carries no
   judgment field (asserted by a recursive scan). No charge posted (billing is G6).
 
+## Nursing shift handover (HOSPITAL.G5)
+
+**DISCOVERY:** a handover is a NET-NEW structured SBAR artifact, NOT a reuse of `ClinicalNote` — SBAR
+(Situation/Background/Assessment/Recommendation) ≠ SOAP; it carries shift metadata a note lacks; it is
+STAY-scoped (ClinicalNote is Encounter-scoped, mandatory encounter_id). It REUSES the platform PATTERNS
+(append-only + DB triggers, audit, LogsReads, note/chart UI idioms) — "reuse the pattern, own the domain".
+
+- `handovers` (BelongsToTenant, **LogsReads**, **APPEND-ONLY** model guards + DB triggers `handovers_no_update`/
+  `_no_delete`) — a shift handover for a stay: `stay_id`, `authored_by` (the outgoing nurse User), `shift`
+  ∈ {day, evening, night}, the SBAR text (`situation` [required], `background`, `assessment`, `recommendation`
+  — all nurse-authored), `reason` (correction), `handed_over_at`. **ELECTRIC FENCE: no acuity/severity/score/
+  risk/priority/flag column;** `assessment` is the nurse's OWN written assessment (a SBAR section like a note's
+  SOAP assessment), never a computed score. `Handover` model validates the shift + a non-empty Situation.
+- `Services\HandoverService` — `record` (gate **`note.write`** — the nursing roles hold it, no new permission;
+  tenant+patient fail-closed; append-only; nothing computes/auto-populates) + `history` (the stay's raw shift
+  trail, newest first). No interpretation logic.
+- `Http\Controllers\HandoverController` (string-id FIX.1) — `show` (GET `/hospital/admissions/{stay}/handover`,
+  `patient.view`, **read-logged**) renders `Hospital/Handover.vue` (the SBAR record form + the shift trail);
+  `store` (POST, `note.write`). The write is audited via an app-layer `Handover::created` hook (`handover.recorded`)
+  so Hospital stays free of Audit. Route-smoke extended (doctor 200 / billing 403).
+- **RBAC:** record = `note.write` (ward_nurse + charge_nurse hold it), read = `patient.view` — reused, no new
+  permission. **No charge (billing is G6).**
+
 ## Status
 
-**HOSPITAL.G1–G4 complete.** G1 = Bed/Ward model + concurrency-safe bed-claim + inpatient RBAC. G2 = the ADT
+**HOSPITAL.G1–G5 complete.** G1 = Bed/Ward model + concurrency-safe bed-claim + inpatient RBAC. G2 = the ADT
 `Stay` + admit/transfer/discharge state machine (atomic, bed-safe, above an unmodified Encounter). **G3 = the
 ward board (live bed-occupancy cockpit) — the first inpatient UI, presentational over G1/G2. **G4 = bedside
 charting — REUSES Clinical (a ward round is a reused Encounter tied to the stay by a Hospital-side WardRound;
 notes/vitals/orders reused; the only new affordance is the stay-scoped `vitalsForStay` read); Encounter
-UNMODIFIED, fence holds.** Verified: npm build green; composer check FULLY green; targeted —
-`WardBedManagementTest` (7), `BedClaimParallelHammerTest` (1), `HospitalAdmissionTest` (12), `WardBoardTest`
-(5), `BedsideChartTest` (7), Clinical/Encounter + arch + RBAC suites unchanged; smoke green (stay-chart route
-added). See [[D-113]], [[D-114]], [[D-115]], [[D-116]], `docs/HOSPITAL-PHASE1-ADT-MAP.md`.
+UNMODIFIED, fence holds. **G5 = nursing shift handover — a NET-NEW structured SBAR artifact (nurse-authored,
+append-only, record-not-judge, stay-scoped), reusing platform patterns; NOT a ClinicalNote reuse.** Verified:
+npm build green; composer check FULLY green; targeted — `WardBedManagementTest` (7), `BedClaimParallelHammerTest`
+(1), `HospitalAdmissionTest` (12), `WardBoardTest` (5), `BedsideChartTest` (7), `HandoverTest` (6), Clinical/
+Encounter + arch + RBAC suites unchanged; smoke green (handover route added). See [[D-113]], [[D-114]],
+[[D-115]], [[D-116]], [[D-117]], `docs/HOSPITAL-PHASE1-ADT-MAP.md`.
 
 ## Open items / next gates (per docs/HOSPITAL-PHASE1-ADT-MAP.md)
 
@@ -207,7 +232,9 @@ added). See [[D-113]], [[D-114]], [[D-115]], [[D-116]], `docs/HOSPITAL-PHASE1-AD
 - **G4** *(done — D-116)* — bedside charting: reuses Clinical (ward round = reused Encounter tied to the
   stay via `WardRound`; notes/vitals/orders reused; new = the `vitalsForStay` read); Encounter unmodified,
   fence holds. **Next: G5.**
-- **G5** shift handover (net-new SBAR artifact) · **G6** bed-to-billing (per-diem `TariffItem` +
-  `billing:accrue-bed-days` idempotent command, no new math) · **G7** discharge + LOS + discharge summary.
+- **G5** *(done — D-117)* — nursing shift handover: a net-new structured SBAR artifact (nurse-authored,
+  append-only, record-not-judge, stay-scoped); reuses platform patterns, not a ClinicalNote reuse. **Next: G6.**
+- **G6** bed-to-billing (per-diem `TariffItem` + `billing:accrue-bed-days` idempotent command, no new math) ·
+  **G7** discharge + LOS + discharge summary.
 - Long poles (partner-gated / non-goal): HL7/FHIR ADT feed (`Interop`), bedside device capture, certified
   early-warning/deterioration engine (NEWS2 — fence + regulated device, never homemade), DRG/case-mix grouper.

@@ -144,6 +144,27 @@
             "placeOrder": "Place order",
             "noOrders": "No orders yet.",
             "selectItem": "Select an orderable item"
+        },
+        "handover": {
+            "title": "Shift handover",
+            "eyebrow": "Nursing handover",
+            "record": "Record handover",
+            "selectShift": "Select shift",
+            "save": "Save handover",
+            "cancel": "Cancel",
+            "history": "Handover history",
+            "empty": "No handovers recorded yet.",
+            "shift": {
+                "day": "Day",
+                "evening": "Evening",
+                "night": "Night"
+            },
+            "sbar": {
+                "situation": "Situation",
+                "background": "Background",
+                "assessment": "Assessment",
+                "recommendation": "Recommendation"
+            }
         }
     },
     "settings": {

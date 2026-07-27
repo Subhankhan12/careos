@@ -51,6 +51,7 @@ use Modules\FrontDesk\Http\Controllers\KioskDeviceController;
 use Modules\FrontDesk\Http\Controllers\PortalCheckInController;
 use Modules\Hospital\Http\Controllers\AdmissionController;
 use Modules\Hospital\Http\Controllers\BedsideChartController;
+use Modules\Hospital\Http\Controllers\HandoverController;
 use Modules\Hospital\Http\Controllers\WardBoardController;
 use Modules\Import\Http\Controllers\ImportBatchController;
 use Modules\Nursing\Http\Controllers\CompetencyController;
@@ -302,6 +303,13 @@ Route::middleware('auth')->group(function () {
     Route::post('/hospital/admissions/{stay}/rounds', [BedsideChartController::class, 'startRound'])->name('hospital.admissions.rounds.start');
     Route::post('/hospital/admissions/{stay}/vitals', [BedsideChartController::class, 'recordVital'])->name('hospital.admissions.vitals');
     Route::post('/hospital/admissions/{stay}/orders', [BedsideChartController::class, 'placeOrder'])->name('hospital.admissions.orders');
+
+    // Nursing shift handover (HOSPITAL.G5) — a NET-NEW structured SBAR artifact the outgoing nurse authors
+    // for the oncoming shift, tied to the stay. Append-only (a correction is a new handover). Record-not-
+    // judge: nurse-authored only, nothing computed. show = patient.view (read-logged); record = note.write
+    // (the nursing roles hold it — no new permission). No charge (billing is G6). String-id {stay} (FIX.1).
+    Route::get('/hospital/admissions/{stay}/handover', [HandoverController::class, 'show'])->name('hospital.admissions.handover');
+    Route::post('/hospital/admissions/{stay}/handover', [HandoverController::class, 'store'])->name('hospital.admissions.handover.store');
 
     // Onboarding/migration: generic CSV patient import (RBAC 'data.import' enforced
     // in each controller action). Mandatory dry-run before commit.

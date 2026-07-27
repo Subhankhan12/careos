@@ -1497,3 +1497,30 @@ references the old ID.
   errors` · **Pest 741 passed / 2 skipped / 6104 assertions**, 0 failed — +7 tests/+81 assertions vs G3's
   734/6023: `BedsideChartTest`); composer test:smoke green (3). (HOSPITAL.G4) See [[D-114]] (the Stay), the
   ADT map, [[Clinical]] (reused unmodified), and [[Hospital]].
+
+- **D-117 — HOSPITAL.G5: nursing shift handover (SBAR, nurse-authored, record-not-judge).** The structured
+  artifact carrying a stay's key information across nursing shifts, per `docs/HOSPITAL-PHASE1-ADT-MAP.md`.
+  **DISCOVERY DECISION — a handover is a NET-NEW structured SBAR artifact, NOT a reuse of `ClinicalNote`:**
+  SBAR (Situation/Background/Assessment/Recommendation) ≠ the note's SOAP; a handover carries shift metadata
+  (shift, outgoing nurse, handover time) a note lacks; and it is **STAY-scoped**, whereas `ClinicalNote` is
+  Encounter-scoped (mandatory encounter_id — a round encounter, which a handover is not). It REUSES the
+  platform PATTERNS (append-only + DB triggers, audit, `LogsReads`, the note/chart UI idioms) — the same
+  "reuse the pattern, own the domain" as G2's `stay_events` and dental's append-only records. `handovers`
+  (BelongsToTenant, LogsReads, **APPEND-ONLY** model guards + DB triggers): `stay_id`, `authored_by` (the
+  outgoing nurse), `shift` ∈ {day, evening, night}, the SBAR text (situation [required] / background /
+  assessment / recommendation — all nurse-authored), reason (a correction), handed_over_at. **RBAC reuses the
+  existing nursing permission** — record = `note.write` (ward_nurse + charge_nurse hold it), read =
+  `patient.view`; NO new permission. `HandoverService` (record + history) has no interpretation logic;
+  `HandoverController` (string-id FIX.1): show (patient.view, read-logged) renders `Hospital/Handover.vue`
+  (SBAR form + shift trail), store (note.write); the write is audited via an app-layer `Handover::created`
+  hook so Hospital stays free of Audit. **ELECTRIC FENCE (record-not-judge):** the SBAR fields capture what
+  the OUTGOING NURSE WRITES — `assessment` is the nurse's OWN written assessment (a SBAR section, like a
+  note's SOAP assessment), NEVER a computed acuity/score; there is deliberately no severity/acuity/score/
+  risk/priority/flag column, and NOTHING auto-populates any field (proven: a fresh stay has 0 handovers, a
+  recorded handover's assessment is verbatim, and the payload carries no judgment key). No AI-drafted handover
+  this gate. No charge posted (billing is G6). No existing behavior test modified (the FIX.5 smoke was EXTENDED
+  with the handover route); G1–G4 + the fence/immutability suites stay green. VERIFIED: npm run build green;
+  composer check FULLY green (Pint `passed` · PHPStan L5 `[OK] No errors` · **Pest 747 passed / 2 skipped /
+  6161 assertions**, 0 failed — +6 tests/+57 assertions vs G4's 741/6104: `HandoverTest`); composer test:smoke
+  green (3). (HOSPITAL.G5) See [[D-114]] (the Stay), [[D-116]] (bedside charting — the reuse posture), the
+  ADT map, and [[Hospital]].

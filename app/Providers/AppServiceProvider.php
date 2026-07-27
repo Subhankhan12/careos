@@ -41,6 +41,7 @@ use Modules\Comms\Services\NotificationService;
 use Modules\Hospital\Events\BedStatusChanged;
 use Modules\Hospital\Events\StayTransitioned;
 use Modules\Hospital\Models\Bed;
+use Modules\Hospital\Models\Handover;
 use Modules\Hospital\Models\Ward;
 use Modules\Nursing\Events\CompetencyChanged;
 use Modules\Nursing\Events\IncidentReported;
@@ -279,6 +280,14 @@ class AppServiceProvider extends ServiceProvider
                 ],
             ]);
         });
+        // Nursing shift handover (HOSPITAL.G5) — the append-only handover write is audited here so
+        // Hospital stays free of Audit. Patient-scoped; the SBAR content is the nurse's own words.
+        Handover::created(fn (Handover $m) => $this->auditChange('handover.recorded', [
+            'patient_id' => $m->patient_id,
+            'resource_type' => 'handover',
+            'resource_id' => $m->id,
+            'context' => ['stay_id' => $m->stay_id, 'shift' => $m->shift],
+        ]));
 
         // People credential vault changes. The observer lives here so People
         // stays independent from Audit while still using the Platform audit context.
