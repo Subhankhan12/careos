@@ -38,6 +38,7 @@ use Modules\Clinical\Models\Encounter;
 use Modules\Comms\Contracts\InboxDraftProvider;
 use Modules\Comms\Models\NotificationTemplate;
 use Modules\Comms\Services\NotificationService;
+use Modules\ED\Models\EdTriage;
 use Modules\ED\Models\EdVisit;
 use Modules\ED\Models\EdVisitEvent;
 use Modules\Hospital\Events\BedStatusChanged;
@@ -453,6 +454,15 @@ class AppServiceProvider extends ServiceProvider
             'resource_type' => 'ed_visit_event',
             'resource_id' => $m->id,
             'context' => ['ed_visit_id' => $m->ed_visit_id, 'event_type' => $m->event_type, 'reason' => $m->reason],
+        ]));
+        // ED triage (ED.G2) — patient-scoped. The acuity is the nurse's ASSIGNED value (a recorded fact, the
+        // ASA precedent); the audit context carries the assigned level + its provenance (scale + nurse), NEVER
+        // a computed/suggested acuity. Raw vitals at triage are audited by Clinical's own `vital.recorded`.
+        EdTriage::created(fn (EdTriage $m) => $this->auditChange('ed_triage.recorded', [
+            'patient_id' => $m->patient_id,
+            'resource_type' => 'ed_triage',
+            'resource_id' => $m->id,
+            'context' => ['ed_visit_id' => $m->ed_visit_id, 'acuity_scale' => $m->acuity_scale, 'acuity_level' => $m->acuity_level, 'triaged_by' => $m->triaged_by],
         ]));
 
         // People credential vault changes. The observer lives here so People

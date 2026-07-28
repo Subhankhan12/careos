@@ -5,13 +5,15 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
 
 ## STATUS: BACKEND FEATURE-COMPLETE · SIX VERTICALS + ED (Phase 6) STARTED · CURRENT FOCUS = DEPLOY (not building)
 
-> **UPDATE (ED.G1):** the committed hospital buyer's phased build continues — **Hospital Phase 6 (Emergency
-> Department) is mapped (`docs/HOSPITAL-PHASE6-ED-MAP.md`) and its FOUNDATION gate ED.G1 is built** (a peer
-> `Modules\ED`: the NET-NEW `EdVisit` patient-flow entity + legal-only lifecycle + append-only flow events +
-> ED RBAC + the EMPTY triage-acuity seam). The **triage FENCE** holds: nurse-ASSIGNED acuity is a recorded
-> fact (G2), a COMPUTED triage acuity is a certified-partner/medical-device **permanent non-goal** (the seam
-> ships empty). Remaining ED gates: G2 triage record · G3 tracking board · G4 documentation · G5 disposition +
-> the ED→ADT handoff · G6 billing. See the ED bullet below + [[ED]] / D-130.
+> **UPDATE (ED.G1→G2):** the committed hospital buyer's phased build continues — **Hospital Phase 6 (Emergency
+> Department) is mapped (`docs/HOSPITAL-PHASE6-ED-MAP.md`); ED.G1 (foundation) + ED.G2 (triage) are built** (a
+> peer `Modules\ED`: the NET-NEW `EdVisit` patient-flow entity + legal-only lifecycle + append-only flow events
+> + ED RBAC + the EMPTY triage-acuity seam; then **triage** — the nurse-ASSIGNED acuity + presenting complaint
+> + raw vitals). The **triage FENCE** holds: the nurse **ASSIGNS** the acuity (a recorded fact, the ASA
+> precedent — `ed_triages.acuity_level`), a **COMPUTED** triage acuity is a certified-partner/medical-device
+> **permanent non-goal** (the seam is threaded but returns none()). Remaining ED gates: G3 tracking board · G4
+> documentation · G5 disposition + the ED→ADT handoff · G6 billing. See the ED bullet below + [[ED]] / D-130 /
+> D-131.
 
 **Read this before starting any work. The next unit of progress is DELIVERY, not another gate.**
 (Latest reconciliation: the full six-vertical handoff pass — clinic / dental / home-care / inpatient /
@@ -74,6 +76,11 @@ consumables/implants → billing.)
     ward-board idiom) · G4 documentation (reuse Clinical) · G5 disposition + the **ED→ADT handoff** (admit =
     create a Phase-1 `Stay`, `admission_type=emergency`, app-layer) · G6 billing (the existing engine). See
     `docs/HOSPITAL-PHASE6-ED-MAP.md`, [[ED]], D-130.
+    **ED.G2 (built):** **triage** — `ed_triages` (append-only) records the nurse-**ASSIGNED** acuity
+    (`acuity_scale` ESI/Manchester/CTAS + `acuity_level` — the value the nurse selects, provenance
+    `triaged_by`) + presenting complaint + RAW vitals (reuse `Vital`); recording (`triage.record`) moves the
+    visit `arrived → triaged`, threading the seam (`acuitySuggestion` → none() today — assigned-not-computed).
+    `EdTriageController`/`ED/Triage.vue` (empty seam suggestion area). See D-131.
   - **INSURANCE / CLAIMS — NOT built.** Needs a clearinghouse partner; its own future phase, to be built
     with the same proven wiring/build patterns.
 - **The business picture.** The **outpatient** verticals (clinic / dental / home-care) target **2–3 prospective

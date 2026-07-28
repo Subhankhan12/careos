@@ -46,6 +46,7 @@ use Modules\Dental\Http\Controllers\OdontogramController;
 use Modules\Dental\Http\Controllers\PerioChartController;
 use Modules\Dental\Http\Controllers\PortalTreatmentPlanController;
 use Modules\Dental\Http\Controllers\TreatmentPlanController;
+use Modules\ED\Http\Controllers\EdTriageController;
 use Modules\FrontDesk\Http\Controllers\KioskCheckInController;
 use Modules\FrontDesk\Http\Controllers\KioskDeviceController;
 use Modules\FrontDesk\Http\Controllers\PortalCheckInController;
@@ -412,6 +413,13 @@ Route::middleware('auth')->group(function () {
     Route::get('/surgery/cases/{case}/billing', [SurgicalBillingController::class, 'show'])->name('surgery.cases.billing');
     Route::post('/surgery/cases/{case}/billing/charge', [SurgicalBillingController::class, 'charge'])->name('surgery.cases.billing.charge');
     Route::post('/surgery/cases/{case}/billing/invoice', [SurgicalBillingController::class, 'invoice'])->name('surgery.cases.billing.invoice');
+
+    // Emergency Department triage (ED.G2) — the triage nurse's arrival assessment on an EdVisit: the presenting
+    // complaint, RAW vitals, and the nurse-ASSIGNED acuity (recorded verbatim, never computed). Viewing is
+    // `patient.view` (read-logged); recording is `triage.record`. {visit} string-id (FIX.1). The "suggestion"
+    // area is wired to the empty triage-acuity seam (shows nothing today). A computed acuity is a non-goal.
+    Route::get('/ed/visits/{visit}/triage', [EdTriageController::class, 'show'])->name('ed.visits.triage.show');
+    Route::post('/ed/visits/{visit}/triage', [EdTriageController::class, 'store'])->name('ed.visits.triage.store');
 
     // Onboarding/migration: generic CSV patient import (RBAC 'data.import' enforced
     // in each controller action). Mandatory dry-run before commit.

@@ -72,15 +72,35 @@ roles/perms are in its withheld-map).
   asserts no compute/score/calculate-acuity method exists).
 - **No money math** in ED (billing is G6, via the existing engine).
 
+## Triage (G2 — the FENCE crux, assigned-not-computed)
+
+`ed_triages` (BelongsToTenant, LogsReads, **APPEND-ONLY** — model guards + DB triggers, the `ed_visit_events`
+recipe): the triage assessment for an `EdVisit` — `triaged_by` (the nurse's StaffProfile, provenance),
+`triaged_at`, `presenting_complaint`, `acuity_scale` (ESI/MANCHESTER/CTAS, provenance) + `acuity_level` (**the
+value the NURSE ASSIGNED**). A re-triage is a new row. `EdTriage::SCALES` + `::LEVELS` are closed sets for
+**data-entry validation** (`isValidAssignment` — a valid level for the scale), NOT a computed grade. **THE
+FENCE:** `acuity_level` is a value the nurse SELECTS (a recorded fact, the `SurgicalCase::asa_class` /
+`Stay::admission_type` / `Incident.severity` precedent) — never computed/suggested/ranked; NO
+suggested/computed/score/severity/priority column. `TriageService::record` (gate `triage.record`, tenant
+fail-closed, one `DB::transaction`): append the triage → optional RAW vitals via the EXISTING
+`ClinicalListService::recordVital` (encounter-less, no bands/flags; needs `note.write`) → move the visit
+`arrived → triaged` (only from `arrived`; a re-triage keeps the status). **The seam threaded + empty:**
+`TriageService::acuitySuggestion(visit)` calls `TriageAcuityProvider->suggestAcuity()` → `none()` today
+(read-side advisory only, the UI's empty "no automated suggestion" area; recording never touches it).
+`EdTriageController` (`/ed/visits/{visit}/triage`, show=`patient.view` read-logged, store=`triage.record`) +
+`ED/Triage.vue`; audit `ed_triage.recorded` (app-layer).
+
 ## Gate log
 
-- **ED.G1** (this gate): module + `EdVisit`/`EdVisitEvent` + the empty triage-acuity seam + ED RBAC. 10 feature
-  tests (`tests/Feature/ED/EdVisitTest.php`) + arch boundary + reprovision migration. See D-130.
+- **ED.G1**: module + `EdVisit`/`EdVisitEvent` + the empty triage-acuity seam + ED RBAC. 10 feature tests
+  (`tests/Feature/ED/EdVisitTest.php`) + arch boundary + reprovision migration. See D-130.
+- **ED.G2**: triage — the nurse-ASSIGNED acuity + presenting complaint + raw vitals (assigned-not-computed; the
+  seam stays empty). `EdTriage` + `TriageService` + `EdTriageController`/`ED/Triage.vue` + `ed.*` i18n; FIX.5
+  smoke extended. 7 feature tests (`tests/Feature/ED/EdTriageTest.php`). No charge. See D-131.
 
 ## Not built yet (later gates)
 
-G2 triage record (nurse-assigned acuity + raw vitals — reuse `Vital`) · G3 tracking board (reuse the
-ward-board idiom) · G4 ED documentation (reuse `Encounter`/`ClinicalNote`/`Vital`) · G5 disposition + the
-ED→ADT handoff (admit = create a Phase-1 `Stay`, `admission_type=emergency`, app-layer) · G6 ED billing (the
-existing engine, reconciles-to-the-unit). **Computed triage acuity is a PERMANENT non-goal** (certified
-partner behind the seam). See `docs/HOSPITAL-PHASE6-ED-MAP.md`.
+G3 tracking board (reuse the ward-board idiom) · G4 ED documentation (reuse `Encounter`/`ClinicalNote`/`Vital`)
+· G5 disposition + the ED→ADT handoff (admit = create a Phase-1 `Stay`, `admission_type=emergency`, app-layer)
+· G6 ED billing (the existing engine, reconciles-to-the-unit). **Computed triage acuity is a PERMANENT
+non-goal** (certified partner behind the seam). See `docs/HOSPITAL-PHASE6-ED-MAP.md`.

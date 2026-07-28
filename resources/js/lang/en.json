@@ -488,6 +488,50 @@
             "viewInvoice": "View invoice"
         }
     },
+    "ed": {
+        "arrivalMode": {
+            "walk_in": "Walk-in",
+            "ambulance": "Ambulance",
+            "referral": "Referral"
+        },
+        "status": {
+            "arrived": "Arrived",
+            "triaged": "Triaged",
+            "in_treatment": "In treatment",
+            "awaiting_disposition": "Awaiting disposition",
+            "dispositioned": "Dispositioned",
+            "left_without_being_seen": "Left without being seen"
+        },
+        "triage": {
+            "title": "ED triage",
+            "eyebrow": "Emergency Department · Triage",
+            "suggestionArea": "Automated acuity suggestion",
+            "suggestionAdvisory": "Advisory (partner): {level} on {scale} — for the nurse to consider, not auto-assigned.",
+            "noSuggestion": "No automated suggestion. The triage nurse assigns the acuity.",
+            "record": "Record triage",
+            "nurse": "Triage nurse",
+            "complaint": "Presenting complaint",
+            "scale": "Acuity scale",
+            "assignedLevel": "Assigned acuity",
+            "selectLevel": "Select a level",
+            "assignedHint": "The nurse assigns the acuity applying the protocol — the system records the value, it never computes it.",
+            "rawVitals": "Raw vitals (optional)",
+            "systolic": "Systolic",
+            "diastolic": "Diastolic",
+            "heartRate": "Heart rate",
+            "temperature": "Temp °C",
+            "spo2": "SpO₂",
+            "save": "Save triage",
+            "history": "Triage history",
+            "none": "No triage recorded yet.",
+            "by": "Triaged by {nurse}",
+            "vitalsHistory": "Vitals at triage",
+            "recordedAt": "Recorded",
+            "bp": "BP",
+            "hr": "HR",
+            "temp": "Temp"
+        }
+    },
     "settings": {
         "eyebrow": "Administration",
         "title": "Practice settings",

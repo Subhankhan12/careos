@@ -7,6 +7,8 @@ use Modules\Billing\Models\Invoice;
 use Modules\Billing\Models\Payment;
 use Modules\Clinical\Models\ClinicalNote;
 use Modules\Clinical\Models\Encounter;
+use Modules\ED\Models\EdVisit;
+use Modules\ED\Services\EdVisitService;
 use Modules\Hospital\Models\Bed;
 use Modules\Hospital\Models\Stay;
 use Modules\Hospital\Services\AdmissionService;
@@ -102,7 +104,11 @@ function smokeSeed(object $test): array
     app(TheatreSchedulingService::class)->createTheatre($admin, $branch->id, 'Smoke OR');
     $surgicalCase = app(SurgicalCaseService::class)->schedule($admin, $patient, $clinician, 'Smoke procedure', now()->addDay());
 
-    return compact('tenant', 'users', 'invoice', 'creditNote', 'payment', 'patient', 'encounter', 'note', 'batch', 'stay', 'surgicalCase');
+    // ED.G2: register an ED visit so the triage-detail route (a C-1-class request-time surface) is covered.
+    // org_admin holds ed.manage + patient.view.
+    $edVisit = app(EdVisitService::class)->register($admin, $patient, $branch, EdVisit::ARRIVAL_WALK_IN, 'Smoke complaint');
+
+    return compact('tenant', 'users', 'invoice', 'creditNote', 'payment', 'patient', 'encounter', 'note', 'batch', 'stay', 'surgicalCase', 'edVisit');
 }
 
 /** One request through the real stack with NO ambient tenant context (the C-1 condition). */
@@ -183,6 +189,7 @@ test('every major staff route is reachable through the real middleware stack (20
         'surgery.supplies' => '/surgery/cases/'.$fx['surgicalCase']->id.'/supplies',
         'surgery.pricing' => '/surgery/pricing',
         'surgery.case-billing' => '/surgery/cases/'.$fx['surgicalCase']->id.'/billing',
+        'ed.triage (C-1)' => '/ed/visits/'.$fx['edVisit']->id.'/triage',
     ];
 
     $failures = [];

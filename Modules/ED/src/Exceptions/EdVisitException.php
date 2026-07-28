@@ -49,4 +49,24 @@ class EdVisitException extends RuntimeException
     {
         return new self('ed_visit_events are append-only: UPDATE and DELETE are forbidden.');
     }
+
+    public static function presentingComplaintRequired(): self
+    {
+        return new self('A triage record requires a presenting complaint.');
+    }
+
+    public static function invalidAcuityScale(string $scale): self
+    {
+        return new self("Invalid triage acuity scale: {$scale}");
+    }
+
+    public static function invalidAcuityLevel(string $level, string $scale): self
+    {
+        return new self("Invalid triage acuity level '{$level}' for scale {$scale}.");
+    }
+
+    public static function triageAppendOnly(): self
+    {
+        return new self('ed_triages are append-only: UPDATE and DELETE are forbidden.');
+    }
 }

@@ -2046,3 +2046,29 @@ references the old ID.
   billing this gate (G2–G6). No existing behavior test modified; arch/RBAC/clinical-safety-eval stay green.
   `tests/Feature/ED/EdVisitTest.php` (10). See `docs/HOSPITAL-PHASE6-ED-MAP.md`, [[ED]], and the Phase-6 map
   in [[LOG]].
+
+- **D-131 — ED.G2: triage — the nurse-ASSIGNED acuity + presenting complaint + raw vitals (assigned-not-
+  computed; the seam stays empty).** Per `docs/HOSPITAL-PHASE6-ED-MAP.md` §2.4/§3. `ed_triages`
+  (BelongsToTenant, LogsReads, **APPEND-ONLY** — model guards + DB triggers, the `ed_visit_events` recipe): the
+  triage assessment for an `EdVisit` — `triaged_by` (the nurse's StaffProfile, provenance), `triaged_at`,
+  `presenting_complaint`, `acuity_scale` (ESI/MANCHESTER/CTAS, provenance) + `acuity_level` (**the value the
+  NURSE ASSIGNED**). A re-triage is a new row (history preserved). **THE FENCE (the vertical's crux —
+  assigned-not-computed):** `acuity_level` is a value the nurse SELECTS applying a protocol with their own
+  judgment — a RECORDED FACT, exactly like `SurgicalCase::asa_class` ([[D-127]]/[[Surgery]]),
+  `Stay::admission_type` ([[Hospital]]), and the `Incident.severity` reporter-selected precedent. The system
+  does NOT compute/suggest/rank it; `isValidAssignment(scale,level)` is pure data-entry validation (a valid
+  level for the scale), never a grade. NO suggested/computed/score/severity/priority/deterioration column.
+  **The seam, threaded + empty:** `TriageService::acuitySuggestion()` calls the G1 [[ED]] `TriageAcuityProvider`
+  → `AcuityResult::none()` today (the null-object, [[D-130]]); read-side advisory only (the UI's "no automated
+  suggestion" area), NEVER auto-assigning. Recording never touches the seam — the nurse's value is stored. No
+  homemade acuity-computation (the grep over `Modules\ED\src` is clean). **Raw vitals reuse:** optional RAW
+  vitals via the EXISTING `ClinicalListService::recordVital` (patient-scoped, encounter-less at triage; no
+  bands/flags/scores — the electric fence, unchanged; needs `note.write`). **Flow:** recording moves the visit
+  `arrived → triaged` (the G1 legal transition, only from `arrived`; a re-triage keeps the status) in one
+  `DB::transaction`. **RBAC:** recording gated `triage.record` (the triage nurse; an ED physician with
+  `ed.manage` but not `triage.record` is refused); viewing gated `patient.view` (read-logged). **Audit
+  app-layer:** `EdTriage.created`→`ed_triage.recorded` (patient-scoped). **UI (P0D.GU):** `EdTriageController`
+  (`/ed/visits/{visit}/triage`, string-id FIX.1) + `ED/Triage.vue` (the form + the empty seam suggestion area +
+  the append-only history + raw vitals); `ed.*` i18n; FIX.5 smoke extended. No existing behavior test modified;
+  the clinical-safety/triage eval + G1 + reconciliation/fence/immutability + all vertical suites stay green; no
+  charge. `tests/Feature/ED/EdTriageTest.php` (7). See `docs/HOSPITAL-PHASE6-ED-MAP.md`, [[ED]], [[LOG]].
