@@ -6,14 +6,16 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
 ## STATUS: BACKEND FEATURE-COMPLETE · SIX VERTICALS + ED (Phase 6) STARTED · CURRENT FOCUS = DEPLOY (not building)
 
 > **UPDATE (ED.G1→G2):** the committed hospital buyer's phased build continues — **Hospital Phase 6 (Emergency
-> Department) is mapped (`docs/HOSPITAL-PHASE6-ED-MAP.md`); ED.G1 (foundation) + ED.G2 (triage) are built** (a
-> peer `Modules\ED`: the NET-NEW `EdVisit` patient-flow entity + legal-only lifecycle + append-only flow events
-> + ED RBAC + the EMPTY triage-acuity seam; then **triage** — the nurse-ASSIGNED acuity + presenting complaint
-> + raw vitals). The **triage FENCE** holds: the nurse **ASSIGNS** the acuity (a recorded fact, the ASA
-> precedent — `ed_triages.acuity_level`), a **COMPUTED** triage acuity is a certified-partner/medical-device
-> **permanent non-goal** (the seam is threaded but returns none()). Remaining ED gates: G3 tracking board · G4
-> documentation · G5 disposition + the ED→ADT handoff · G6 billing. See the ED bullet below + [[ED]] / D-130 /
-> D-131.
+> Department) is mapped (`docs/HOSPITAL-PHASE6-ED-MAP.md`); ED.G1 (foundation) + ED.G2 (triage) + ED.G3
+> (tracking board) are built** (a peer `Modules\ED`: the NET-NEW `EdVisit` patient-flow entity + legal-only
+> lifecycle + append-only flow events + ED RBAC + the EMPTY triage-acuity seam; then **triage** — the
+> nurse-ASSIGNED acuity + presenting complaint + raw vitals; then the **tracking board** — the live cockpit of
+> active ED visits, reusing the ward-board idiom). The **triage FENCE** holds: the nurse **ASSIGNS** the acuity
+> (a recorded fact, the ASA precedent — `ed_triages.acuity_level`), a **COMPUTED** triage acuity is a
+> certified-partner/medical-device **permanent non-goal** (the seam is threaded but returns none()); and the
+> **board** shows operational facts + the recorded acuity (staff may sort by it) — never a **computed priority
+> ranking**. Remaining ED gates: G4 documentation · G5 disposition + the ED→ADT handoff · G6 billing. See the ED
+> bullet below + [[ED]] / D-130 / D-131 / D-132.
 
 **Read this before starting any work. The next unit of progress is DELIVERY, not another gate.**
 (Latest reconciliation: the full six-vertical handoff pass — clinic / dental / home-care / inpatient /
@@ -81,6 +83,12 @@ consumables/implants → billing.)
     `triaged_by`) + presenting complaint + RAW vitals (reuse `Vital`); recording (`triage.record`) moves the
     visit `arrived → triaged`, threading the seam (`acuitySuggestion` → none() today — assigned-not-computed).
     `EdTriageController`/`ED/Triage.vue` (empty seam suggestion area). See D-131.
+    **ED.G3 (built):** the **ED tracking board** — the live cockpit of active ED visits, reusing the ward-board
+    idiom over the `EdVisit` flow. `EdBoardController` (`/ed/board`, `ed.manage`) + `ED/Board.vue` shows the
+    flow state + the RECORDED acuity (from G2) + facts + plain department counts; a flow action advances the
+    visit via the EXISTING `EdVisitService::transition` (G1 legal moves). **Board FENCE:** operational facts +
+    the recorded acuity — staff MAY sort by the recorded acuity (a fact), but NO computed priority ranking /
+    acuity-driven judgment / wait-risk. See D-132.
   - **INSURANCE / CLAIMS — NOT built.** Needs a clearinghouse partner; its own future phase, to be built
     with the same proven wiring/build patterns.
 - **The business picture.** The **outpatient** verticals (clinic / dental / home-care) target **2–3 prospective

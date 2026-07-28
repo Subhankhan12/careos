@@ -136,6 +136,25 @@ class EdVisitService
             ->get();
     }
 
+    /**
+     * The department's ACTIVE ED visits (not yet dispositioned / not LWBS) for the tracking board (ED.G3),
+     * with the patient, branch, and the latest triage (the RECORDED acuity). Ordered by ARRIVAL — a plain
+     * fact; the board never computes a priority ranking (the ward-board idiom, over the EdVisit flow state).
+     *
+     * @return Collection<int, EdVisit>
+     */
+    public function activeVisits(): Collection
+    {
+        return EdVisit::query()
+            ->whereIn('status', [
+                EdVisit::STATUS_ARRIVED, EdVisit::STATUS_TRIAGED,
+                EdVisit::STATUS_IN_TREATMENT, EdVisit::STATUS_AWAITING_DISPOSITION,
+            ])
+            ->with(['patient', 'branch', 'latestTriage.triagedBy'])
+            ->orderBy('arrived_at')
+            ->get();
+    }
+
     private function assertSameTenant(?string $tenantId, string $attribute, string $id): void
     {
         if ($tenantId !== $this->tenantContext->id()) {

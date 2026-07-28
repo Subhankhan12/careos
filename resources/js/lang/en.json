@@ -530,6 +530,28 @@
             "bp": "BP",
             "hr": "HR",
             "temp": "Temp"
+        },
+        "board": {
+            "title": "ED tracking board",
+            "eyebrow": "Emergency Department",
+            "inDept": "{n} in department",
+            "waiting": "{n} waiting",
+            "inTreatment": "{n} in treatment",
+            "awaiting": "{n} awaiting disposition",
+            "sortBy": "Sort by",
+            "sortArrival": "Arrival time",
+            "sortAcuity": "Recorded acuity",
+            "empty": "No active ED visits.",
+            "untriaged": "Not yet triaged",
+            "openTriage": "Triage",
+            "elapsedMin": "{n} min",
+            "elapsedHr": "{h}h {m}m",
+            "advanceTo": {
+                "triaged": "Triage",
+                "in_treatment": "Start treatment",
+                "awaiting_disposition": "Ready for disposition",
+                "left_without_being_seen": "Left (LWBS)"
+            }
         }
     },
     "settings": {

@@ -190,6 +190,7 @@ test('every major staff route is reachable through the real middleware stack (20
         'surgery.pricing' => '/surgery/pricing',
         'surgery.case-billing' => '/surgery/cases/'.$fx['surgicalCase']->id.'/billing',
         'ed.triage (C-1)' => '/ed/visits/'.$fx['edVisit']->id.'/triage',
+        'ed.board' => '/ed/board',
     ];
 
     $failures = [];
@@ -454,6 +455,15 @@ test('per-role RBAC smoke: each role reaches its pages (200) and is denied other
         ->status();
     if ($chargeStatus !== 403) {
         $failures[] = "surgery.cases.billing.charge as reception -> {$chargeStatus} (expected 403)";
+    }
+
+    // ED.G3: the ED tracking board is ed.manage-gated (ED staff). Reception (no ed.manage) is denied on the
+    // board route at the gate through the real stack. The board shows operational flow facts + the recorded
+    // acuity; it computes no priority ranking.
+    smokeCtx()->forget();
+    $edBoardStatus = $this->actingAs($u['reception'])->get('/ed/board')->status();
+    if ($edBoardStatus !== 403) {
+        $failures[] = "ed.board as reception -> {$edBoardStatus} (expected 403)";
     }
 
     expect(implode("\n", $failures))->toBe('');

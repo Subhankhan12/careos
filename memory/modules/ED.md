@@ -97,10 +97,25 @@ fail-closed, one `DB::transaction`): append the triage → optional RAW vitals v
 - **ED.G2**: triage — the nurse-ASSIGNED acuity + presenting complaint + raw vitals (assigned-not-computed; the
   seam stays empty). `EdTriage` + `TriageService` + `EdTriageController`/`ED/Triage.vue` + `ed.*` i18n; FIX.5
   smoke extended. 7 feature tests (`tests/Feature/ED/EdTriageTest.php`). No charge. See D-131.
+- **ED.G3**: the ED tracking board — operational flow facts + the RECORDED acuity; NO computed priority ranking.
+  Reuses the ward-board idiom over the `EdVisit` flow. `EdVisitService::activeVisits()` + `EdVisit::latestTriage`
+  (HasOne `latestOfMany`); `EdBoardController` (index gate `ed.manage` + a `transition` action → the G1
+  `EdVisitService::transition`, dispositioned excluded); `ED/Board.vue` (sort by arrival OR the recorded
+  acuity — a fact — never a computed rank); `ed.board.*` i18n; FIX.5 smoke extended. 5 feature tests
+  (`tests/Feature/ED/EdBoardTest.php`). No charge. See D-132.
+
+## The board FENCE (G3)
+
+The board shows OPERATIONAL FACTS + the RECORDED acuity ONLY. Staff MAY sort by the recorded acuity (the
+nurse's assigned value — ordering by a recorded field is a fact) or by arrival, but the board NEVER computes a
+priority ranking / an acuity-driven "who to see next" judgment / a wait-time-risk / a deterioration flag.
+`available_transitions` is the FIXED legal-state map (record-not-judge), not a suggestion. Proven: the payload
+`->missing` priority/rank/score/severity/deterioration/wait_risk; the server orders by `arrived_at`; the grep
+over `EdBoardController` finds no priority/ranking computation.
 
 ## Not built yet (later gates)
 
-G3 tracking board (reuse the ward-board idiom) · G4 ED documentation (reuse `Encounter`/`ClinicalNote`/`Vital`)
-· G5 disposition + the ED→ADT handoff (admit = create a Phase-1 `Stay`, `admission_type=emergency`, app-layer)
-· G6 ED billing (the existing engine, reconciles-to-the-unit). **Computed triage acuity is a PERMANENT
-non-goal** (certified partner behind the seam). See `docs/HOSPITAL-PHASE6-ED-MAP.md`.
+G4 ED documentation (reuse `Encounter`/`ClinicalNote`/`Vital`) · G5 disposition + the ED→ADT handoff (admit =
+create a Phase-1 `Stay`, `admission_type=emergency`, app-layer) · G6 ED billing (the existing engine,
+reconciles-to-the-unit). **Computed triage acuity is a PERMANENT non-goal** (certified partner behind the
+seam). See `docs/HOSPITAL-PHASE6-ED-MAP.md`.

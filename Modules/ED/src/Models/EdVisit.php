@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Support\Carbon;
 use Modules\Audit\Concerns\LogsReads;
 use Modules\ED\Exceptions\EdVisitException;
@@ -50,6 +51,8 @@ use Modules\Platform\Models\Branch;
  * @property-read Patient|null $patient
  * @property-read Branch|null $branch
  * @property-read Collection<int, EdVisitEvent> $events
+ * @property-read Collection<int, EdTriage> $triages
+ * @property-read EdTriage|null $latestTriage
  */
 class EdVisit extends Model
 {
@@ -176,6 +179,21 @@ class EdVisit extends Model
     public function events(): HasMany
     {
         return $this->hasMany(EdVisitEvent::class);
+    }
+
+    /** The append-only triage records (ED.G2), newest first when read. */
+    public function triages(): HasMany
+    {
+        return $this->hasMany(EdTriage::class);
+    }
+
+    /**
+     * The MOST RECENT triage — the source of the board's RECORDED acuity (the nurse's assigned value, a fact).
+     * A convenience read; it computes no acuity.
+     */
+    public function latestTriage(): HasOne
+    {
+        return $this->hasOne(EdTriage::class)->latestOfMany('triaged_at');
     }
 
     protected function auditPatientId(): ?string

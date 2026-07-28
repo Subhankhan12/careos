@@ -46,6 +46,7 @@ use Modules\Dental\Http\Controllers\OdontogramController;
 use Modules\Dental\Http\Controllers\PerioChartController;
 use Modules\Dental\Http\Controllers\PortalTreatmentPlanController;
 use Modules\Dental\Http\Controllers\TreatmentPlanController;
+use Modules\ED\Http\Controllers\EdBoardController;
 use Modules\ED\Http\Controllers\EdTriageController;
 use Modules\FrontDesk\Http\Controllers\KioskCheckInController;
 use Modules\FrontDesk\Http\Controllers\KioskDeviceController;
@@ -420,6 +421,13 @@ Route::middleware('auth')->group(function () {
     // area is wired to the empty triage-acuity seam (shows nothing today). A computed acuity is a non-goal.
     Route::get('/ed/visits/{visit}/triage', [EdTriageController::class, 'show'])->name('ed.visits.triage.show');
     Route::post('/ed/visits/{visit}/triage', [EdTriageController::class, 'store'])->name('ed.visits.triage.store');
+
+    // The ED tracking board (ED.G3) — the live cockpit of active ED visits + their flow state + the RECORDED
+    // triage acuity + facts. Reuses the ward-board idiom over the EdVisit flow. Gated `ed.manage` (ED staff);
+    // the board's flow action advances the visit via the EXISTING service (the G1 legal transitions). FENCE:
+    // facts + recorded acuity only — NO computed priority ranking. {visit} string-id (FIX.1).
+    Route::get('/ed/board', [EdBoardController::class, 'index'])->name('ed.board');
+    Route::post('/ed/visits/{visit}/transition', [EdBoardController::class, 'transition'])->name('ed.board.transition');
 
     // Onboarding/migration: generic CSV patient import (RBAC 'data.import' enforced
     // in each controller action). Mandatory dry-run before commit.

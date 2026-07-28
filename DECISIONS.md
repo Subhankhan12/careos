@@ -2072,3 +2072,26 @@ references the old ID.
   the append-only history + raw vitals); `ed.*` i18n; FIX.5 smoke extended. No existing behavior test modified;
   the clinical-safety/triage eval + G1 + reconciliation/fence/immutability + all vertical suites stay green; no
   charge. `tests/Feature/ED/EdTriageTest.php` (7). See `docs/HOSPITAL-PHASE6-ED-MAP.md`, [[ED]], [[LOG]].
+
+- **D-132 — ED.G3: the ED tracking board — operational flow facts + the RECORDED acuity; NO computed priority
+  ranking.** Per `docs/HOSPITAL-PHASE6-ED-MAP.md` §2.2/§3. The live cockpit of active ED visits, **reusing the
+  ward-board idiom** ([[Hospital]] HOSPITAL.G3 — a status board over a flow entity) over the `EdVisit` flow
+  state. `EdVisitService::activeVisits()` reads the non-terminal visits (arrived/triaged/in_treatment/
+  awaiting_disposition) with `patient`+`branch`+`latestTriage` (new `EdVisit::latestTriage()` HasOne
+  `latestOfMany('triaged_at')`), ordered by ARRIVAL (a fact). `EdBoardController::index` (gate `ed.manage`)
+  renders `ED/Board`: per visit the patient, flow `status`, the RECORDED acuity (the G2 nurse-assigned value +
+  scale + provenance; null until triaged), presenting complaint, `arrived_at` (elapsed = client-side plain
+  fact), `available_transitions` (the FIXED legal-state map, not a suggestion); plain department counts.
+  **THE FENCE (the crux):** the board shows OPERATIONAL FACTS + the RECORDED acuity ONLY. Staff MAY **sort by
+  the recorded acuity** (client-side, on the nurse's assigned value — ordering by a recorded FIELD, a fact) or
+  by arrival — but there is NO computed priority ranking, NO acuity-driven "who to see next" judgment, NO
+  wait-time-risk, NO deterioration. This is the map's §2.2 line: sorting-by-a-recorded-fact is fine; a
+  system-COMPUTED priority is a judgment (not fine). Proven: the payload carries `acuity`+provenance but
+  `->missing` priority/rank/score/severity/deterioration/wait_risk; the server orders by `arrived_at`; the
+  grep over `EdBoardController` finds no priority/ranking computation. **Actions through the EXISTING service:**
+  the flow action POSTs to `EdBoardController::transition` → `EdVisitService::transition` (the G1 legal-only
+  machine; `dispositioned` excluded — G5); NO new flow logic. UI (P0D.GU): `ED/Board.vue` (reuses the
+  ward-board tile/status idiom; flow-colour = operational state, never severity); `ed.board.*` i18n; FIX.5
+  smoke extended (`/ed/board` — org_admin 200, reception 403). No existing behavior test modified; the
+  clinical-safety/triage eval + G1/G2 + reconciliation/fence/immutability + all vertical suites stay green; no
+  charge. `tests/Feature/ED/EdBoardTest.php` (5). See `docs/HOSPITAL-PHASE6-ED-MAP.md`, [[ED]], [[LOG]].
