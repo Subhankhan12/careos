@@ -7,15 +7,17 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
 
 > **UPDATE (ED.G1→G2):** the committed hospital buyer's phased build continues — **Hospital Phase 6 (Emergency
 > Department) is mapped (`docs/HOSPITAL-PHASE6-ED-MAP.md`); ED.G1 (foundation) + ED.G2 (triage) + ED.G3
-> (tracking board) are built** (a peer `Modules\ED`: the NET-NEW `EdVisit` patient-flow entity + legal-only
-> lifecycle + append-only flow events + ED RBAC + the EMPTY triage-acuity seam; then **triage** — the
-> nurse-ASSIGNED acuity + presenting complaint + raw vitals; then the **tracking board** — the live cockpit of
-> active ED visits, reusing the ward-board idiom). The **triage FENCE** holds: the nurse **ASSIGNS** the acuity
-> (a recorded fact, the ASA precedent — `ed_triages.acuity_level`), a **COMPUTED** triage acuity is a
-> certified-partner/medical-device **permanent non-goal** (the seam is threaded but returns none()); and the
-> **board** shows operational facts + the recorded acuity (staff may sort by it) — never a **computed priority
-> ranking**. Remaining ED gates: G4 documentation · G5 disposition + the ED→ADT handoff · G6 billing. See the ED
-> bullet below + [[ED]] / D-130 / D-131 / D-132.
+> (tracking board) + ED.G4 (clinical documentation) are built** (a peer `Modules\ED`: the NET-NEW `EdVisit`
+> patient-flow entity + legal-only lifecycle + append-only flow events + ED RBAC + the EMPTY triage-acuity seam;
+> then **triage** — the nurse-ASSIGNED acuity + presenting complaint + raw vitals; then the **tracking board** —
+> the live cockpit of active ED visits, reusing the ward-board idiom; then **clinical documentation** — reusing
+> Clinical [`Encounter`/`ClinicalNote`/`Vital`/`Order`], Encounter UNMODIFIED). The **triage FENCE** holds: the
+> nurse **ASSIGNS** the acuity (a recorded fact, the ASA precedent — `ed_triages.acuity_level`), a **COMPUTED**
+> triage acuity is a certified-partner/medical-device **permanent non-goal** (the seam is threaded but returns
+> none()); the **board** shows operational facts + the recorded acuity (staff may sort by it) — never a
+> **computed priority ranking**; and **documentation** carries the fence through (raw vitals, sign-and-lock
+> notes, no computed acuity/severity/deterioration score). Remaining ED gates: G5 disposition + the ED→ADT
+> handoff · G6 billing. See the ED bullet below + [[ED]] / D-130 / D-131 / D-132 / D-133.
 
 **Read this before starting any work. The next unit of progress is DELIVERY, not another gate.**
 (Latest reconciliation: the full six-vertical handoff pass — clinic / dental / home-care / inpatient /
@@ -89,6 +91,12 @@ consumables/implants → billing.)
     visit via the EXISTING `EdVisitService::transition` (G1 legal moves). **Board FENCE:** operational facts +
     the recorded acuity — staff MAY sort by the recorded acuity (a fact), but NO computed priority ranking /
     acuity-driven judgment / wait-risk. See D-132.
+    **ED.G4 (built):** **ED clinical documentation** — REUSES Clinical (a treatment `Encounter`
+    [`TYPE_CONSULTATION`] tied to the visit by the ED-side `ed_visit_encounters` link, sign-and-lock
+    `ClinicalNote`, raw `Vital`, structured `Order`) WITHOUT modifying Encounter (the `ward_rounds` precedent;
+    the one-open-per-practitioner invariant HOLDS). `EdDocumentationService` mirrors `BedsideChartService`;
+    `EdDocumentationController` (`/ed/visits/{visit}/record`) + `ED/Documentation.vue`. **Fence carries
+    through:** raw vitals, sign-and-lock notes, no computed acuity/severity/deterioration score. See D-133.
   - **INSURANCE / CLAIMS — NOT built.** Needs a clearinghouse partner; its own future phase, to be built
     with the same proven wiring/build patterns.
 - **The business picture.** The **outpatient** verticals (clinic / dental / home-care) target **2–3 prospective

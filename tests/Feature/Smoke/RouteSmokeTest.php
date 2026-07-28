@@ -191,6 +191,7 @@ test('every major staff route is reachable through the real middleware stack (20
         'surgery.case-billing' => '/surgery/cases/'.$fx['surgicalCase']->id.'/billing',
         'ed.triage (C-1)' => '/ed/visits/'.$fx['edVisit']->id.'/triage',
         'ed.board' => '/ed/board',
+        'ed.record (C-1)' => '/ed/visits/'.$fx['edVisit']->id.'/record',
     ];
 
     $failures = [];
@@ -464,6 +465,17 @@ test('per-role RBAC smoke: each role reaches its pages (200) and is denied other
     $edBoardStatus = $this->actingAs($u['reception'])->get('/ed/board')->status();
     if ($edBoardStatus !== 403) {
         $failures[] = "ed.board as reception -> {$edBoardStatus} (expected 403)";
+    }
+
+    // ED.G4: starting an ED treatment encounter is encounter.manage-gated (the ED physician). Reception
+    // (patient.view, so it can VIEW the record, but NO encounter.manage) is denied on the start-encounter route
+    // at the gate through the real stack. Documentation REUSES Clinical; Encounter is unmodified.
+    smokeCtx()->forget();
+    $edEncounterStatus = $this->actingAs($u['reception'])
+        ->post('/ed/visits/'.$fx['edVisit']->id.'/encounter', ['practitioner_id' => 'x'])
+        ->status();
+    if ($edEncounterStatus !== 403) {
+        $failures[] = "ed.visits.encounter.start as reception -> {$edEncounterStatus} (expected 403)";
     }
 
     expect(implode("\n", $failures))->toBe('');

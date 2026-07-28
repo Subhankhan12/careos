@@ -552,6 +552,36 @@
                 "awaiting_disposition": "Ready for disposition",
                 "left_without_being_seen": "Left (LWBS)"
             }
+        },
+        "record": {
+            "title": "ED clinical record",
+            "eyebrow": "Emergency Department · Clinical record",
+            "openTriage": "Triage",
+            "encounters": "Treatment encounters",
+            "startEncounter": "Start encounter",
+            "openEditor": "Open note editor",
+            "reason": "Reason (optional)",
+            "noEncounters": "No treatment encounter yet.",
+            "note": {
+                "draft": "Draft note",
+                "signed": "Signed note"
+            },
+            "vitals": "Vitals",
+            "recordVital": "Record vital",
+            "noVitals": "No vitals recorded during this visit.",
+            "metric": {
+                "systolic": "Systolic",
+                "diastolic": "Diastolic",
+                "heart_rate": "Heart rate",
+                "temperature_c": "Temp °C",
+                "spo2": "SpO₂",
+                "weight_g": "Weight",
+                "height_mm": "Height"
+            },
+            "orders": "Orders",
+            "placeOrder": "Place order",
+            "selectOrder": "Select an orderable item",
+            "noOrders": "No orders on this visit."
         }
     },
     "settings": {

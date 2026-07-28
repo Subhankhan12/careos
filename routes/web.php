@@ -47,6 +47,7 @@ use Modules\Dental\Http\Controllers\PerioChartController;
 use Modules\Dental\Http\Controllers\PortalTreatmentPlanController;
 use Modules\Dental\Http\Controllers\TreatmentPlanController;
 use Modules\ED\Http\Controllers\EdBoardController;
+use Modules\ED\Http\Controllers\EdDocumentationController;
 use Modules\ED\Http\Controllers\EdTriageController;
 use Modules\FrontDesk\Http\Controllers\KioskCheckInController;
 use Modules\FrontDesk\Http\Controllers\KioskDeviceController;
@@ -428,6 +429,15 @@ Route::middleware('auth')->group(function () {
     // facts + recorded acuity only — NO computed priority ranking. {visit} string-id (FIX.1).
     Route::get('/ed/board', [EdBoardController::class, 'index'])->name('ed.board');
     Route::post('/ed/visits/{visit}/transition', [EdBoardController::class, 'transition'])->name('ed.board.transition');
+
+    // ED clinical documentation (ED.G4) — the visit's clinical record, REUSING Clinical (a treatment Encounter
+    // tied to the visit ED-side, sign-and-lock ClinicalNote, raw Vital, structured Order). Encounter UNMODIFIED.
+    // Read = `patient.view` (read-logged); write actions carry the existing clinical gates (encounter.manage /
+    // note.write / order.manage). Starting an encounter redirects into the EXISTING note editor. {visit} string-id.
+    Route::get('/ed/visits/{visit}/record', [EdDocumentationController::class, 'show'])->name('ed.visits.record.show');
+    Route::post('/ed/visits/{visit}/encounter', [EdDocumentationController::class, 'startEncounter'])->name('ed.visits.encounter.start');
+    Route::post('/ed/visits/{visit}/vitals', [EdDocumentationController::class, 'recordVital'])->name('ed.visits.vitals');
+    Route::post('/ed/visits/{visit}/orders', [EdDocumentationController::class, 'placeOrder'])->name('ed.visits.orders');
 
     // Onboarding/migration: generic CSV patient import (RBAC 'data.import' enforced
     // in each controller action). Mandatory dry-run before commit.

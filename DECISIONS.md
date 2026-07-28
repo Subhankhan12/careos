@@ -2095,3 +2095,30 @@ references the old ID.
   smoke extended (`/ed/board` — org_admin 200, reception 403). No existing behavior test modified; the
   clinical-safety/triage eval + G1/G2 + reconciliation/fence/immutability + all vertical suites stay green; no
   charge. `tests/Feature/ED/EdBoardTest.php` (5). See `docs/HOSPITAL-PHASE6-ED-MAP.md`, [[ED]], [[LOG]].
+
+- **D-133 — ED.G4: ED clinical documentation — reuses Clinical; Encounter UNMODIFIED; the fence carries
+  through.** Per `docs/HOSPITAL-PHASE6-ED-MAP.md` §2. REUSE-heavy, not new clinical domain — the inpatient
+  bedside-chart ([[Hospital]] HOSPITAL.G4) / surgery op-note ([[Surgery]] SURGERY.G3) pattern. **The linkage:**
+  an ED treatment encounter is a **reused Clinical `Encounter`** (`TYPE_CONSULTATION` — NO ED type added to
+  Clinical), tied to the visit by an ED-side **`ed_visit_encounters`** link (`EdVisitEncounter`, the
+  `ward_rounds`/`surgical_case_encounters` precedent), so Clinical's schema + its one-open-per-practitioner
+  invariant stay untouched (proven: `encounters` has no `ed_visit_id` column). `EdDocumentationService` mirrors
+  `BedsideChartService`: `startEncounter` (open via `EncounterService::open` — invariant enforced UNCHANGED;
+  link ED-side; draft a sign-and-lock `ClinicalNote`), `recordVital` (raw `Vital` via
+  `ClinicalListService::recordVital`, tied to the visit's latest encounter), `placeOrder` (structured `Order`
+  via `OrderService::place`), and `vitalsForVisit` (the ONLY new affordance — raw vitals by the visit's
+  encounter_ids via `VitalsSeries`, no bands/flags/scores; the `forStay`/`forCase` precedent). **The invariant
+  HOLDS (tested):** the treatment encounter is kept OPEN; a SECOND concurrent `startEncounter` for the same
+  patient+practitioner is REFUSED (`InvalidArgumentException`). The note runs the EXISTING
+  write→sign→read-only→amend→version flow unchanged. **FENCE (carries through):** raw vitals only, sign-and-lock
+  notes unchanged, NO computed acuity/severity/deterioration/early-warning score — the record payload carries
+  raw vitals + note status but `->missing` acuity/severity/score/deterioration/early_warning; the recorded
+  triage acuity is G2's nurse-ASSIGNED value (on the triage page), nothing computed here. **RBAC (reused
+  clinical gates):** `encounter.manage`/`note.write`/`note.sign`/`order.manage` (the ED physician holds all;
+  reception with patient.view but no encounter.manage is refused by the reused EncounterService); read =
+  `patient.view` (read-logged). Tenant+branch scoped; cross-tenant fail-closed. UI (P0D.GU):
+  `EdDocumentationController` (`/ed/visits/{visit}/record`; start-encounter → redirects into the EXISTING note
+  editor) + `ED/Documentation.vue` (reuses the bedside-chart idiom); `ed.record.*` i18n; FIX.5 smoke extended.
+  No existing behavior test modified; Clinical's suite + the Encounter invariant + the clinical-safety/triage
+  eval + G1–G3 + all vertical suites stay green; no charge. `tests/Feature/ED/EdDocumentationTest.php` (6). See
+  `docs/HOSPITAL-PHASE6-ED-MAP.md`, [[ED]], [[LOG]].

@@ -103,6 +103,25 @@ fail-closed, one `DB::transaction`): append the triage → optional RAW vitals v
   `EdVisitService::transition`, dispositioned excluded); `ED/Board.vue` (sort by arrival OR the recorded
   acuity — a fact — never a computed rank); `ed.board.*` i18n; FIX.5 smoke extended. 5 feature tests
   (`tests/Feature/ED/EdBoardTest.php`). No charge. See D-132.
+- **ED.G4**: ED clinical documentation — REUSES Clinical (Encounter UNMODIFIED); the fence carries through. An
+  ED treatment encounter is a reused `Encounter` (`TYPE_CONSULTATION`) tied to the visit by the ED-side
+  `ed_visit_encounters` link (`EdVisitEncounter`, the `ward_rounds` precedent); `EdDocumentationService`
+  (mirrors `BedsideChartService`): `startEncounter`/`recordVital`/`placeOrder` + `vitalsForVisit` (the only new
+  affordance — raw `VitalsSeries`); the one-open invariant HOLDS (a second concurrent encounter for the same
+  patient+practitioner is refused). `EdDocumentationController` (`/ed/visits/{visit}/record`) + `ED/Documentation.vue`
+  (reuses the bedside-chart idiom) + `ed.record.*` i18n; FIX.5 smoke extended. 6 feature tests
+  (`tests/Feature/ED/EdDocumentationTest.php`). No charge. See D-133.
+
+## Documentation reuse (G4)
+
+ED documentation is REUSE-heavy — it composes the EXISTING Clinical module against the `EdVisit` WITHOUT
+modifying Clinical (the inpatient/surgery pattern). The linkage is ED-side (`ed_visit_encounters`) so
+Clinical's `Encounter` schema + one-open-per-practitioner invariant are untouched (proven: `encounters` has no
+`ed_visit_id` column; a second concurrent encounter is refused). Notes reuse the sign-and-lock `ClinicalNote`
+(write→sign→lock→amend→version), vitals reuse the raw `Vital` (tied to the visit's treatment encounter; the
+only new read is `vitalsForVisit` via `VitalsSeries` — no bands/flags/scores), orders reuse the structured
+`Order`. FENCE carries through: raw vitals, no computed acuity/severity/deterioration score — the record
+payload carries raw vitals + note status but no computed-judgment field.
 
 ## The board FENCE (G3)
 
@@ -115,7 +134,6 @@ over `EdBoardController` finds no priority/ranking computation.
 
 ## Not built yet (later gates)
 
-G4 ED documentation (reuse `Encounter`/`ClinicalNote`/`Vital`) · G5 disposition + the ED→ADT handoff (admit =
-create a Phase-1 `Stay`, `admission_type=emergency`, app-layer) · G6 ED billing (the existing engine,
-reconciles-to-the-unit). **Computed triage acuity is a PERMANENT non-goal** (certified partner behind the
-seam). See `docs/HOSPITAL-PHASE6-ED-MAP.md`.
+G5 disposition + the ED→ADT handoff (admit = create a Phase-1 `Stay`, `admission_type=emergency`, app-layer) ·
+G6 ED billing (the existing engine, reconciles-to-the-unit). **Computed triage acuity is a PERMANENT non-goal**
+(certified partner behind the seam). See `docs/HOSPITAL-PHASE6-ED-MAP.md`.

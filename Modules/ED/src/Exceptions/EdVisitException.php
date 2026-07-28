@@ -69,4 +69,9 @@ class EdVisitException extends RuntimeException
     {
         return new self('ed_triages are append-only: UPDATE and DELETE are forbidden.');
     }
+
+    public static function noEncounter(string $visitId): self
+    {
+        return new self("ED visit {$visitId} has no treatment encounter yet — start one before charting vitals/orders.");
+    }
 }
