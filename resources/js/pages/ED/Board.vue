@@ -28,6 +28,8 @@ type VisitTile = {
     acuity: Acuity | null;
     available_transitions: string[];
     triage_url: string;
+    record_url: string;
+    disposition_url: string | null;
     transition_url: string | null;
 };
 
@@ -142,6 +144,8 @@ function advance(tile: VisitTile, status: string): void {
                             {{ t(`ed.board.advanceTo.${s}`) }}
                         </button>
                         <Link :href="v.triage_url" class="text-xs font-semibold text-euca-700 underline">{{ t('ed.board.openTriage') }}</Link>
+                        <Link :href="v.record_url" class="text-xs font-semibold text-euca-700 underline">{{ t('ed.board.openRecord') }}</Link>
+                        <Link v-if="v.disposition_url" :href="v.disposition_url" class="text-xs font-semibold text-euca-700 underline">{{ t('ed.board.dispose') }}</Link>
                     </div>
                 </div>
             </div>

@@ -85,6 +85,7 @@ class EdVisitService
         string $toStatus,
         ?string $reason = null,
         ?string $disposition = null,
+        ?string $stayId = null,
     ): EdVisit {
         Gate::forUser($actor)->authorize('ed.manage');
         $this->assertSameTenant($visit->tenant_id, 'ed_visit_id', $visit->id);
@@ -104,11 +105,16 @@ class EdVisitService
             throw EdVisitException::dispositionNotAllowed();
         }
 
-        return DB::transaction(function () use ($visit, $toStatus, $reason, $disposition, $actor): EdVisit {
+        return DB::transaction(function () use ($visit, $toStatus, $reason, $disposition, $stayId, $actor): EdVisit {
             $attributes = ['status' => $toStatus];
             if ($toStatus === EdVisit::STATUS_DISPOSITIONED) {
                 $attributes['disposition'] = $disposition;
                 $attributes['dispositioned_at'] = Carbon::now();
+                // The ED→ADT handoff (ED.G5): on ADMIT, the app-layer composer passes the Stay id created via
+                // the EXISTING AdmissionService — a SOFT ref recorded here so the episode is traceable ED→inpatient.
+                if ($stayId !== null) {
+                    $attributes['stay_id'] = $stayId;
+                }
             }
             $visit->forceFill($attributes)->save();
 

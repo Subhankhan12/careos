@@ -6,6 +6,7 @@ use App\Http\Controllers\BranchController;
 use App\Http\Controllers\ClinicalSummaryDraftController;
 use App\Http\Controllers\ClinicalSummaryInsertController;
 use App\Http\Controllers\Comms\InboxAgentController;
+use App\Http\Controllers\EdDispositionController;
 use App\Http\Controllers\GovernanceDashboardController;
 use App\Http\Controllers\KbArticleController;
 use App\Http\Controllers\Portal\PortalHomeController;
@@ -438,6 +439,13 @@ Route::middleware('auth')->group(function () {
     Route::post('/ed/visits/{visit}/encounter', [EdDocumentationController::class, 'startEncounter'])->name('ed.visits.encounter.start');
     Route::post('/ed/visits/{visit}/vitals', [EdDocumentationController::class, 'recordVital'])->name('ed.visits.vitals');
     Route::post('/ed/visits/{visit}/orders', [EdDocumentationController::class, 'placeOrder'])->name('ed.visits.orders');
+
+    // ED disposition + the ED→ADT handoff (ED.G5) — the clinician's terminal decision on an EdVisit:
+    // admit / discharge / transfer. ADMIT reuses the EXISTING AdmissionService to create an inpatient Stay
+    // (admission_type=emergency), ATOMICALLY with the disposition. App-layer (composes ED + Hospital). Read +
+    // disposition = `ed.manage`; ADMIT additionally requires `admission.manage`. {visit} string-id (FIX.1).
+    Route::get('/ed/visits/{visit}/disposition', [EdDispositionController::class, 'show'])->name('ed.visits.disposition.show');
+    Route::post('/ed/visits/{visit}/disposition', [EdDispositionController::class, 'store'])->name('ed.visits.disposition.store');
 
     // Onboarding/migration: generic CSV patient import (RBAC 'data.import' enforced
     // in each controller action). Mandatory dry-run before commit.

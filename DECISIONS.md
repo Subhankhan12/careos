@@ -2122,3 +2122,33 @@ references the old ID.
   No existing behavior test modified; Clinical's suite + the Encounter invariant + the clinical-safety/triage
   eval + G1–G3 + all vertical suites stay green; no charge. `tests/Feature/ED/EdDocumentationTest.php` (6). See
   `docs/HOSPITAL-PHASE6-ED-MAP.md`, [[ED]], [[LOG]].
+
+- **D-134 — ED.G5: disposition + the ED→ADT handoff — admit reuses AdmissionService → an inpatient Stay;
+  atomic.** Per `docs/HOSPITAL-PHASE6-ED-MAP.md` §2.3 — THE SIGNATURE REUSE of Phase 6. Closing an ED visit is
+  the clinician's recorded DECISION (admit / discharge / transfer) via the G1 legal transition
+  `awaiting_disposition → dispositioned` (append-only, audited, gated `ed.manage`). Additive: a SOFT nullable
+  `stay_id` on `ed_visits` (no FK/relation — the [[Surgery]] `stay_id` precedent) + `EdVisitService::transition`
+  gained an optional `?stayId`. **THE HANDOFF (admit REUSES the EXISTING AdmissionService):** an APP-LAYER
+  composer `app/Services/EdDispositionService` (in app/, NOT Modules\ED — it composes TWO verticals: the ED
+  flow + Hospital admission; the arch boundary keeps Modules\ED independent of [[Hospital]]; the app-layer
+  composition precedent, AGENTS.md:93-96). `admit()`: gate `admission.manage`, then in ONE `DB::transaction` →
+  `AdmissionService::admit($patient, $bed, $clinician, Stay::TYPE_EMERGENCY, …)` → `EdVisitService::transition
+  (…, dispositioned, admit, $stay->id)`. **Admission is REUSED, never reimplemented or modified** — the proven
+  concurrency-safe bed claim + one-active-stay guard + atomic admit all apply UNCHANGED; the ED visit links to
+  the resulting Stay (episode traceable ED→inpatient). discharge/transfer close the visit with the disposition,
+  NO Stay. **ATOMIC (tested):** the admit + the disposition are ONE transaction — a forced failure rolls back
+  BOTH (admitting an `arrived` visit creates the Stay then FAILS at the illegal transition → the whole tx rolls
+  back → no Stay, bed free, visit unchanged). **Reused bed-safety (tested):** admitting a 2nd patient to an
+  occupied bed throws `BedNotAvailableException` → rolls back (only 1 Stay) — the G1/G2 guarantee, reused.
+  **RBAC:** ADMIT requires `admission.manage` (an ed.manage-only user is refused before any write);
+  discharge/transfer = `ed.manage`. **THE FENCE:** the disposition is the clinician's RECORDED decision — the
+  system computes/suggests NOTHING (no admit-probability/discharge-risk/suggested-disposition; nothing
+  auto-decides — a fresh awaiting_disposition visit has `disposition=null`; the `ed_visits` schema carries no
+  such column). UI (P0D.GU): app-layer `EdDispositionController` (`/ed/visits/{visit}/disposition`; ADMIT
+  bed/clinician picker → the existing admission flow) + `ED/Disposition.vue` (shows the decision + the linked
+  Stay); the board links to it; `ed.disposition.*` i18n; FIX.5 smoke extended. Also caught: the controller must
+  catch `BedNotAvailableException` (a `RuntimeException`, not an `AdmissionException`) so an occupied-bed admit
+  returns a clean error, not a 500 (the Hospital AdmissionController precedent). No existing behavior test
+  modified; the AdmissionService's own tests + Encounter invariant + the clinical-safety/triage eval + G1–G4 +
+  all vertical (incl. Phase-1 Hospital) suites stay green; no charge. `tests/Feature/ED/EdDispositionTest.php`
+  (7). See `docs/HOSPITAL-PHASE6-ED-MAP.md`, [[ED]], [[LOG]].

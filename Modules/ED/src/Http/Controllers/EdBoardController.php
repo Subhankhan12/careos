@@ -63,6 +63,9 @@ class EdBoardController
             // The legal next flow states — a FIXED map (record-not-judge), never a "next patient" suggestion.
             'available_transitions' => EdVisit::TRANSITIONS[$visit->status] ?? [],
             'triage_url' => route('ed.visits.triage.show', $visit->id),
+            'record_url' => route('ed.visits.record.show', $visit->id),
+            // The disposition surface (ED.G5) — offered once the visit is awaiting disposition.
+            'disposition_url' => $visit->status === EdVisit::STATUS_AWAITING_DISPOSITION ? route('ed.visits.disposition.show', $visit->id) : null,
             'transition_url' => $canManage ? route('ed.board.transition', $visit->id) : null,
         ])->all();
 

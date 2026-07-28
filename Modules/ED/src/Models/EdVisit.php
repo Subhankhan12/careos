@@ -45,6 +45,7 @@ use Modules\Platform\Models\Branch;
  * @property string $chief_complaint
  * @property string $status
  * @property string|null $disposition
+ * @property string|null $stay_id
  * @property Carbon|null $dispositioned_at
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at

@@ -192,6 +192,7 @@ test('every major staff route is reachable through the real middleware stack (20
         'ed.triage (C-1)' => '/ed/visits/'.$fx['edVisit']->id.'/triage',
         'ed.board' => '/ed/board',
         'ed.record (C-1)' => '/ed/visits/'.$fx['edVisit']->id.'/record',
+        'ed.disposition (C-1)' => '/ed/visits/'.$fx['edVisit']->id.'/disposition',
     ];
 
     $failures = [];
@@ -476,6 +477,17 @@ test('per-role RBAC smoke: each role reaches its pages (200) and is denied other
         ->status();
     if ($edEncounterStatus !== 403) {
         $failures[] = "ed.visits.encounter.start as reception -> {$edEncounterStatus} (expected 403)";
+    }
+
+    // ED.G5: recording a disposition is ed.manage-gated. Reception (no ed.manage) is denied on the disposition
+    // route at the gate through the real stack. The disposition is the clinician's decision; ADMIT reuses the
+    // existing AdmissionService (admission.manage) to create an inpatient Stay.
+    smokeCtx()->forget();
+    $edDispositionStatus = $this->actingAs($u['reception'])
+        ->post('/ed/visits/'.$fx['edVisit']->id.'/disposition', ['disposition' => 'discharge'])
+        ->status();
+    if ($edDispositionStatus !== 403) {
+        $failures[] = "ed.visits.disposition.store as reception -> {$edDispositionStatus} (expected 403)";
     }
 
     expect(implode("\n", $failures))->toBe('');

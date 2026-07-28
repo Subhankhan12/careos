@@ -544,6 +544,8 @@
             "empty": "No active ED visits.",
             "untriaged": "Not yet triaged",
             "openTriage": "Triage",
+            "openRecord": "Record",
+            "dispose": "Dispose",
             "elapsedMin": "{n} min",
             "elapsedHr": "{h}h {m}m",
             "advanceTo": {
@@ -582,6 +584,28 @@
             "placeOrder": "Place order",
             "selectOrder": "Select an orderable item",
             "noOrders": "No orders on this visit."
+        },
+        "disposition": {
+            "title": "ED disposition",
+            "eyebrow": "Emergency Department · Disposition",
+            "openRecord": "Clinical record",
+            "outcome": "Disposition",
+            "admittedTo": "Admitted to inpatient",
+            "emergencyAdmission": "Emergency admission",
+            "record": "Record disposition",
+            "decisionHint": "The disposition is the clinician's decision — the system records it, it never computes or suggests it.",
+            "option": {
+                "admit": "Admit",
+                "discharge": "Discharge",
+                "transfer": "Transfer out"
+            },
+            "bed": "Bed",
+            "clinician": "Admitting clinician",
+            "noBeds": "No free beds available.",
+            "admitHint": "Admitting creates an inpatient stay via the existing admission flow (emergency admission).",
+            "note": "Note (optional)",
+            "save": "Record disposition",
+            "notReady": "This visit is not yet awaiting disposition."
         }
     },
     "settings": {

@@ -111,6 +111,26 @@ fail-closed, one `DB::transaction`): append the triage → optional RAW vitals v
   patient+practitioner is refused). `EdDocumentationController` (`/ed/visits/{visit}/record`) + `ED/Documentation.vue`
   (reuses the bedside-chart idiom) + `ed.record.*` i18n; FIX.5 smoke extended. 6 feature tests
   (`tests/Feature/ED/EdDocumentationTest.php`). No charge. See D-133.
+- **ED.G5**: disposition + the ED→ADT handoff — admit reuses AdmissionService → an inpatient Stay; atomic. The
+  SIGNATURE reuse. A soft nullable `stay_id` on `ed_visits` (+ `EdVisitService::transition` gained `?stayId`);
+  an APP-LAYER `app/Services/EdDispositionService` (composes ED flow + Hospital admission — in app/, NOT
+  Modules\ED) does `admit` (one `DB::transaction`: `AdmissionService::admit(…, Stay::TYPE_EMERGENCY)` →
+  `transition(…, dispositioned, admit, $stay->id)`) / `discharge` / `transferOut`. Atomic (forced failure rolls
+  back both); reused bed-safety (`BedNotAvailableException` on an occupied bed); ADMIT needs `admission.manage`.
+  App-layer `EdDispositionController` (`/ed/visits/{visit}/disposition`) + `ED/Disposition.vue`; board links to
+  it; `ed.disposition.*` i18n; FIX.5 smoke extended. 7 feature tests (`tests/Feature/ED/EdDispositionTest.php`).
+  No charge. See D-134.
+
+## The ED→ADT handoff (G5 — the signature reuse)
+
+Closing an ED visit is the clinician's recorded DECISION (admit/discharge/transfer) via `awaiting_disposition
+→ dispositioned` (the G1 legal transition). **ADMIT reuses the EXISTING, concurrency-safe, atomic
+`AdmissionService::admit`** to create a Phase-1 inpatient `Stay` (`admission_type=emergency`) — admission is
+REUSED, never reimplemented/modified. The cross-vertical composition lives in the APP LAYER
+(`app/Services/EdDispositionService`) so `Modules\ED` stays arch-independent of `Modules\Hospital`; the ED↔Stay
+link is a soft `stay_id` (no FK/relation). The handoff is ATOMIC (admit + disposition in one transaction — a
+failure rolls back both); the reused bed-claim concurrency-safety + one-active-stay guard apply unchanged.
+**FENCE:** the disposition is the clinician's recorded decision — nothing is computed/suggested/auto-decided.
 
 ## Documentation reuse (G4)
 
@@ -134,6 +154,5 @@ over `EdBoardController` finds no priority/ranking computation.
 
 ## Not built yet (later gates)
 
-G5 disposition + the ED→ADT handoff (admit = create a Phase-1 `Stay`, `admission_type=emergency`, app-layer) ·
-G6 ED billing (the existing engine, reconciles-to-the-unit). **Computed triage acuity is a PERMANENT non-goal**
-(certified partner behind the seam). See `docs/HOSPITAL-PHASE6-ED-MAP.md`.
+G6 ED billing (the existing engine, reconciles-to-the-unit) — the last Phase-6 core gate. **Computed triage
+acuity is a PERMANENT non-goal** (certified partner behind the seam). See `docs/HOSPITAL-PHASE6-ED-MAP.md`.
