@@ -9,6 +9,7 @@ use Modules\Billing\Providers\BillingServiceProvider;
 use Modules\Clinical\Providers\ClinicalServiceProvider;
 use Modules\Comms\Providers\CommsServiceProvider;
 use Modules\Dental\Providers\DentalServiceProvider;
+use Modules\ED\Providers\EDServiceProvider;
 use Modules\FrontDesk\Providers\FrontDeskServiceProvider;
 use Modules\Hospital\Providers\HospitalServiceProvider;
 use Modules\Import\Providers\ImportServiceProvider;
@@ -42,4 +43,5 @@ return [
     ReportingServiceProvider::class,
     SchedulingServiceProvider::class,
     SurgeryServiceProvider::class,
+    EDServiceProvider::class,
 ];

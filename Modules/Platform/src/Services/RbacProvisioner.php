@@ -61,6 +61,10 @@ class RbacProvisioner
         'theatre.manage' => 'Manage operating theatres (OR rooms)',
         'surgery.schedule' => 'Book and schedule surgical theatre blocks',
         'surgery.manage' => 'Create and manage surgical cases',
+        // Emergency Department vertical (ED.G1 — Phase 6). Additive — see docs/HOSPITAL-PHASE6-ED-MAP.md §4.
+        // The ED→ADT admit handoff (G5) additionally requires the existing `admission.manage`.
+        'ed.manage' => 'Register ED visits and advance their flow (Emergency Department)',
+        'triage.record' => 'Record a triage assessment and the nurse-assigned acuity (ED)',
     ];
 
     /**
@@ -81,6 +85,7 @@ class RbacProvisioner
                 'ward.manage', 'bed.manage', 'admission.manage', 'document.view',
                 'formulary.manage', 'dispense.manage', 'medication.prescribe',
                 'theatre.manage', 'surgery.schedule', 'surgery.manage',
+                'ed.manage', 'triage.record',
             ],
         ],
         'coordinator' => [
@@ -218,6 +223,36 @@ class RbacProvisioner
             'permissions' => [
                 // Runs the OR list — authors theatres + books surgical blocks.
                 'patient.view', 'appointment.manage', 'theatre.manage', 'surgery.schedule',
+            ],
+        ],
+        // Emergency Department vertical starter roles (ED.G1 — Phase 6). Additive; the map §4. Later gates add
+        // triage.record usage (G2) + billing.manage (G6); the ED physician gets admission.manage for the
+        // ED→ADT admit handoff (G5). Acuity is ASSIGNED by the triage nurse (a recorded fact), never computed.
+        'ed_physician' => [
+            'name' => 'ED Physician',
+            'permissions' => [
+                // The treating emergency clinician — runs the ED visit + its flow, charts clinically, and can
+                // admit from the ED (admission.manage — the ED→ADT handoff, G5).
+                'patient.view', 'encounter.manage', 'note.write', 'note.sign', 'order.manage',
+                'ed.manage', 'admission.manage',
+            ],
+        ],
+        'triage_nurse' => [
+            'name' => 'Triage Nurse',
+            'permissions' => [
+                // Assesses at arrival: records the triage assessment + the ASSIGNED acuity (triage.record, used
+                // in G2) and moves the patient into treatment (ed.manage). Charts clinically.
+                'patient.view', 'encounter.manage', 'note.write',
+                'ed.manage', 'triage.record',
+            ],
+        ],
+        'ed_charge_nurse' => [
+            'name' => 'ED Charge Nurse',
+            'permissions' => [
+                // The ED's shift lead: runs the tracking board + oversees flow and triage, with chart-completion
+                // oversight (note.supervise) + reporting.
+                'patient.view', 'encounter.manage', 'note.write', 'note.sign', 'note.supervise', 'order.manage',
+                'reporting.view', 'ed.manage', 'triage.record',
             ],
         ],
     ];

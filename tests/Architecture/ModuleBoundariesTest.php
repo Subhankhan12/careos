@@ -206,3 +206,23 @@ arch('Surgery may use care modules + Audit services but not Audit models, AiCore
         'Modules\Pharmacy',
         'Modules\Comms',
     ]);
+
+// The Emergency Department is the ED patient-flow vertical (ED.G1 — Phase 6). It may use Platform + care
+// modules (Patients/People/Clinical/Billing/Scheduling) + Audit SERVICES, but never Audit models directly,
+// AiCore, or Comms. It is a PEER vertical: the ED→ADT admit handoff (G5) is a soft app-layer id (a future
+// soft `stay_id`), NOT a direct Hospital dependency, so ED stays independent of the peer verticals
+// (Nursing/Dental/Hospital/Pharmacy/Surgery). Its own `TriageAcuityProvider` seam MIRRORS Pharmacy's
+// `MedicationSafetyProvider` but references it by name only (no import — no peer dependency). Cross-module
+// audit composition lives in app/, so ED stays free of Audit — the Dental/Hospital/Pharmacy/Surgery posture.
+arch('ED may use care modules + Audit services but not Audit models, AiCore, peer verticals, or Comms')
+    ->expect('Modules\ED')
+    ->not->toUse([
+        'Modules\Audit\Models',
+        'Modules\AiCore',
+        'Modules\Nursing',
+        'Modules\Dental',
+        'Modules\Hospital',
+        'Modules\Pharmacy',
+        'Modules\Surgery',
+        'Modules\Comms',
+    ]);

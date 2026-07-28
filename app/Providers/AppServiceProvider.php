@@ -38,6 +38,8 @@ use Modules\Clinical\Models\Encounter;
 use Modules\Comms\Contracts\InboxDraftProvider;
 use Modules\Comms\Models\NotificationTemplate;
 use Modules\Comms\Services\NotificationService;
+use Modules\ED\Models\EdVisit;
+use Modules\ED\Models\EdVisitEvent;
 use Modules\Hospital\Events\BedStatusChanged;
 use Modules\Hospital\Events\StayTransitioned;
 use Modules\Hospital\Models\Bed;
@@ -435,6 +437,22 @@ class AppServiceProvider extends ServiceProvider
             'resource_type' => 'implant_placement',
             'resource_id' => $m->id,
             'context' => ['surgical_case_id' => $m->surgical_case_id, 'surgical_item_id' => $m->surgical_item_id, 'lot_number' => $m->lot_number, 'udi' => $m->udi],
+        ]));
+
+        // Emergency Department (ED.G1 — Phase 6) — patient-scoped — so ED stays free of Audit. An ED visit is a
+        // patient-FLOW record; the arrival + every legal-only flow transition is an append-only EdVisitEvent.
+        // ELECTRIC FENCE: `arrival_mode` / `disposition` are operational facts, never a computed acuity/triage.
+        EdVisit::created(fn (EdVisit $m) => $this->auditChange('ed_visit.registered', [
+            'patient_id' => $m->patient_id,
+            'resource_type' => 'ed_visit',
+            'resource_id' => $m->id,
+            'context' => ['branch_id' => $m->branch_id, 'arrival_mode' => $m->arrival_mode, 'status' => $m->status],
+        ]));
+        EdVisitEvent::created(fn (EdVisitEvent $m) => $this->auditChange('ed_visit.'.$m->event_type, [
+            'patient_id' => $m->patient_id,
+            'resource_type' => 'ed_visit_event',
+            'resource_id' => $m->id,
+            'context' => ['ed_visit_id' => $m->ed_visit_id, 'event_type' => $m->event_type, 'reason' => $m->reason],
         ]));
 
         // People credential vault changes. The observer lives here so People

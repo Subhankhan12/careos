@@ -3,7 +3,15 @@
 Short, factual snapshot of where the project stands. Updated at consolidations and after gates
 (per the MEMORY PROTOCOL in AGENTS.md).
 
-## STATUS: BACKEND FEATURE-COMPLETE · SIX VERTICALS · CURRENT FOCUS = DEPLOY (not building)
+## STATUS: BACKEND FEATURE-COMPLETE · SIX VERTICALS + ED (Phase 6) STARTED · CURRENT FOCUS = DEPLOY (not building)
+
+> **UPDATE (ED.G1):** the committed hospital buyer's phased build continues — **Hospital Phase 6 (Emergency
+> Department) is mapped (`docs/HOSPITAL-PHASE6-ED-MAP.md`) and its FOUNDATION gate ED.G1 is built** (a peer
+> `Modules\ED`: the NET-NEW `EdVisit` patient-flow entity + legal-only lifecycle + append-only flow events +
+> ED RBAC + the EMPTY triage-acuity seam). The **triage FENCE** holds: nurse-ASSIGNED acuity is a recorded
+> fact (G2), a COMPUTED triage acuity is a certified-partner/medical-device **permanent non-goal** (the seam
+> ships empty). Remaining ED gates: G2 triage record · G3 tracking board · G4 documentation · G5 disposition +
+> the ED→ADT handoff · G6 billing. See the ED bullet below + [[ED]] / D-130.
 
 **Read this before starting any work. The next unit of progress is DELIVERY, not another gate.**
 (Latest reconciliation: the full six-vertical handoff pass — clinic / dental / home-care / inpatient /
@@ -51,6 +59,21 @@ consumables/implants → billing.)
     lot/serial/UDI traceability (concurrency-safe stock) · billing (reconciles-to-the-unit). ASA/Mallampati are
     clinician-**ASSIGNED** recorded facts; **computed surgical-risk is a non-goal**; the anesthesia device-data
     feed is a partner seam.
+  - **EMERGENCY DEPARTMENT / ED — STARTED (Hospital Phase 6, ED.G1 = the foundation).** A peer `Modules\ED`
+    (mirrors Surgery/Pharmacy). ED.G1 ships the **NET-NEW `EdVisit` patient-flow entity** (NOT an `Encounter`
+    [one-open-per-practitioner, point-in-time] and NOT a `Stay` [inpatient episode with a bed — most ED visits
+    discharge home]; the Bed/Stay/SurgicalCase "own flow-entity" discipline) with a **legal-only lifecycle**
+    (arrived → triaged → in_treatment → awaiting_disposition → dispositioned; + left_without_being_seen) +
+    **append-only `EdVisitEvent`** flow history · ED RBAC (`ed.manage`/`triage.record`; `ed_physician`/
+    `triage_nurse`/`ed_charge_nurse`) · and — established EMPTY — the **triage-acuity SEAM**
+    (`TriageAcuityProvider` → null-object). **THE TRIAGE FENCE (the vertical's crux):** the triage nurse
+    **ASSIGNS** the acuity (a recorded fact, ED.G2 — the `Stay::admission_type`/ASA precedent); a **COMPUTED**
+    triage acuity is a regulated medical device, the electric-fence line, eval-locked
+    (`ClinicalAgentsEvalTest.php:273` refuses `triage`), a **permanent homemade non-goal** — the seam ships
+    empty, filled only by a certified partner. Remaining: G2 triage record · G3 tracking board (reuse the
+    ward-board idiom) · G4 documentation (reuse Clinical) · G5 disposition + the **ED→ADT handoff** (admit =
+    create a Phase-1 `Stay`, `admission_type=emergency`, app-layer) · G6 billing (the existing engine). See
+    `docs/HOSPITAL-PHASE6-ED-MAP.md`, [[ED]], D-130.
   - **INSURANCE / CLAIMS — NOT built.** Needs a clearinghouse partner; its own future phase, to be built
     with the same proven wiring/build patterns.
 - **The business picture.** The **outpatient** verticals (clinic / dental / home-care) target **2–3 prospective

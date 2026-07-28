@@ -2009,3 +2009,40 @@ references the old ID.
   Phases 3 (lab), 4 (radiology), 6 (ED).** (SURGERY.G5) See [[D-124]]/PHARMACY.G5 (the billing pattern it
   mirrors), [[D-118]]/HOSPITAL.G6 (bed-to-billing + `invoiceStay`), [[D-128]] (G4 — the consumables it bills),
   the surgery map §2.6, and [[Surgery]].
+
+- **D-130 — ED.G1: ED module + `EdVisit` flow entity + the triage-acuity seam (null-object) + ED RBAC — the
+  Phase-6 (Emergency Department) FOUNDATION.** Per `docs/HOSPITAL-PHASE6-ED-MAP.md`. The ED's value is
+  patient-FLOW, buildable in isolation (unlike lab/radiology, whose value is an external feed). **THE
+  NET-NEW `EdVisit` DECISION (the crux):** an ED presentation is NEITHER a Clinical `Encounter` (single-sitting,
+  one-open-per-practitioner — an ED presentation has an arrival→triage→treatment→disposition FLOW) NOR an
+  inpatient `Stay` (an inpatient episode with a bed — MOST ED visits discharge home and never become one), so
+  it is a **NET-NEW `EdVisit` flow entity** — the Bed/`Stay`/`SurgicalCase` "own flow-entity above a reused
+  primitive" discipline ([[D-115]]/[[Hospital]] Stay, [[Surgery]] SurgicalCase). `ed_visits` (BelongsToTenant,
+  LogsReads, tenant+branch scoped): patient, `arrived_at`, `arrival_mode` (walk_in/ambulance/referral),
+  `chief_complaint` (free text), `status`, nullable `disposition` (admit/discharge/transfer — the G5 handoff
+  detail) + `dispositioned_at`; **`status` out of `$fillable`** (moves only via the legal-only machine). **The
+  legal-only lifecycle:** `arrived → triaged → in_treatment → awaiting_disposition → dispositioned` (+
+  `left_without_being_seen` from arrived/triaged); illegal moves throw. `ed_visit_events` (**APPEND-ONLY** —
+  model guards + `SIGNAL '45000'` DB triggers, the `surgical_case_events` recipe) — one immutable row for
+  ARRIVAL + one per transition. **THE TRIAGE-ACUITY SEAM (empty — the FENCE crux):**
+  `Contracts\TriageAcuityProvider` (`suggestAcuity(AcuityContext): AcuityResult`) bound in
+  `EDServiceProvider::register()` to `NullTriageAcuityProvider` (returns `AcuityResult::none()`), MIRRORING
+  Pharmacy's `MedicationSafetyProvider` → `Null*` ([[D-120]]) and Clinical's `LabConnectivity` → `Manual*`
+  (referenced by NAME — ED imports NO peer vertical). **CareOS builds the SEAM, NOT the logic.** A COMPUTED
+  triage acuity (vitals+complaint → the ESI/Manchester/CTAS level) IS performing triage — a regulated MEDICAL
+  DEVICE, the electric-fence line (`AGENTS.md:36-39`), literally eval-locked (`ClinicalAgentsEvalTest.php:273`
+  refuses `triage`), and a **PERMANENT homemade non-goal**; the nurse-ASSIGNED acuity (a recorded fact, the
+  `Stay::admission_type`/ASA precedent) is the buildable version, recorded in a separate triage record in G2 —
+  NOT on the `EdVisit` (no acuity/triage/priority/severity/score column). The seam swap is proven resolvable (a
+  future certified partner binds in place, no consumer change; advisory + human-owned, never auto-assigning/
+  auto-prioritising). **`EdVisitService`:** `register` + `transition`, gate `ed.manage`, tenant fail-closed,
+  DB::transaction, append-only events. **RBAC (additive):** perms `ed.manage` + `triage.record` (used G2);
+  roles `ed_physician` (+ `admission.manage` for the G5 ED→ADT admit), `triage_nurse`, `ed_charge_nurse`;
+  org_admin gains both; reprovision migration `add_ed_permissions` (the `add_surgery_permissions` precedent);
+  `RbacNegativeSweepTest` untouched. **Audit app-layer** (`EdVisit.created`→`ed_visit.registered`;
+  `EdVisitEvent.created`→`ed_visit.<event_type>`; patient-scoped), so ED stays free of Audit. **Arch:**
+  `arch('ED …')` — ED may use Platform+care modules+Audit SERVICES, never Audit models/AiCore/Comms/peer
+  verticals; the ED→ADT link (G5) is a soft app-layer `stay_id`. No triage/board/docs/disposition-handoff/
+  billing this gate (G2–G6). No existing behavior test modified; arch/RBAC/clinical-safety-eval stay green.
+  `tests/Feature/ED/EdVisitTest.php` (10). See `docs/HOSPITAL-PHASE6-ED-MAP.md`, [[ED]], and the Phase-6 map
+  in [[LOG]].
