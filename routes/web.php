@@ -81,6 +81,7 @@ use Modules\Scheduling\Http\Controllers\DayBoardController;
 use Modules\Scheduling\Http\Controllers\PortalAppointmentController;
 use Modules\Scheduling\Http\Controllers\PublicBookingController;
 use Modules\Scheduling\Http\Controllers\WaitlistOfferController;
+use Modules\Surgery\Http\Controllers\SurgicalCaseController;
 
 Route::get('/', function () {
     if (! auth()->check()) {
@@ -368,6 +369,17 @@ Route::middleware('auth')->group(function () {
     // the existing engine → invoice → reconciles-to-the-unit. Gated `billing.manage`. String-id {item}.
     Route::get('/pharmacy/pricing', [PricingController::class, 'index'])->name('pharmacy.pricing');
     Route::post('/pharmacy/pricing/{item}', [PricingController::class, 'set'])->name('pharmacy.pricing.set');
+
+    // Surgery — the OR case board + a case detail that drives the legal-only lifecycle (SURGERY.G2), records
+    // the team + the anesthetist-ASSIGNED ASA, and authors op notes by REUSING the sign-and-lock note editor.
+    // Managing a case is `surgery.manage`; authoring a note is `note.write`. String-id {case} (FIX.1).
+    Route::get('/surgery/cases', [SurgicalCaseController::class, 'index'])->name('surgery.cases');
+    Route::post('/surgery/cases', [SurgicalCaseController::class, 'store'])->name('surgery.cases.store');
+    Route::get('/surgery/cases/{case}', [SurgicalCaseController::class, 'show'])->name('surgery.cases.show');
+    Route::post('/surgery/cases/{case}/transition', [SurgicalCaseController::class, 'transition'])->name('surgery.cases.transition');
+    Route::post('/surgery/cases/{case}/team', [SurgicalCaseController::class, 'team'])->name('surgery.cases.team');
+    Route::post('/surgery/cases/{case}/anesthesia', [SurgicalCaseController::class, 'anesthesia'])->name('surgery.cases.anesthesia');
+    Route::post('/surgery/cases/{case}/notes', [SurgicalCaseController::class, 'startNote'])->name('surgery.cases.notes');
 
     // Onboarding/migration: generic CSV patient import (RBAC 'data.import' enforced
     // in each controller action). Mandatory dry-run before commit.

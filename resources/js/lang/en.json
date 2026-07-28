@@ -315,6 +315,80 @@
             "set": "Set price"
         }
     },
+    "surgery": {
+        "status": {
+            "scheduled": "Scheduled",
+            "pre_op": "Pre-op",
+            "in_progress": "In progress",
+            "completed": "Completed",
+            "post_op": "Post-op",
+            "cancelled": "Cancelled"
+        },
+        "transition": {
+            "pre_op": "Start pre-op",
+            "in_progress": "Start surgery",
+            "completed": "Complete",
+            "post_op": "Move to post-op",
+            "cancelled": "Cancel case"
+        },
+        "phaseTime": {
+            "pre_op_at": "Pre-op",
+            "in_progress_at": "Incision",
+            "completed_at": "Completed",
+            "post_op_at": "Post-op",
+            "cancelled_at": "Cancelled"
+        },
+        "role": {
+            "surgeon": "Surgeon",
+            "anesthetist": "Anesthetist",
+            "scrub_nurse": "Scrub / OR nurse",
+            "other": "Other"
+        },
+        "phase": {
+            "pre_op": "Pre-op assessment",
+            "operative": "Operative note",
+            "post_op": "Post-op note"
+        },
+        "noteStatus": {
+            "draft": "Draft",
+            "signed": "Signed"
+        },
+        "board": {
+            "eyebrow": "Surgery · Theatre",
+            "title": "Surgical cases",
+            "subtitle": "The OR case list. Open a case to run its lifecycle and documentation.",
+            "patient": "Patient",
+            "surgeon": "Primary surgeon",
+            "procedure": "Procedure",
+            "scheduledAt": "Scheduled at",
+            "schedule": "Schedule case",
+            "heading": "Cases",
+            "empty": "No surgical cases yet.",
+            "open": "Open"
+        },
+        "case": {
+            "eyebrow": "Surgery · Case",
+            "title": "Surgical case",
+            "lifecycle": "Lifecycle",
+            "terminal": "This case has reached a terminal state.",
+            "anesthesia": "Anesthesia assessment",
+            "anesthesiaHint": "The ASA and Mallampati classes are assigned by the anesthetist and recorded here — the system computes no surgical-risk score.",
+            "asaClass": "ASA class",
+            "mallampati": "Mallampati",
+            "anesthetist": "Anesthetist",
+            "recordAsa": "Record",
+            "team": "Surgical team",
+            "noTeam": "No team members yet.",
+            "staff": "Staff member",
+            "role": "Role",
+            "addTeam": "Add to team",
+            "notes": "Operative documentation",
+            "noNotes": "No notes yet.",
+            "openNote": "Open",
+            "authorNote": "Author {phase}",
+            "history": "History"
+        }
+    },
     "settings": {
         "eyebrow": "Administration",
         "title": "Practice settings",

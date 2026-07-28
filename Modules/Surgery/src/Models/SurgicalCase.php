@@ -2,9 +2,11 @@
 
 namespace Modules\Surgery\Models;
 
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Support\Carbon;
 use Modules\Audit\Concerns\LogsReads;
@@ -15,17 +17,21 @@ use Modules\Platform\Exceptions\CrossTenantReferenceException;
 use Modules\Surgery\Exceptions\SurgicalCaseException;
 
 /**
- * A surgical CASE (SURGERY.G1) — a NET-NEW entity (docs/HOSPITAL-PHASE5-SURGERY-MAP.md §2.2; neither a
- * single-sitting Encounter nor a fixed clinic slot). G1 ships the case + the `scheduled` status; the full
- * lifecycle (scheduled → pre_op → in_progress → completed → post_op) + append-only case events are
- * SURGERY.G2. The mutable CURRENT state; patient + surgeon scoped; patient read-logged ({@see LogsReads}).
+ * A surgical CASE (SURGERY.G1 + the G2 lifecycle) — a NET-NEW entity (docs/HOSPITAL-PHASE5-SURGERY-MAP.md
+ * §2.2; neither a single-sitting Encounter nor a fixed clinic slot). The mutable CURRENT state; the immutable
+ * transition history is {@see SurgicalCaseEvent} (append-only). G2 adds the LEGAL-ONLY lifecycle
+ * (scheduled → pre_op → in_progress → completed → post_op, + cancelled), the factual per-phase timestamps,
+ * the surgical team, and the anesthetist-ASSIGNED ASA/Mallampati. Patient + surgeon scoped; patient
+ * read-logged ({@see LogsReads}). Op documentation reuses Clinical's sign-and-lock `ClinicalNote`/`Encounter`
+ * via {@see SurgicalCaseEncounter} (Encounter UNMODIFIED).
  *
  * `stay_id` is a SOFT nullable ref to a Phase-1 inpatient stay (no FK/relation — Surgery stays arch-
  * independent of Hospital; null = day-surgery / outpatient), composed app-layer (the pharmacy precedent).
  *
- * ELECTRIC FENCE: an operational/scheduling record — every field is a human-recorded fact. There is
- * deliberately NO computed acuity / priority / risk / severity / triage / score column: a surgical-risk score
- * is the fence line (map §3), a certified-partner / non-goal, NEVER computed here.
+ * ELECTRIC FENCE: an operational record — every field is a human-recorded fact. There is deliberately NO
+ * computed acuity / priority / risk / severity / triage / score column; the ASA/Mallampati classes are
+ * ASSIGNED by the anesthetist (recorded facts). A computed surgical-risk score/prediction is the fence line
+ * (map §3), a certified-partner / non-goal, NEVER computed here.
  *
  * @property string $id
  * @property string $tenant_id
@@ -35,11 +41,24 @@ use Modules\Surgery\Exceptions\SurgicalCaseException;
  * @property string $procedure_description
  * @property Carbon $scheduled_at
  * @property string $status
+ * @property string|null $status_reason
+ * @property Carbon|null $pre_op_at
+ * @property Carbon|null $in_progress_at
+ * @property Carbon|null $completed_at
+ * @property Carbon|null $post_op_at
+ * @property Carbon|null $cancelled_at
+ * @property string|null $asa_class
+ * @property string|null $mallampati
+ * @property string|null $asa_assessed_by
+ * @property Carbon|null $asa_assessed_at
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  * @property-read Patient|null $patient
  * @property-read StaffProfile|null $primarySurgeon
  * @property-read TheatreSlot|null $slot
+ * @property-read Collection<int, SurgicalCaseEvent> $events
+ * @property-read Collection<int, SurgicalCaseTeamMember> $teamMembers
+ * @property-read Collection<int, SurgicalCaseEncounter> $caseEncounters
  */
 class SurgicalCase extends Model
 {
@@ -64,6 +83,23 @@ class SurgicalCase extends Model
         self::STATUS_COMPLETED, self::STATUS_POST_OP, self::STATUS_CANCELLED,
     ];
 
+    // The LEGAL-ONLY lifecycle (SURGERY.G2). completed → post_op is terminal; cancelled only from a
+    // not-yet-started case (scheduled / pre_op). An illegal move throws SurgicalCaseException::invalidTransition.
+    public const TRANSITIONS = [
+        self::STATUS_SCHEDULED => [self::STATUS_PRE_OP, self::STATUS_CANCELLED],
+        self::STATUS_PRE_OP => [self::STATUS_IN_PROGRESS, self::STATUS_CANCELLED],
+        self::STATUS_IN_PROGRESS => [self::STATUS_COMPLETED],
+        self::STATUS_COMPLETED => [self::STATUS_POST_OP],
+        self::STATUS_POST_OP => [],
+        self::STATUS_CANCELLED => [],
+    ];
+
+    // ASA physical-status class + Mallampati — closed sets the ANESTHETIST assigns (recorded facts, never
+    // computed). CareOS records the assigned value; it does NOT compute it or any surgical-risk score.
+    public const ASA_CLASSES = ['I', 'II', 'III', 'IV', 'V', 'VI'];
+
+    public const MALLAMPATI_CLASSES = ['I', 'II', 'III', 'IV'];
+
     protected $keyType = 'string';
 
     public $incrementing = false;
@@ -74,6 +110,11 @@ class SurgicalCase extends Model
         'stay_id',
         'procedure_description',
         'scheduled_at',
+        // Lifecycle + anesthetist-assigned values (SURGERY.G2). `status` stays out of fillable — it moves only
+        // through the legal-only transition machine (forceFill in the service).
+        'status_reason',
+        'pre_op_at', 'in_progress_at', 'completed_at', 'post_op_at', 'cancelled_at',
+        'asa_class', 'mallampati', 'asa_assessed_by', 'asa_assessed_at',
     ];
 
     protected $attributes = [
@@ -87,7 +128,18 @@ class SurgicalCase extends Model
     {
         return [
             'scheduled_at' => 'datetime',
+            'pre_op_at' => 'datetime',
+            'in_progress_at' => 'datetime',
+            'completed_at' => 'datetime',
+            'post_op_at' => 'datetime',
+            'cancelled_at' => 'datetime',
+            'asa_assessed_at' => 'datetime',
         ];
+    }
+
+    public static function canTransition(string $from, string $to): bool
+    {
+        return in_array($to, self::TRANSITIONS[$from] ?? [], true);
     }
 
     protected static function booted(): void
@@ -123,6 +175,24 @@ class SurgicalCase extends Model
     public function slot(): HasOne
     {
         return $this->hasOne(TheatreSlot::class, 'surgical_case_id');
+    }
+
+    /** The append-only lifecycle history (one immutable row per transition). */
+    public function events(): HasMany
+    {
+        return $this->hasMany(SurgicalCaseEvent::class);
+    }
+
+    /** The surgical team on the case (surgeon + anesthetist + scrub/OR nurse). */
+    public function teamMembers(): HasMany
+    {
+        return $this->hasMany(SurgicalCaseTeamMember::class);
+    }
+
+    /** The op-documentation encounters (each holds a sign-and-lock ClinicalNote; Encounter reused unmodified). */
+    public function caseEncounters(): HasMany
+    {
+        return $this->hasMany(SurgicalCaseEncounter::class);
     }
 
     protected function auditPatientId(): ?string

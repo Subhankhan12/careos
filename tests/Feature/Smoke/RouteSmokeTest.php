@@ -23,6 +23,8 @@ use Modules\Platform\Models\Role;
 use Modules\Platform\Models\RoleAssignment;
 use Modules\Platform\Models\User;
 use Modules\Platform\Services\TenantContext;
+use Modules\Surgery\Services\SurgicalCaseService;
+use Modules\Surgery\Services\TheatreSchedulingService;
 
 uses(RefreshDatabase::class);
 
@@ -95,7 +97,12 @@ function smokeSeed(object $test): array
     $clinician = StaffProfile::query()->firstOrFail();
     $stay = app(AdmissionService::class)->admit($admin, $patient, $bed, $clinician, Stay::TYPE_ELECTIVE);
 
-    return compact('tenant', 'users', 'invoice', 'creditNote', 'payment', 'patient', 'encounter', 'note', 'batch', 'stay');
+    // SURGERY.G1/G2: the demo clinic has no OR data — author a theatre + schedule a surgical case so the
+    // case-detail route (a C-1-class request-time surface) is covered. org_admin holds surgery.manage.
+    app(TheatreSchedulingService::class)->createTheatre($admin, $branch->id, 'Smoke OR');
+    $surgicalCase = app(SurgicalCaseService::class)->schedule($admin, $patient, $clinician, 'Smoke procedure', now()->addDay());
+
+    return compact('tenant', 'users', 'invoice', 'creditNote', 'payment', 'patient', 'encounter', 'note', 'batch', 'stay', 'surgicalCase');
 }
 
 /** One request through the real stack with NO ambient tenant context (the C-1 condition). */
@@ -169,6 +176,8 @@ test('every major staff route is reachable through the real middleware stack (20
         'pharmacy.inventory' => '/pharmacy/inventory',
         'pharmacy.patient-dispensing' => '/pharmacy/patients/'.$fx['patient']->id.'/dispensing',
         'pharmacy.pricing' => '/pharmacy/pricing',
+        'surgery.cases' => '/surgery/cases',
+        'surgery.case (C-1)' => '/surgery/cases/'.$fx['surgicalCase']->id,
     ];
 
     $failures = [];
@@ -390,6 +399,16 @@ test('per-role RBAC smoke: each role reaches its pages (200) and is denied other
         ->status();
     if ($priceStatus !== 403) {
         $failures[] = "pharmacy.pricing.set as reception -> {$priceStatus} (expected 403)";
+    }
+
+    // SURGERY.G2: advancing a surgical case is surgery.manage-gated. Reception (no surgery.manage) is denied
+    // on the transition route at the gate through the real stack, before any case state is touched.
+    smokeCtx()->forget();
+    $surgeryStatus = $this->actingAs($u['reception'])
+        ->post('/surgery/cases/'.$fx['surgicalCase']->id.'/transition', ['status' => 'pre_op'])
+        ->status();
+    if ($surgeryStatus !== 403) {
+        $failures[] = "surgery.cases.transition as reception -> {$surgeryStatus} (expected 403)";
     }
 
     expect(implode("\n", $failures))->toBe('');

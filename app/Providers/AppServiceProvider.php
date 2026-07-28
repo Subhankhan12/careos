@@ -78,6 +78,7 @@ use Modules\Scheduling\Models\Appointment;
 use Modules\Scheduling\Models\Resource;
 use Modules\Scheduling\Models\WaitlistOffer;
 use Modules\Surgery\Models\SurgicalCase;
+use Modules\Surgery\Models\SurgicalCaseEvent;
 use Modules\Surgery\Models\Theatre;
 use Modules\Surgery\Models\TheatreSlot;
 
@@ -379,6 +380,15 @@ class AppServiceProvider extends ServiceProvider
             'resource_type' => 'surgical_case',
             'resource_id' => $m->id,
             'context' => ['primary_surgeon_id' => $m->primary_surgeon_id, 'stay_id' => $m->stay_id, 'status' => $m->status],
+        ]));
+        // The append-only case lifecycle event (SURGERY.G2) — patient-scoped — so Surgery stays free of Audit.
+        // One row per pre_op / in_progress / completed / post_op / cancelled transition. (Op-note reuse is
+        // audited through Clinical's existing Encounter/ClinicalNote listeners, the WardRound posture.)
+        SurgicalCaseEvent::created(fn (SurgicalCaseEvent $m) => $this->auditChange('surgical_case.'.$m->event_type, [
+            'patient_id' => $m->patient_id,
+            'resource_type' => 'surgical_case_event',
+            'resource_id' => $m->id,
+            'context' => ['surgical_case_id' => $m->surgical_case_id, 'event_type' => $m->event_type, 'reason' => $m->reason],
         ]));
 
         // People credential vault changes. The observer lives here so People

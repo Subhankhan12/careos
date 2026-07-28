@@ -1853,3 +1853,47 @@ references the old ID.
   consumables → G6 billing remain, each on the platform.** (SURGERY.G1) See [[D-124]] (PHARMACY.G5 — the
   vertical it follows), [[D-118]]/bed-day + the Bed/Stay "wrong abstraction" call (the theatre-scheduling
   precedent), [[verify-ci-directly-github-api]], the surgery map §2.1/§4/§5, and [[Surgery]].
+
+- **D-126 — SURGERY.G2: surgical case lifecycle + op documentation (reuses Clinical; ASA-assigned; no computed
+  risk).** Per `docs/HOSPITAL-PHASE5-SURGERY-MAP.md` §2.2/§2.3 — **this gate spans the map's lifecycle (§2.2)
+  AND op-notes/ASA (§2.3)**, so the map's "G3 op-notes" is folded into G2. **(1) THE LEGAL-ONLY LIFECYCLE:**
+  `SurgicalCase::TRANSITIONS` (scheduled → {pre_op, cancelled}; pre_op → {in_progress, cancelled}; in_progress
+  → completed; completed → post_op; post_op/cancelled terminal) + `canTransition`; `SurgicalCaseService::transition`
+  (gate `surgery.manage`, tenant fail-closed) asserts legal (else `invalidTransition`) → in ONE
+  `DB::transaction`, `forceFill` status + status_reason + the per-phase FACTUAL timestamp
+  (`pre_op_at`/`in_progress_at`[incision]/`completed_at`/`post_op_at`/`cancelled_at`) + append a
+  `SurgicalCaseEvent`. The `MedicationOrder`/`Stay` shape (model-hook audit). **(2)** `surgical_case_events`
+  (BelongsToTenant, LogsReads, **APPEND-ONLY** — model guards + DB triggers, the `medication_order_events`
+  recipe); audited app-layer `surgical_case.<event_type>` (patient-scoped). **(3)** the surgical TEAM
+  (`surgical_case_team_members`, surgeon/anesthetist/scrub_nurse/other, `unique(tenant, case, staff)`,
+  `addTeamMember` updateOrCreate). **(4) OP DOCUMENTATION — REUSE Clinical, `Encounter` UNMODIFIED (the
+  `ward_rounds`/`BedsideChartService` precedent):** `surgical_case_encounters` (Surgery-side link:
+  `surgical_case_id`, `encounter_id` FK, `phase`; `unique(tenant, encounter_id)`). `startNote(actor, case,
+  phase)` opens a `TYPE_PROCEDURE` `Encounter` via the EXISTING `EncounterService::open`, links it, drafts a
+  `ClinicalNote` via `ClinicalNoteService::saveDraft`, then **CLOSES the encounter** so no lingering open
+  encounter breaks the one-open-per-practitioner invariant for other verticals (tested — a fresh encounter
+  opens cleanly afterward, 2 notes on one case don't collide). The surgeon writes → signs → amends via the
+  EXISTING `clinical.notes.edit` editor, unchanged; Surgery MAY `use Modules\Clinical` (its arch rule allows
+  care modules); the note trail is audited by Clinical's existing Encounter/ClinicalNote listeners (no bespoke
+  hook). **`encounters` schema UNTOUCHED** (no surgical_case_id/stay_id — asserted). **(5) ASA/Mallampati —
+  ANESTHETIST-ASSIGNED (recorded facts, NEVER computed):** `recordAnesthesiaAssessment` (gate `surgery.manage`)
+  validates the closed sets (`ASA_CLASSES` I–VI / `MALLAMPATI_CLASSES` I–IV) + records the assigned class +
+  provenance (`asa_assessed_by`/`asa_assessed_at`) on the case. **ELECTRIC FENCE: CareOS records the ASSIGNED
+  value; it computes NO surgical-risk score/prediction** — a computed risk score is medical-device territory
+  (map §3), certified-partner/non-goal; proven by a schema fence (no risk/score/prediction/acuity/severity/
+  triage/grade column on any surgical table) + a `Modules\Surgery\src` grep (no `computeRisk`/`riskScore`/
+  `predictRisk`). **The anesthesia DEVICE-DATA feed stays DEFERRED (partner-gated)** — documentation is
+  buildable; the intra-op device feed (anesthesia machine / monitor) is noted-not-built (a grep asserts no
+  `DeviceFeed`/`AnesthesiaMachine`/`hl7` code). **(6) UI (P0D.GU):** `SurgicalCaseController` (index board +
+  store + show [read-logged] + transition + team + anesthesia + startNote→redirect to the note editor) +
+  `Surgery/CaseBoard.vue` + `Surgery/Case.vue` + i18n (the case Inertia prop is `surgicalCase`, NOT the
+  reserved `case`). No charge (billing is a later gate). No existing behavior test modified; **Encounter's
+  invariant + Clinical's suite + the clinical-safety eval + G1 + reconciliation/fence/immutability suites stay
+  green**; the FIX.5 smoke was EXTENDED (case board + detail GET 200 + reception transition 403). Added
+  `SurgicalCaseLifecycleTest` (10). VERIFIED: npm run build green; composer check FULLY green (Pint `passed` ·
+  PHPStan L5 `[OK] No errors` · **Pest 814 passed / 2 skipped / 7332 assertions**, 0 failed — +10
+  tests vs G1's 804); composer test:smoke green (3). **Next: the WHO Surgical Safety Checklist**
+  (record-not-judge; then consumables → billing). (SURGERY.G2) See [[D-125]] (G1 — the case it extends),
+  [[D-119]]/HOSPITAL.G4 + the `WardRound`/`BedsideChartService` bedside-charting reuse (the op-doc precedent),
+  [[D-121]]/PHARMACY.G2 (the transition + append-only-event shape it copies), the surgery map §2.2/§2.3, and
+  [[Surgery]].
