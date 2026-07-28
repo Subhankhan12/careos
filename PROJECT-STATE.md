@@ -3,11 +3,13 @@
 Short, factual snapshot of where the project stands. Updated at consolidations and after gates
 (per the MEMORY PROTOCOL in AGENTS.md).
 
-## STATUS: BACKEND FEATURE-COMPLETE · THREE VERTICALS · CURRENT FOCUS = DEPLOY (not building)
+## STATUS: BACKEND FEATURE-COMPLETE · SIX VERTICALS · CURRENT FOCUS = DEPLOY (not building)
 
 **Read this before starting any work. The next unit of progress is DELIVERY, not another gate.**
-(Latest reconciliation: SURGERY.G5 — **Phase 5 (OR / surgery) COMPLETE**; an OR runs
-end-to-end, theatre → schedule → lifecycle+op-docs+ASA → WHO checklist → consumables/implants → billing.)
+(Latest reconciliation: the full six-vertical handoff pass — clinic / dental / home-care / inpatient /
+pharmacy / surgery, all built + green on the shared platform. Prior gate: SURGERY.G5 — **Phase 5 (OR /
+surgery) COMPLETE**; an OR runs end-to-end, theatre → schedule → lifecycle+op-docs+ASA → WHO checklist →
+consumables/implants → billing.)
 
 - **Product:** **CareOS** — a multi-tenant, agentic healthcare-operations SaaS, EU-first. Stack:
   Laravel 12 · Inertia v2 + Vue 3 + TS + Tailwind v4 (**Eucalyptus Glow** design system) · a separate
@@ -15,44 +17,85 @@ end-to-end, theatre → schedule → lifecycle+op-docs+ASA → WHO checklist →
   via Memurai locally. Money is integer minor units; ledgers + clinical records are append-only (model
   guards + DB triggers); tenancy is fail-closed; the **electric fence** (record-not-judge, no AI in the
   clinical-decision path) holds everywhere.
-- **State:** **BACKEND FEATURE-COMPLETE** (Phases 0/A/B/C/D/E/F/G + Phase-P hardening P.1–P.16). **THREE
-  verticals for THREE prospective paying customers:**
+- **State:** **BACKEND FEATURE-COMPLETE** — the shared platform (Phases 0/A/B/C/D/E/F/G + Phase-P hardening
+  P.1–P.16) carries **SIX built verticals, all green:**
   - **CLINIC — fully delivered.** Every clinic + shared screen wired to the exact Eucalyptus Glow design
-    (CLINIC.W1–W7), QA-audited in a real browser with all findings fixed (FIX.1–FIX.5 + a final QA pass),
-    and the **ADMIN vertical** built: W8 settings + RBAC/roles, W8b settings backends (editable profile,
-    branch CRUD, opening hours, timezone — scheduling-safe), W8c resource (rooms/chairs) CRUD, W9
-    governance dashboard + AI approval-queue, W10 KB admin + staff telehealth.
-  - **DENTAL — general-dentist feature set built (DENTAL.G1–G8).** G1 tooth/odontogram data model · G2
+    (CLINIC.W1–W7), QA-audited in a real browser with all findings fixed (FIX.1–FIX.5 + a final QA pass +
+    POLISH.1–3 + UI.F1–F2), and the **ADMIN vertical** built: W8 settings + RBAC/roles, W8b settings
+    backends (editable profile, branch CRUD, opening hours, timezone — scheduling-safe), W8c resource
+    (rooms/chairs) CRUD, W9 governance dashboard + AI approval-queue, W10 KB admin + staff telehealth.
+  - **DENTAL — general-dentist feature set built (DENTAL.G1–G9).** G1 tooth/odontogram data model · G2
     odontogram chart UI · G3 procedure catalog + billing integration · G4 perform-a-procedure atomic
     workflow · G5 phased fee-scheduled treatment plan · G6 perio charting · G7 dentist-authored diagnosis
-    · G8 imaging upload/view/read. Record-not-judge throughout; billing reuses the tested engine
-    (reconciles-to-the-unit); catalogs tenant-authored (no licensed CDT/ICD bundled); imaging
-    live-capture/DICOM/3D/AI-detection are partner-gated / non-goal (see DEFERRED.md).
+    · G8 imaging upload/view/read · G9 demo-readiness (navigability + `DemoDentalSeeder`). Record-not-judge
+    throughout; billing reuses the tested engine (reconciles-to-the-unit); catalogs tenant-authored (no
+    licensed CDT/ICD bundled); imaging live-capture/DICOM/3D/AI-detection are partner-gated / non-goal.
+  - **HOME-CARE / SPITEX — built.** Nursing service agreements → RRULE-planned visits → the dispatcher board
+    (validated, concurrency-safe assignment) → GPS proof-of-visit → the separate offline **Nurse PWA** (day-pack
+    sync, offline action queue + conflict resolution, visit execution: tasks/vitals/note/photo/signature) →
+    incidents + timesheets from actuals (Phase E, G1–G9). Nurse skills/competency matching (P0P.G12).
+  - **INPATIENT / ADT — built (Hospital Phase 1, HOSPITAL.G1–G7).** Beds/wards/units (a NET-NEW `Bed`, with a
+    concurrency-safe claim) · the `Stay` domain ABOVE an UNMODIFIED Clinical `Encounter` · admit/transfer/
+    discharge (atomic, bed-safe) · the ward board (live occupancy) · bedside charting (reuses Clinical, fence
+    holds) · SBAR shift handover (nurse-authored) · bed-to-billing (reconciles-to-the-unit) · discharge summary
+    + LOS + episode close-out.
+  - **PHARMACY — built (Hospital Phase 2, PHARMACY.G1–G5).** Tenant-authored formulary · clinician medication
+    orders · **eMAR** (append-only administration record) · dispensing + inventory (concurrency-safe stock
+    decrement) · billing (reconciles-to-the-unit). **The MEDICATION-SAFETY JUDGMENT** (interactions / dose /
+    contraindication) is a **CERTIFIED-PARTNER seam** — a null-object `MedicationSafetyProvider` threaded
+    through ordering + administration, ADVISORY + human-owned, incapable of auto-blocking by design; a homemade
+    version is a **permanent non-goal** (medical-device territory).
+  - **SURGERY / OR — built (Hospital Phase 5, SURGERY.G1–G5).** Theatre scheduling (a NET-NEW `TheatreSlot`,
+    overlap-safe) · surgical case lifecycle + op documentation (reuses Clinical, Encounter UNMODIFIED) · the
+    **WHO Surgical Safety Checklist — RECORDED, not enforced** (it never gates the case) · consumables + implant
+    lot/serial/UDI traceability (concurrency-safe stock) · billing (reconciles-to-the-unit). ASA/Mallampati are
+    clinician-**ASSIGNED** recorded facts; **computed surgical-risk is a non-goal**; the anesthesia device-data
+    feed is a partner seam.
   - **INSURANCE / CLAIMS — NOT built.** Needs a clearinghouse partner; its own future phase, to be built
     with the same proven wiring/build patterns.
+- **The business picture.** The **outpatient** verticals (clinic / dental / home-care) target **2–3 prospective
+  paying customers** — DONE, but **NOT yet deployed**. The **hospital** build (inpatient / pharmacy / surgery)
+  was driven by a **committed mid-size general-hospital buyer** and follows a phased, MAP-FIRST sequence;
+  Phases 1/2/5 are complete, and the remaining hospital value is increasingly **partnership/integration-gated**
+  (the certified drug-safety engine, HL7/FHIR lab, PACS/DICOM radiology) — business conversations, not code.
 - **CURRENT FOCUS — DEPLOY the built verticals to the paying customers, not more building.** Deploy to a
-  Linux host, wire real email + LiveKit, import each customer's data via the P.6 CSV tool, onboard. The
-  next real progress is DELIVERY. The insurance vertical follows. The **Spitex / CH-billing discovery
-  answer** (is Swiss Spitex billing KVG/KLV insurance-reimbursed, not clean cash-pay? — UNPROVEN) still
-  unlocks **eMAR + the CH statutory billing pack** when confirmed. The well of safe build-without-a-
-  customer-need work is done — do not open a new gate unless a customer need pulls a specific feature
-  forward. Discovery brief: `docs/DISCOVERY.md`; outreach: `docs/outreach-de.md`.
+  Linux host, wire real email + LiveKit, import each customer's data via the P.6 CSV tool, onboard — the
+  deployment runbook (`docs/DEPLOY-RUNBOOK.md`, untracked working doc) + the rehearsed onboarding
+  (`docs/ONBOARDING-REHEARSAL-REPORT.md`) are ready. The next real progress is DELIVERY. **The remaining
+  hospital value is increasingly PARTNERSHIP/INTEGRATION-gated, not code-gated:** Lab (Phase 3) + Radiology
+  (Phase 4) are mostly integration SHELLS pending partners (HL7/FHIR, PACS/DICOM); ED (Phase 6) is a
+  buildable board with triage as the fence line; the "smart" hospital features gate on the certified
+  drug-safety engine. The insurance/claims vertical follows (clearinghouse partner). The **Spitex /
+  CH-billing discovery answer** (is Swiss Spitex billing KVG/KLV insurance-reimbursed, not clean cash-pay? —
+  UNPROVEN) still unlocks the **CH statutory billing pack** when confirmed (eMAR itself is already built —
+  PHARMACY.G3). The well of safe build-without-a-customer-need work is largely done — do not open a new gate
+  unless a customer/partner need pulls a specific feature forward. Discovery brief: `docs/DISCOVERY.md`;
+  outreach: `docs/outreach-de.md`.
 - **Latest verified quality:** SURGERY.G5 (surgical billing — **PHASE 5 (OR) COMPLETE**: a surgical case accrues charges [procedure + theatre-time + consumables/implants] through the **EXISTING** billing engine and they invoice + **RECONCILE-TO-THE-UNIT**. **STRICTLY ORCHESTRATION — zero new money math** [the pharmacy G5 / bed-day HOSPITAL.G6 shape, COPIED because Surgery can't import the peer verticals but MAY use Billing]: each billable is a tenant-authored `TariffItem` in a `surgery` catalog [procedure / the `THEATRE-TIME` code / each priced `surgical_item`, linking the new soft `surgical_items.tariff_item_id`]; `chargeCase` captures via `ChargeCaptureService::captureManual` [the ENGINE snapshots the fee + computes the line total], idempotent via `surgical_case_charges`; `invoiceCase` issues via the existing `validate → createDraftFromCharges → issue` flow — `ReconciliationEngine` ties out **I4 δ=0** with surgical charges present, standalone AND on an inpatient stay's `invoiceStay` [Hospital sweeps the surgical charges without Surgery importing Hospital]. `billing.manage`-gated [NO new permission — the billing office bills, not the OR team]; the money-math grep over `Modules\Surgery\src` is CLEAN [a price is a RATE, not a verdict]) atop SURGERY.G4 (consumables/implants) / G3 (WHO checklist) / G2 (lifecycle + op docs + ASA) / G1 (OR foundation) + the COMPLETE Phase 2 pharmacy (G1→G5) + Phase 1 inpatient/ADT (G1→G7). **Phase 5 is COMPLETE — the OR runs end-to-end; no further Phase-5 core gate. Next verticals: Phases 3 (lab), 4 (radiology), 6 (ED).** `composer check` FULLY green — Pint `passed`, PHPStan L5
   `[OK] No errors`, **Pest 837 passed / 2 skipped / 8346 assertions**, 0 failed (the 2 skips = Redis-Horizon + one reminder infra case, green in CI on Redis 7); npm run build green. (G8 baseline: `0d93a36`, Pest 700/5623.) A route-reachability smoke (**FIX.5**, `composer test:smoke`)
   drives every major route through the real middleware stack to guard against request-time 500s (the C-1
   class). See the detailed quality block below.
-- **Demo tenants (all reconcile-to-the-unit + chain-verify):** `DemoClinicSeeder` (Praxis Lindenhof, CHF,
-  clinic resources, realistic vitals) + `DemoSpitexSeeder` (Spitex Sonnengarten, EU-Generic home-care) +
-  **`DemoDentalSeeder` (Zahnarztpraxis Morgenstern, CHF — general-dental practice; DENTAL.G9)**. Seed:
-  `php artisan migrate:fresh --seed` then `php artisan db:seed --class=DemoClinicSeeder` /
-  `--class=DemoSpitexSeeder` / `--class=DemoDentalSeeder`.
+- **Demo tenants (all reconcile-to-the-unit + chain-verify):** THREE exist — `DemoClinicSeeder` (Praxis
+  Lindenhof, CHF, clinic resources, realistic vitals) + `DemoSpitexSeeder` (Spitex Sonnengarten, EU-Generic
+  home-care) + `DemoDentalSeeder` (Zahnarztpraxis Morgenstern, CHF — general-dental practice; DENTAL.G9).
+  Seed: `php artisan migrate:fresh --seed` then `php artisan db:seed --class=DemoClinicSeeder` /
+  `--class=DemoSpitexSeeder` / `--class=DemoDentalSeeder`. **NO inpatient / pharmacy / surgery demo seeder
+  exists yet** — the hospital verticals are proven by their feature tests (which build their own fixtures +
+  reconcile), not by a rich demo tenant; a `DemoHospitalSeeder` is a documented follow-up (pull forward for
+  a hospital sales demo). The FIX.5 route smoke seeds the demo clinic then creates a ward+bed+stay and a
+  theatre+surgical-case inline, so those request-time surfaces are covered without a standing seeder.
 - **Deploy-ready status:** MySQL 8 parity proven (`docs/DB-PARITY.md`); **NOT yet deployed**. Still needed:
   real email transport, a production LiveKit key/secret, production config/secrets. **Documented
-  follow-ups:** full per-widget timezone *display* (W8b stores/normalizes tz; per-widget rendering
-  pending) · the resource-availability admin screen (flagged in W8c) · dental long-poles (live imaging
-  capture/DICOM/3D overlay, licensed code sets, chair-view/sterilization/ortho later gates) — in DEFERRED.md.
-  (**DENTAL.G9 RESOLVED** the two dental demo-readiness follow-ups: the patient/chart → dental cross-link +
-  a role-gated Dental nav/landing [the vertical is now reachable by clicking], and the `DemoDentalSeeder`.)
+  follow-ups (in DEFERRED.md):** full per-widget timezone *display* (W8b stores/normalizes tz; per-widget
+  rendering pending) · the resource-availability admin screen (flagged in W8c) · inpatient/pharmacy/surgery
+  demo seeders (a `DemoHospitalSeeder`) · dental long-poles (live imaging capture/DICOM/3D overlay, licensed
+  code sets, chair-view/sterilization/ortho later gates). **The certified-partner SEAMS that gate the "smart"
+  hospital features** (each a null-object today, advisory + human-owned, incapable of auto-blocking):
+  `MedicationSafetyProvider` (drug interaction/dose/contraindication — pharmacy), `ManualLabConnectivity`
+  (HL7/FHIR lab transmission + result ingestion — Lab Phase 3), PACS/DICOM (radiology — Phase 4), and the
+  intra-op anesthesia device-data feed (surgery). Homemade versions of any of these are **permanent non-goals**
+  (medical-device territory). (**DENTAL.G9 RESOLVED** the two dental demo-readiness follow-ups: the
+  patient/chart → dental cross-link + a role-gated Dental nav/landing, and the `DemoDentalSeeder`.)
 
 - **QA-audit remediation (post-clinic-delivery, `docs/QA-AUDIT-REPORT.md`) — COMPLETE.** The live-browser audit
   found one Critical (C-1) and a set of Medium/Low polish items; all are now cleared. **C-1** (FIX.1, string-id

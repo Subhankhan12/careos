@@ -8,7 +8,8 @@ Deliberately deferred work. Not forgotten — parked until the right phase.
   ~Dec 2026).
 - **Voice receptionist.**
 - **Route optimization** (OR-tools).
-- **MAR** (medication administration record).
+- ~~**MAR** (medication administration record).~~ **BUILT** as the eMAR in **PHARMACY.G3** (append-only
+  `medication_administrations`, given/held/refused, the safety seam at the administration point). No longer deferred.
 - **Clinician countersigning for nurse observational visit notes.** E.7 stores nurse visit notes as
   visit execution documentation, not signed/locked SOAP clinical notes; countersign workflow comes later.
 - **E-prescription rails** per market.
@@ -41,13 +42,14 @@ Deliberately deferred work. Not forgotten — parked until the right phase.
   root, so the append-only BEFORE UPDATE/DELETE triggers are the active guard now
   (introduced in P0A.G6).
 - **Schedule `audit:ensure-partitions`.** Wire it into the scheduler once the scheduler
-  is set up, so upcoming monthly partitions are always provisioned (P0A.G6).
-- **Schedule `credentials:refresh-status`.** Wire it into the scheduler once the scheduler
-  is set up, so credential expiry status stays current outside manual command runs (P0B.G1).
-- **Schedule `nursing:materialize-visits`.** E.2 adds the idempotent horizon command for planned
-  nursing visits; wire it into the scheduler when recurring application scheduling is finalized.
-- **Schedule `billing:dunning-run`.** F.6 adds the idempotent dunning evaluation command; wire it into
-  the scheduler (per tenant, daily) once recurring application scheduling is finalized (P0F.G6).
+  is set up, so upcoming monthly partitions are always provisioned (P0A.G6). *(Still the ONE
+  scheduler item not yet wired — `audit:ensure-partitions` is absent from `routes/console.php`.)*
+- ~~Schedule `credentials:refresh-status` / `nursing:materialize-visits` / `billing:dunning-run`.~~
+  **DONE** — the scheduler is now wired in `routes/console.php`; **9 commands** run on their intended
+  cadences (`audit:verify-chains`, `credentials:refresh-status`, `nursing:materialize-visits`,
+  `clinical:evaluate-recalls`, `hospital:accrue-bed-days`, `billing:dunning-run`, `billing:reconcile`,
+  `appointments:dispatch-reminders`, `scheduling:expire-waitlist-offers`), each overlap-guarded — asserted
+  by `ScheduleRegistrationTest`. No longer deferred.
 - **Validate patient name search parity before production.** Dev MariaDB 10.4 uses plain FULLTEXT
   while MySQL 8 CI/prod uses `WITH PARSER ngram` - patient name search tokenizes differently
   across environments (P0B.G3).
@@ -143,3 +145,58 @@ The general-dentist feature set (DENTAL.G1–G8) is built. The following are par
   `DemoDentalSeeder` + audit cosmetics, see D-107): chair-view (reuse of the resource/day-board),
   sterilization/inventory, ortho/aligner tracking.** Specialist/operational features beyond the
   general-dentist set. **TRIGGER:** a dental customer whose workflow needs them.
+
+## Hospital verticals — remaining phases + certified-partner seams + medical-device non-goals
+
+The phased hospital build (for a committed mid-size general-hospital buyer) has shipped **Phase 1
+(inpatient/ADT, HOSPITAL.G1–G7)**, **Phase 2 (pharmacy, PHARMACY.G1–G5)**, and **Phase 5 (OR/surgery,
+SURGERY.G1–G5)**. Each vertical was MAP-FIRST (a reconciliation/scope map before code:
+`docs/HOSPITAL-PHASE1-ADT-MAP.md`, `-PHASE2-PHARMACY-MAP.md`, `-PHASE5-SURGERY-MAP.md`). What remains is
+increasingly PARTNER/INTEGRATION-gated, not code-gated.
+
+**Remaining hospital phases (parked — map-first when pulled forward):**
+- **Lab (Phase 3).** An orders→results board. The orders half already exists (P0P.G11 structured clinical
+  orders + MANUAL results; `Clinical\Contracts\LabConnectivity` → `ManualLabConnectivity`, transmit is a
+  no-op). The remaining value is mostly an **integration SHELL** pending a real HL7/FHIR lab partner (see
+  the lab-connectivity item above). The electric fence holds: never interpret a result, even auto-ingested.
+  **TRIGGER:** a customer using a specific lab AND a funded integration against that lab's interface.
+- **Radiology (Phase 4).** An imaging orders + report worklist. Mostly an **integration SHELL** pending a
+  **PACS/DICOM** partner (image storage/streaming is a vendor product, not a CareOS feature). The radiologist
+  authors the report; the system records it. **TRIGGER:** a customer with a PACS AND a funded DICOM integration.
+- **ED / Emergency Department (Phase 6).** A buildable ED board (arrivals, bays, disposition) over the
+  existing scheduling/ADT/clinical spine. **The fence line is TRIAGE: acuity is a clinician-ASSIGNED value
+  (record-not-judge), never a CareOS-computed triage score** (no homemade ESI/CTAS/MTS algorithm — a
+  computed triage acuity is a medical-device non-goal). **TRIGGER:** a hospital customer whose ED workflow
+  needs it (map-first).
+
+**Certified-partner SEAMS (null-object today; advisory + human-owned; incapable of auto-blocking by design).**
+Each is threaded through the built code as a Null implementation so the wiring is proven and a certified
+partner can drop in later — never a homemade clinical/safety engine:
+- **Medication-safety engine (drug interaction / dose / contraindication) — pharmacy.** BUILT as a seam:
+  `MedicationSafetyProvider` (null-object) is called at medication ordering (PHARMACY.G2) and administration
+  (PHARMACY.G3); it surfaces a partner's findings, never auto-blocks. The certified drug-database engine is a
+  partner product. **TRIGGER:** a licensed drug-database partner AND a funded regulatory track. (Supersedes /
+  consolidates the earlier "Drug interaction / allergy class / dose / CDS engines are medical-device
+  territory" note above — the seam now exists; only the certified engine is deferred.)
+- **Lab HL7/FHIR connectivity — Lab Phase 3.** `ManualLabConnectivity` is the Null seam (see above).
+- **PACS/DICOM imaging — Radiology Phase 4.** No image-storage/streaming integration exists; a partner product.
+- **Anesthesia intra-op device-data feed — surgery.** Anesthesia DOCUMENTATION (the ASA record, op notes) is
+  built; the intra-op device-data feed (anesthesia machine / patient monitor — HL7/device ingestion) is a
+  partner seam, noted + stubbed, NOT built (a `Modules\Surgery\src` grep asserts no `DeviceFeed`/
+  `AnesthesiaMachine`/`hl7` code). **TRIGGER:** a customer with specific anesthesia devices AND a funded
+  integration.
+
+**Medical-device NON-GOALS (never build the homemade version — regulated-device territory, electric fence).**
+These are permanent non-goals for CareOS-authored code; only a certified partner product may provide them:
+- Homemade **drug-interaction / dose / contraindication checking** (pharmacy) — partner engine only.
+- **AI radiology / caries / pathology detection** on any image (radiology, dental imaging) — CADe/CADx is a
+  regulated device; the clinician reads, the system records what they wrote.
+- **Computed perio staging/grading** (dental) — perio charting stores per-site raw measurements only.
+- **Computed surgical-risk / early-warning scores** (surgery, inpatient — e.g. a homemade NEWS/MEWS/EWS or a
+  surgical-risk predictor). ASA/Mallampati are clinician-ASSIGNED facts; no acuity/risk/score column, no
+  auto-computation. A blocking safety checklist is likewise a non-goal — the WHO checklist RECORDS completion,
+  it never gates the case.
+- **Computed triage acuity** (ED Phase 6) — acuity is clinician-assigned, never algorithm-computed.
+- **AI in the clinical-decision path anywhere** — a diagnosis/finding is clinician-authored; AI stays in the
+  ops/admin lane (draft-until-approved, autonomy-capped). **TRIGGER for all of the above: none for a homemade
+  version (do not build).** A certified partner device is a separate commercial/regulatory decision.
