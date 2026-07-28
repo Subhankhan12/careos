@@ -77,6 +77,9 @@ use Modules\Scheduling\Events\WaitlistOfferLifecycleChanged;
 use Modules\Scheduling\Models\Appointment;
 use Modules\Scheduling\Models\Resource;
 use Modules\Scheduling\Models\WaitlistOffer;
+use Modules\Surgery\Models\SurgicalCase;
+use Modules\Surgery\Models\Theatre;
+use Modules\Surgery\Models\TheatreSlot;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -357,6 +360,25 @@ class AppServiceProvider extends ServiceProvider
             'resource_type' => 'stock_movement',
             'resource_id' => $m->id,
             'context' => ['medication_stock_id' => $m->medication_stock_id, 'quantity_change' => $m->quantity_change, 'resulting_on_hand' => $m->resulting_on_hand, 'reason' => $m->reason],
+        ]));
+
+        // Operating theatre / surgery (SURGERY.G1) — audited here so Surgery stays free of Audit. A theatre +
+        // a booked theatre-slot are tenant-level operational records; a surgical case is patient-scoped.
+        Theatre::created(fn (Theatre $m) => $this->auditChange('theatre.created', [
+            'resource_type' => 'theatre',
+            'resource_id' => $m->id,
+            'context' => ['branch_id' => $m->branch_id, 'name' => $m->name, 'type' => $m->type, 'active' => $m->active],
+        ]));
+        TheatreSlot::created(fn (TheatreSlot $m) => $this->auditChange('theatre_slot.booked', [
+            'resource_type' => 'theatre_slot',
+            'resource_id' => $m->id,
+            'context' => ['theatre_id' => $m->theatre_id, 'surgical_case_id' => $m->surgical_case_id, 'status' => $m->status],
+        ]));
+        SurgicalCase::created(fn (SurgicalCase $m) => $this->auditChange('surgical_case.scheduled', [
+            'patient_id' => $m->patient_id,
+            'resource_type' => 'surgical_case',
+            'resource_id' => $m->id,
+            'context' => ['primary_surgeon_id' => $m->primary_surgeon_id, 'stay_id' => $m->stay_id, 'status' => $m->status],
         ]));
 
         // People credential vault changes. The observer lives here so People

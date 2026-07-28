@@ -1810,3 +1810,46 @@ references the old ID.
   / ED) remain. (PHARMACY.G5) See [[D-123]] (G4 — the dispense it charges), [[D-118]]/bed-day (the
   reconciles-to-the-unit orchestration precedent it mirrors), [[D-120]] (G1 — the safety seam it leaves
   empty), the pharmacy map §2.1/§5, and [[Pharmacy]].
+
+- **D-125 — SURGERY.G1: surgery module + theatre + theatre-scheduling (overlap-safe) + surgical-case model +
+  OR RBAC — the OR/surgery FOUNDATION (Phase 5).** Per `docs/HOSPITAL-PHASE5-SURGERY-MAP.md`. **(1) NEW peer
+  `Modules\Surgery`** (composer psr-4 + `bootstrap/providers.php` + `SurgeryServiceProvider` + an
+  `arch('Surgery …')` rule: may use Platform + care modules Patients/People/Clinical/Billing/Scheduling +
+  Audit SERVICES; NOT Audit models, AiCore, Comms, or peer verticals Nursing/Dental/Hospital/Pharmacy). **(2)
+  THE THEATRE-SCHEDULING CALL (the crux, map §2.1 — the Bed/Stay "don't force the wrong abstraction"
+  precedent):** the Scheduling `Appointment` is a fixed, service-derived clinic slot with NO per-booking
+  duration and NO planned-vs-actual occupancy (`ends_at` never updated → an overrun reads *free*), so a
+  **theatre is a Surgery-OWNED entity** (`theatres`; NOT Scheduling's `Resource`) and a surgical block is a
+  **NET-NEW `theatre_slots`** — a BOUNDED pre-planned block (`starts_at`+`ends_at`, status
+  booked/in_progress/completed/cancelled, soft nullable `surgical_case_id`) that **REUSES the
+  `BookingService::lockResource`→`assertNoOverlap` INVARIANT** but NOT the day-board model.
+  `TheatreSchedulingService`: `createTheatre` (gate `theatre.manage`) + `bookSlot` (gate `surgery.schedule`) —
+  in ONE `DB::transaction`, `lockTheatre` (`select … for update` on the theatre row, the `lockResource`
+  idiom) → `assertNoOverlap` (blocking slots where `starts_at < ?end AND ends_at > ?start`, `for update`) →
+  insert. **THE OVERLAP-LOCK PROOF:** `TheatreBookingParallelHammerTest` — 8 OS processes race for the same
+  contested block; exactly ONE `BOOKED:` + 7 `CONFLICT:`, one slot (the `surgery:attempt-book-slot` hammer,
+  the `pharmacy:attempt-dispense` / `hospital:attempt-bed-claim` sibling); adjacent/other-theatre blocks
+  allowed. **(3) NET-NEW `surgical_cases`** (BelongsToTenant, LogsReads) — patient, `primary_surgeon_id`
+  (staff_profiles), soft nullable `stay_id` (inpatient link; null = day-surgery), `procedure_description`
+  (free text in G1), `scheduled_at`, `status` default `scheduled`; `SurgicalCaseService::schedule` (gate
+  `surgery.manage`, patient + surgeon fail-closed). The lifecycle machine (pre_op → in_progress → completed →
+  post_op) + append-only case events are SURGERY.G2. **(4) OR RBAC (additive, the dental.chart/inpatient/
+  pharmacy precedent):** `theatre.manage`/`surgery.schedule`/`surgery.manage` permissions +
+  `surgeon`/`anesthetist`/`scrub_nurse`/`surgical_scheduler` roles; `org_admin` gains all three; RbacProvisioner
+  consts + a `provisionTenant`-all backfill migration; new tenants via the Tenant `created` hook. `RbacTest`'s
+  permission-count is self-referential (no edit); `RbacNegativeSweepTest`'s withheld-map is untouched. **(5)
+  ELECTRIC FENCE (operational/scheduling):** a theatre/slot/case is a human-recorded fact — no computed
+  acuity/priority/risk/severity/triage/score/urgency/grade column (schema fence, tested); a surgical-risk
+  score is the fence line (map §3), a certified-partner / non-goal, NEVER here; the ASA class
+  (anesthetist-ASSIGNED) + the intra-op device-data / surgical-risk seam (the `LabConnectivity` /
+  `MedicationSafetyProvider` precedent) arrive with the anesthesia record (a later gate — nothing invokes the
+  seam in G1). Audited app-layer (`theatre.created`/`theatre_slot.booked` tenant-level +
+  `surgical_case.scheduled` patient-scoped) so Surgery stays free of Audit; the case is read-logged. No case
+  lifecycle/checklist/consumables/billing/UI this gate. No existing behavior test modified (RBAC additive);
+  all vertical + arch + eval + fence suites stay green. Added `TheatreSchedulingTest` (7) +
+  `TheatreBookingParallelHammerTest` (1) + the `Surgery` arch rule. VERIFIED: composer check FULLY green (Pint
+  `passed` · PHPStan L5 `[OK] No errors` · **Pest 804 passed / 2 skipped / 7132 assertions**, 0
+  failed — +9 tests vs G5's 795). **Phase 5 begun: G2 case lifecycle → G3 op notes → G4 WHO checklist → G5
+  consumables → G6 billing remain, each on the platform.** (SURGERY.G1) See [[D-124]] (PHARMACY.G5 — the
+  vertical it follows), [[D-118]]/bed-day + the Bed/Stay "wrong abstraction" call (the theatre-scheduling
+  precedent), [[verify-ci-directly-github-api]], the surgery map §2.1/§4/§5, and [[Surgery]].

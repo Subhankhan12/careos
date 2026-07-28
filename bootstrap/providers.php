@@ -19,6 +19,7 @@ use Modules\Pharmacy\Providers\PharmacyServiceProvider;
 use Modules\Platform\Providers\PlatformServiceProvider;
 use Modules\Reporting\Providers\ReportingServiceProvider;
 use Modules\Scheduling\Providers\SchedulingServiceProvider;
+use Modules\Surgery\Providers\SurgeryServiceProvider;
 
 return [
     AppServiceProvider::class,
@@ -40,4 +41,5 @@ return [
     PlatformServiceProvider::class,
     ReportingServiceProvider::class,
     SchedulingServiceProvider::class,
+    SurgeryServiceProvider::class,
 ];

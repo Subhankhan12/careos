@@ -36,8 +36,8 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
   unlocks **eMAR + the CH statutory billing pack** when confirmed. The well of safe build-without-a-
   customer-need work is done — do not open a new gate unless a customer need pulls a specific feature
   forward. Discovery brief: `docs/DISCOVERY.md`; outreach: `docs/outreach-de.md`.
-- **Latest verified quality:** PHARMACY.G5 (pharmacy billing — a dispensed med accrues a charge through the EXISTING billing engine, reconciling-to-the-unit: a formulary item maps to a tenant-authored `TariffItem`; `ChargeCaptureService::captureManual` snapshots the fee + computes the line total; `invoicePatient` runs the existing validate→draft→issue flow and `ReconciliationEngine::check` passes with I4 `delta_minor === 0`; the pharmacist gains the existing `billing.manage`; charge-on-dispense is best-effort + decoupled — STRICTLY ORCHESTRATION, zero new billing/pricing/VAT/line-total math, adversarial-grep clean) atop PHARMACY.G4 (dispensing/inventory) / G3 (eMAR) / G2 (orders) / G1 (foundation) — **HOSPITAL PHASE 2 PHARMACY CORE COMPLETE (G1→G5)** atop the COMPLETE Phase 1 (inpatient/ADT, G1→G7); the one deliberate gap is the medication-safety JUDGMENT (the `NullMedicationSafetyProvider` seam, invoked-but-no-op — a certified-partner binding point, homemade = permanent non-goal); Phases 3–7 (lab/radiology/OR/ED) remain. `composer check` FULLY green — Pint `passed`, PHPStan L5
-  `[OK] No errors`, **Pest 795 passed / 2 skipped / 7056 assertions**, 0 failed (the 2 skips = Redis-Horizon + one reminder infra case, green in CI on Redis 7); npm run build green. (G8 baseline: `0d93a36`, Pest 700/5623.) A route-reachability smoke (**FIX.5**, `composer test:smoke`)
+- **Latest verified quality:** SURGERY.G1 (the OR/surgery vertical FOUNDATION — Phase 5: a NEW `Modules\Surgery`; a Surgery-owned **theatre** + a **NET-NEW `TheatreSlot`** that reuses the `BookingService::lockResource`→`assertNoOverlap` overlap-lock INVARIANT but NOT the day-board model [a surgery is a BOUNDED pre-planned block, the Bed/Stay "don't force the wrong abstraction" call — overlap-safe, concurrency-proven by an 8-process parallel hammer, 1 winner]; a **NET-NEW `SurgicalCase`** [patient + `primary_surgeon` + soft `stay_id`, `scheduled` status, read-logged, audited]; **OR RBAC** [theatre.manage/surgery.schedule/surgery.manage + surgeon/anesthetist/scrub_nurse/surgical_scheduler, additive]; operational/scheduling only — record-not-judge, no computed risk/acuity, schema-fenced) atop the COMPLETE Phase 2 pharmacy (G1→G5) + Phase 1 inpatient/ADT (G1→G7); the case lifecycle (G2) / op notes (G3) / WHO checklist (G4) / consumables (G5) / billing (G6) remain, and the surgical-risk + intra-op device-data seam stays deferred (certified-partner / non-goal). `composer check` FULLY green — Pint `passed`, PHPStan L5
+  `[OK] No errors`, **Pest 804 passed / 2 skipped / 7132 assertions**, 0 failed (the 2 skips = Redis-Horizon + one reminder infra case, green in CI on Redis 7); npm run build green. (G8 baseline: `0d93a36`, Pest 700/5623.) A route-reachability smoke (**FIX.5**, `composer test:smoke`)
   drives every major route through the real middleware stack to guard against request-time 500s (the C-1
   class). See the detailed quality block below.
 - **Demo tenants (all reconcile-to-the-unit + chain-verify):** `DemoClinicSeeder` (Praxis Lindenhof, CHF,
@@ -1395,11 +1395,34 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
   **PHARMACY CORE COMPLETE: G1 formulary + safety-seam → G2 orders → G3 eMAR → G4 dispensing/inventory → G5
   billing.** The ONE deliberate gap is the medication-safety JUDGMENT (the `NullMedicationSafetyProvider`
   seam, invoked-but-no-op at G2/G3 — a certified-partner binding point; homemade = permanent non-goal).
-- **Next action:** **DELIVERY, not another gate — the pharmacy core (Phase 2) is COMPLETE.** The standing
-  strategic posture is unchanged and now reasserts: the next real unit of progress is DEPLOYING the built
-  verticals (clinic / dental + the inpatient+pharmacy hospital core) to paying customers — Linux host, real
-  email + LiveKit, P.6 CSV import, onboarding. Hospital **Phases 3–7 (lab · radiology · OR · ED)** remain,
-  each to be MAPPED first (the read-only reconciliation-then-build discipline), and are pulled forward only by
-  a customer need — not opened speculatively. The parallel DISCOVERY track still stands (the CH/KVG billing
-  model must be confirmed with Spitex coordinators before the CH statutory pack is committed). Do not open a
-  new build gate unless a customer need pulls a specific feature forward.
+- **HOSPITAL PHASE 5 (OR/surgery) mapped, then begun** — `docs/HOSPITAL-PHASE5-SURGERY-MAP.md` (the read-only
+  reconciliation, `ad98bea`) then **SURGERY.G1 — the FOUNDATION (D-125).** A NEW peer `Modules\Surgery` (arch
+  rule: care modules + Audit services, not Audit models / AiCore / Comms / peer verticals). **The
+  theatre-scheduling call (map §2.1 — the Bed/Stay "don't force the wrong abstraction" precedent):** the
+  Scheduling `Appointment` is a fixed service-derived slot with no per-booking duration and no
+  planned-vs-actual occupancy (an overrun reads *free*), so a **theatre is a Surgery-owned entity** (NOT
+  Scheduling's `Resource`) and a surgical block is a **NET-NEW `TheatreSlot`** — a BOUNDED pre-planned block
+  that **reuses the `lockResource`→`assertNoOverlap` INVARIANT** but not the day-board model.
+  `TheatreSchedulingService::bookSlot` locks the theatre row `FOR UPDATE` → asserts no overlapping
+  booked/in-progress block → inserts, in one transaction; **proven by an 8-process parallel hammer** (1
+  `BOOKED:` / 7 `CONFLICT:`, one slot — the dispense/bed-claim sibling). A **NET-NEW `SurgicalCase`** (patient
+  + `primary_surgeon` + soft `stay_id` for inpatient / null for day-surgery + `procedure_description` +
+  `scheduled` status; read-logged, audited) via `SurgicalCaseService::schedule`. **OR RBAC** (additive):
+  `theatre.manage`/`surgery.schedule`/`surgery.manage` + `surgeon`/`anesthetist`/`scrub_nurse`/
+  `surgical_scheduler`; org_admin gains all; backfill migration; RbacTest count self-referential,
+  RbacNegativeSweep untouched. **FENCE:** operational/scheduling only — no computed acuity/priority/risk/score
+  column (schema fence); a surgical-risk score + the intra-op device-data feed are the fence line (map §3),
+  certified-partner / non-goal, and the seam is deferred to the anesthesia-record gate (nothing invokes it in
+  G1). No case lifecycle/checklist/consumables/billing/UI this gate. Added `TheatreSchedulingTest` (7) +
+  `TheatreBookingParallelHammerTest` (1) + the `Surgery` arch rule. Verified: composer check FULLY green
+  (**Pest 804 / 2-skip / 7132**, 0 failed). **Phase 5 spine: G2 case lifecycle → G3 op notes →
+  G4 WHO checklist → G5 consumables → G6 billing remain.**
+- **Next action:** **SURGERY.G2 — the surgical-case LIFECYCLE**, per `docs/HOSPITAL-PHASE5-SURGERY-MAP.md` §2.2:
+  the legal-only state machine (scheduled → pre_op → in_progress → completed → post_op, cancelled) + an
+  append-only `CaseEvent` history (the `stay_events` / `medication_order_events` recipe) + a role-and-count-
+  aware team roster over the G1 case. Then G3 (op notes, reuse Clinical) → G4 (WHO checklist, record-not-judge)
+  → G5 (consumables, reuse the pharmacy inventory recipe + lot/serial/UDI) → G6 (surgical billing, reuse the
+  engine). **The standing strategic posture is unchanged — the next real unit of progress is DELIVERY** (deploy
+  the built verticals to paying customers); Phase 5 gates + Phases 3–4 (lab / radiology) + ED are each mapped
+  first and pulled forward by a customer need. The DISCOVERY track still stands (the CH/KVG billing model must
+  be confirmed with Spitex coordinators before the CH statutory pack is committed).

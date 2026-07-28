@@ -57,6 +57,10 @@ class RbacProvisioner
         'formulary.manage' => 'Author the tenant medication formulary',
         'dispense.manage' => 'Dispense medications and manage pharmacy stock',
         'medication.prescribe' => 'Prescribe medication orders (dose/route/frequency)',
+        // Operating-theatre / surgery vertical (SURGERY.G1 — Phase 5). Additive — see docs/HOSPITAL-PHASE5-SURGERY-MAP.md §4.
+        'theatre.manage' => 'Manage operating theatres (OR rooms)',
+        'surgery.schedule' => 'Book and schedule surgical theatre blocks',
+        'surgery.manage' => 'Create and manage surgical cases',
     ];
 
     /**
@@ -76,6 +80,7 @@ class RbacProvisioner
                 'billing.manage', 'reporting.view', 'audit.view', 'data.import', 'dental.chart',
                 'ward.manage', 'bed.manage', 'admission.manage', 'document.view',
                 'formulary.manage', 'dispense.manage', 'medication.prescribe',
+                'theatre.manage', 'surgery.schedule', 'surgery.manage',
             ],
         ],
         'coordinator' => [
@@ -182,6 +187,37 @@ class RbacProvisioner
             'permissions' => [
                 // Dispenses + manages stock UNDER a pharmacist; no formulary authoring.
                 'patient.view', 'dispense.manage',
+            ],
+        ],
+        // Operating-theatre / surgery vertical starter roles (SURGERY.G1 — Phase 5). Additive; the map §4.
+        // Later gates add checklist.complete (G4) / consumable-stock (G5) / anesthesia.document to these.
+        'surgeon' => [
+            'name' => 'Surgeon',
+            'permissions' => [
+                // The operating clinician — manages + schedules the surgical case, charts clinically.
+                'patient.view', 'encounter.manage', 'note.write', 'note.sign', 'order.manage',
+                'surgery.manage', 'surgery.schedule',
+            ],
+        ],
+        'anesthetist' => [
+            'name' => 'Anesthetist',
+            'permissions' => [
+                // Co-manages the case + charts clinically (the anesthesia record + ASA arrive in a later gate).
+                'patient.view', 'encounter.manage', 'note.write', 'note.sign', 'surgery.manage',
+            ],
+        ],
+        'scrub_nurse' => [
+            'name' => 'Scrub / OR Nurse',
+            'permissions' => [
+                // Assists in theatre + charts (checklist.complete + consumable stock arrive in later gates).
+                'patient.view', 'note.write',
+            ],
+        ],
+        'surgical_scheduler' => [
+            'name' => 'Surgical Scheduler',
+            'permissions' => [
+                // Runs the OR list — authors theatres + books surgical blocks.
+                'patient.view', 'appointment.manage', 'theatre.manage', 'surgery.schedule',
             ],
         ],
     ];
