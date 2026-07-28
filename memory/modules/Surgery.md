@@ -148,17 +148,55 @@ The peri-operative lifecycle + op documentation + anesthetist-assigned values, e
   word — `{{ case.x }}` fails the Vue template compiler). FIX.5 smoke extended (case board + detail GET 200 +
   reception transition 403).
 
+## WHO Surgical Safety Checklist (SURGERY.G3) — RECORDED, NOT ENFORCED
+
+The three-phase WHO checklist (sign_in / time_out / sign_out) the team COMPLETES — a RECORD, per the map §2.4.
+**THE CRUX FENCE LINE: it never blocks/gates the case.** A blocking checklist would be a safety-enforcement
+medical device; CareOS records completion, the human team owns the safety decision.
+
+- **`surgical_checklist_template_items`** (BelongsToTenant, MUTABLE config) — the tenant-authored WHO template:
+  `phase`, `label`, `display_order`, `active`; `unique(tenant, phase, label)`. Seeded with the standard
+  (freely-published) WHO items as an editable starter — NOT a licensed set (the formulary discipline). The
+  tenant edits (add / deactivate). Auto-seeded lazily on first `forCase`/`openChecklist` (idempotent).
+- **`surgical_checklists`** (BelongsToTenant, LogsReads) — the per-case container (one per case;
+  `unique(tenant, surgical_case_id)`); `patient_id` denormalized for read-logging.
+- **`surgical_checklist_items`** (BelongsToTenant, LogsReads, **APPEND-ONLY** — model guards + DB triggers
+  `surgical_checklist_items_no_update`/`_no_delete`, the `surgical_case_events` recipe) — the completion log:
+  one immutable row per confirmation (`phase`+`label` SNAPSHOT, `checked` [the member's fact], `confirmed_by`,
+  `confirmed_at`, `note`, soft `template_item_id`). A correction is a NEW row (with a note); the CURRENT state
+  of an item = its latest row.
+- `Services\SurgicalChecklistService` — `seedTemplate` (gate `surgery.manage`, idempotent); `openChecklist`
+  (gate `note.write`, tenant fail-closed, get-or-create the container + auto-seed); `confirmItem(actor, case,
+  templateItemId, checked, ?note)` (gate `note.write`, append a confirmation — snapshots phase+label);
+  `forCase` (the FACTUAL read model — active items per phase + latest check state + a plain
+  `checked_count`/`total`). **It NEVER touches the case status** — no gating.
+- `Http\Controllers\SurgicalChecklistController` (string-id FIX.1) — `show` (GET
+  `/surgery/cases/{case}/checklist`, `note.write`, read-logged) → `Surgery/Checklist.vue`; `confirm` (POST,
+  `note.write`). A link from `Surgery/Case.vue`. Audited app-layer (`surgical_checklist.opened` +
+  `surgical_checklist.item_confirmed`, patient-scoped). FIX.5 smoke extended (checklist GET 200 + reception
+  confirm 403).
+- **RBAC:** read + confirm reuse **`note.write`** (the whole surgical team — surgeon / anesthetist /
+  scrub_nurse hold it; reception does not); template seeding is `surgery.manage`.
+- **THE FENCE (proven):** the G2 case state machine is UNCHANGED by checklist state — a case transitions
+  through the FULL lifecycle (incision included) REGARDLESS of checklist completeness (tested with an EMPTY
+  checklist). No computed safety verdict — the schema has no verdict/passed/safe/pass_fail/compliant/score
+  column, the read model exposes only a factual count, and a `Modules\Surgery\src` grep finds no
+  `safeToProceed`/`checklistPassed`/`gateOnChecklist` method. The Inertia prop is `surgicalCase`, not the
+  reserved `case`.
+
 ## Status
 
-**SURGERY.G1–G2 complete.** G1 = the FOUNDATION (module + theatre + theatre-scheduling [a NET-NEW
+**SURGERY.G1–G3 complete.** G1 = the FOUNDATION (module + theatre + theatre-scheduling [a NET-NEW
 `TheatreSlot` reusing the overlap-lock invariant, concurrency-proven] + the NET-NEW `SurgicalCase` + OR RBAC).
 **G2 = the case LIFECYCLE (legal-only state machine + append-only `surgical_case_events` + factual per-phase
 timestamps) + the surgical TEAM + OP DOCUMENTATION (reuses sign-and-lock `ClinicalNote`/`Encounter`,
 Encounter UNMODIFIED, one-open invariant preserved) + the ANESTHETIST-ASSIGNED ASA/Mallampati (recorded
-facts).** Record-not-judge throughout — no computed surgical-risk (the device-data feed stays a partner
-stub). Verified: composer check FULLY green (Pint `passed` · PHPStan L5 `[OK] No errors` · **Pest 814
-passed / 2 skipped / 7332 assertions**, 0 failed); npm build green; smoke green. See [[D-125]],
-[[D-126]], `docs/HOSPITAL-PHASE5-SURGERY-MAP.md`.
+facts).** **G3 = the WHO Surgical Safety Checklist — RECORDED, NOT ENFORCED (the three-phase tenant-authored
+template + an append-only completion log; it NEVER gates the case — the case transitions regardless of
+checklist completeness; no computed safety verdict).** Record-not-judge throughout — no computed surgical-risk
+(the device-data feed stays a partner stub). Verified: composer check FULLY green (Pint `passed` · PHPStan L5
+`[OK] No errors` · **Pest 821 passed / 2 skipped / 7571 assertions**, 0 failed); npm build green;
+smoke green. See [[D-125]], [[D-126]], [[D-127]], `docs/HOSPITAL-PHASE5-SURGERY-MAP.md`.
 
 ## Open items / next gates (per docs/HOSPITAL-PHASE5-SURGERY-MAP.md)
 
@@ -170,13 +208,14 @@ passed / 2 skipped / 7332 assertions**, 0 failed); npm build green; smoke green.
   drafted → CLOSED so the one-open invariant is preserved) + the ASA/Mallampati (anesthetist-ASSIGNED facts).
   **This gate spanned the map's §2.2 [lifecycle] AND §2.3 [op-notes/ASA]** — so the map's "G3 op-notes" is
   folded in here. **Next: the WHO checklist.**
-- **G3 (next) — the WHO Surgical Safety Checklist:** a NET-NEW structured record-not-judge artifact (sign-in /
-  time-out / sign-out; the `VisitTask`/`Handover` recipe) — a record of what the team confirmed, **never a
-  safety gate or compliance score**.
-- **G5** — consumables / implant tracking: REUSE the pharmacy inventory recipe (stock under a `FOR UPDATE`
-  lock + append-only `StockMovement` ledger) + a NET-NEW lot/serial/expiry/UDI extension (implant
+- **G3** *(done — D-127)* — the WHO Surgical Safety Checklist: a NET-NEW three-phase artifact (tenant-authored
+  template + per-case container + an APPEND-ONLY completion log) — RECORDED, NOT ENFORCED. It NEVER gates the
+  case (the G2 machine is unchanged; a case transitions regardless of checklist completeness — tested); no
+  computed safety verdict (a factual `checked/total` count only); reuses `note.write`. **Next: consumables.**
+- **G4 (next) — consumables / implant tracking:** REUSE the pharmacy inventory recipe (stock under a `FOR
+  UPDATE` lock + append-only `StockMovement` ledger) + a NET-NEW lot/serial/expiry/UDI extension (implant
   traceability — the pharmacy stock model has none).
-- **G6** — surgical billing: procedure + theatre-time + consumables as `TariffItem`s → `captureManual` →
+- **G5** — surgical billing: procedure + theatre-time + consumables as `TariffItem`s → `captureManual` →
   invoice → **reconciles-to-the-unit**; the pharmacy/bed-day shape, no new billing math.
 - **The device/risk seam stays EMPTY / deferred** — a computed surgical-risk score + the intra-op device-data
   feed (anesthesia machine / monitor) are certified-partner / non-goal surfaces behind a Null seam (the

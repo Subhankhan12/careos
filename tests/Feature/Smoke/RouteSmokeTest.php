@@ -178,6 +178,7 @@ test('every major staff route is reachable through the real middleware stack (20
         'pharmacy.pricing' => '/pharmacy/pricing',
         'surgery.cases' => '/surgery/cases',
         'surgery.case (C-1)' => '/surgery/cases/'.$fx['surgicalCase']->id,
+        'surgery.checklist' => '/surgery/cases/'.$fx['surgicalCase']->id.'/checklist',
     ];
 
     $failures = [];
@@ -409,6 +410,17 @@ test('per-role RBAC smoke: each role reaches its pages (200) and is denied other
         ->status();
     if ($surgeryStatus !== 403) {
         $failures[] = "surgery.cases.transition as reception -> {$surgeryStatus} (expected 403)";
+    }
+
+    // SURGERY.G3: confirming a WHO-checklist item is note.write-gated (the surgical team). Reception (no
+    // note.write) is denied on the confirm route at the gate through the real stack. The checklist RECORDS
+    // completion; it never gates the case.
+    smokeCtx()->forget();
+    $checklistStatus = $this->actingAs($u['reception'])
+        ->post('/surgery/cases/'.$fx['surgicalCase']->id.'/checklist', ['template_item_id' => 'x', 'checked' => true])
+        ->status();
+    if ($checklistStatus !== 403) {
+        $failures[] = "surgery.cases.checklist.confirm as reception -> {$checklistStatus} (expected 403)";
     }
 
     expect(implode("\n", $failures))->toBe('');

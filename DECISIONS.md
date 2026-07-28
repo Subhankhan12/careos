@@ -1897,3 +1897,35 @@ references the old ID.
   [[D-119]]/HOSPITAL.G4 + the `WardRound`/`BedsideChartService` bedside-charting reuse (the op-doc precedent),
   [[D-121]]/PHARMACY.G2 (the transition + append-only-event shape it copies), the surgery map §2.2/§2.3, and
   [[Surgery]].
+
+- **D-127 — SURGERY.G3: WHO Surgical Safety Checklist — RECORDED, NOT ENFORCED (no case-gating).** Per
+  `docs/HOSPITAL-PHASE5-SURGERY-MAP.md` §2.4. **THE CRUX FENCE LINE:** the three-phase WHO checklist (sign_in /
+  time_out / sign_out) the team COMPLETES is a RECORD; it NEVER blocks/gates the case or any G2 transition — a
+  blocking checklist would be a safety-enforcement medical device (a fence violation). CareOS records
+  completion; the human team owns the safety decision. **(1)** `surgical_checklist_template_items` (BelongsToTenant,
+  MUTABLE) — the tenant-authored WHO template, seeded with the standard freely-published WHO items as an
+  EDITABLE starter (NOT a licensed set — the formulary discipline; auto-seeded idempotently). **(2)**
+  `surgical_checklists` (BelongsToTenant, LogsReads) — the per-case container (`unique(tenant, case)`). **(3)**
+  `surgical_checklist_items` (BelongsToTenant, LogsReads, **APPEND-ONLY** — model guards + DB triggers, the
+  `surgical_case_events` recipe) — one immutable row per confirmation (`phase`+`label` snapshot, `checked`, who,
+  when, note); a correction is a NEW row; current state = latest. **`SurgicalChecklistService`**: `seedTemplate`
+  (gate `surgery.manage`), `openChecklist` + `confirmItem` (gate `note.write`), `forCase` (a FACTUAL read model —
+  active items per phase + latest check state + a plain `checked_count`/`total`); **it NEVER touches the case
+  status.** **(4) THE FENCE (proven):** the G2 case state machine is UNCHANGED by checklist state — a case
+  transitions through the FULL lifecycle (incision included) REGARDLESS of checklist completeness (tested with
+  a 0-item EMPTY checklist). NO computed safety verdict — no verdict/passed/safe/pass_fail/compliant/score
+  column (schema fence), the read model is a count (never a verdict key), and a `Modules\Surgery\src` grep
+  finds no `safeToProceed`/`checklistPassed`/`gateOnChecklist` method. A factual "checked / total" count is a
+  FACT, not a judgment. **(5) RBAC:** read + confirm reuse **`note.write`** (the whole surgical team;
+  reception has none); template seeding is `surgery.manage`. **(6) UI (P0D.GU):** `SurgicalChecklistController`
+  (show [read-logged] + confirm) + `Surgery/Checklist.vue` (a checkbox per item + a factual count + an explicit
+  "does not block the surgery" note) + a `Surgery/Case.vue` link + i18n (the Inertia prop is `surgicalCase`,
+  not the reserved `case`). Audited app-layer (`surgical_checklist.opened` + `surgical_checklist.item_confirmed`,
+  patient-scoped). No charge (billing is a later gate). No existing behavior test modified; **the clinical-safety
+  eval + G1/G2 + reconciliation/fence/immutability suites stay green**; the FIX.5 smoke was EXTENDED (checklist
+  GET 200 + reception confirm 403). Added `SurgicalChecklistTest` (7). VERIFIED: npm run build green; composer
+  check FULLY green (Pint `passed` · PHPStan L5 `[OK] No errors` · **Pest 821 passed / 2 skipped /
+  7571 assertions**, 0 failed — +7 tests vs G2's 814); composer test:smoke green (3). **Next:
+  consumables / implant tracking** (reuse the pharmacy inventory recipe + lot/serial/UDI), then surgical
+  billing. (SURGERY.G3) See [[D-126]] (G2 — the case it documents), [[D-122]]/PHARMACY.G3 (the append-only
+  record-not-judge posture), the surgery map §2.4, and [[Surgery]].

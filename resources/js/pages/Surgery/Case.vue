@@ -39,6 +39,7 @@ const props = defineProps<{
         team_url: string;
         anesthesia_url: string;
         note_url: string;
+        checklist_url: string;
     };
 }>();
 
@@ -71,7 +72,10 @@ function fmt(iso: string | null): string {
                 <p class="text-xs font-semibold uppercase tracking-[0.14em] text-euca-200">{{ t('surgery.case.eyebrow') }}</p>
                 <h1 class="mt-1 text-2xl font-semibold tracking-tight text-euca-50">{{ surgicalCase.patient.name }}</h1>
                 <p class="mt-1 text-sm text-euca-200">{{ surgicalCase.procedure }}<template v-if="surgicalCase.surgeon"> · {{ surgicalCase.surgeon }}</template></p>
-                <span class="mt-3 inline-block rounded-full bg-white/15 px-3 py-1 text-xs font-semibold text-euca-50">{{ t(`surgery.status.${surgicalCase.status}`) }}</span>
+                <div class="mt-3 flex items-center gap-3">
+                    <span class="inline-block rounded-full bg-white/15 px-3 py-1 text-xs font-semibold text-euca-50">{{ t(`surgery.status.${surgicalCase.status}`) }}</span>
+                    <Link :href="actions.checklist_url" class="text-xs font-semibold text-euca-100 underline">{{ t('surgery.case.checklist') }}</Link>
+                </div>
             </div>
 
             <!-- Lifecycle -->

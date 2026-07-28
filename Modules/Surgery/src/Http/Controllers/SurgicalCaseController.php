@@ -137,6 +137,7 @@ class SurgicalCaseController
                 'team_url' => route('surgery.cases.team', $record->id),
                 'anesthesia_url' => route('surgery.cases.anesthesia', $record->id),
                 'note_url' => route('surgery.cases.notes', $record->id),
+                'checklist_url' => route('surgery.cases.checklist', $record->id),
             ],
         ]);
     }

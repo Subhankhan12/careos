@@ -36,8 +36,8 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
   unlocks **eMAR + the CH statutory billing pack** when confirmed. The well of safe build-without-a-
   customer-need work is done — do not open a new gate unless a customer need pulls a specific feature
   forward. Discovery brief: `docs/DISCOVERY.md`; outreach: `docs/outreach-de.md`.
-- **Latest verified quality:** SURGERY.G2 (the surgical-case LIFECYCLE + op documentation + anesthetist-assigned ASA — Phase 5: the G1 `SurgicalCase` gains a **legal-only state machine** [scheduled → pre_op → in_progress → completed → post_op, + cancelled] with an append-only `surgical_case_events` history + factual per-phase timestamps; the **surgical team**; **OP DOCUMENTATION reusing sign-and-lock `ClinicalNote`/`Encounter`** [`Encounter` UNMODIFIED — a Surgery-side `surgical_case_encounters` link; the encounter is opened → drafted → CLOSED so the one-open-per-practitioner invariant is preserved for other verticals]; and **ASA/Mallampati as ANESTHETIST-ASSIGNED recorded facts** [closed sets I–VI / I–IV + provenance, never computed]; record-not-judge — NO computed surgical-risk, the intra-op device-data feed stays a partner stub) atop SURGERY.G1 (the OR foundation) + the COMPLETE Phase 2 pharmacy (G1→G5) + Phase 1 inpatient/ADT (G1→G7); the WHO checklist / consumables / billing remain. `composer check` FULLY green — Pint `passed`, PHPStan L5
-  `[OK] No errors`, **Pest 814 passed / 2 skipped / 7332 assertions**, 0 failed (the 2 skips = Redis-Horizon + one reminder infra case, green in CI on Redis 7); npm run build green. (G8 baseline: `0d93a36`, Pest 700/5623.) A route-reachability smoke (**FIX.5**, `composer test:smoke`)
+- **Latest verified quality:** SURGERY.G3 (the WHO Surgical Safety Checklist — Phase 5: the three-phase checklist [sign-in / time-out / sign-out] the team COMPLETES — **RECORDED, NOT ENFORCED**. A tenant-authored WHO template [seeded editable, not licensed] + a per-case container + an **APPEND-ONLY completion log** [checked / by-whom / when; a correction is a new row]. **THE CRUX FENCE LINE: it NEVER gates the case** — the G2 state machine is unchanged by checklist state, so a surgery transitions [incision included] REGARDLESS of checklist completeness [tested with an empty checklist]; NO computed safety verdict [a factual `checked/total` count only — no verdict/passed/safe column, no `safeToProceed` method]. Reuses `note.write`) atop SURGERY.G2 (case lifecycle + op docs + ASA) / G1 (OR foundation) + the COMPLETE Phase 2 pharmacy (G1→G5) + Phase 1 inpatient/ADT (G1→G7); consumables / billing remain. `composer check` FULLY green — Pint `passed`, PHPStan L5
+  `[OK] No errors`, **Pest 821 passed / 2 skipped / 7571 assertions**, 0 failed (the 2 skips = Redis-Horizon + one reminder infra case, green in CI on Redis 7); npm run build green. (G8 baseline: `0d93a36`, Pest 700/5623.) A route-reachability smoke (**FIX.5**, `composer test:smoke`)
   drives every major route through the real middleware stack to guard against request-time 500s (the C-1
   class). See the detailed quality block below.
 - **Demo tenants (all reconcile-to-the-unit + chain-verify):** `DemoClinicSeeder` (Praxis Lindenhof, CHF,
@@ -1437,13 +1437,28 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
   reconciliation/fence/immutability suites stay green**; FIX.5 smoke extended (case board + detail GET 200 +
   reception transition 403). Added `SurgicalCaseLifecycleTest` (10). Verified: npm build green; composer check
   FULLY green (**Pest 814 / 2-skip / 7332**, 0 failed); smoke green (3).
-- **Next action:** **SURGERY.G3 — the WHO Surgical Safety Checklist** (record-not-judge), per
-  `docs/HOSPITAL-PHASE5-SURGERY-MAP.md` §2.4: a NET-NEW structured artifact (sign-in / time-out / sign-out; N
-  human-confirmed items with a mandatory reason-when-not, the `VisitTask`/`Handover` recipe, on the append-only
-  + sign-and-lock recipe) — **a record of what the team confirmed, NEVER a safety gate or a computed
-  compliance score.** Then G4 (consumables/implants, reuse the pharmacy inventory recipe + a NET-NEW
-  lot/serial/UDI extension) → G5 (surgical billing, reuse the engine → reconcile). **The standing strategic
-  posture is unchanged — the next real unit of progress is DELIVERY** (deploy the built verticals to paying
-  customers); Phase 5 gates + Phases 3–4 (lab / radiology) + ED are each mapped first and pulled forward by a
-  customer need. The DISCOVERY track still stands (the CH/KVG billing model must be confirmed with Spitex
-  coordinators before the CH statutory pack is committed).
+- **SURGERY.G3 — the WHO Surgical Safety Checklist: RECORDED, NOT ENFORCED (D-127).** The three-phase checklist
+  (sign_in / time_out / sign_out) the team COMPLETES. **(1)** `surgical_checklist_template_items` — the
+  tenant-authored WHO template (seeded editable, NOT licensed; auto-seeded idempotently). **(2)**
+  `surgical_checklists` — the per-case container (read-logged). **(3)** `surgical_checklist_items` — the
+  **APPEND-ONLY** completion log (model guards + DB triggers; one immutable row per confirmation — checked /
+  by-whom / when / note; a correction is a new row; current = latest). `SurgicalChecklistService` (openChecklist
+  / confirmItem gate `note.write`; seedTemplate `surgery.manage`; `forCase` a factual read model) — **NEVER
+  touches the case status.** **THE CRUX FENCE LINE:** the checklist NEVER gates the case — the G2 state machine
+  is unchanged by checklist state, so a surgery transitions (incision included) REGARDLESS of checklist
+  completeness (tested with a 0-item empty checklist); NO computed safety verdict (no verdict/passed/safe/score
+  column, a factual `checked/total` count only, and no `safeToProceed`/`checklistPassed`/`gateOnChecklist`
+  method — grepped). `SurgicalChecklistController` + `Surgery/Checklist.vue` (a checkbox per item + a factual
+  count + an explicit "does not block the surgery" note) + a `Surgery/Case.vue` link + i18n; audited app-layer.
+  No charge. No existing behavior test modified; the clinical-safety eval + G1/G2 + reconciliation/fence/
+  immutability suites stay green; FIX.5 smoke extended (checklist GET 200 + reception confirm 403). Added
+  `SurgicalChecklistTest` (7). Verified: npm build green; composer check FULLY green (**Pest 821 / 2-skip /
+  7571**, 0 failed); smoke green (3).
+- **Next action:** **SURGERY.G4 — consumables / implant tracking**, per `docs/HOSPITAL-PHASE5-SURGERY-MAP.md`
+  §2.5: REUSE the pharmacy inventory recipe (stock under a `FOR UPDATE` lock + an append-only `StockMovement`
+  ledger) + a NET-NEW lot/serial/UDI/expiry extension (implant traceability — the pharmacy stock model is a
+  single fungible integer with no lot decomposition) + a case-usage link. Then G5 (surgical billing, reuse the
+  engine → reconcile-to-the-unit). **The standing strategic posture is unchanged — the next real unit of
+  progress is DELIVERY** (deploy the built verticals to paying customers); Phase 5 gates + Phases 3–4 (lab /
+  radiology) + ED are each mapped first and pulled forward by a customer need. The DISCOVERY track still stands
+  (the CH/KVG billing model must be confirmed with Spitex coordinators before the CH statutory pack is committed).

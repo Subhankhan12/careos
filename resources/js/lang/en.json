@@ -386,7 +386,20 @@
             "noNotes": "No notes yet.",
             "openNote": "Open",
             "authorNote": "Author {phase}",
-            "history": "History"
+            "history": "History",
+            "checklist": "WHO safety checklist"
+        },
+        "checklist": {
+            "eyebrow": "Surgery · WHO checklist",
+            "title": "WHO Surgical Safety Checklist",
+            "backToCase": "Back to case",
+            "recordNote": "This checklist is a record of what the team confirmed. It does not block the surgery — the team owns the decision to proceed.",
+            "count": "{checked} of {total} confirmed",
+            "phase": {
+                "sign_in": "Sign-in (before anaesthesia)",
+                "time_out": "Time-out (before incision)",
+                "sign_out": "Sign-out (before leaving theatre)"
+            }
         }
     },
     "settings": {

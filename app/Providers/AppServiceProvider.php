@@ -79,6 +79,8 @@ use Modules\Scheduling\Models\Resource;
 use Modules\Scheduling\Models\WaitlistOffer;
 use Modules\Surgery\Models\SurgicalCase;
 use Modules\Surgery\Models\SurgicalCaseEvent;
+use Modules\Surgery\Models\SurgicalChecklist;
+use Modules\Surgery\Models\SurgicalChecklistItem;
 use Modules\Surgery\Models\Theatre;
 use Modules\Surgery\Models\TheatreSlot;
 
@@ -389,6 +391,21 @@ class AppServiceProvider extends ServiceProvider
             'resource_type' => 'surgical_case_event',
             'resource_id' => $m->id,
             'context' => ['surgical_case_id' => $m->surgical_case_id, 'event_type' => $m->event_type, 'reason' => $m->reason],
+        ]));
+        // The WHO Surgical Safety Checklist (SURGERY.G3) — patient-scoped — so Surgery stays free of Audit. The
+        // checklist is a RECORD: opening the container + each APPEND-ONLY item confirmation is audited; it
+        // never gates the case (no safety verdict is computed or stored).
+        SurgicalChecklist::created(fn (SurgicalChecklist $m) => $this->auditChange('surgical_checklist.opened', [
+            'patient_id' => $m->patient_id,
+            'resource_type' => 'surgical_checklist',
+            'resource_id' => $m->id,
+            'context' => ['surgical_case_id' => $m->surgical_case_id],
+        ]));
+        SurgicalChecklistItem::created(fn (SurgicalChecklistItem $m) => $this->auditChange('surgical_checklist.item_confirmed', [
+            'patient_id' => $m->patient_id,
+            'resource_type' => 'surgical_checklist_item',
+            'resource_id' => $m->id,
+            'context' => ['surgical_checklist_id' => $m->surgical_checklist_id, 'phase' => $m->phase, 'checked' => $m->checked],
         ]));
 
         // People credential vault changes. The observer lives here so People

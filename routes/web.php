@@ -82,6 +82,7 @@ use Modules\Scheduling\Http\Controllers\PortalAppointmentController;
 use Modules\Scheduling\Http\Controllers\PublicBookingController;
 use Modules\Scheduling\Http\Controllers\WaitlistOfferController;
 use Modules\Surgery\Http\Controllers\SurgicalCaseController;
+use Modules\Surgery\Http\Controllers\SurgicalChecklistController;
 
 Route::get('/', function () {
     if (! auth()->check()) {
@@ -380,6 +381,11 @@ Route::middleware('auth')->group(function () {
     Route::post('/surgery/cases/{case}/team', [SurgicalCaseController::class, 'team'])->name('surgery.cases.team');
     Route::post('/surgery/cases/{case}/anesthesia', [SurgicalCaseController::class, 'anesthesia'])->name('surgery.cases.anesthesia');
     Route::post('/surgery/cases/{case}/notes', [SurgicalCaseController::class, 'startNote'])->name('surgery.cases.notes');
+
+    // WHO Surgical Safety Checklist (SURGERY.G3) — the three-phase checklist the team COMPLETES, RECORDED not
+    // enforced: it never blocks/gates the case. Read + confirm are `note.write` (the surgical team). {case} string-id.
+    Route::get('/surgery/cases/{case}/checklist', [SurgicalChecklistController::class, 'show'])->name('surgery.cases.checklist');
+    Route::post('/surgery/cases/{case}/checklist', [SurgicalChecklistController::class, 'confirm'])->name('surgery.cases.checklist.confirm');
 
     // Onboarding/migration: generic CSV patient import (RBAC 'data.import' enforced
     // in each controller action). Mandatory dry-run before commit.
