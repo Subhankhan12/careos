@@ -139,6 +139,7 @@ class SurgicalCaseController
                 'note_url' => route('surgery.cases.notes', $record->id),
                 'checklist_url' => route('surgery.cases.checklist', $record->id),
                 'supplies_url' => route('surgery.cases.supplies', $record->id),
+                'billing_url' => route('surgery.cases.billing', $record->id),
             ],
         ]);
     }

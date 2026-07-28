@@ -6,7 +6,8 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
 ## STATUS: BACKEND FEATURE-COMPLETE · THREE VERTICALS · CURRENT FOCUS = DEPLOY (not building)
 
 **Read this before starting any work. The next unit of progress is DELIVERY, not another gate.**
-(Latest reconciliation: `0d93a36`, DENTAL.G8 — general-dentist feature set complete.)
+(Latest reconciliation: SURGERY.G5 — **Phase 5 (OR / surgery) COMPLETE**; an OR runs
+end-to-end, theatre → schedule → lifecycle+op-docs+ASA → WHO checklist → consumables/implants → billing.)
 
 - **Product:** **CareOS** — a multi-tenant, agentic healthcare-operations SaaS, EU-first. Stack:
   Laravel 12 · Inertia v2 + Vue 3 + TS + Tailwind v4 (**Eucalyptus Glow** design system) · a separate
@@ -36,8 +37,8 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
   unlocks **eMAR + the CH statutory billing pack** when confirmed. The well of safe build-without-a-
   customer-need work is done — do not open a new gate unless a customer need pulls a specific feature
   forward. Discovery brief: `docs/DISCOVERY.md`; outreach: `docs/outreach-de.md`.
-- **Latest verified quality:** SURGERY.G4 (consumables + implant tracking — Phase 5: **MIRRORS the pharmacy G4 inventory recipe** [Surgery can't import the peer Pharmacy vertical, so it's COPIED — `surgical_items` catalog → `surgical_item_stocks` under a `FOR UPDATE` lock → append-only `surgical_stock_movements`; `case_item_usages` decrement is ATOMIC + concurrency-safe, **hammer-proven [8 processes race the last unit → 1 winner, on_hand=0]**] + a **NET-NEW implant lot/serial/UDI traceability extension** [`implant_placements` — which implant → which patient, for device recalls; the recall lookup `lot/UDI → patients` is a FACTUAL query, NOT a device-safety verdict]. Stock admin `surgery.manage`, usage `note.write`; operational/traceability facts only — `isBelowThreshold` a factual count, no device-verdict/recall-status column) atop SURGERY.G3 (WHO checklist) / G2 (lifecycle + op docs + ASA) / G1 (OR foundation) + the COMPLETE Phase 2 pharmacy (G1→G5) + Phase 1 inpatient/ADT (G1→G7); only **surgical billing (G5)** remains for the Phase-5 core. `composer check` FULLY green — Pint `passed`, PHPStan L5
-  `[OK] No errors`, **Pest 830 passed / 2 skipped / 8002 assertions**, 0 failed (the 2 skips = Redis-Horizon + one reminder infra case, green in CI on Redis 7); npm run build green. (G8 baseline: `0d93a36`, Pest 700/5623.) A route-reachability smoke (**FIX.5**, `composer test:smoke`)
+- **Latest verified quality:** SURGERY.G5 (surgical billing — **PHASE 5 (OR) COMPLETE**: a surgical case accrues charges [procedure + theatre-time + consumables/implants] through the **EXISTING** billing engine and they invoice + **RECONCILE-TO-THE-UNIT**. **STRICTLY ORCHESTRATION — zero new money math** [the pharmacy G5 / bed-day HOSPITAL.G6 shape, COPIED because Surgery can't import the peer verticals but MAY use Billing]: each billable is a tenant-authored `TariffItem` in a `surgery` catalog [procedure / the `THEATRE-TIME` code / each priced `surgical_item`, linking the new soft `surgical_items.tariff_item_id`]; `chargeCase` captures via `ChargeCaptureService::captureManual` [the ENGINE snapshots the fee + computes the line total], idempotent via `surgical_case_charges`; `invoiceCase` issues via the existing `validate → createDraftFromCharges → issue` flow — `ReconciliationEngine` ties out **I4 δ=0** with surgical charges present, standalone AND on an inpatient stay's `invoiceStay` [Hospital sweeps the surgical charges without Surgery importing Hospital]. `billing.manage`-gated [NO new permission — the billing office bills, not the OR team]; the money-math grep over `Modules\Surgery\src` is CLEAN [a price is a RATE, not a verdict]) atop SURGERY.G4 (consumables/implants) / G3 (WHO checklist) / G2 (lifecycle + op docs + ASA) / G1 (OR foundation) + the COMPLETE Phase 2 pharmacy (G1→G5) + Phase 1 inpatient/ADT (G1→G7). **Phase 5 is COMPLETE — the OR runs end-to-end; no further Phase-5 core gate. Next verticals: Phases 3 (lab), 4 (radiology), 6 (ED).** `composer check` FULLY green — Pint `passed`, PHPStan L5
+  `[OK] No errors`, **Pest 837 passed / 2 skipped / 8346 assertions**, 0 failed (the 2 skips = Redis-Horizon + one reminder infra case, green in CI on Redis 7); npm run build green. (G8 baseline: `0d93a36`, Pest 700/5623.) A route-reachability smoke (**FIX.5**, `composer test:smoke`)
   drives every major route through the real middleware stack to guard against request-time 500s (the C-1
   class). See the detailed quality block below.
 - **Demo tenants (all reconcile-to-the-unit + chain-verify):** `DemoClinicSeeder` (Praxis Lindenhof, CHF,
@@ -1469,12 +1470,28 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
   smoke extended (inventory + supplies GET 200 + reception use 403). Added `SurgicalInventoryTest` (8) +
   `SurgicalItemUsageParallelHammerTest` (1). Verified: npm build green; composer check FULLY green (**Pest
   830 / 2-skip / 8002**, 0 failed); smoke green (3).
-- **Next action:** **SURGERY.G5 — surgical billing (the LAST Phase-5 core gate)**, per
-  `docs/HOSPITAL-PHASE5-SURGERY-MAP.md` §2.6: a surgical procedure + theatre-time + each consumable/implant is
-  a tenant-authored `TariffItem`; a case captures `Charge`s through the EXISTING engine (`captureManual`) →
-  invoice → **reconciles-to-the-unit** (the pharmacy G5 / bed-day G6 shape; NO new billing math,
-  adversarial-grep). Completes the Phase-5 surgical core (theatre → case → checklist → consumables → billing).
-  **The standing strategic posture is unchanged — the next real unit of progress is DELIVERY** (deploy the
-  built verticals to paying customers); Phase 5's G5 + Phases 3–4 (lab / radiology) + ED are each mapped first
-  and pulled forward by a customer need. The DISCOVERY track still stands (the CH/KVG billing model must be
-  confirmed with Spitex coordinators before the CH statutory pack is committed).
+- **SURGERY.G5 — surgical billing; PHASE 5 (OR) COMPLETE (D-129).** Per `docs/HOSPITAL-PHASE5-SURGERY-MAP.md`
+  §2.6: a surgical case accrues charges (procedure + theatre-time + consumables/implants) through the EXISTING
+  billing engine and they invoice + RECONCILE-TO-THE-UNIT. **STRICTLY ORCHESTRATION — no new money math** (the
+  pharmacy G5 / bed-day G6 shape, COPIED because Surgery can't import the peer verticals but MAY use Billing):
+  each billable is a tenant-authored `TariffItem` in a `surgery` catalog (procedure / the `THEATRE-TIME` code /
+  each priced `surgical_item`, linking the new soft `surgical_items.tariff_item_id`); `chargeCase` captures via
+  `ChargeCaptureService::captureManual` (the ENGINE snapshots the fee + computes the line total), idempotent via
+  `surgical_case_charges`; `invoiceCase` issues via the existing `validate → createDraftFromCharges → issue`
+  flow — `ReconciliationEngine` ties out **I4 δ=0** with surgical charges present, standalone AND on an inpatient
+  stay's `invoiceStay` (Hospital sweeps them without Surgery importing Hospital). `billing.manage`-gated (NO new
+  permission — the billing office bills, not the OR team; surgeon + reception refused). FENCE: a price is a RATE
+  — the money-math grep over `Modules\Surgery\src` is CLEAN (the controller reads the issued invoice's
+  `total_minor` but never a charge's `line_total_minor` — per-line + estimate math is presentational in the Vue).
+  UI: `SurgicalPricingController` + `Surgery/SurgicalPricing.vue`; `SurgicalBillingController` +
+  `Surgery/CaseBilling.vue`; a `Surgery/Case.vue` billing link. No existing behavior test modified; FIX.5 smoke
+  extended (pricing + case-billing GET 200 + reception charge 403). Added `SurgicalBillingTest` (7). Verified:
+  npm build green; composer check FULLY green (**Pest 837 / 2-skip / 8346**, 0 failed);
+  smoke green (3). **PHASE 5 IS COMPLETE — an OR runs end-to-end (theatre/schedule → lifecycle+op-docs+ASA → WHO
+  checklist → consumables/implants → billing); no further Phase-5 core gate.**
+- **Next action:** **DELIVERY — the standing strategic posture holds: the next real unit of progress is
+  deploying the built verticals to paying customers, not another gate.** With Phase 5 (OR) now complete, the
+  remaining hospital verticals — **Phases 3 (lab), 4 (radiology), 6 (ED)** — are each MAPPED-FIRST and pulled
+  forward only by a customer need (the `docs/HOSPITAL-PHASE5-SURGERY-MAP.md` discipline). The DISCOVERY track
+  still stands (the CH/KVG billing model must be confirmed with Spitex coordinators before the CH statutory pack
+  is committed).

@@ -3,13 +3,12 @@
 ## Purpose
 
 The operating-theatre / surgery vertical — **Phase 5** of the phased hospital build (Phase 1 = inpatient/ADT,
-Phase 2 = pharmacy, both complete). Planned ~6 core gates (`docs/HOSPITAL-PHASE5-SURGERY-MAP.md`): the module
-+ theatre + theatre-scheduling + the surgical case + OR RBAC (G1) → the case lifecycle + append-only case
-events (G2) → pre-op/op/post-op notes reusing Clinical (G3) → the WHO Surgical Safety Checklist (G4) →
-consumables/implant tracking (G5) → surgical billing (G6). **SURGERY.G1 ships the FOUNDATION only:** the
-module, the theatre + theatre-scheduling (a NET-NEW `TheatreSlot`), the NET-NEW `SurgicalCase` (scheduled
-status), and OR RBAC. No case lifecycle / checklist / consumables / billing yet. Surgery inherits the whole
-tested platform (tenancy, patients, people, clinical, billing, audit, RBAC, the electric fence).
+Phase 2 = pharmacy, both complete). **Phase 5 shipped in 5 gates** (`docs/HOSPITAL-PHASE5-SURGERY-MAP.md`): the
+module + theatre + theatre-scheduling + the surgical case + OR RBAC (G1) → the case lifecycle + append-only
+case events **+ op documentation reusing Clinical + the ASA record** (G2 — the map's op-notes §2.3 folded in) →
+the WHO Surgical Safety Checklist (G3) → consumables/implant tracking (G4) → surgical billing (G5). **PHASE 5
+IS NOW COMPLETE.** Surgery inherits the whole tested platform (tenancy, patients, people, clinical, billing,
+audit, RBAC, the electric fence).
 
 ## The theatre-scheduling decision (G1 — THE crux)
 
@@ -226,22 +225,83 @@ extension** (a recall/regulatory requirement).
   inventory table; a `Modules\Surgery\src` grep finds no `verifyDevice`/`recallStatus`/`deviceSafe` method).
   No charge (surgical billing is G5).
 
+## Surgical billing (SURGERY.G5) — the FINAL Phase-5 gate
+
+A surgical case accrues charges (procedure + theatre-time + consumables/implants) through the **EXISTING**
+billing engine, and they invoice + **RECONCILE-TO-THE-UNIT**. Per the map §2.6. **STRICTLY ORCHESTRATION —
+NO new billing/pricing/VAT/line-total math** (the pharmacy G5 / bed-day HOSPITAL.G6 shape, copied because
+Surgery cannot import the peer verticals but MAY use Billing). The adversarial-grep discipline over
+`Modules\Surgery\src` finds ZERO money math.
+
+- **Each billable thing is a tenant-authored `TariffItem`** in a `surgery` `TariffCatalog` (`SurgicalBillingService::catalog()` firstOrCreate; integer minor units, `vat_rate_bp` 0 — NO licensed pricing):
+  a **procedure** (`priceProcedure` — its own code, unit `procedure`), **theatre-time** (`priceTheatreTime` — the
+  fixed `THEATRE-TIME` code, unit `theatre-minute`), and each **consumable/implant** (`priceItem` — authored
+  against the G4 `surgical_items.code`, linking the new soft `surgical_items.tariff_item_id`; `SurgicalItem::isPriced()`).
+  All via a private `authorTariff` = `TariffItem::updateOrCreate` keyed `(tariff_catalog_id, code)`.
+- **Charge capture via the EXISTING engine — the module computes NO money.** `chargeCase(actor, case,
+  ?procedureCode, ?theatreMinutes)` (gate `billing.manage`, tenant fail-closed): idempotent (any
+  `surgical_case_charges` row → return the existing charges); else resolve `Patient` + `Branch::firstOrFail`,
+  serviceDate = `completed_at ?? scheduled_at`, and push a `ChargeCaptureService::captureManual` per billable —
+  the procedure (×1), theatre-time (×minutes), and one per **priced** consumable/implant used (×total, from the
+  G4 `case_item_usages`, via `pricedUsageTotals` which SKIPS unpriced items). **The ENGINE resolves the tariff
+  by code, SNAPSHOTS the fee, and computes the line total** — Surgery never does. Each capture is linked once
+  via **`surgical_case_charges`** (`unique(tenant, charge_id)` = the `dispense_charges` idempotency bridge;
+  stores NO money).
+- **Invoice via the EXISTING flow — reconciles-to-the-unit.** `invoiceCase(actor, case)` (gate `billing.manage`):
+  `validateForPatientPeriod` (draft→validated) → gather the patient's VALIDATED, uninvoiced charges on the
+  case's service day → `IssueService::createDraftFromCharges(SELF_PAY)` → `issue` (gapless number + PDF). The
+  existing `ReconciliationEngine::check(period)` ties out: **I4 `delta_minor === 0`** with surgical charges
+  present (THE key proof). **INPATIENT path:** a surgical case's charges are just patient charges with a
+  service_date in the stay window — Hospital's **`BedBillingService::invoiceStay`** sweeps them onto the stay
+  discharge invoice (same gather-by-patient+period) **without Surgery importing Hospital** — reconciles δ=0 too.
+- **RBAC — the billing office bills, NOT the OR team.** Pricing + charge + invoice all reuse **`billing.manage`**
+  (NO new permission, NO RBAC migration; `org_admin` holds it). The surgeon (`surgery.manage` but not
+  `billing.manage`) is REFUSED; reception is refused. Cross-tenant fail-closed (`CrossTenantReferenceException`).
+- **NO audit hook for the link table** — the `Charge`/`Invoice` are audited by Billing itself (the
+  `DispenseCharge` precedent: `PharmacyBillingService` added none either).
+- **UI:** `SurgicalPricingController` (`/surgery/pricing` — set procedure/theatre-time/item prices,
+  `billing.manage`) → `Surgery/SurgicalPricing.vue`; `SurgicalBillingController` (`/surgery/cases/{case}/billing`
+  — capture charges + issue invoice + link to the Billing invoice, `billing.manage`, read-logged) →
+  `Surgery/CaseBilling.vue`; a billing link from `Surgery/Case.vue`. **FENCE-in-the-UI:** the controller reads
+  the issued invoice's `total_minor` (a Billing figure) but NEVER a charge's `line_total_minor` (that literal is
+  fence-forbidden in the module) — the per-line + pre-invoice estimate math is done presentationally in the Vue
+  (`quantity × the snapshotted rate`), the same class as its minor→major formatting. FIX.5 smoke extended
+  (pricing + case-billing GET 200 + reception charge 403).
+- **ELECTRIC FENCE (financial).** A surgical price is a **RATE** (financial/administrative), never a
+  clinical/appropriateness verdict — `surgical_case_charges` stores no money; `surgical_items` carries no
+  verdict/appropriateness/medical_necessity/severity/score column; the `line_total_minor`/`vat_total_minor`/
+  `subtotal_minor`/`vatMinor`/`intdiv(` grep over `Modules\Surgery\src` is clean. The Inertia prop is
+  `surgicalCase`, not the reserved `case`.
+
 ## Status
 
-**SURGERY.G1–G4 complete.** G1 = the FOUNDATION (module + theatre + theatre-scheduling [a NET-NEW
-`TheatreSlot` reusing the overlap-lock invariant, concurrency-proven] + the NET-NEW `SurgicalCase` + OR RBAC).
-**G2 = the case LIFECYCLE (legal-only state machine + append-only `surgical_case_events` + factual per-phase
-timestamps) + the surgical TEAM + OP DOCUMENTATION (reuses sign-and-lock `ClinicalNote`/`Encounter`,
-Encounter UNMODIFIED, one-open invariant preserved) + the ANESTHETIST-ASSIGNED ASA/Mallampati (recorded
-facts).** **G3 = the WHO Surgical Safety Checklist — RECORDED, NOT ENFORCED (the three-phase tenant-authored
-template + an append-only completion log; it NEVER gates the case — the case transitions regardless of
-checklist completeness; no computed safety verdict).** **G4 = consumables + implant tracking — MIRRORS the pharmacy G4 inventory recipe
-(concurrency-safe stock decrement, hammer-proven — 1 winner) + a NET-NEW implant lot/serial/UDI traceability
-extension (a factual recall lookup, NOT a device-safety verdict).** Record-not-judge throughout — no computed
-surgical-risk / device verdict (the device-data feed stays a partner stub). Verified: composer check FULLY
-green (Pint `passed` · PHPStan L5 `[OK] No errors` · **Pest 830 passed / 2 skipped / 8002
-assertions**, 0 failed); npm build green; smoke green. See [[D-125]], [[D-126]], [[D-127]], [[D-128]],
+**PHASE 5 (OR / SURGERY) COMPLETE — SURGERY.G1–G5 all shipped.** G1 = the FOUNDATION (module + theatre +
+theatre-scheduling [a NET-NEW `TheatreSlot` reusing the overlap-lock invariant, concurrency-proven] + the
+NET-NEW `SurgicalCase` + OR RBAC). **G2 = the case LIFECYCLE (legal-only state machine + append-only
+`surgical_case_events` + factual per-phase timestamps) + the surgical TEAM + OP DOCUMENTATION (reuses
+sign-and-lock `ClinicalNote`/`Encounter`, Encounter UNMODIFIED, one-open invariant preserved) + the
+ANESTHETIST-ASSIGNED ASA/Mallampati (recorded facts).** **G3 = the WHO Surgical Safety Checklist — RECORDED,
+NOT ENFORCED (the three-phase tenant-authored template + an append-only completion log; it NEVER gates the
+case — the case transitions regardless of checklist completeness; no computed safety verdict).** **G4 =
+consumables + implant tracking — MIRRORS the pharmacy G4 inventory recipe (concurrency-safe stock decrement,
+hammer-proven — 1 winner) + a NET-NEW implant lot/serial/UDI traceability extension (a factual recall lookup,
+NOT a device-safety verdict).** **G5 = surgical billing — procedure + theatre-time + consumables/implants as
+tenant-authored `TariffItem`s → charge capture via the EXISTING `ChargeCaptureService` → invoice via the
+EXISTING flow → RECONCILES-TO-THE-UNIT (I4 δ=0, both a standalone case invoice AND an inpatient stay's
+`invoiceStay`); STRICTLY ORCHESTRATION, zero new money math (adversarial grep clean); `billing.manage`-gated
+(the billing office, not the OR team).** **An OR can now, end-to-end: author theatres + overlap-safely
+schedule a surgical block → drive the case lifecycle + document it (reusing Clinical) → record the WHO
+checklist → track consumables/implants (recall-traceable) → BILL it, reconciling to the unit.** Record-not-judge
+throughout — no computed surgical-risk / device verdict (the anesthesia device-data feed stays a partner stub;
+a computed surgical-risk score is a non-goal). Verified: composer check FULLY green (Pint `passed` · PHPStan
+L5 `[OK] No errors` · **Pest `837` passed / `2` skipped / `8346` assertions**, 0 failed);
+npm build green; smoke green. See [[D-125]], [[D-126]], [[D-127]], [[D-128]], [[D-129]],
 `docs/HOSPITAL-PHASE5-SURGERY-MAP.md`.
+
+**Deliberate Phase-5 gaps (fence / partner seams, NOT omissions):** the intra-op anesthesia **device-data
+feed** (anesthesia machine / patient monitor — HL7/device ingestion) is a **certified-partner seam**, noted +
+stubbed, never homemade; a **computed surgical-risk score** is a **non-goal** (the ASA class is an
+anesthetist-ASSIGNED fact, never computed). **Next verticals: Phases 3 (lab), 4 (radiology), 6 (ED) remain.**
 
 ## Open items / next gates (per docs/HOSPITAL-PHASE5-SURGERY-MAP.md)
 
@@ -262,10 +322,16 @@ assertions**, 0 failed); npm build green; smoke green. See [[D-125]], [[D-126]],
   `case_item_usages` decrement, concurrency-safe + hammer-proven) + a NET-NEW `implant_placements` lot/serial/UDI
   traceability extension (a factual recall lookup: lot/UDI → patients, NOT a device verdict). Stock admin
   `surgery.manage`; usage `note.write`. **Next: surgical billing.**
-- **G5 (next) — surgical billing:** procedure + theatre-time + consumables as `TariffItem`s → `captureManual`
-  → invoice → **reconciles-to-the-unit**; the pharmacy/bed-day shape, no new billing math. **This is the last
-  Phase-5 core gate.**
-- **The device/risk seam stays EMPTY / deferred** — a computed surgical-risk score + the intra-op device-data
-  feed (anesthesia machine / monitor) are certified-partner / non-goal surfaces behind a Null seam (the
-  `LabConnectivity` / `MedicationSafetyProvider` precedent), never homemade; wired when the anesthesia record
-  (their consumer) is built.
+- **G5** *(done — D-129)* — surgical billing: procedure + theatre-time + consumables/implants as tenant-authored
+  `TariffItem`s (`surgery` catalog; `surgical_items.tariff_item_id` soft link) → charge capture via the EXISTING
+  `ChargeCaptureService::captureManual` (engine snapshots the fee + computes the line total) → invoice via the
+  EXISTING `validate → createDraftFromCharges → issue` flow → **reconciles-to-the-unit** (I4 δ=0, standalone
+  case AND inpatient `invoiceStay`). Idempotent via `surgical_case_charges`. STRICTLY ORCHESTRATION — the
+  adversarial money-math grep over `Modules\Surgery\src` is clean. `billing.manage`-gated (NO new permission —
+  the billing office bills, the OR team does not). **This was the LAST Phase-5 core gate — Phase 5 is COMPLETE.**
+- **The device/risk seam stays EMPTY / deferred** *(unchanged by G5)* — a computed surgical-risk score + the
+  intra-op device-data feed (anesthesia machine / monitor) are certified-partner / non-goal surfaces behind a
+  Null seam (the `LabConnectivity` / `MedicationSafetyProvider` precedent), never homemade; wired when the
+  anesthesia record (their consumer) is built.
+- **Next verticals (outside Surgery): Phases 3 (lab), 4 (radiology), 6 (ED) remain** per the master hospital
+  build sequence — Surgery/Phase-5 itself needs no further core gate.

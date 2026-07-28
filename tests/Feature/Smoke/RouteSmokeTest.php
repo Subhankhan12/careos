@@ -181,6 +181,8 @@ test('every major staff route is reachable through the real middleware stack (20
         'surgery.checklist' => '/surgery/cases/'.$fx['surgicalCase']->id.'/checklist',
         'surgery.inventory' => '/surgery/inventory',
         'surgery.supplies' => '/surgery/cases/'.$fx['surgicalCase']->id.'/supplies',
+        'surgery.pricing' => '/surgery/pricing',
+        'surgery.case-billing' => '/surgery/cases/'.$fx['surgicalCase']->id.'/billing',
     ];
 
     $failures = [];
@@ -434,6 +436,17 @@ test('per-role RBAC smoke: each role reaches its pages (200) and is denied other
         ->status();
     if ($suppliesStatus !== 403) {
         $failures[] = "surgery.cases.supplies.use as reception -> {$suppliesStatus} (expected 403)";
+    }
+
+    // SURGERY.G5: capturing a case's charges is billing.manage-gated (the billing office, NOT the OR team —
+    // a med/procedure price is a tenant-authored tariff). Reception (no billing.manage) is denied on the
+    // charge route at the gate through the real stack, before any charge is captured.
+    smokeCtx()->forget();
+    $chargeStatus = $this->actingAs($u['reception'])
+        ->post('/surgery/cases/'.$fx['surgicalCase']->id.'/billing/charge', ['procedure_code' => null, 'theatre_minutes' => 30])
+        ->status();
+    if ($chargeStatus !== 403) {
+        $failures[] = "surgery.cases.billing.charge as reception -> {$chargeStatus} (expected 403)";
     }
 
     expect(implode("\n", $failures))->toBe('');

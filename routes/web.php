@@ -82,9 +82,11 @@ use Modules\Scheduling\Http\Controllers\PortalAppointmentController;
 use Modules\Scheduling\Http\Controllers\PublicBookingController;
 use Modules\Scheduling\Http\Controllers\WaitlistOfferController;
 use Modules\Surgery\Http\Controllers\CaseSuppliesController;
+use Modules\Surgery\Http\Controllers\SurgicalBillingController;
 use Modules\Surgery\Http\Controllers\SurgicalCaseController;
 use Modules\Surgery\Http\Controllers\SurgicalChecklistController;
 use Modules\Surgery\Http\Controllers\SurgicalInventoryController;
+use Modules\Surgery\Http\Controllers\SurgicalPricingController;
 
 Route::get('/', function () {
     if (! auth()->check()) {
@@ -399,6 +401,17 @@ Route::middleware('auth')->group(function () {
     Route::get('/surgery/cases/{case}/supplies', [CaseSuppliesController::class, 'show'])->name('surgery.cases.supplies');
     Route::post('/surgery/cases/{case}/supplies/use', [CaseSuppliesController::class, 'recordUsage'])->name('surgery.cases.supplies.use');
     Route::post('/surgery/cases/{case}/supplies/implant', [CaseSuppliesController::class, 'placeImplant'])->name('surgery.cases.supplies.implant');
+
+    // Surgical billing (SURGERY.G5) — set tenant-authored prices (TariffItems) + capture a case's charges
+    // (procedure + theatre-time + consumables/implants) through the EXISTING engine → invoice
+    // (reconciles-to-the-unit). Gated `billing.manage` (the billing office); NO new billing math. {case} string-id.
+    Route::get('/surgery/pricing', [SurgicalPricingController::class, 'index'])->name('surgery.pricing');
+    Route::post('/surgery/pricing/item/{item}', [SurgicalPricingController::class, 'setItem'])->name('surgery.pricing.item');
+    Route::post('/surgery/pricing/procedure', [SurgicalPricingController::class, 'setProcedure'])->name('surgery.pricing.procedure');
+    Route::post('/surgery/pricing/theatre-time', [SurgicalPricingController::class, 'setTheatreTime'])->name('surgery.pricing.theatre-time');
+    Route::get('/surgery/cases/{case}/billing', [SurgicalBillingController::class, 'show'])->name('surgery.cases.billing');
+    Route::post('/surgery/cases/{case}/billing/charge', [SurgicalBillingController::class, 'charge'])->name('surgery.cases.billing.charge');
+    Route::post('/surgery/cases/{case}/billing/invoice', [SurgicalBillingController::class, 'invoice'])->name('surgery.cases.billing.invoice');
 
     // Onboarding/migration: generic CSV patient import (RBAC 'data.import' enforced
     // in each controller action). Mandatory dry-run before commit.

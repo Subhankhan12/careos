@@ -1967,3 +1967,45 @@ references the old ID.
   surgical billing** (reuse the engine → reconcile-to-the-unit) — the last Phase-5 core gate. (SURGERY.G4) See
   [[D-123]]/PHARMACY.G4 (the inventory + concurrency-safe decrement recipe it mirrors), [[D-126]] (G2 — the
   case it supplies), the surgery map §2.5, and [[Surgery]].
+- **D-129 — SURGERY.G5: surgical billing — case charges via the EXISTING engine (reconciles-to-the-unit);
+  Phase 5 (OR) COMPLETE.** Per `docs/HOSPITAL-PHASE5-SURGERY-MAP.md` §2.6. A surgical case accrues charges
+  (procedure + theatre-time + consumables/implants) through the EXISTING billing engine and they invoice +
+  RECONCILE-TO-THE-UNIT. **STRICTLY ORCHESTRATION — NO new billing/pricing/VAT/line-total math** (the pharmacy
+  G5 [[D-124]] / bed-day HOSPITAL.G6 [[D-118]] shape, COPIED because Surgery cannot import the peer verticals
+  but MAY use Billing). **(1) Tenant-authored pricing:** a `surgery` `TariffCatalog` holds each billable as a
+  `TariffItem` (integer minor units, `vat_rate_bp` 0, NO licensed pricing) — a procedure (`priceProcedure`,
+  own code), theatre-time (the fixed `THEATRE-TIME` code, unit `theatre-minute`), and each consumable/implant
+  (`priceItem`, authored against the G4 `surgical_items.code`, linking the new soft `surgical_items.tariff_item_id`;
+  `SurgicalItem::isPriced()`); all via `authorTariff` = `TariffItem::updateOrCreate` keyed `(catalog, code)`.
+  **(2) Charge capture via the EXISTING `ChargeCaptureService::captureManual`** — `chargeCase(actor, case,
+  ?procedureCode, ?theatreMinutes)` (gate `billing.manage`, tenant fail-closed) pushes a capture per billable
+  (procedure ×1, theatre-time ×minutes, each priced consumable/implant ×total-used from the G4
+  `case_item_usages` via `pricedUsageTotals` which SKIPS unpriced items); **the ENGINE resolves the tariff by
+  code, SNAPSHOTS the fee, and computes the line total** — Surgery does no money math. IDEMPOTENT via
+  `surgical_case_charges` (`unique(tenant, charge_id)` = the `dispense_charges` bridge; stores NO money).
+  **(3) RECONCILES-TO-THE-UNIT:** `invoiceCase` (`validateForPatientPeriod` → gather the patient's VALIDATED,
+  uninvoiced charges on the service day → `createDraftFromCharges(SELF_PAY)` → `issue`) — the existing
+  `ReconciliationEngine::check` ties out **I4 `delta_minor === 0` WITH surgical charges present** (THE key
+  proof). **INPATIENT path:** a surgical case's charges are patient charges with a service_date in the stay
+  window, so Hospital's `BedBillingService::invoiceStay` sweeps them onto the stay discharge invoice (same
+  gather-by-patient+period) **without Surgery importing Hospital** — reconciles δ=0 too (tested, importing
+  Hospital test-side only). **(4) RBAC:** pricing + charge + invoice reuse `billing.manage` (**NO new
+  permission, NO RBAC migration** — the billing office bills; the surgeon [`surgery.manage`, not
+  `billing.manage`] and reception are REFUSED). **(5) ELECTRIC FENCE (financial):** a price is a RATE, never a
+  clinical/appropriateness verdict — `surgical_case_charges` stores no money; `surgical_items` carries no
+  verdict/appropriateness/medical_necessity column; the `line_total_minor`/`vat_total_minor`/`subtotal_minor`/
+  `vatMinor`/`intdiv(` grep over `Modules\Surgery\src` is CLEAN (the controller reads the issued invoice's
+  `total_minor` [a Billing figure] but never a charge's `line_total_minor` — the per-line + pre-invoice estimate
+  math is done presentationally in the Vue, the same class as minor→major formatting). No app-layer audit hook
+  for the link table (the `Charge`/`Invoice` are audited by Billing — the `DispenseCharge` precedent).
+  `SurgicalPricingController` + `Surgery/SurgicalPricing.vue` + `SurgicalBillingController` +
+  `Surgery/CaseBilling.vue` + a `Surgery/Case.vue` billing link + i18n; the FIX.5 smoke was EXTENDED (pricing +
+  case-billing GET 200 + reception charge 403). No existing behavior test modified; added `SurgicalBillingTest`
+  (7). VERIFIED: npm run build green; composer check FULLY green (Pint `passed` · PHPStan L5 `[OK] No errors` ·
+  **Pest `837` passed / `2` skipped / `8346` assertions**, 0 failed); composer test:smoke
+  green (3). **PHASE 5 (OR / SURGERY) COMPLETE** — G1 theatre/scheduling+case → G2 lifecycle+op-docs+ASA → G3
+  WHO checklist → G4 consumables/implants → G5 billing; an OR runs end-to-end. Deliberate seams stay open: the
+  intra-op anesthesia device-data feed (partner) + a computed surgical-risk score (non-goal). **Next verticals:
+  Phases 3 (lab), 4 (radiology), 6 (ED).** (SURGERY.G5) See [[D-124]]/PHARMACY.G5 (the billing pattern it
+  mirrors), [[D-118]]/HOSPITAL.G6 (bed-to-billing + `invoiceStay`), [[D-128]] (G4 — the consumables it bills),
+  the surgery map §2.6, and [[Surgery]].

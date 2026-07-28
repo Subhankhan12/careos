@@ -388,7 +388,8 @@
             "authorNote": "Author {phase}",
             "history": "History",
             "checklist": "WHO safety checklist",
-            "supplies": "Consumables & implants"
+            "supplies": "Consumables & implants",
+            "billing": "Billing"
         },
         "checklist": {
             "eyebrow": "Surgery · WHO checklist",
@@ -453,6 +454,38 @@
             "implantsPlaced": "Implants placed",
             "noImplants": "No implants placed yet.",
             "patientHistory": "Patient implant history"
+        },
+        "pricing": {
+            "eyebrow": "Surgery · Pricing",
+            "title": "Surgical pricing",
+            "subtitle": "Set the tenant's prices for theatre time, procedures, and surgical items. A price is a rate — the billing engine owns every total.",
+            "theatreTime": "Theatre time",
+            "price": "Price",
+            "unit": "Unit",
+            "set": "Set",
+            "procedures": "Procedures",
+            "code": "Code",
+            "name": "Name",
+            "addProcedure": "Add / update procedure",
+            "items": "Surgical items",
+            "noItems": "No surgical items yet — add them in the inventory.",
+            "implant": "Implant",
+            "current": "Current: {price}"
+        },
+        "billing": {
+            "eyebrow": "Surgery · Billing",
+            "title": "Case billing",
+            "backToCase": "Back to case",
+            "capture": "Capture charges",
+            "captureHint": "Charges flow through the existing billing engine — the procedure, theatre time, and every priced consumable / implant used. The engine snapshots each fee and computes the totals.",
+            "noProcedure": "No procedure charge",
+            "theatreMinutes": "Theatre minutes",
+            "charges": "Charges",
+            "noCharges": "No charges captured yet.",
+            "total": "Total",
+            "estimate": "Estimated total",
+            "issueInvoice": "Issue invoice",
+            "viewInvoice": "View invoice"
         }
     },
     "settings": {

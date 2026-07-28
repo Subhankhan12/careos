@@ -4,7 +4,9 @@ namespace Modules\Surgery\Models;
 
 use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Carbon;
+use Modules\Billing\Models\TariffItem;
 use Modules\Platform\Concerns\BelongsToTenant;
 use Modules\Surgery\Exceptions\SurgicalInventoryException;
 
@@ -19,11 +21,13 @@ use Modules\Surgery\Exceptions\SurgicalInventoryException;
  * @property string $tenant_id
  * @property string $code
  * @property string $name
+ * @property string|null $tariff_item_id
  * @property bool $is_implant
  * @property string $unit
  * @property bool $active
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
+ * @property-read TariffItem|null $tariffItem
  */
 class SurgicalItem extends Model
 {
@@ -36,6 +40,7 @@ class SurgicalItem extends Model
     protected $fillable = [
         'code',
         'name',
+        'tariff_item_id',
         'is_implant',
         'unit',
         'active',
@@ -65,5 +70,19 @@ class SurgicalItem extends Model
                 throw SurgicalInventoryException::itemCodeRequired();
             }
         });
+    }
+
+    /**
+     * The Billing tariff item that prices this surgical item (SURGERY.G5) — tenant-authored pricing in the
+     * existing tariff store, NOT duplicated here. Null until priced. Surgery MAY use Billing (arch boundary).
+     */
+    public function tariffItem(): BelongsTo
+    {
+        return $this->belongsTo(TariffItem::class);
+    }
+
+    public function isPriced(): bool
+    {
+        return $this->tariff_item_id !== null;
     }
 }
