@@ -3,24 +3,25 @@
 Short, factual snapshot of where the project stands. Updated at consolidations and after gates
 (per the MEMORY PROTOCOL in AGENTS.md).
 
-## STATUS: BACKEND FEATURE-COMPLETE · SIX VERTICALS + ED (Phase 6) STARTED · CURRENT FOCUS = DEPLOY (not building)
+## STATUS: BACKEND FEATURE-COMPLETE · SEVEN VERTICALS (ED / Phase 6 COMPLETE) · CURRENT FOCUS = DEPLOY (not building)
 
-> **UPDATE (ED.G1→G2):** the committed hospital buyer's phased build continues — **Hospital Phase 6 (Emergency
-> Department) is mapped (`docs/HOSPITAL-PHASE6-ED-MAP.md`); ED.G1 (foundation) + ED.G2 (triage) + ED.G3
-> (tracking board) + ED.G4 (clinical documentation) + ED.G5 (disposition + the ED→ADT handoff) are built** (a
-> peer `Modules\ED`: the NET-NEW `EdVisit` patient-flow entity + legal-only lifecycle + append-only flow events
-> + ED RBAC + the EMPTY triage-acuity seam; then **triage** — the nurse-ASSIGNED acuity + presenting complaint +
-> raw vitals; then the **tracking board** — the live cockpit of active ED visits, reusing the ward-board idiom;
-> then **clinical documentation** — reusing Clinical [`Encounter`/`ClinicalNote`/`Vital`/`Order`], Encounter
-> UNMODIFIED; then **disposition + the ED→ADT handoff** — admit reuses the Phase-1 `AdmissionService` to create
-> an inpatient `Stay` [`admission_type=emergency`], atomic, app-layer). The **triage FENCE** holds: the nurse
-> **ASSIGNS** the acuity (a recorded fact, the ASA precedent — `ed_triages.acuity_level`), a **COMPUTED** triage
-> acuity is a certified-partner/medical-device **permanent non-goal** (the seam is threaded but returns none());
-> the **board** shows operational facts + the recorded acuity (staff may sort by it) — never a **computed
-> priority ranking**; **documentation** carries the fence through (raw vitals, sign-and-lock notes, no computed
-> acuity/severity/deterioration score); and the **disposition** is the clinician's recorded decision — never
-> computed/suggested. **ONLY ED.G6 (ED billing) remains** to complete Phase 6. See the ED bullet below + [[ED]] /
-> D-130 → D-134.
+> **UPDATE (ED / Phase 6 COMPLETE — G1→G6):** the committed hospital buyer's phased build delivered a
+> **SEVENTH vertical** — **Hospital Phase 6 (Emergency Department) is mapped (`docs/HOSPITAL-PHASE6-ED-MAP.md`)
+> and BUILT end-to-end** (a peer `Modules\ED`): **G1** the NET-NEW `EdVisit` patient-flow entity + legal-only
+> lifecycle + append-only flow events + ED RBAC + the EMPTY triage-acuity seam · **G2** triage (the
+> nurse-ASSIGNED acuity + presenting complaint + raw vitals) · **G3** the tracking board (the live cockpit,
+> reusing the ward-board idiom) · **G4** clinical documentation (reusing Clinical [`Encounter`/`ClinicalNote`/
+> `Vital`/`Order`], Encounter UNMODIFIED) · **G5** disposition + the ED→ADT handoff (admit reuses the Phase-1
+> `AdmissionService` → an inpatient `Stay` [`admission_type=emergency`], atomic, app-layer) · **G6** ED billing
+> (visit/service charges via the EXISTING engine, reconciles-to-the-unit — incl. the composite
+> emergency→inpatient episode on ONE invoice via `invoiceStay`). **An ED runs end-to-end.** The **triage FENCE**
+> holds throughout: the nurse **ASSIGNS** the acuity (a recorded fact, the ASA precedent —
+> `ed_triages.acuity_level`), a **COMPUTED** triage acuity is a certified-partner/medical-device **permanent
+> non-goal** (the seam is threaded but returns none()); the board shows facts + the recorded acuity (never a
+> computed priority ranking); documentation is raw (no computed score); the disposition is the clinician's
+> recorded decision; the ED fee is a tariff (NOT acuity-driven), no money math in ED. **Remaining hospital
+> phases: Lab (Phase 3) + Radiology (Phase 4)** — mostly integration shells pending HL7/FHIR + PACS/DICOM
+> partners (business conversations, not code). See the ED bullet below + [[ED]] / D-130 → D-135.
 
 **Read this before starting any work. The next unit of progress is DELIVERY, not another gate.**
 (Latest reconciliation: the full six-vertical handoff pass — clinic / dental / home-care / inpatient /
@@ -109,6 +110,14 @@ consumables/implants → billing.)
     ADMIT needs `admission.manage`. `EdDispositionController` (`/ed/visits/{visit}/disposition`) +
     `ED/Disposition.vue`. **Fence:** the disposition is the clinician's recorded decision — nothing
     computed/suggested/auto-decided. See D-134.
+    **ED.G6 (built — PHASE 6 COMPLETE):** **ED billing** — an `ed` `TariffCatalog` (`EdBillingService`:
+    `priceAttendance`/`priceService`, tenant-authored, no licensed pricing); `chargeVisit` via the EXISTING
+    `ChargeCaptureService::captureManual` (engine snapshots the fee + computes the line total; idempotent via
+    `ed_visit_charges`); `invoiceVisit` (discharged) **reconciles δ=0**, and an ADMITTED patient's ED charges
+    join the stay's `invoiceStay` alongside bed-days — **the composite emergency→inpatient episode on ONE
+    reconciling invoice (δ=0)**. Gate `billing.manage` (the billing office, NOT the ED team).
+    `EdBillingController` (`/ed/visits/{visit}/billing`) + `ED/Billing.vue`. **Fence:** a fee is a tariff, NOT
+    acuity-driven; NO money math in ED (adversarial-grep clean). See D-135.
   - **INSURANCE / CLAIMS — NOT built.** Needs a clearinghouse partner; its own future phase, to be built
     with the same proven wiring/build patterns.
 - **The business picture.** The **outpatient** verticals (clinic / dental / home-care) target **2–3 prospective

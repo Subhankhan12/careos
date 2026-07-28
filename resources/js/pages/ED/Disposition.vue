@@ -16,8 +16,10 @@ const props = defineProps<{
     stay: { id: string; ward: string | null; bed: string | null; admitted_at: string; admission_type: string } | null;
     actions: {
         can_admit: boolean;
+        can_bill: boolean;
         dispose_url: string;
         record_url: string;
+        billing_url: string;
         beds: Array<{ id: string; label: string }>;
         clinicians: Array<{ id: string; name: string }>;
     };
@@ -51,6 +53,7 @@ function submit(): void {
                 <div class="mt-3 flex flex-wrap items-center gap-3">
                     <span class="inline-block rounded-full bg-white/15 px-3 py-1 text-xs font-semibold text-euca-50">{{ t(`ed.status.${visit.status}`) }}</span>
                     <Link :href="actions.record_url" class="text-xs font-semibold text-euca-100 underline">{{ t('ed.disposition.openRecord') }}</Link>
+                    <Link v-if="actions.can_bill" :href="actions.billing_url" class="text-xs font-semibold text-euca-100 underline">{{ t('ed.disposition.openBilling') }}</Link>
                 </div>
             </div>
 

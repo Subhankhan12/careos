@@ -193,6 +193,7 @@ test('every major staff route is reachable through the real middleware stack (20
         'ed.board' => '/ed/board',
         'ed.record (C-1)' => '/ed/visits/'.$fx['edVisit']->id.'/record',
         'ed.disposition (C-1)' => '/ed/visits/'.$fx['edVisit']->id.'/disposition',
+        'ed.billing (C-1)' => '/ed/visits/'.$fx['edVisit']->id.'/billing',
     ];
 
     $failures = [];
@@ -488,6 +489,17 @@ test('per-role RBAC smoke: each role reaches its pages (200) and is denied other
         ->status();
     if ($edDispositionStatus !== 403) {
         $failures[] = "ed.visits.disposition.store as reception -> {$edDispositionStatus} (expected 403)";
+    }
+
+    // ED.G6: capturing ED charges is billing.manage-gated (the billing office, NOT the ED team). Reception (no
+    // billing.manage) is denied on the charge route at the gate through the real stack, before any charge is
+    // captured. A fee is a tariff, never acuity-driven; no money math in ED.
+    smokeCtx()->forget();
+    $edChargeStatus = $this->actingAs($u['reception'])
+        ->post('/ed/visits/'.$fx['edVisit']->id.'/billing/charge', ['attendance' => true])
+        ->status();
+    if ($edChargeStatus !== 403) {
+        $failures[] = "ed.billing.charge as reception -> {$edChargeStatus} (expected 403)";
     }
 
     expect(implode("\n", $failures))->toBe('');

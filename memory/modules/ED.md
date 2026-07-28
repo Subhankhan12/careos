@@ -7,9 +7,11 @@ Phase 2 = pharmacy, Phase 5 = surgery, all complete). Planned as ~6 gates
 (`docs/HOSPITAL-PHASE6-ED-MAP.md`): the module + the NET-NEW `EdVisit` patient-flow entity + ED RBAC + the
 empty triage-acuity SEAM (G1) → triage record with the nurse-**assigned** acuity (G2) → the tracking board
 (G3) → ED clinical documentation reusing Clinical (G4) → disposition + the ED→ADT handoff (G5) → ED billing
-(G6). **ED.G1 (the FOUNDATION) is built.** ED inherits the whole tested platform (tenancy, patients, people,
-clinical, billing, audit, RBAC, the electric fence). Peer module, mirroring `Modules\Surgery` /
-`Modules\Pharmacy`.
+(G6). **PHASE 6 IS NOW COMPLETE (G1→G6).** An ED runs end-to-end: arrival → triage → board → documentation →
+disposition (incl. admit → an inpatient `Stay` via the reused `AdmissionService`) → billing
+(reconciles-to-the-unit, incl. the composite emergency→inpatient episode on one invoice). ED inherits the whole
+tested platform (tenancy, patients, people, clinical, billing, audit, RBAC, the electric fence). Peer module,
+mirroring `Modules\Surgery` / `Modules\Pharmacy`.
 
 ## The EdVisit decision (G1 — the "own flow-entity" crux)
 
@@ -120,6 +122,16 @@ fail-closed, one `DB::transaction`): append the triage → optional RAW vitals v
   App-layer `EdDispositionController` (`/ed/visits/{visit}/disposition`) + `ED/Disposition.vue`; board links to
   it; `ed.disposition.*` i18n; FIX.5 smoke extended. 7 feature tests (`tests/Feature/ED/EdDispositionTest.php`).
   No charge. See D-134.
+- **ED.G6**: ED billing — visit/service charges via the existing engine (reconciles-to-the-unit; composite
+  emergency→inpatient episode). **PHASE 6 COMPLETE.** STRICTLY ORCHESTRATION (surgery-G5 / bed-day shape): an
+  `ed` `TariffCatalog` (`EdBillingService`: `priceAttendance`/`priceService` — `ED-ATTENDANCE` + services,
+  tenant-authored, no licensed pricing); `chargeVisit` via `ChargeCaptureService::captureManual` (engine
+  snapshots the fee + computes the line total; idempotent via `ed_visit_charges`); `invoiceVisit` (discharged)
+  reconciles δ=0; an ADMITTED patient's ED charges join the stay's `invoiceStay` alongside bed-days (composite
+  episode, δ=0). Gate `billing.manage` (the billing office, NOT the ED team). `EdBillingController`
+  (`/ed/visits/{visit}/billing`) + `ED/Billing.vue`; `ed.billing.*` i18n; FIX.5 smoke extended. FENCE: a fee is
+  a tariff, NOT acuity-driven; money-math grep clean. 7 feature tests (`tests/Feature/ED/EdBillingTest.php`).
+  See D-135.
 
 ## The ED→ADT handoff (G5 — the signature reuse)
 
@@ -152,7 +164,10 @@ priority ranking / an acuity-driven "who to see next" judgment / a wait-time-ris
 `->missing` priority/rank/score/severity/deterioration/wait_risk; the server orders by `arrived_at`; the grep
 over `EdBoardController` finds no priority/ranking computation.
 
-## Not built yet (later gates)
+## Not built yet / seams
 
-G6 ED billing (the existing engine, reconciles-to-the-unit) — the last Phase-6 core gate. **Computed triage
-acuity is a PERMANENT non-goal** (certified partner behind the seam). See `docs/HOSPITAL-PHASE6-ED-MAP.md`.
+**Phase 6 core (G1→G6) is COMPLETE.** Deliberate seam: **COMPUTED triage acuity is a PERMANENT non-goal**
+(certified partner behind the empty `TriageAcuityProvider`). Optional later ED extras (fast-track / minor-
+injuries lane, LWBS workflow, ambulance pre-arrival, a `DemoEmergencySeeder`) are the map's ED.G7. The
+remaining hospital phases are Lab (Phase 3) + Radiology (Phase 4) — mostly integration shells pending
+HL7/FHIR + PACS/DICOM partners (their own maps). See `docs/HOSPITAL-PHASE6-ED-MAP.md`.

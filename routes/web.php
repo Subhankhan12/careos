@@ -47,6 +47,7 @@ use Modules\Dental\Http\Controllers\OdontogramController;
 use Modules\Dental\Http\Controllers\PerioChartController;
 use Modules\Dental\Http\Controllers\PortalTreatmentPlanController;
 use Modules\Dental\Http\Controllers\TreatmentPlanController;
+use Modules\ED\Http\Controllers\EdBillingController;
 use Modules\ED\Http\Controllers\EdBoardController;
 use Modules\ED\Http\Controllers\EdDocumentationController;
 use Modules\ED\Http\Controllers\EdTriageController;
@@ -446,6 +447,16 @@ Route::middleware('auth')->group(function () {
     // disposition = `ed.manage`; ADMIT additionally requires `admission.manage`. {visit} string-id (FIX.1).
     Route::get('/ed/visits/{visit}/disposition', [EdDispositionController::class, 'show'])->name('ed.visits.disposition.show');
     Route::post('/ed/visits/{visit}/disposition', [EdDispositionController::class, 'store'])->name('ed.visits.disposition.store');
+
+    // ED billing (ED.G6) — the visit + services accrue charges through the EXISTING engine (reconciles-to-the-
+    // unit). Tenant-authored prices (attendance + services = TariffItems); capture via ChargeCaptureService;
+    // a DISCHARGED patient invoices via the existing flow, an ADMITTED patient's ED charges join the stay's
+    // discharge invoice (HOSPITAL.G6). Gated `billing.manage` (the billing office). {visit} string-id. NO money math.
+    Route::get('/ed/visits/{visit}/billing', [EdBillingController::class, 'show'])->name('ed.billing.show');
+    Route::post('/ed/visits/{visit}/billing/price-attendance', [EdBillingController::class, 'priceAttendance'])->name('ed.billing.price-attendance');
+    Route::post('/ed/visits/{visit}/billing/price-service', [EdBillingController::class, 'priceService'])->name('ed.billing.price-service');
+    Route::post('/ed/visits/{visit}/billing/charge', [EdBillingController::class, 'charge'])->name('ed.billing.charge');
+    Route::post('/ed/visits/{visit}/billing/invoice', [EdBillingController::class, 'invoice'])->name('ed.billing.invoice');
 
     // Onboarding/migration: generic CSV patient import (RBAC 'data.import' enforced
     // in each controller action). Mandatory dry-run before commit.

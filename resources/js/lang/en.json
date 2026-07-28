@@ -589,6 +589,7 @@
             "title": "ED disposition",
             "eyebrow": "Emergency Department · Disposition",
             "openRecord": "Clinical record",
+            "openBilling": "Billing",
             "outcome": "Disposition",
             "admittedTo": "Admitted to inpatient",
             "emergencyAdmission": "Emergency admission",
@@ -606,6 +607,27 @@
             "note": "Note (optional)",
             "save": "Record disposition",
             "notReady": "This visit is not yet awaiting disposition."
+        },
+        "billing": {
+            "title": "ED billing",
+            "eyebrow": "Emergency Department · Billing",
+            "openRecord": "Clinical record",
+            "pricing": "Pricing (tenant-authored tariffs)",
+            "attendancePrice": "Attendance fee",
+            "minorUnits": "Minor units",
+            "setAttendance": "Set attendance fee",
+            "serviceCode": "Service code",
+            "serviceName": "Service name",
+            "addService": "Add service",
+            "capture": "Capture charges",
+            "chargeAttendance": "Attendance / facility fee",
+            "chargeServices": "Services",
+            "captureCharges": "Capture charges",
+            "charges": "Charges",
+            "estimate": "Estimate",
+            "issueInvoice": "Issue invoice",
+            "invoiced": "Invoiced — total {total}",
+            "joinsStay": "This patient was admitted — the ED charges join the inpatient stay's discharge invoice."
         }
     },
     "settings": {

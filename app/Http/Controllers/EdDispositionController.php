@@ -71,8 +71,10 @@ class EdDispositionController extends Controller
             ],
             'actions' => [
                 'can_admit' => $canAdmit,
+                'can_bill' => Gate::allows('billing.manage'),
                 'dispose_url' => route('ed.visits.disposition.store', $record->id),
                 'record_url' => route('ed.visits.record.show', $record->id),
+                'billing_url' => route('ed.billing.show', $record->id),
                 // The free beds (admit target) + clinicians — only when the actor can admit.
                 'beds' => $freeBeds->map(function (Bed $b) use ($wardNames): array {
                     $ward = $wardNames->get($b->ward_id);

@@ -2152,3 +2152,30 @@ references the old ID.
   modified; the AdmissionService's own tests + Encounter invariant + the clinical-safety/triage eval + G1–G4 +
   all vertical (incl. Phase-1 Hospital) suites stay green; no charge. `tests/Feature/ED/EdDispositionTest.php`
   (7). See `docs/HOSPITAL-PHASE6-ED-MAP.md`, [[ED]], [[LOG]].
+
+- **D-135 — ED.G6: ED billing — visit/service charges via the existing engine (reconciles-to-the-unit; the
+  composite emergency→inpatient episode); Phase 6 (ED) COMPLETE.** Per `docs/HOSPITAL-PHASE6-ED-MAP.md` §2.5.
+  STRICTLY ORCHESTRATION — NO new billing/pricing/VAT/line-total math (the [[Surgery]] G5 [[D-129]] / bed-day
+  [[Hospital]] G6 [[D-118]] shape, mirrored). An `ed` `TariffCatalog` holds each billable as a `TariffItem`
+  (integer minor units, NO licensed pricing) — the ED attendance fee (`ED-ATTENDANCE`) + each ED service.
+  Charge capture = the EXISTING `ChargeCaptureService::captureManual` (`chargeVisit`, gate `billing.manage`) —
+  the ENGINE resolves the tariff by code, SNAPSHOTS the fee, computes the line total; ED does no money math;
+  idempotent via `ed_visit_charges`. **RECONCILES-TO-THE-UNIT (the key proofs):** (a) a DISCHARGED patient's
+  `invoiceVisit` (validate → gather → draft → issue) → `ReconciliationEngine::check` passes + I4 δ=0; (b) THE
+  COMPOSITE EPISODE — an ADMITTED patient's ED charges are patient charges with a service_date in the stay
+  window, so Hospital's `BedBillingService::invoiceStay` sweeps them onto the stay's discharge invoice
+  ALONGSIDE the bed-days (ED never imports Hospital — the shared engine) → I4 δ=0 with ED-attendance +
+  BED-DAY-GENERAL on ONE invoice (the whole emergency→inpatient episode bills as one reconciling invoice).
+  **RBAC:** `billing.manage` (the billing office, NOT the ED team — an ed_physician is refused). **FENCE:** a
+  price is a RATE, never a clinical verdict — the ED-attendance fee is a plain tariff, NOT acuity-driven
+  (proven: ESI 1 vs ESI 5 → the same fee); fees snapshotted; the money-math grep over `Modules\ED\src` + the
+  app-layer composer is CLEAN; `ed_visit_charges` carries no money/acuity column. UI (P0D.GU):
+  `EdBillingController` (`/ed/visits/{visit}/billing`) + `ED/Billing.vue`; the disposition page links to it;
+  `ed.billing.*` i18n; FIX.5 smoke extended. No existing behavior test modified; the reconciliation/fence/
+  immutability/clinical-safety/triage-eval + G1–G5 + Phase-1/2/5 suites stay green; the engine is REUSED, not
+  changed. `tests/Feature/ED/EdBillingTest.php` (7). **PHASE 6 (EMERGENCY DEPARTMENT) COMPLETE** — G1 EdVisit
+  → G2 triage → G3 board → G4 docs → G5 disposition/ADT-handoff → G6 billing; an ED runs end-to-end incl. the
+  emergency→inpatient episode on one reconciling invoice. Computed triage acuity stays a certified-partner /
+  permanent non-goal (the empty `TriageAcuityProvider`). Remaining hospital phases: Lab (Phase 3) + Radiology
+  (Phase 4) — mostly integration, pending HL7/FHIR + PACS/DICOM partners. See
+  `docs/HOSPITAL-PHASE6-ED-MAP.md`, [[ED]], [[LOG]].
