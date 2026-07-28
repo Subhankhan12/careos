@@ -81,8 +81,10 @@ use Modules\Scheduling\Http\Controllers\DayBoardController;
 use Modules\Scheduling\Http\Controllers\PortalAppointmentController;
 use Modules\Scheduling\Http\Controllers\PublicBookingController;
 use Modules\Scheduling\Http\Controllers\WaitlistOfferController;
+use Modules\Surgery\Http\Controllers\CaseSuppliesController;
 use Modules\Surgery\Http\Controllers\SurgicalCaseController;
 use Modules\Surgery\Http\Controllers\SurgicalChecklistController;
+use Modules\Surgery\Http\Controllers\SurgicalInventoryController;
 
 Route::get('/', function () {
     if (! auth()->check()) {
@@ -386,6 +388,17 @@ Route::middleware('auth')->group(function () {
     // enforced: it never blocks/gates the case. Read + confirm are `note.write` (the surgical team). {case} string-id.
     Route::get('/surgery/cases/{case}/checklist', [SurgicalChecklistController::class, 'show'])->name('surgery.cases.checklist');
     Route::post('/surgery/cases/{case}/checklist', [SurgicalChecklistController::class, 'confirm'])->name('surgery.cases.checklist.confirm');
+
+    // Surgical consumables + implant tracking (SURGERY.G4). Inventory (catalog + stock + receive/adjust + the
+    // lot/UDI recall lookup) is `surgery.manage`; recording usage / implant placement is `note.write` (the
+    // team). Stock decrement is concurrency-safe; implant lot/serial/UDI is traceability (a record, not a verdict).
+    Route::get('/surgery/inventory', [SurgicalInventoryController::class, 'index'])->name('surgery.inventory');
+    Route::post('/surgery/inventory/items', [SurgicalInventoryController::class, 'createItem'])->name('surgery.inventory.items');
+    Route::post('/surgery/inventory/receive', [SurgicalInventoryController::class, 'receive'])->name('surgery.inventory.receive');
+    Route::post('/surgery/inventory/adjust/{stock}', [SurgicalInventoryController::class, 'adjust'])->name('surgery.inventory.adjust');
+    Route::get('/surgery/cases/{case}/supplies', [CaseSuppliesController::class, 'show'])->name('surgery.cases.supplies');
+    Route::post('/surgery/cases/{case}/supplies/use', [CaseSuppliesController::class, 'recordUsage'])->name('surgery.cases.supplies.use');
+    Route::post('/surgery/cases/{case}/supplies/implant', [CaseSuppliesController::class, 'placeImplant'])->name('surgery.cases.supplies.implant');
 
     // Onboarding/migration: generic CSV patient import (RBAC 'data.import' enforced
     // in each controller action). Mandatory dry-run before commit.

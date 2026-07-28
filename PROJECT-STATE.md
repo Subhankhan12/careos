@@ -36,8 +36,8 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
   unlocks **eMAR + the CH statutory billing pack** when confirmed. The well of safe build-without-a-
   customer-need work is done — do not open a new gate unless a customer need pulls a specific feature
   forward. Discovery brief: `docs/DISCOVERY.md`; outreach: `docs/outreach-de.md`.
-- **Latest verified quality:** SURGERY.G3 (the WHO Surgical Safety Checklist — Phase 5: the three-phase checklist [sign-in / time-out / sign-out] the team COMPLETES — **RECORDED, NOT ENFORCED**. A tenant-authored WHO template [seeded editable, not licensed] + a per-case container + an **APPEND-ONLY completion log** [checked / by-whom / when; a correction is a new row]. **THE CRUX FENCE LINE: it NEVER gates the case** — the G2 state machine is unchanged by checklist state, so a surgery transitions [incision included] REGARDLESS of checklist completeness [tested with an empty checklist]; NO computed safety verdict [a factual `checked/total` count only — no verdict/passed/safe column, no `safeToProceed` method]. Reuses `note.write`) atop SURGERY.G2 (case lifecycle + op docs + ASA) / G1 (OR foundation) + the COMPLETE Phase 2 pharmacy (G1→G5) + Phase 1 inpatient/ADT (G1→G7); consumables / billing remain. `composer check` FULLY green — Pint `passed`, PHPStan L5
-  `[OK] No errors`, **Pest 821 passed / 2 skipped / 7571 assertions**, 0 failed (the 2 skips = Redis-Horizon + one reminder infra case, green in CI on Redis 7); npm run build green. (G8 baseline: `0d93a36`, Pest 700/5623.) A route-reachability smoke (**FIX.5**, `composer test:smoke`)
+- **Latest verified quality:** SURGERY.G4 (consumables + implant tracking — Phase 5: **MIRRORS the pharmacy G4 inventory recipe** [Surgery can't import the peer Pharmacy vertical, so it's COPIED — `surgical_items` catalog → `surgical_item_stocks` under a `FOR UPDATE` lock → append-only `surgical_stock_movements`; `case_item_usages` decrement is ATOMIC + concurrency-safe, **hammer-proven [8 processes race the last unit → 1 winner, on_hand=0]**] + a **NET-NEW implant lot/serial/UDI traceability extension** [`implant_placements` — which implant → which patient, for device recalls; the recall lookup `lot/UDI → patients` is a FACTUAL query, NOT a device-safety verdict]. Stock admin `surgery.manage`, usage `note.write`; operational/traceability facts only — `isBelowThreshold` a factual count, no device-verdict/recall-status column) atop SURGERY.G3 (WHO checklist) / G2 (lifecycle + op docs + ASA) / G1 (OR foundation) + the COMPLETE Phase 2 pharmacy (G1→G5) + Phase 1 inpatient/ADT (G1→G7); only **surgical billing (G5)** remains for the Phase-5 core. `composer check` FULLY green — Pint `passed`, PHPStan L5
+  `[OK] No errors`, **Pest 830 passed / 2 skipped / 8002 assertions**, 0 failed (the 2 skips = Redis-Horizon + one reminder infra case, green in CI on Redis 7); npm run build green. (G8 baseline: `0d93a36`, Pest 700/5623.) A route-reachability smoke (**FIX.5**, `composer test:smoke`)
   drives every major route through the real middleware stack to guard against request-time 500s (the C-1
   class). See the detailed quality block below.
 - **Demo tenants (all reconcile-to-the-unit + chain-verify):** `DemoClinicSeeder` (Praxis Lindenhof, CHF,
@@ -1454,11 +1454,27 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
   immutability suites stay green; FIX.5 smoke extended (checklist GET 200 + reception confirm 403). Added
   `SurgicalChecklistTest` (7). Verified: npm build green; composer check FULLY green (**Pest 821 / 2-skip /
   7571**, 0 failed); smoke green (3).
-- **Next action:** **SURGERY.G4 — consumables / implant tracking**, per `docs/HOSPITAL-PHASE5-SURGERY-MAP.md`
-  §2.5: REUSE the pharmacy inventory recipe (stock under a `FOR UPDATE` lock + an append-only `StockMovement`
-  ledger) + a NET-NEW lot/serial/UDI/expiry extension (implant traceability — the pharmacy stock model is a
-  single fungible integer with no lot decomposition) + a case-usage link. Then G5 (surgical billing, reuse the
-  engine → reconcile-to-the-unit). **The standing strategic posture is unchanged — the next real unit of
-  progress is DELIVERY** (deploy the built verticals to paying customers); Phase 5 gates + Phases 3–4 (lab /
-  radiology) + ED are each mapped first and pulled forward by a customer need. The DISCOVERY track still stands
-  (the CH/KVG billing model must be confirmed with Spitex coordinators before the CH statutory pack is committed).
+- **SURGERY.G4 — consumables + implant tracking (D-128).** MIRRORS the pharmacy G4 inventory recipe (Surgery
+  can't import the peer Pharmacy vertical → COPIED with Surgery-owned tables): `surgical_items` catalog (+
+  `is_implant` flag) → `surgical_item_stocks` (on-hand under a `FOR UPDATE` lock, `isBelowThreshold` factual) →
+  append-only `surgical_stock_movements`. `case_item_usages` (append-only) — `recordUsage` (gate `note.write`)
+  does the ATOMIC decrement (`lockOnHand → assert → usage → decrement → 'used' movement`); **concurrency-safe,
+  hammer-proven** (8 processes race the last unit → 1 winner, on_hand=0). NET-NEW `implant_placements`
+  (lot/serial/UDI → patient, indexed for recalls); `placeImplant` (gate `note.write`) decrements + records
+  atomically; **the recall lookup `patientsForLot(lot|udi)` is a FACTUAL query** (the same lot in 2 patients →
+  both), never a device verdict. Stock admin `surgery.manage`. FENCE: operational/traceability facts — no
+  verdict/safe/recall_status/grade column (schema fence) + no `verifyDevice`/`recallStatus` method (grep). UI:
+  `SurgicalInventoryController` + `Surgery/Inventory.vue`; `CaseSuppliesController` + `Surgery/CaseSupplies.vue`.
+  No charge. No existing behavior test modified; eval + G1–G3 + reconciliation/fence/immutability green; FIX.5
+  smoke extended (inventory + supplies GET 200 + reception use 403). Added `SurgicalInventoryTest` (8) +
+  `SurgicalItemUsageParallelHammerTest` (1). Verified: npm build green; composer check FULLY green (**Pest
+  830 / 2-skip / 8002**, 0 failed); smoke green (3).
+- **Next action:** **SURGERY.G5 — surgical billing (the LAST Phase-5 core gate)**, per
+  `docs/HOSPITAL-PHASE5-SURGERY-MAP.md` §2.6: a surgical procedure + theatre-time + each consumable/implant is
+  a tenant-authored `TariffItem`; a case captures `Charge`s through the EXISTING engine (`captureManual`) →
+  invoice → **reconciles-to-the-unit** (the pharmacy G5 / bed-day G6 shape; NO new billing math,
+  adversarial-grep). Completes the Phase-5 surgical core (theatre → case → checklist → consumables → billing).
+  **The standing strategic posture is unchanged — the next real unit of progress is DELIVERY** (deploy the
+  built verticals to paying customers); Phase 5's G5 + Phases 3–4 (lab / radiology) + ED are each mapped first
+  and pulled forward by a customer need. The DISCOVERY track still stands (the CH/KVG billing model must be
+  confirmed with Spitex coordinators before the CH statutory pack is committed).

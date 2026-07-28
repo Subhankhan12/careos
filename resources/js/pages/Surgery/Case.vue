@@ -40,6 +40,7 @@ const props = defineProps<{
         anesthesia_url: string;
         note_url: string;
         checklist_url: string;
+        supplies_url: string;
     };
 }>();
 
@@ -75,6 +76,7 @@ function fmt(iso: string | null): string {
                 <div class="mt-3 flex items-center gap-3">
                     <span class="inline-block rounded-full bg-white/15 px-3 py-1 text-xs font-semibold text-euca-50">{{ t(`surgery.status.${surgicalCase.status}`) }}</span>
                     <Link :href="actions.checklist_url" class="text-xs font-semibold text-euca-100 underline">{{ t('surgery.case.checklist') }}</Link>
+                    <Link :href="actions.supplies_url" class="text-xs font-semibold text-euca-100 underline">{{ t('surgery.case.supplies') }}</Link>
                 </div>
             </div>
 

@@ -184,19 +184,64 @@ medical device; CareOS records completion, the human team owns the safety decisi
   `safeToProceed`/`checklistPassed`/`gateOnChecklist` method. The Inertia prop is `surgicalCase`, not the
   reserved `case`.
 
+## Consumables + implant tracking (SURGERY.G4)
+
+Items used/placed in a surgery, with a concurrency-safe stock decrement + implant lot/serial/UDI
+traceability. Per the map §2.5. **MIRRORS the pharmacy G4 inventory recipe** (Surgery cannot import the peer
+Pharmacy vertical, so the recipe is COPIED with Surgery-owned tables) + a **NET-NEW implant traceability
+extension** (a recall/regulatory requirement).
+
+- **The mirrored inventory (pharmacy G4 recipe, copied):** `surgical_items` (tenant-authored catalog — `code`,
+  `name`, `is_implant` flag, `unit`, `active`; the `FormularyItem` shape) → `surgical_item_stocks` (on-hand,
+  mutated ONLY under `SurgicalItemStock::lockOnHand` [`select … for update`], `isBelowThreshold` a factual
+  comparison; the `MedicationStock` shape) → `surgical_stock_movements` (APPEND-ONLY ledger,
+  received/used/adjusted, signed `quantity_change` + `resulting_on_hand`; model guards + DB triggers; the
+  `StockMovement` shape). `SurgicalStockService` (createItem / receive / adjust, gate `surgery.manage`).
+- **Consumable USAGE (the `Dispense` shape):** `case_item_usages` (BelongsToTenant, LogsReads, **APPEND-ONLY**)
+  — an item used in a case. `SurgicalUsageService::recordUsage` (gate `note.write`, tenant fail-closed) does
+  the ATOMIC, concurrency-safe decrement (mirror `DispensingService::dispense`): in ONE `DB::transaction`,
+  `lockOnHand` FOR UPDATE → assert on_hand ≥ qty (else `insufficientStock`) → create the usage → decrement →
+  append the 'used' movement. **No oversell, no negative on-hand — proven by `SurgicalItemUsageParallelHammerTest`**
+  (8 OS processes race for the last unit; 1 `USED:` + 7 `INSUFFICIENT:`, on_hand=0; the
+  `surgery:attempt-use-item` hammer, the dispense/bed-claim sibling).
+- **IMPLANT lot/serial/UDI TRACEABILITY (the NET-NEW extension):** `implant_placements` (BelongsToTenant,
+  LogsReads, **APPEND-ONLY**) — WHICH implant (`lot_number` / `serial_number` / `udi`) went into WHICH patient
+  during a case, so a placed implant is TRACEABLE for device recalls (indexed by lot + UDI).
+  `SurgicalUsageService::placeImplant` (gate `note.write`; asserts `is_implant` + a lot) does the decrement
+  (1 unit, via the same `consume`) AND records the placement, atomically. **The RECALL LOOKUP:**
+  `patientsForLot(lot|udi|serial)` returns the placements/patients — a FACTUAL traceability query, never a
+  device-safety verdict; `implantsForPatient` is the patient's implant history.
+- **RBAC:** stock admin (catalog / receive / adjust) is **`surgery.manage`**; recording usage / placing an
+  implant is **`note.write`** (the surgical team — scrub_nurse/surgeon/anesthetist). Reception has neither.
+- **UI:** `SurgicalInventoryController` (`/surgery/inventory` — catalog + stock + receive/adjust + the recall
+  lookup, `surgery.manage`) → `Surgery/Inventory.vue`; `CaseSuppliesController` (`/surgery/cases/{case}/supplies`
+  — record usage/implant + the case's + the patient's implant history, `note.write`, read-logged) →
+  `Surgery/CaseSupplies.vue`; links from `Surgery/Case.vue`. Audited app-layer (`surgical_item.created` /
+  `surgical_stock.<type>` tenant-level + `surgical_item.used` / `implant.placed` patient-scoped). FIX.5 smoke
+  extended (inventory + supplies GET 200 + reception use 403).
+- **ELECTRIC FENCE (operational / traceability):** stock/usage/implant records are FACTS. `isBelowThreshold`
+  is a factual `on_hand <= threshold` count (never a graded alert); implant traceability is RECORD-KEEPING
+  (which implant → which patient), NOT a device-safety judgment — the system records the identifiers, it does
+  NOT verify/grade/compute a device-recall verdict (no verdict/safe/recall_status/grade column on any surgical
+  inventory table; a `Modules\Surgery\src` grep finds no `verifyDevice`/`recallStatus`/`deviceSafe` method).
+  No charge (surgical billing is G5).
+
 ## Status
 
-**SURGERY.G1–G3 complete.** G1 = the FOUNDATION (module + theatre + theatre-scheduling [a NET-NEW
+**SURGERY.G1–G4 complete.** G1 = the FOUNDATION (module + theatre + theatre-scheduling [a NET-NEW
 `TheatreSlot` reusing the overlap-lock invariant, concurrency-proven] + the NET-NEW `SurgicalCase` + OR RBAC).
 **G2 = the case LIFECYCLE (legal-only state machine + append-only `surgical_case_events` + factual per-phase
 timestamps) + the surgical TEAM + OP DOCUMENTATION (reuses sign-and-lock `ClinicalNote`/`Encounter`,
 Encounter UNMODIFIED, one-open invariant preserved) + the ANESTHETIST-ASSIGNED ASA/Mallampati (recorded
 facts).** **G3 = the WHO Surgical Safety Checklist — RECORDED, NOT ENFORCED (the three-phase tenant-authored
 template + an append-only completion log; it NEVER gates the case — the case transitions regardless of
-checklist completeness; no computed safety verdict).** Record-not-judge throughout — no computed surgical-risk
-(the device-data feed stays a partner stub). Verified: composer check FULLY green (Pint `passed` · PHPStan L5
-`[OK] No errors` · **Pest 821 passed / 2 skipped / 7571 assertions**, 0 failed); npm build green;
-smoke green. See [[D-125]], [[D-126]], [[D-127]], `docs/HOSPITAL-PHASE5-SURGERY-MAP.md`.
+checklist completeness; no computed safety verdict).** **G4 = consumables + implant tracking — MIRRORS the pharmacy G4 inventory recipe
+(concurrency-safe stock decrement, hammer-proven — 1 winner) + a NET-NEW implant lot/serial/UDI traceability
+extension (a factual recall lookup, NOT a device-safety verdict).** Record-not-judge throughout — no computed
+surgical-risk / device verdict (the device-data feed stays a partner stub). Verified: composer check FULLY
+green (Pint `passed` · PHPStan L5 `[OK] No errors` · **Pest 830 passed / 2 skipped / 8002
+assertions**, 0 failed); npm build green; smoke green. See [[D-125]], [[D-126]], [[D-127]], [[D-128]],
+`docs/HOSPITAL-PHASE5-SURGERY-MAP.md`.
 
 ## Open items / next gates (per docs/HOSPITAL-PHASE5-SURGERY-MAP.md)
 
@@ -212,11 +257,14 @@ smoke green. See [[D-125]], [[D-126]], [[D-127]], `docs/HOSPITAL-PHASE5-SURGERY-
   template + per-case container + an APPEND-ONLY completion log) — RECORDED, NOT ENFORCED. It NEVER gates the
   case (the G2 machine is unchanged; a case transitions regardless of checklist completeness — tested); no
   computed safety verdict (a factual `checked/total` count only); reuses `note.write`. **Next: consumables.**
-- **G4 (next) — consumables / implant tracking:** REUSE the pharmacy inventory recipe (stock under a `FOR
-  UPDATE` lock + append-only `StockMovement` ledger) + a NET-NEW lot/serial/expiry/UDI extension (implant
-  traceability — the pharmacy stock model has none).
-- **G5** — surgical billing: procedure + theatre-time + consumables as `TariffItem`s → `captureManual` →
-  invoice → **reconciles-to-the-unit**; the pharmacy/bed-day shape, no new billing math.
+- **G4** *(done — D-128)* — consumables + implant tracking: MIRRORS the pharmacy G4 inventory recipe
+  (`surgical_items` → `surgical_item_stocks` [FOR UPDATE lock] → append-only `surgical_stock_movements`;
+  `case_item_usages` decrement, concurrency-safe + hammer-proven) + a NET-NEW `implant_placements` lot/serial/UDI
+  traceability extension (a factual recall lookup: lot/UDI → patients, NOT a device verdict). Stock admin
+  `surgery.manage`; usage `note.write`. **Next: surgical billing.**
+- **G5 (next) — surgical billing:** procedure + theatre-time + consumables as `TariffItem`s → `captureManual`
+  → invoice → **reconciles-to-the-unit**; the pharmacy/bed-day shape, no new billing math. **This is the last
+  Phase-5 core gate.**
 - **The device/risk seam stays EMPTY / deferred** — a computed surgical-risk score + the intra-op device-data
   feed (anesthesia machine / monitor) are certified-partner / non-goal surfaces behind a Null seam (the
   `LabConnectivity` / `MedicationSafetyProvider` precedent), never homemade; wired when the anesthesia record

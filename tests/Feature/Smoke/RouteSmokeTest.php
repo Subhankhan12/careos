@@ -179,6 +179,8 @@ test('every major staff route is reachable through the real middleware stack (20
         'surgery.cases' => '/surgery/cases',
         'surgery.case (C-1)' => '/surgery/cases/'.$fx['surgicalCase']->id,
         'surgery.checklist' => '/surgery/cases/'.$fx['surgicalCase']->id.'/checklist',
+        'surgery.inventory' => '/surgery/inventory',
+        'surgery.supplies' => '/surgery/cases/'.$fx['surgicalCase']->id.'/supplies',
     ];
 
     $failures = [];
@@ -421,6 +423,17 @@ test('per-role RBAC smoke: each role reaches its pages (200) and is denied other
         ->status();
     if ($checklistStatus !== 403) {
         $failures[] = "surgery.cases.checklist.confirm as reception -> {$checklistStatus} (expected 403)";
+    }
+
+    // SURGERY.G4: recording a consumable/implant used in a case is note.write-gated (the surgical team).
+    // Reception (no note.write) is denied on the use route at the gate through the real stack, before any stock
+    // is touched. Implant traceability is a record, never a device-safety verdict.
+    smokeCtx()->forget();
+    $suppliesStatus = $this->actingAs($u['reception'])
+        ->post('/surgery/cases/'.$fx['surgicalCase']->id.'/supplies/use', ['surgical_item_id' => 'x', 'quantity' => 1])
+        ->status();
+    if ($suppliesStatus !== 403) {
+        $failures[] = "surgery.cases.supplies.use as reception -> {$suppliesStatus} (expected 403)";
     }
 
     expect(implode("\n", $failures))->toBe('');

@@ -4,6 +4,7 @@ namespace Modules\Surgery\Providers;
 
 use Illuminate\Support\ServiceProvider;
 use Modules\Surgery\Console\AttemptBookSlotCommand;
+use Modules\Surgery\Console\AttemptUseItemCommand;
 
 /**
  * The operating-theatre / surgery vertical — **Phase 5** of the phased hospital build. SURGERY.G1 ships the
@@ -26,6 +27,7 @@ class SurgeryServiceProvider extends ServiceProvider
         if ($this->app->runningInConsole()) {
             $this->commands([
                 AttemptBookSlotCommand::class, // the parallel-hammer theatre booking (concurrency test only)
+                AttemptUseItemCommand::class,  // the parallel-hammer stock decrement (concurrency test only)
             ]);
         }
     }

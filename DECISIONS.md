@@ -1929,3 +1929,41 @@ references the old ID.
   consumables / implant tracking** (reuse the pharmacy inventory recipe + lot/serial/UDI), then surgical
   billing. (SURGERY.G3) See [[D-126]] (G2 — the case it documents), [[D-122]]/PHARMACY.G3 (the append-only
   record-not-judge posture), the surgery map §2.4, and [[Surgery]].
+
+- **D-128 — SURGERY.G4: consumables + implant tracking (reuses/mirrors the pharmacy inventory recipe;
+  lot/serial/UDI traceability).** Per `docs/HOSPITAL-PHASE5-SURGERY-MAP.md` §2.5. **MIRRORS the pharmacy G4
+  inventory + concurrency-safe decrement recipe** — Surgery cannot import the peer Pharmacy vertical (arch
+  rule), so the recipe is COPIED with Surgery-owned tables — plus a **NET-NEW implant lot/serial/UDI
+  traceability extension** (a device-recall / regulatory requirement). **(1)** the mirrored inventory:
+  `surgical_items` (tenant-authored catalog + `is_implant` flag; the `FormularyItem` shape) →
+  `surgical_item_stocks` (on-hand mutated ONLY under `lockOnHand` FOR UPDATE; `isBelowThreshold` factual; the
+  `MedicationStock` shape) → `surgical_stock_movements` (APPEND-ONLY ledger; the `StockMovement` recipe).
+  `SurgicalStockService` (createItem/receive/adjust, gate `surgery.manage`). **(2)** consumable USAGE:
+  `case_item_usages` (APPEND-ONLY, LogsReads); `SurgicalUsageService::recordUsage` (gate `note.write`) does the
+  ATOMIC decrement (mirror `DispensingService::dispense`): `DB::transaction { lockOnHand → assert on_hand ≥ qty
+  (else `insufficientStock`) → create usage → decrement → append 'used' movement }`. **SAFE +
+  CONCURRENCY-SAFE (no oversell, no negative) — proven by `SurgicalItemUsageParallelHammerTest`** (8 processes
+  race for the last unit; 1 `USED:` + 7 `INSUFFICIENT:`, on_hand=0; the `surgery:attempt-use-item` hammer).
+  **(3)** IMPLANT lot/serial/UDI TRACEABILITY (net-new): `implant_placements` (APPEND-ONLY, LogsReads) —
+  which implant (lot/serial/UDI) → which patient, indexed by lot + UDI; `placeImplant` (gate `note.write`,
+  asserts `is_implant` + a lot) decrements 1 unit AND records the placement atomically. **THE RECALL LOOKUP**
+  `patientsForLot(lot|udi|serial)` returns the placements/patients — a FACTUAL traceability query (tested: the
+  same lot in 2 patients → both returned), NEVER a device-safety verdict; `implantsForPatient` = the patient's
+  implant history. **(4) RBAC:** stock admin = `surgery.manage`; usage/implant = `note.write` (the surgical
+  team). **(5) ELECTRIC FENCE (operational / traceability):** stock/usage/implant are FACTS —
+  `isBelowThreshold` a factual count; implant traceability is RECORD-KEEPING (which implant → which patient),
+  NOT a device-safety judgment (the system records the identifiers, it does NOT verify/grade/compute a
+  recall verdict) — schema fence (no verdict/safe/recall_status/grade/severity/risk/score column on any of the
+  5 tables) + a `Modules\Surgery\src` grep (no `verifyDevice`/`recallStatus`/`deviceSafe`/`gradeImplant`).
+  `SurgicalInventoryController` + `Surgery/Inventory.vue` (catalog + stock + receive/adjust + recall lookup) +
+  `CaseSuppliesController` + `Surgery/CaseSupplies.vue` (usage/implant + patient implant history, read-logged)
+  + `Surgery/Case.vue` links + i18n; audited app-layer (`surgical_item.created`/`surgical_stock.<type>`
+  tenant-level + `surgical_item.used`/`implant.placed` patient-scoped). No charge (surgical billing is G5). No
+  existing behavior test modified; **the clinical-safety eval + G1–G3 + reconciliation/fence/immutability
+  suites stay green**; the FIX.5 smoke was EXTENDED (inventory + supplies GET 200 + reception use 403). Added
+  `SurgicalInventoryTest` (8) + `SurgicalItemUsageParallelHammerTest` (1). VERIFIED: npm run build green;
+  composer check FULLY green (Pint `passed` · PHPStan L5 `[OK] No errors` · **Pest 830 passed / 2 skipped
+  / 8002 assertions**, 0 failed — +9 tests vs G3's 821); composer test:smoke green (3). **Next:
+  surgical billing** (reuse the engine → reconcile-to-the-unit) — the last Phase-5 core gate. (SURGERY.G4) See
+  [[D-123]]/PHARMACY.G4 (the inventory + concurrency-safe decrement recipe it mirrors), [[D-126]] (G2 — the
+  case it supplies), the surgery map §2.5, and [[Surgery]].

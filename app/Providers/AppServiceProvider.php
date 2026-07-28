@@ -77,10 +77,14 @@ use Modules\Scheduling\Events\WaitlistOfferLifecycleChanged;
 use Modules\Scheduling\Models\Appointment;
 use Modules\Scheduling\Models\Resource;
 use Modules\Scheduling\Models\WaitlistOffer;
+use Modules\Surgery\Models\CaseItemUsage;
+use Modules\Surgery\Models\ImplantPlacement;
 use Modules\Surgery\Models\SurgicalCase;
 use Modules\Surgery\Models\SurgicalCaseEvent;
 use Modules\Surgery\Models\SurgicalChecklist;
 use Modules\Surgery\Models\SurgicalChecklistItem;
+use Modules\Surgery\Models\SurgicalItem;
+use Modules\Surgery\Models\SurgicalStockMovement;
 use Modules\Surgery\Models\Theatre;
 use Modules\Surgery\Models\TheatreSlot;
 
@@ -406,6 +410,31 @@ class AppServiceProvider extends ServiceProvider
             'resource_type' => 'surgical_checklist_item',
             'resource_id' => $m->id,
             'context' => ['surgical_checklist_id' => $m->surgical_checklist_id, 'phase' => $m->phase, 'checked' => $m->checked],
+        ]));
+        // Surgical consumables + implants (SURGERY.G4) — audited here so Surgery stays free of Audit. The item
+        // catalog + stock movement are tenant-level inventory; a case usage + an implant placement are
+        // patient-scoped. Implant traceability is a RECORD (lot/serial/UDI → patient), never a device verdict.
+        SurgicalItem::created(fn (SurgicalItem $m) => $this->auditChange('surgical_item.created', [
+            'resource_type' => 'surgical_item',
+            'resource_id' => $m->id,
+            'context' => ['code' => $m->code, 'name' => $m->name, 'is_implant' => $m->is_implant],
+        ]));
+        SurgicalStockMovement::created(fn (SurgicalStockMovement $m) => $this->auditChange('surgical_stock.'.$m->type, [
+            'resource_type' => 'surgical_stock_movement',
+            'resource_id' => $m->id,
+            'context' => ['surgical_item_stock_id' => $m->surgical_item_stock_id, 'quantity_change' => $m->quantity_change, 'resulting_on_hand' => $m->resulting_on_hand],
+        ]));
+        CaseItemUsage::created(fn (CaseItemUsage $m) => $this->auditChange('surgical_item.used', [
+            'patient_id' => $m->patient_id,
+            'resource_type' => 'case_item_usage',
+            'resource_id' => $m->id,
+            'context' => ['surgical_case_id' => $m->surgical_case_id, 'surgical_item_id' => $m->surgical_item_id, 'quantity' => $m->quantity],
+        ]));
+        ImplantPlacement::created(fn (ImplantPlacement $m) => $this->auditChange('implant.placed', [
+            'patient_id' => $m->patient_id,
+            'resource_type' => 'implant_placement',
+            'resource_id' => $m->id,
+            'context' => ['surgical_case_id' => $m->surgical_case_id, 'surgical_item_id' => $m->surgical_item_id, 'lot_number' => $m->lot_number, 'udi' => $m->udi],
         ]));
 
         // People credential vault changes. The observer lives here so People

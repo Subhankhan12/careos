@@ -387,7 +387,8 @@
             "openNote": "Open",
             "authorNote": "Author {phase}",
             "history": "History",
-            "checklist": "WHO safety checklist"
+            "checklist": "WHO safety checklist",
+            "supplies": "Consumables & implants"
         },
         "checklist": {
             "eyebrow": "Surgery · WHO checklist",
@@ -400,6 +401,58 @@
                 "time_out": "Time-out (before incision)",
                 "sign_out": "Sign-out (before leaving theatre)"
             }
+        },
+        "inventory": {
+            "eyebrow": "Surgery · Inventory",
+            "title": "Surgical inventory",
+            "subtitle": "Consumables and implants, their stock, and implant recall traceability.",
+            "recall": "Recall lookup",
+            "recallHint": "Find the patients an implant lot / UDI / serial was placed in. A factual traceability lookup, not a device-safety verdict.",
+            "lotOrUdi": "Lot number, UDI, or serial",
+            "search": "Search",
+            "lot": "lot",
+            "noMatches": "No implants match that lot / UDI / serial.",
+            "newItem": "Add a surgical item",
+            "code": "Code",
+            "name": "Name",
+            "isImplant": "This item is an implant (needs lot/serial/UDI)",
+            "addItem": "Add item",
+            "receiveStock": "Receive stock",
+            "quantity": "Quantity",
+            "reorderThreshold": "Reorder threshold (optional)",
+            "receive": "Receive",
+            "implant": "Implant",
+            "stock": "Stock",
+            "noStock": "No surgical stock yet.",
+            "belowThreshold": "Below stock",
+            "adjust": "Adjust",
+            "adjustPrompt": "New on-hand count for {item}:",
+            "adjustReason": "Reason for the adjustment:",
+            "movements": "Recent movements",
+            "movementType": {
+                "received": "Received",
+                "used": "Used",
+                "adjusted": "Adjusted"
+            }
+        },
+        "supplies": {
+            "eyebrow": "Surgery · Supplies",
+            "title": "Case supplies",
+            "backToCase": "Back to case",
+            "recordUse": "Record a consumable used",
+            "quantity": "Quantity",
+            "use": "Record use",
+            "placeImplant": "Place an implant",
+            "implantHint": "Records the lot / serial / UDI so the implant is traceable to the patient (for device recalls).",
+            "lot": "Lot",
+            "serial": "Serial",
+            "udi": "UDI",
+            "place": "Place implant",
+            "used": "Consumables used",
+            "noUsage": "Nothing recorded yet.",
+            "implantsPlaced": "Implants placed",
+            "noImplants": "No implants placed yet.",
+            "patientHistory": "Patient implant history"
         }
     },
     "settings": {
