@@ -194,6 +194,7 @@ test('every major staff route is reachable through the real middleware stack (20
         'ed.record (C-1)' => '/ed/visits/'.$fx['edVisit']->id.'/record',
         'ed.disposition (C-1)' => '/ed/visits/'.$fx['edVisit']->id.'/disposition',
         'ed.billing (C-1)' => '/ed/visits/'.$fx['edVisit']->id.'/billing',
+        'lab.catalog' => '/lab/catalog',
     ];
 
     $failures = [];
@@ -500,6 +501,17 @@ test('per-role RBAC smoke: each role reaches its pages (200) and is denied other
         ->status();
     if ($edChargeStatus !== 403) {
         $failures[] = "ed.billing.charge as reception -> {$edChargeStatus} (expected 403)";
+    }
+
+    // LAB.G1: authoring a lab test is lab.catalog-gated. Reception (no lab.catalog) is denied on the catalog
+    // store route at the gate through the real stack, before any test is authored. The reference range is
+    // recorded reference data, never a computed grade.
+    smokeCtx()->forget();
+    $labCatalogStatus = $this->actingAs($u['reception'])
+        ->post('/lab/catalog', ['code' => 'X', 'name' => 'X'])
+        ->status();
+    if ($labCatalogStatus !== 403) {
+        $failures[] = "lab.catalog.store as reception -> {$labCatalogStatus} (expected 403)";
     }
 
     expect(implode("\n", $failures))->toBe('');

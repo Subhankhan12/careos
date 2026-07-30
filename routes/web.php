@@ -61,6 +61,7 @@ use Modules\Hospital\Http\Controllers\DischargeSummaryController;
 use Modules\Hospital\Http\Controllers\HandoverController;
 use Modules\Hospital\Http\Controllers\WardBoardController;
 use Modules\Import\Http\Controllers\ImportBatchController;
+use Modules\Lab\Http\Controllers\LabCatalogController;
 use Modules\Nursing\Http\Controllers\CompetencyController;
 use Modules\Nursing\Http\Controllers\DispatchActionController;
 use Modules\Nursing\Http\Controllers\DispatchBoardController;
@@ -457,6 +458,15 @@ Route::middleware('auth')->group(function () {
     Route::post('/ed/visits/{visit}/billing/price-service', [EdBillingController::class, 'priceService'])->name('ed.billing.price-service');
     Route::post('/ed/visits/{visit}/billing/charge', [EdBillingController::class, 'charge'])->name('ed.billing.charge');
     Route::post('/ed/visits/{visit}/billing/invoice', [EdBillingController::class, 'invoice'])->name('ed.billing.invoice');
+
+    // Laboratory / LIS — the tenant's lab test catalog (LAB.G1, Phase 3): the tenant authors its OWN test menu
+    // (code/name/specimen + the DISPLAY unit + reference range) — NO licensed LOINC/test set. A lab test is a
+    // Clinical `OrderableItem` overlay; order/result reuse Clinical (later gates). Gated `lab.catalog`. FENCE:
+    // the reference range is recorded reference data, never a computed grade. {test} string-id (FIX.1).
+    Route::get('/lab/catalog', [LabCatalogController::class, 'show'])->name('lab.catalog');
+    Route::post('/lab/catalog', [LabCatalogController::class, 'store'])->name('lab.catalog.store');
+    Route::post('/lab/catalog/seed', [LabCatalogController::class, 'seed'])->name('lab.catalog.seed');
+    Route::post('/lab/catalog/{test}/deactivate', [LabCatalogController::class, 'deactivate'])->name('lab.catalog.deactivate');
 
     // Onboarding/migration: generic CSV patient import (RBAC 'data.import' enforced
     // in each controller action). Mandatory dry-run before commit.

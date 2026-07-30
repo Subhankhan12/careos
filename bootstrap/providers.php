@@ -13,6 +13,7 @@ use Modules\ED\Providers\EDServiceProvider;
 use Modules\FrontDesk\Providers\FrontDeskServiceProvider;
 use Modules\Hospital\Providers\HospitalServiceProvider;
 use Modules\Import\Providers\ImportServiceProvider;
+use Modules\Lab\Providers\LabServiceProvider;
 use Modules\Nursing\Providers\NursingServiceProvider;
 use Modules\Patients\Providers\PatientsServiceProvider;
 use Modules\People\Providers\PeopleServiceProvider;
@@ -44,4 +45,5 @@ return [
     SchedulingServiceProvider::class,
     SurgeryServiceProvider::class,
     EDServiceProvider::class,
+    LabServiceProvider::class,
 ];

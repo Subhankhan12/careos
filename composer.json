@@ -51,7 +51,8 @@
             "Modules\\Hospital\\": "Modules/Hospital/src/",
             "Modules\\Pharmacy\\": "Modules/Pharmacy/src/",
             "Modules\\Surgery\\": "Modules/Surgery/src/",
-            "Modules\\ED\\": "Modules/ED/src/"
+            "Modules\\ED\\": "Modules/ED/src/",
+            "Modules\\Lab\\": "Modules/Lab/src/"
         }
     },
     "autoload-dev": {

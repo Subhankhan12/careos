@@ -22,6 +22,20 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
 > recorded decision; the ED fee is a tariff (NOT acuity-driven), no money math in ED. **Remaining hospital
 > phases: Lab (Phase 3) + Radiology (Phase 4)** — mostly integration shells pending HL7/FHIR + PACS/DICOM
 > partners (business conversations, not code). See the ED bullet below + [[ED]] / D-130 → D-135.
+>
+> **UPDATE (LAB.G1 — Phase 3 STARTED):** the **Laboratory / LIS (Phase 3)** is mapped
+> (`docs/HOSPITAL-PHASE3-LAB-MAP.md`) and its FOUNDATION gate **LAB.G1 is built** — a peer `Modules\Lab`: the
+> tenant-authored **test catalog** (a `LabTest` overlay on the EXISTING Clinical `OrderableItem`, NO licensed
+> LOINC/test set), the **FORMALIZED `LabConnectivity` seam** (it already lived in Clinical + was wired into
+> `OrderService::place` — Lab consumes it; the manual + imported[partner] paths documented), and **lab RBAC**.
+> **THE BIG REUSE:** a lab order IS a Clinical `Order`, a lab result IS an append-only raw `OrderResult` (the
+> fence already built) — Lab reuses them, it does NOT duplicate. **THE FENCE:** a reference range is recorded
+> reference data (displayed) — a **computed abnormal/critical flag is a non-goal/partner** (the vitals-bands
+> line). **HONEST NOTE — the defining LIS value (the HL7/analyzer feed, LAB.G7) is PARTNER-GATED** (SEAM-STUBBED,
+> NOT built); without it the vertical is a manual record-keeping shell. Remaining lab gates: G2 order entry
+> (reuse `Order`) · G3 specimen tracking (net-new) · G4 result + reference-range display · G5 routing · G6
+> billing · **G7 [seam-stubbed] the HL7 feed.** Radiology (Phase 4) also remains (partner-gated, PACS/DICOM).
+> See [[Lab]] / D-136.
 
 **Read this before starting any work. The next unit of progress is DELIVERY, not another gate.**
 (Latest reconciliation: the full six-vertical handoff pass — clinic / dental / home-care / inpatient /

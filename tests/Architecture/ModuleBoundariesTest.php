@@ -226,3 +226,23 @@ arch('ED may use care modules + Audit services but not Audit models, AiCore, pee
         'Modules\Surgery',
         'Modules\Comms',
     ]);
+
+// The Laboratory / LIS is the lab vertical (LAB.G1 — Phase 3). It REUSES Clinical heavily — a lab test IS a
+// Clinical `OrderableItem` (overlaid), a lab order IS a Clinical `Order`, a lab result IS a Clinical
+// `OrderResult`, and the `LabConnectivity` seam lives in Clinical (consumed, not re-created). So it MAY use
+// Platform + care modules (Clinical/Patients/Billing) + Audit SERVICES — but never Audit models directly,
+// AiCore, or the PEER verticals (Nursing/Dental/Hospital/Pharmacy/Surgery/ED). Cross-module audit composition
+// lives in app/, so Lab stays free of Audit — the ED/Surgery/Pharmacy posture.
+arch('Lab may use care modules + Audit services but not Audit models, AiCore, peer verticals, or Comms')
+    ->expect('Modules\Lab')
+    ->not->toUse([
+        'Modules\Audit\Models',
+        'Modules\AiCore',
+        'Modules\Nursing',
+        'Modules\Dental',
+        'Modules\Hospital',
+        'Modules\Pharmacy',
+        'Modules\Surgery',
+        'Modules\ED',
+        'Modules\Comms',
+    ]);

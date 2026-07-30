@@ -630,6 +630,26 @@
             "joinsStay": "This patient was admitted — the ED charges join the inpatient stay's discharge invoice."
         }
     },
+    "lab": {
+        "catalog": {
+            "title": "Lab test catalog",
+            "eyebrow": "Laboratory",
+            "subtitle": "Your own lab test menu — codes, specimens, units and reference ranges you author.",
+            "author": "Author a test",
+            "seed": "Add starter set",
+            "code": "Code",
+            "name": "Name",
+            "specimen": "Specimen",
+            "unit": "Unit",
+            "range": "Reference range",
+            "addTest": "Add test",
+            "rangeHint": "The reference range is reference data shown beside a result — the clinician reads value against range. The system never computes an abnormal or critical flag.",
+            "menu": "Test menu",
+            "empty": "No lab tests yet. Add one, or seed the starter set.",
+            "deactivate": "Deactivate",
+            "inactive": "Inactive"
+        }
+    },
     "settings": {
         "eyebrow": "Administration",
         "title": "Practice settings",

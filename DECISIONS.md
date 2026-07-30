@@ -2179,3 +2179,33 @@ references the old ID.
   permanent non-goal (the empty `TriageAcuityProvider`). Remaining hospital phases: Lab (Phase 3) + Radiology
   (Phase 4) — mostly integration, pending HL7/FHIR + PACS/DICOM partners. See
   `docs/HOSPITAL-PHASE6-ED-MAP.md`, [[ED]], [[LOG]].
+
+- **D-136 — LAB.G1: lab module + tenant-authored test catalog + the formalized `LabConnectivity` seam + lab
+  RBAC — the Phase-3 (Laboratory / LIS) FOUNDATION.** Per `docs/HOSPITAL-PHASE3-LAB-MAP.md`. **THE BIG REUSE
+  (the map's core):** Lab is ~85% reuse — a lab order IS a Clinical `Order` (lifecycle already
+  `ordered→collected→in_progress→resulted→reviewed`), a lab result IS an append-only raw `OrderResult` (NO
+  interpretation column — the fence already built; `source` splits manual/imported), and the `LabConnectivity`
+  seam already lives in Clinical + is already wired into `OrderService::place`. **Lab REUSES these, it does NOT
+  duplicate them** (the map's sharpest risk). Peer `Modules\Lab` (mirrors ED/Surgery/Pharmacy; `arch('Lab …')`
+  excludes Audit models/AiCore/Comms/peer verticals; MAY use Clinical heavily). **The test catalog is an
+  overlay:** `lab_tests` (`unique(orderable_item_id)`) overlays the EXISTING Clinical `OrderableItem` (the
+  `DentalProcedure`/`SurgicalItem` precedent) — a lab test IS a tenant-authored `OrderableItem` (`category=lab`)
+  + the overlay adding ONLY the DISPLAY reference data `unit` + `reference_range`. `LabCatalogService`
+  (`authorTest`/`deactivate`/`seedStarter`[a SMALL GENERIC editable template, **NO licensed LOINC/test set
+  bundled**]/`catalog`), gate `lab.catalog`. **The seam is FORMALIZED, not filled (docblocks only — no behavior
+  change):** documented the MANUAL path (a human enters `OrderResult` source=manual) + the IMPORTED path (a
+  future CERTIFIED HL7/analyzer partner implements `ingestResult` → appends `OrderResult` source=imported,
+  **never interpreted** — P0P.G11). **Lab CONSUMES the Clinical seam; binds no new one; builds NO homemade HL7
+  client** (the defining LIS value is partner-gated — LAB.G7, SEAM-STUBBED, NOT built; the `MedicationSafety`/
+  `TriageAcuity` precedent). **FENCE:** `reference_range` is RECORDED reference data (displayed) — the system
+  computes NO abnormal/high/low/critical flag or grade (the vitals-bands line); `lab_tests` carries no judgment
+  column; the grep over `Modules\Lab\src` finds no grade/flag logic. **RBAC (additive):** perms `lab.catalog` +
+  `lab.result` (ordering reuses `order.manage`); roles `lab_tech`/`pathologist`(lab lead)/`phlebotomist`;
+  org_admin gains both; reprovision migration `add_lab_permissions`. **Audit app-layer:** `LabTest.created`→
+  `lab.test_authored` (tenant-level). UI (P0D.GU): `LabCatalogController` (`/lab/catalog`) + `Lab/Catalog.vue`;
+  `lab.catalog.*` i18n; FIX.5 smoke extended. No order/specimen/result this gate (G2–G6). No existing behavior
+  test modified; the clinical `OrderTest` + reconciliation/fence/immutability/clinical-safety/triage-eval + all
+  vertical suites stay green (Clinical's Order/OrderResult/seam reused, only docblocks touched).
+  `tests/Feature/Lab/LabCatalogTest.php` (5). **HONEST NOTE:** without the HL7/analyzer partner the lab
+  vertical is a manual record-keeping shell — the defining value is partner-gated. See
+  `docs/HOSPITAL-PHASE3-LAB-MAP.md`, [[Lab]], [[LOG]].

@@ -65,6 +65,10 @@ class RbacProvisioner
         // The ED→ADT admit handoff (G5) additionally requires the existing `admission.manage`.
         'ed.manage' => 'Register ED visits and advance their flow (Emergency Department)',
         'triage.record' => 'Record a triage assessment and the nurse-assigned acuity (ED)',
+        // Laboratory / LIS vertical (LAB.G1 — Phase 3). Additive — see docs/HOSPITAL-PHASE3-LAB-MAP.md §5.
+        // Ordering a lab test reuses the existing `order.manage`; results (LAB.G4) will use `lab.result`.
+        'lab.catalog' => 'Author the tenant lab test catalog + reference ranges (Laboratory)',
+        'lab.result' => 'Enter lab results and manage specimens (Laboratory)',
     ];
 
     /**
@@ -86,6 +90,7 @@ class RbacProvisioner
                 'formulary.manage', 'dispense.manage', 'medication.prescribe',
                 'theatre.manage', 'surgery.schedule', 'surgery.manage',
                 'ed.manage', 'triage.record',
+                'lab.catalog', 'lab.result',
             ],
         ],
         'coordinator' => [
@@ -253,6 +258,31 @@ class RbacProvisioner
                 // oversight (note.supervise) + reporting.
                 'patient.view', 'encounter.manage', 'note.write', 'note.sign', 'note.supervise', 'order.manage',
                 'reporting.view', 'ed.manage', 'triage.record',
+            ],
+        ],
+        // Laboratory / LIS vertical starter roles (LAB.G1 — Phase 3). Additive; the map §5. Ordering a lab
+        // test reuses `order.manage` (the clinician orders); the lab bench enters results with `lab.result`.
+        'lab_tech' => [
+            'name' => 'Lab Technician',
+            'permissions' => [
+                // The lab bench: sees orders, tracks specimens + enters results (lab.result, used in G3/G4).
+                'patient.view', 'order.manage', 'lab.result',
+            ],
+        ],
+        'pathologist' => [
+            'name' => 'Pathologist',
+            'permissions' => [
+                // The lab lead: authors the test catalog + ranges (lab.catalog), reviews/records readings,
+                // charts clinically.
+                'patient.view', 'encounter.manage', 'note.write', 'note.sign', 'order.manage',
+                'lab.catalog', 'lab.result',
+            ],
+        ],
+        'phlebotomist' => [
+            'name' => 'Phlebotomist',
+            'permissions' => [
+                // Collects specimens (lab.result, scoped to specimen collection in G3).
+                'patient.view', 'lab.result',
             ],
         ],
     ];

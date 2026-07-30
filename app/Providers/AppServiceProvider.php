@@ -47,6 +47,7 @@ use Modules\Hospital\Models\Bed;
 use Modules\Hospital\Models\DischargeSummary;
 use Modules\Hospital\Models\Handover;
 use Modules\Hospital\Models\Ward;
+use Modules\Lab\Models\LabTest;
 use Modules\Nursing\Events\CompetencyChanged;
 use Modules\Nursing\Events\IncidentReported;
 use Modules\Nursing\Events\NurseCompetencyChanged;
@@ -463,6 +464,15 @@ class AppServiceProvider extends ServiceProvider
             'resource_type' => 'ed_triage',
             'resource_id' => $m->id,
             'context' => ['ed_visit_id' => $m->ed_visit_id, 'acuity_scale' => $m->acuity_scale, 'acuity_level' => $m->acuity_level, 'triaged_by' => $m->triaged_by],
+        ]));
+
+        // Laboratory / LIS (LAB.G1 — Phase 3) — tenant-level (a catalog item, not patient-scoped) — so Lab
+        // stays free of Audit. Authoring/updating a lab test (the tenant's test menu + reference ranges) is
+        // audited. A lab test is an OrderableItem overlay; the ORDER/RESULT reuse Clinical (audited there).
+        LabTest::created(fn (LabTest $m) => $this->auditChange('lab.test_authored', [
+            'resource_type' => 'lab_test',
+            'resource_id' => $m->id,
+            'context' => ['orderable_item_id' => $m->orderable_item_id, 'unit' => $m->unit, 'reference_range' => $m->reference_range],
         ]));
 
         // People credential vault changes. The observer lives here so People
