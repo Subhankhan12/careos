@@ -95,10 +95,27 @@ schema unchanged). Placing reuses `order.manage`; `LabOrderController` (`/lab/pa
   untouched. `LabOrderService` + `LabOrderController` (`/lab/patients/{patient}/orders`) + `Lab/Orders.vue` +
   `lab.orders.*` i18n; FIX.5 smoke extended. 6 feature tests (`tests/Feature/Lab/LabOrderTest.php`). No charge.
   See D-137.
+- **LAB.G3**: specimen tracking — the one genuine net-new lab entity. `specimens` (accession unique-per-tenant
+  via the `MrnGenerator` recipe; legal-only `collected → in_lab → resulted` + rejected) + append-only
+  `specimen_events`; `SpecimenService` (collect + transition, gate `lab.result`); collection does NOT advance
+  the Clinical Order (the phlebotomist has only lab.result — Order untouched). `SpecimenController`
+  (`/lab/orders/{labOrder}/specimens`) + `Lab/Specimens.vue` + `lab.specimens.*` i18n; FIX.5 smoke extended.
+  FENCE: state + accession are facts, no computed priority/routing. 7 feature tests
+  (`tests/Feature/Lab/SpecimenTest.php`). No charge. See D-138.
+
+## Specimen tracking (G3 — the net-new entity)
+
+`specimens` (BelongsToTenant, LogsReads) — collected against a LAB.G2 `LabOrder`, `accession_number`
+(unique-per-tenant, `MrnGenerator` recipe under a tenant-row lock), `specimen_type` (from the order overlay),
+collected_by/at, `status` (out of `$fillable`). Legal-only `collected → in_lab → resulted` (+ rejected, reason
+required). `specimen_events` APPEND-ONLY (model guards + DB triggers). `SpecimenService::collect`/`transition`,
+gate `lab.result`. **The Clinical Order is REUSED + UNTOUCHED** — collection records the specimen, it does NOT
+advance the Order (the phlebotomist has only lab.result; the Order's lifecycle is Clinical's, advanced by the
+result step G4). FENCE: state + accession are operational facts — no computed priority/urgency/routing.
 
 ## Not built yet (later gates)
 
-G3 specimen tracking (net-new `Specimen`) · G4 manual result
+G4 manual result
 + reference-range display (reuse `OrderResult`; the fence) · G5 routing + worklist · G6 billing (the engine) ·
 **G7 [SEAM-STUBBED] the HL7/FHIR/analyzer feed — partner-gated, NOT built** (a certified partner fills the
 `LabConnectivity` seam). Radiology (Phase 4) follows — also partner-gated (PACS/DICOM). See

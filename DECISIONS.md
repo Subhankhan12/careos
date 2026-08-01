@@ -2230,3 +2230,26 @@ references the old ID.
   No existing behavior test modified; the clinical `OrderTest` + reconciliation/fence/immutability/
   clinical-safety/triage-eval + LAB.G1 + all vertical suites stay green (Clinical reused, untouched); no charge.
   `tests/Feature/Lab/LabOrderTest.php` (6). See `docs/HOSPITAL-PHASE3-LAB-MAP.md`, [[Lab]], [[LOG]].
+
+- **D-138 — LAB.G3: specimen tracking — the one genuine net-new lab entity (accession + legal-only state
+  machine; append-only).** Per `docs/HOSPITAL-PHASE3-LAB-MAP.md` §2.2 (a Clinical `Order.status=collected` is a
+  status, NOT a specimen). `specimens` (BelongsToTenant, LogsReads): collected against a LAB.G2 `LabOrder`
+  (`lab_order_id` → the reused Clinical Order), `accession_number` (unique-per-tenant, `unique(tenant,
+  accession)`), `specimen_type` (from the order overlay), collected_by/at, `status` (out of `$fillable`).
+  **Legal-only state machine** collected → in_lab → resulted (+ rejected, reason required); illegal throws.
+  `specimen_events` (**APPEND-ONLY** — model guards + DB triggers, the `ed_visit_events` recipe). `SpecimenService`:
+  `collect` (gate `lab.result`; generate accession + specimen + `collected` event, atomically) + `transition`
+  (legal-only) + reads. **Accession generation** mirrors `MrnGenerator` ([[Patients]]) — tenant-row lock,
+  `sprintf('ACC-%06d')`, unique (proven sequential + per-tenant). **THE CLINICAL ORDER IS REUSED + UNTOUCHED:**
+  collection records the SPECIMEN; it does NOT advance the Order (that stays Clinical's — the result step G4
+  moves it via `OrderService`, which is `order.manage`-gated; the **phlebotomist holds only `lab.result`** so
+  collection is decoupled — the Order stays `ordered` after collection). **FENCE (operational):** state +
+  accession are FACTS — no computed priority/urgency/routing (no such column on `specimens`; grep clean); the
+  STAT flag stays the LAB.G2 recorded flag. **RBAC:** collect + transition = `lab.result` (phlebotomist/lab
+  tech; reception refused); viewing = `patient.view` (read-logged). **Audit app-layer:** `Specimen.created`→
+  `specimen.accessioned`; `SpecimenEvent.created`→`specimen.<event_type>` (patient-scoped). UI (P0D.GU):
+  `SpecimenController` (`/lab/orders/{labOrder}/specimens`; `/lab/specimens/{specimen}/transition`) +
+  `Lab/Specimens.vue`; `lab.specimens.*` i18n; FIX.5 smoke extended. No result/routing/billing this gate
+  (G4–G6). No existing behavior test modified; the reconciliation/fence/immutability/clinical-safety/triage-eval
+  + LAB.G1/G2 + all vertical suites stay green (Clinical reused/untouched); no charge.
+  `tests/Feature/Lab/SpecimenTest.php` (7). See `docs/HOSPITAL-PHASE3-LAB-MAP.md`, [[Lab]], [[LOG]].

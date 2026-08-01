@@ -49,6 +49,8 @@ use Modules\Hospital\Models\Handover;
 use Modules\Hospital\Models\Ward;
 use Modules\Lab\Models\LabOrder;
 use Modules\Lab\Models\LabTest;
+use Modules\Lab\Models\Specimen;
+use Modules\Lab\Models\SpecimenEvent;
 use Modules\Nursing\Events\CompetencyChanged;
 use Modules\Nursing\Events\IncidentReported;
 use Modules\Nursing\Events\NurseCompetencyChanged;
@@ -483,6 +485,21 @@ class AppServiceProvider extends ServiceProvider
             'resource_type' => 'lab_order',
             'resource_id' => $m->id,
             'context' => ['order_id' => $m->order_id, 'specimen_type' => $m->specimen_type, 'priority' => $m->priority],
+        ]));
+        // Specimen tracking (LAB.G3) — patient-scoped. The specimen is accessioned + advanced through its
+        // legal-only state machine; each state is an append-only SpecimenEvent. Operational facts — accession +
+        // state, never a computed priority/urgency.
+        Specimen::created(fn (Specimen $m) => $this->auditChange('specimen.accessioned', [
+            'patient_id' => $m->patient_id,
+            'resource_type' => 'specimen',
+            'resource_id' => $m->id,
+            'context' => ['lab_order_id' => $m->lab_order_id, 'accession_number' => $m->accession_number, 'specimen_type' => $m->specimen_type],
+        ]));
+        SpecimenEvent::created(fn (SpecimenEvent $m) => $this->auditChange('specimen.'.$m->event_type, [
+            'patient_id' => $m->patient_id,
+            'resource_type' => 'specimen_event',
+            'resource_id' => $m->id,
+            'context' => ['specimen_id' => $m->specimen_id, 'event_type' => $m->event_type, 'reason' => $m->reason],
         ]));
 
         // People credential vault changes. The observer lives here so People

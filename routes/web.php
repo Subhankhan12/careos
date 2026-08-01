@@ -63,6 +63,7 @@ use Modules\Hospital\Http\Controllers\WardBoardController;
 use Modules\Import\Http\Controllers\ImportBatchController;
 use Modules\Lab\Http\Controllers\LabCatalogController;
 use Modules\Lab\Http\Controllers\LabOrderController;
+use Modules\Lab\Http\Controllers\SpecimenController;
 use Modules\Nursing\Http\Controllers\CompetencyController;
 use Modules\Nursing\Http\Controllers\DispatchActionController;
 use Modules\Nursing\Http\Controllers\DispatchBoardController;
@@ -474,6 +475,14 @@ Route::middleware('auth')->group(function () {
     // is `patient.view` (read-logged); placing is `order.manage` (the existing order permission). {patient} string-id.
     Route::get('/lab/patients/{patient}/orders', [LabOrderController::class, 'show'])->name('lab.orders.show');
     Route::post('/lab/patients/{patient}/orders', [LabOrderController::class, 'store'])->name('lab.orders.store');
+
+    // Specimen tracking (LAB.G3) — the net-new lab entity: collect a specimen for a lab order (accessioned) +
+    // track its legal-only state (collected → in_lab → resulted / rejected). Viewing is `patient.view`
+    // (read-logged); collecting + transitioning are `lab.result` (the phlebotomist / lab tech). Operational
+    // facts — no computed priority. {labOrder}/{specimen} string-id (FIX.1).
+    Route::get('/lab/orders/{labOrder}/specimens', [SpecimenController::class, 'show'])->name('lab.specimens.show');
+    Route::post('/lab/orders/{labOrder}/specimens', [SpecimenController::class, 'collect'])->name('lab.specimens.collect');
+    Route::post('/lab/specimens/{specimen}/transition', [SpecimenController::class, 'transition'])->name('lab.specimens.transition');
 
     // Onboarding/migration: generic CSV patient import (RBAC 'data.import' enforced
     // in each controller action). Mandatory dry-run before commit.

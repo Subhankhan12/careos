@@ -43,6 +43,14 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
 > overlay-only; Clinical's `Order` untouched) — never computed/ranked/auto-escalated. Placing reuses the
 > existing `order.manage`. Remaining lab gates: G3 specimen tracking (net-new) · G4 result + reference-range
 > display · G5 routing · G6 billing · **G7 [seam-stubbed] the HL7 feed.** See [[Lab]] / D-137.
+>
+> **UPDATE (LAB.G3):** **specimen tracking is built** — the one genuine net-new lab entity: `specimens`
+> (accession unique-per-tenant via the MRN-generator recipe; legal-only `collected → in_lab → resulted` +
+> rejected) + append-only `specimen_events`; collect/transition gated `lab.result` (the phlebotomist). **The
+> Clinical `Order` is reused + untouched** (collection records the specimen; the phlebotomist has only
+> lab.result, so the Order isn't advanced here). **FENCE:** state + accession are operational facts — no
+> computed priority/urgency/routing. Remaining lab gates: G4 result + reference-range display · G5 routing · G6
+> billing · **G7 [seam-stubbed] the HL7 feed.** See [[Lab]] / D-138.
 
 **Read this before starting any work. The next unit of progress is DELIVERY, not another gate.**
 (Latest reconciliation: the full six-vertical handoff pass — clinic / dental / home-care / inpatient /

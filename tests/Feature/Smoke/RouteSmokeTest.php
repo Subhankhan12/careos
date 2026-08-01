@@ -15,6 +15,9 @@ use Modules\Hospital\Services\AdmissionService;
 use Modules\Hospital\Services\BedService;
 use Modules\Hospital\Services\WardService;
 use Modules\Import\Models\ImportBatch;
+use Modules\Lab\Models\LabOrder;
+use Modules\Lab\Services\LabCatalogService;
+use Modules\Lab\Services\LabOrderService;
 use Modules\Patients\Models\ConsentTemplate;
 use Modules\Patients\Models\Patient;
 use Modules\Patients\Models\PortalAccount;
@@ -108,7 +111,12 @@ function smokeSeed(object $test): array
     // org_admin holds ed.manage + patient.view.
     $edVisit = app(EdVisitService::class)->register($admin, $patient, $branch, EdVisit::ARRIVAL_WALK_IN, 'Smoke complaint');
 
-    return compact('tenant', 'users', 'invoice', 'creditNote', 'payment', 'patient', 'encounter', 'note', 'batch', 'stay', 'surgicalCase', 'edVisit');
+    // LAB.G2/G3: author a lab test + place a lab order so the specimen-detail route (a C-1-class request-time
+    // surface) is covered. org_admin holds lab.catalog + order.manage + lab.result.
+    $labTest = app(LabCatalogService::class)->authorTest($admin, 'SMK-LAB', 'Smoke test', 'Blood', 'mmol/L', '3.5–5.1');
+    $labOrder = app(LabOrderService::class)->place($admin, $patient, $labTest, LabOrder::PRIORITY_ROUTINE)['labOrder'];
+
+    return compact('tenant', 'users', 'invoice', 'creditNote', 'payment', 'patient', 'encounter', 'note', 'batch', 'stay', 'surgicalCase', 'edVisit', 'labOrder');
 }
 
 /** One request through the real stack with NO ambient tenant context (the C-1 condition). */
@@ -196,6 +204,7 @@ test('every major staff route is reachable through the real middleware stack (20
         'ed.billing (C-1)' => '/ed/visits/'.$fx['edVisit']->id.'/billing',
         'lab.catalog' => '/lab/catalog',
         'lab.orders (C-1)' => '/lab/patients/'.$fx['patient']->id.'/orders',
+        'lab.specimens (C-1)' => '/lab/orders/'.$fx['labOrder']->id.'/specimens',
     ];
 
     $failures = [];
@@ -524,6 +533,17 @@ test('per-role RBAC smoke: each role reaches its pages (200) and is denied other
         ->status();
     if ($labOrderStatus !== 403) {
         $failures[] = "lab.orders.store as reception -> {$labOrderStatus} (expected 403)";
+    }
+
+    // LAB.G3: collecting a specimen is lab.result-gated (the phlebotomist / lab tech). Reception (patient.view,
+    // so it can VIEW, but NO lab.result) is denied on the collect route at the gate through the real stack. The
+    // specimen state + accession are operational facts; no computed priority.
+    smokeCtx()->forget();
+    $specimenStatus = $this->actingAs($u['reception'])
+        ->post('/lab/orders/'.$fx['labOrder']->id.'/specimens', [])
+        ->status();
+    if ($specimenStatus !== 403) {
+        $failures[] = "lab.specimens.collect as reception -> {$specimenStatus} (expected 403)";
     }
 
     expect(implode("\n", $failures))->toBe('');

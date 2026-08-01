@@ -670,6 +670,29 @@
             "empty": "No lab orders yet.",
             "status": "Status",
             "orderedAt": "Ordered"
+        },
+        "specimens": {
+            "title": "Specimens",
+            "eyebrow": "Laboratory · Specimens",
+            "collect": "Collect a specimen",
+            "container": "Container",
+            "note": "Collection note (optional)",
+            "collectBtn": "Collect specimen",
+            "accessionHint": "An accession number is generated on collection — a unique lab identifier (a fact).",
+            "tracked": "Tracked specimens",
+            "empty": "No specimens collected yet.",
+            "rejectReason": "Reason for rejecting this specimen:",
+            "status": {
+                "collected": "Collected",
+                "in_lab": "In lab",
+                "resulted": "Resulted",
+                "rejected": "Rejected"
+            },
+            "advanceTo": {
+                "in_lab": "Receive in lab",
+                "resulted": "Mark resulted",
+                "rejected": "Reject"
+            }
         }
     },
     "settings": {
