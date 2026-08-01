@@ -47,6 +47,7 @@ use Modules\Hospital\Models\Bed;
 use Modules\Hospital\Models\DischargeSummary;
 use Modules\Hospital\Models\Handover;
 use Modules\Hospital\Models\Ward;
+use Modules\Lab\Models\LabOrder;
 use Modules\Lab\Models\LabTest;
 use Modules\Nursing\Events\CompetencyChanged;
 use Modules\Nursing\Events\IncidentReported;
@@ -473,6 +474,15 @@ class AppServiceProvider extends ServiceProvider
             'resource_type' => 'lab_test',
             'resource_id' => $m->id,
             'context' => ['orderable_item_id' => $m->orderable_item_id, 'unit' => $m->unit, 'reference_range' => $m->reference_range],
+        ]));
+        // A lab order (LAB.G2) — patient-scoped. The order itself is a REUSED Clinical `Order` (audited by
+        // Clinical's `order.placed`); this records the thin lab overlay (specimen + priority). The priority is
+        // the clinician's RECORDED flag, never computed.
+        LabOrder::created(fn (LabOrder $m) => $this->auditChange('lab.order_placed', [
+            'patient_id' => $m->patient_id,
+            'resource_type' => 'lab_order',
+            'resource_id' => $m->id,
+            'context' => ['order_id' => $m->order_id, 'specimen_type' => $m->specimen_type, 'priority' => $m->priority],
         ]));
 
         // People credential vault changes. The observer lives here so People

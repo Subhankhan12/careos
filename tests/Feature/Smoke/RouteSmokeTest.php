@@ -195,6 +195,7 @@ test('every major staff route is reachable through the real middleware stack (20
         'ed.disposition (C-1)' => '/ed/visits/'.$fx['edVisit']->id.'/disposition',
         'ed.billing (C-1)' => '/ed/visits/'.$fx['edVisit']->id.'/billing',
         'lab.catalog' => '/lab/catalog',
+        'lab.orders (C-1)' => '/lab/patients/'.$fx['patient']->id.'/orders',
     ];
 
     $failures = [];
@@ -512,6 +513,17 @@ test('per-role RBAC smoke: each role reaches its pages (200) and is denied other
         ->status();
     if ($labCatalogStatus !== 403) {
         $failures[] = "lab.catalog.store as reception -> {$labCatalogStatus} (expected 403)";
+    }
+
+    // LAB.G2: placing a lab order is order.manage-gated (the existing order permission; a lab order IS a
+    // Clinical Order). Reception (patient.view, so it can VIEW, but NO order.manage) is denied on the place
+    // route at the gate through the real stack. The priority is a recorded flag, never computed.
+    smokeCtx()->forget();
+    $labOrderStatus = $this->actingAs($u['reception'])
+        ->post('/lab/patients/'.$fx['patient']->id.'/orders', ['lab_test_id' => 'x', 'priority' => 'routine'])
+        ->status();
+    if ($labOrderStatus !== 403) {
+        $failures[] = "lab.orders.store as reception -> {$labOrderStatus} (expected 403)";
     }
 
     expect(implode("\n", $failures))->toBe('');

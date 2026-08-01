@@ -36,6 +36,13 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
 > (reuse `Order`) · G3 specimen tracking (net-new) · G4 result + reference-range display · G5 routing · G6
 > billing · **G7 [seam-stubbed] the HL7 feed.** Radiology (Phase 4) also remains (partner-gated, PACS/DICOM).
 > See [[Lab]] / D-136.
+>
+> **UPDATE (LAB.G2):** **lab order entry is built** — a lab order IS a Clinical `Order` (REUSED via
+> `OrderService::place`; ~85% reuse, Clinical untouched) + a thin append-only `lab_orders` overlay (specimen
+> type + priority routine/urgent/**STAT**). **FENCE:** the priority is the clinician's RECORDED flag (STAT
+> overlay-only; Clinical's `Order` untouched) — never computed/ranked/auto-escalated. Placing reuses the
+> existing `order.manage`. Remaining lab gates: G3 specimen tracking (net-new) · G4 result + reference-range
+> display · G5 routing · G6 billing · **G7 [seam-stubbed] the HL7 feed.** See [[Lab]] / D-137.
 
 **Read this before starting any work. The next unit of progress is DELIVERY, not another gate.**
 (Latest reconciliation: the full six-vertical handoff pass — clinic / dental / home-care / inpatient /

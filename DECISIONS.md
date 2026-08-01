@@ -2209,3 +2209,24 @@ references the old ID.
   `tests/Feature/Lab/LabCatalogTest.php` (5). **HONEST NOTE:** without the HL7/analyzer partner the lab
   vertical is a manual record-keeping shell — the defining value is partner-gated. See
   `docs/HOSPITAL-PHASE3-LAB-MAP.md`, [[Lab]], [[LOG]].
+
+- **D-137 — LAB.G2: lab order entry — reuses the Clinical `Order`; a thin specimen+priority overlay; priority
+  is recorded, not computed.** Per `docs/HOSPITAL-PHASE3-LAB-MAP.md` §2.4. REUSE-first — **a lab order IS a
+  Clinical `Order` (~85% reuse); Clinical is NOT duplicated or modified.** `LabOrderService::place` REUSES the
+  EXISTING `OrderService::place` (authorizes `order.manage`, runs the `ordered→collected→in_progress→resulted→
+  reviewed` lifecycle, calls the `LabConnectivity` seam's `transmit()` — manual no-op) with the LAB.G1
+  `LabTest`'s `OrderableItem`, then appends the thin **`lab_orders`** overlay (the only net-new): `specimen_type`
+  (defaults from the catalog) + `priority` (routine/urgent/**STAT**), in one `DB::transaction`. Ties to the
+  patient + an optional `Encounter` (the existing linkage — inpatient round / ED-visit encounter). `lab_orders`
+  is APPEND-ONLY (model guards + DB triggers, `unique(order_id)`; the `order_results` recipe). **FENCE:** the
+  priority is a RECORDED flag the clinician SETS (the ED-acuity / `Stay.admission_type` precedent) — the system
+  computes NO priority, ranks NOTHING by urgency, auto-escalates NOTHING (no urgency-score/computed-priority/
+  rank column; grep clean). **STAT is overlay-only — Clinical's `Order` is UNTOUCHED** (its priority stays the
+  default routine; `orders` schema unchanged). The seam's `transmit()` stays the manual no-op (no homemade
+  HL7). **RBAC:** placing reuses the EXISTING `order.manage` (reception refused by the reused service); viewing
+  = `patient.view` (read-logged). **Audit app-layer:** `LabOrder.created`→`lab.order_placed` (patient-scoped);
+  the Order audited by Clinical's `order.placed`. UI (P0D.GU): `LabOrderController` (`/lab/patients/{patient}/
+  orders`) + `Lab/Orders.vue`; `lab.orders.*` i18n; FIX.5 smoke extended. No specimen/result this gate (G3/G4).
+  No existing behavior test modified; the clinical `OrderTest` + reconciliation/fence/immutability/
+  clinical-safety/triage-eval + LAB.G1 + all vertical suites stay green (Clinical reused, untouched); no charge.
+  `tests/Feature/Lab/LabOrderTest.php` (6). See `docs/HOSPITAL-PHASE3-LAB-MAP.md`, [[Lab]], [[LOG]].

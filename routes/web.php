@@ -62,6 +62,7 @@ use Modules\Hospital\Http\Controllers\HandoverController;
 use Modules\Hospital\Http\Controllers\WardBoardController;
 use Modules\Import\Http\Controllers\ImportBatchController;
 use Modules\Lab\Http\Controllers\LabCatalogController;
+use Modules\Lab\Http\Controllers\LabOrderController;
 use Modules\Nursing\Http\Controllers\CompetencyController;
 use Modules\Nursing\Http\Controllers\DispatchActionController;
 use Modules\Nursing\Http\Controllers\DispatchBoardController;
@@ -467,6 +468,12 @@ Route::middleware('auth')->group(function () {
     Route::post('/lab/catalog', [LabCatalogController::class, 'store'])->name('lab.catalog.store');
     Route::post('/lab/catalog/seed', [LabCatalogController::class, 'seed'])->name('lab.catalog.seed');
     Route::post('/lab/catalog/{test}/deactivate', [LabCatalogController::class, 'deactivate'])->name('lab.catalog.deactivate');
+
+    // Lab order entry (LAB.G2) — a lab order IS a Clinical `Order` (REUSED via OrderService::place); the thin
+    // overlay adds only specimen-type + the recorded priority (routine/urgent/STAT — never computed). Viewing
+    // is `patient.view` (read-logged); placing is `order.manage` (the existing order permission). {patient} string-id.
+    Route::get('/lab/patients/{patient}/orders', [LabOrderController::class, 'show'])->name('lab.orders.show');
+    Route::post('/lab/patients/{patient}/orders', [LabOrderController::class, 'store'])->name('lab.orders.store');
 
     // Onboarding/migration: generic CSV patient import (RBAC 'data.import' enforced
     // in each controller action). Mandatory dry-run before commit.

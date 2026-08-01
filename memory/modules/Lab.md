@@ -71,16 +71,34 @@ Ordering a lab test reuses the EXISTING `order.manage` (the clinician orders). N
   stays free of Audit — the ED/Surgery/Pharmacy posture. Tenant-level (a catalog item, not patient-scoped).
 - **No money math** in Lab (billing is G6, via the existing engine).
 
+## Lab order entry (G2 — reuse the Clinical Order)
+
+A lab order IS a Clinical `Order` (~85% reuse). `LabOrderService::place` REUSES the EXISTING
+`OrderService::place` (authorizes `order.manage`, runs the `ordered→collected→in_progress→resulted→reviewed`
+lifecycle, calls the seam's `transmit()` — manual no-op) with the `LabTest`'s `OrderableItem`, then appends the
+thin **`lab_orders`** overlay (the only net-new): `specimen_type` (defaults from the catalog) + `priority`
+(routine/urgent/**STAT**), in one `DB::transaction`; ties to the patient + an optional `Encounter` (the
+existing linkage). `lab_orders` (BelongsToTenant, LogsReads, **APPEND-ONLY** — model guards + DB triggers,
+`unique(order_id)`). **FENCE:** the priority is a RECORDED flag the clinician sets — no computed priority/rank/
+escalation; **STAT is overlay-only, Clinical's `Order` UNTOUCHED** (its priority stays default routine; `orders`
+schema unchanged). Placing reuses `order.manage`; `LabOrderController` (`/lab/patients/{patient}/orders`) +
+`Lab/Orders.vue`; audit `lab.order_placed` (patient-scoped, app-layer).
+
 ## Gate log
 
 - **LAB.G1**: module + tenant-authored test catalog (`LabTest` overlay on `OrderableItem`) + the formalized
   `LabConnectivity` seam (docblocks; consumed from Clinical) + lab RBAC. 5 feature tests
   (`tests/Feature/Lab/LabCatalogTest.php`) + arch boundary + reprovision migration + FIX.5 smoke (`/lab/catalog`).
   See D-136.
+- **LAB.G2**: lab order entry — REUSES the Clinical `Order` (`OrderService::place`) + a thin `lab_orders`
+  overlay (specimen + priority incl STAT, append-only); priority is a recorded flag (not computed); Clinical
+  untouched. `LabOrderService` + `LabOrderController` (`/lab/patients/{patient}/orders`) + `Lab/Orders.vue` +
+  `lab.orders.*` i18n; FIX.5 smoke extended. 6 feature tests (`tests/Feature/Lab/LabOrderTest.php`). No charge.
+  See D-137.
 
 ## Not built yet (later gates)
 
-G2 order entry (reuse `Order`, +STAT priority) · G3 specimen tracking (net-new `Specimen`) · G4 manual result
+G3 specimen tracking (net-new `Specimen`) · G4 manual result
 + reference-range display (reuse `OrderResult`; the fence) · G5 routing + worklist · G6 billing (the engine) ·
 **G7 [SEAM-STUBBED] the HL7/FHIR/analyzer feed — partner-gated, NOT built** (a certified partner fills the
 `LabConnectivity` seam). Radiology (Phase 4) follows — also partner-gated (PACS/DICOM). See

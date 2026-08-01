@@ -648,6 +648,28 @@
             "empty": "No lab tests yet. Add one, or seed the starter set.",
             "deactivate": "Deactivate",
             "inactive": "Inactive"
+        },
+        "orders": {
+            "title": "Lab orders",
+            "eyebrow": "Laboratory · Orders",
+            "place": "Place a lab order",
+            "test": "Test",
+            "noTests": "No active lab tests. Author the catalog first.",
+            "specimen": "Specimen",
+            "specimenPlaceholder": "Specimen type",
+            "priority": "Priority",
+            "priorityValue": {
+                "routine": "Routine",
+                "urgent": "Urgent",
+                "stat": "STAT"
+            },
+            "priorityHint": "Priority is the flag you set — the system never computes a priority or ranks orders by urgency.",
+            "note": "Clinical note (optional)",
+            "submit": "Place order",
+            "history": "Lab orders",
+            "empty": "No lab orders yet.",
+            "status": "Status",
+            "orderedAt": "Ordered"
         }
     },
     "settings": {
