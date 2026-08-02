@@ -81,6 +81,23 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
 > record-keeping shell. THE ONE DELIBERATE GAP: **LAB.G7** the HL7/FHIR/analyzer feed stays the CERTIFIED-PARTNER
 > `LabConnectivity` seam (manual today; imported-via-partner later, never interpreted); homemade HL7 = not built.
 > **Radiology (Phase 4) remains** — also partner-gated (PACS/DICOM). See [[Lab]] / D-141.
+>
+> **UPDATE (Phase 4 — Radiology MAPPED, the LAST hospital phase):** `docs/HOSPITAL-PHASE4-RADIOLOGY-MAP.md` is
+> written (analysis only, no code). Radiology is **~95% reuse** — an imaging order IS a Clinical `Order` (the
+> `imaging` category + a `specimen_or_modality` field ALREADY exist); a report IS a sign-and-lock `ClinicalNote`;
+> routing IS `markReviewed`/`toReview`; the worklist IS the board idiom; billing IS the engine; an uploaded still
+> IS a `Document` (the DENTAL.G8 recipe, no pixel analysis). The one net-new is the **`ImagingStudy`** record
+> (the lab-`Specimen` analog). **No imaging seam exists yet** — Phase 4 CREATES `ImagingConnectivity` (mirroring
+> `LabConnectivity`), null no-op today. **PARTNER-GATED:** native DICOM/PACS/modality integration + a diagnostic
+> viewer = the defining RIS value, behind the seam (a homemade DICOM stack is out of scope). **FENCE:** the
+> radiologist AUTHORS the report; a computed image finding/CAD/auto-read is a HARD medical-device non-goal.
+> Proposed **~5 buildable gates + 1 seam-stubbed:** RAD.G1 module+catalog+seam+RBAC → G2 order → G3 study record
+> + modality worklist → G4 report + routing [fence gate] → G5 billing; **RAD.G6 [seam-stubbed]** the DICOM/PACS
+> feed + viewer. Recommended placement: a new peer `Modules\Radiology`. **After Phase 4, every hospital vertical
+> is mapped/built** (inpatient/pharmacy/lab/radiology/surgery/ED); standing certified-partner seams: drug-safety,
+> HL7/analyzer, PACS/DICOM, anaesthesia device-data. Honest note: without PACS, radiology is an order-form + a
+> typed report + billing (+ an optional uploaded still), not a diagnostic imaging workstation. See
+> `docs/HOSPITAL-PHASE4-RADIOLOGY-MAP.md`.
 
 **Read this before starting any work. The next unit of progress is DELIVERY, not another gate.**
 (Latest reconciliation: the full six-vertical handoff pass — clinic / dental / home-care / inpatient /
