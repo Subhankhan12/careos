@@ -88,10 +88,30 @@ const, stays green.
   boundary + reprovision migration + FIX.5 smoke (`/radiology/catalog`). REUSES Clinical's Order/ClinicalNote/
   Document — does NOT duplicate. FENCE: the seam never interprets; no computed image read anywhere. See D-142.
 
+- **RAD.G2**: imaging order entry — REUSES the Clinical `Order` (`OrderService::place`) + a thin
+  `radiology_orders` overlay (modality/body-part + priority incl STAT, append-only); priority is a recorded flag
+  (not computed); Clinical untouched (STAT overlay-only). `RadiologyOrderService::place` also calls the
+  `ImagingConnectivity` seam's `transmitOrder()` (the future DICOM MWL push — null no-op today).
+  `RadiologyOrderController` (`/radiology/patients/{patient}/orders`) + `Radiology/Orders.vue` +
+  `radiology.orders.*` i18n; app-layer `radiology.order_placed`; FIX.5 smoke extended (GET 200 + place 403). 6
+  feature tests (`tests/Feature/Radiology/RadiologyOrderTest.php`). No charge. See D-143.
+
+## Imaging order entry (G2 — reuse the Clinical Order)
+
+An imaging order IS a Clinical `Order` (~95% reuse). `RadiologyOrderService::place` REUSES the EXISTING
+`OrderService::place` (authorizes `order.manage`, runs the `ordered→…→reviewed` lifecycle) with the RAD.G1
+exam's `OrderableItem`, then appends the thin **`radiology_orders`** overlay (the only net-new): `modality` +
+`body_part` (default from the exam, overridable) + `priority` (routine/urgent/**STAT**), in one `DB::transaction`;
+then calls the `ImagingConnectivity` seam's **`transmitOrder()`** (the future DICOM Modality-Worklist push — the
+null no-op today). Ties to the patient + an optional `Encounter`. `radiology_orders` (BelongsToTenant, LogsReads,
+**APPEND-ONLY** — model guards + DB triggers, `unique(order_id)`). **FENCE:** the priority is a RECORDED flag —
+no computed priority/rank/escalation; **STAT is overlay-only, Clinical's `Order` UNTOUCHED** (priority stays
+routine; `orders` schema unchanged); no computed image finding (no image yet). Placing reuses `order.manage`;
+audit `radiology.order_placed` (patient-scoped, app-layer).
+
 ## Not built yet (later gates)
 
-G2 imaging order entry (reuse `Order` + thin modality/body-part overlay + STAT flag) · G3 the net-new
-`ImagingStudy` record + the modality worklist · G4 the radiologist report (reuse the sign-and-lock
+G3 the net-new `ImagingStudy` record + the modality worklist · G4 the radiologist report (reuse the sign-and-lock
 `ClinicalNote`) + routing [the fence gate] · G5 radiology billing (the engine; reconcile-to-the-unit) ·
 **G6 [SEAM-STUBBED] the DICOM/PACS/modality feed + diagnostic viewer — partner-gated, NOT built** (a certified
 PACS partner fills the `ImagingConnectivity` seam). After Phase 4, every hospital vertical is mapped/built;

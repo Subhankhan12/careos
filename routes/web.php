@@ -86,6 +86,7 @@ use Modules\Pharmacy\Http\Controllers\PricingController;
 use Modules\Platform\Http\Controllers\SettingsController;
 use Modules\Platform\Http\Controllers\UserRoleController;
 use Modules\Radiology\Http\Controllers\RadiologyCatalogController;
+use Modules\Radiology\Http\Controllers\RadiologyOrderController;
 use Modules\Reporting\Http\Controllers\ReportingDashboardController;
 use Modules\Scheduling\Http\Controllers\AppointmentSeriesController;
 use Modules\Scheduling\Http\Controllers\DayBoardActionController;
@@ -522,6 +523,13 @@ Route::middleware('auth')->group(function () {
     Route::post('/radiology/catalog', [RadiologyCatalogController::class, 'store'])->name('radiology.catalog.store');
     Route::post('/radiology/catalog/seed', [RadiologyCatalogController::class, 'seed'])->name('radiology.catalog.seed');
     Route::post('/radiology/catalog/{exam}/deactivate', [RadiologyCatalogController::class, 'deactivate'])->name('radiology.catalog.deactivate');
+
+    // Imaging order entry (RAD.G2) — an imaging order IS a Clinical `Order` (REUSED via OrderService::place); the
+    // thin overlay adds only modality/body-part + the recorded priority (routine/urgent/STAT — never computed).
+    // Viewing is `patient.view` (read-logged); placing is `order.manage` (the existing order permission). The
+    // ImagingConnectivity seam's transmitOrder() is the null no-op today (no homemade DICOM). {patient} string-id.
+    Route::get('/radiology/patients/{patient}/orders', [RadiologyOrderController::class, 'show'])->name('radiology.orders.show');
+    Route::post('/radiology/patients/{patient}/orders', [RadiologyOrderController::class, 'store'])->name('radiology.orders.store');
 
     // Onboarding/migration: generic CSV patient import (RBAC 'data.import' enforced
     // in each controller action). Mandatory dry-run before commit.

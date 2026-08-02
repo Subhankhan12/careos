@@ -2363,3 +2363,32 @@ references the old ID.
   + the overlay + new perms + the created seam; reusing Clinical). `tests/Feature/Radiology/RadiologyCatalogTest.php`
   (5) + the arch rule. Module memory `memory/modules/Radiology.md`. See `docs/HOSPITAL-PHASE4-RADIOLOGY-MAP.md`,
   [[Radiology]], [[LOG]].
+- **D-143 — RAD.G2: imaging order entry — reuses the Clinical `Order`; a thin modality/priority overlay;
+  priority is recorded not computed.** Per `docs/HOSPITAL-PHASE4-RADIOLOGY-MAP.md` §2.4 (the near-exact LAB.G2
+  analog). An imaging order IS a Clinical `Order` (~95% reuse) — `RadiologyOrderService::place` REUSES the
+  EXISTING `OrderService::place` (authorizes `order.manage`, runs the `ordered→collected→in_progress→resulted→
+  reviewed` lifecycle) with the RAD.G1 exam's `OrderableItem`, then appends the thin **`radiology_orders`**
+  overlay (the ONLY net-new: `modality` + `body_part` [default from the exam, overridable] + `priority`
+  [routine/urgent/**STAT**]) in one `DB::transaction`, then calls the `ImagingConnectivity` seam's
+  **`transmitOrder()`** (the future DICOM Modality-Worklist push — the null no-op today; a certified partner
+  fills it later WITHOUT any change here). Ties to the patient + an OPTIONAL `Encounter` (the existing linkage —
+  inpatient round / ED-visit encounter). `radiology_orders` (BelongsToTenant, LogsReads, **APPEND-ONLY** —
+  model guards + `SIGNAL '45000'` DB triggers `radiology_orders_no_update`/`_no_delete`; `unique(order_id)`).
+  **FENCE:** the priority is a RECORDED flag the ordering clinician SETS — the system computes NO priority,
+  ranks NOTHING by a computed urgency, auto-escalates NOTHING (no urgency-score/computed-priority/rank column;
+  the grep over `Modules\Radiology\src` finds no compute/rank-priority logic). **STAT is overlay-only —
+  Clinical's `Order` is UNTOUCHED** (its priority stays default routine; Clinical accepts routine/urgent only;
+  proven: `orders` schema has no modality/body_part/imaging_priority column). No image yet → NO computed image
+  finding/CAD column. The `transmitOrder()` seam stays the null no-op (no homemade DICOM/MWL — no
+  DicomClient/PacsClient/parseDicom in the module). **RBAC:** placing reuses the EXISTING `order.manage` (an
+  imaging order IS an Order — the clinician orders; reception [no order.manage] is REFUSED by the reused
+  `OrderService::place`; gated in the controller too); viewing = `patient.view` (read-logged). **AUDIT
+  (app-layer):** `RadiologyOrder.created`→`radiology.order_placed` (patient-scoped); the Order itself audited by
+  Clinical's `order.placed`. **UI (P0D.GU):** `RadiologyOrderController` (`/radiology/patients/{patient}/orders`,
+  string-id FIX.1 — place + list the patient's imaging orders with the reused-Order lifecycle status) +
+  `Radiology/Orders.vue` (exam picker + modality/body-part + priority); `radiology.orders.*` i18n. FIX.5 smoke
+  extended (`/radiology/patients/{id}/orders` GET 200; reception place 403). NO study/report/billing UI this
+  gate (G3–G5). No existing behavior test modified; the reconciliation/fence/immutability/clinical-safety/
+  triage-eval + RAD.G1 + all vertical suites stay green (Clinical's Order/OrderService REUSED, untouched). No
+  charge (radiology billing is G5). `tests/Feature/Radiology/RadiologyOrderTest.php` (6). See
+  `docs/HOSPITAL-PHASE4-RADIOLOGY-MAP.md`, [[Radiology]], [[LOG]].

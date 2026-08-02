@@ -110,6 +110,14 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
 > line). NO DICOM/PACS integration/viewer/image-storage built (RAD.G6 seam-stubbed, partner-gated). Remaining
 > radiology gates: G2 order (reuse `Order`) · G3 study record + worklist · G4 report + routing · G5 billing ·
 > **G6 [seam-stubbed] the DICOM/PACS feed + viewer.** See [[Radiology]] / D-142.
+>
+> **UPDATE (RAD.G2):** **imaging order entry is built** — an imaging order IS a Clinical `Order` (REUSED via
+> `OrderService::place`) + a thin `radiology_orders` overlay (modality/body-part + priority incl STAT,
+> append-only); `RadiologyOrderService::place` also calls the `ImagingConnectivity` seam's `transmitOrder()`
+> (the future DICOM MWL push — null no-op today). **FENCE:** the priority is a recorded flag (STAT overlay-only;
+> Clinical's Order untouched), never computed; no computed image finding (no image yet). Placing reuses
+> `order.manage`; audit `radiology.order_placed`. Remaining radiology gates: G3 study record + worklist · G4
+> report + routing · G5 billing · **G6 [seam-stubbed] the DICOM/PACS feed + viewer.** See [[Radiology]] / D-143.
 
 **Read this before starting any work. The next unit of progress is DELIVERY, not another gate.**
 (Latest reconciliation: the full six-vertical handoff pass — clinic / dental / home-care / inpatient /

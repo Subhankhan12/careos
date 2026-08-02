@@ -76,6 +76,7 @@ use Modules\Platform\Models\Tenant;
 use Modules\Platform\Models\User;
 use Modules\Platform\Services\TenantContext;
 use Modules\Radiology\Models\RadiologyExam;
+use Modules\Radiology\Models\RadiologyOrder;
 use Modules\Scheduling\Channels\EmailAppointmentReminderChannel;
 use Modules\Scheduling\Events\AppointmentBooked;
 use Modules\Scheduling\Events\AppointmentReminderDeliveryRecorded;
@@ -520,6 +521,15 @@ class AppServiceProvider extends ServiceProvider
             'resource_type' => 'radiology_exam',
             'resource_id' => $m->id,
             'context' => ['orderable_item_id' => $m->orderable_item_id, 'body_part' => $m->body_part, 'contrast' => $m->contrast],
+        ]));
+        // An imaging order (RAD.G2) — patient-scoped. The order itself is a REUSED Clinical `Order` (audited by
+        // Clinical's `order.placed`); this records the thin imaging overlay (modality/body-part + priority). The
+        // priority is the clinician's RECORDED flag, never computed.
+        RadiologyOrder::created(fn (RadiologyOrder $m) => $this->auditChange('radiology.order_placed', [
+            'patient_id' => $m->patient_id,
+            'resource_type' => 'radiology_order',
+            'resource_id' => $m->id,
+            'context' => ['order_id' => $m->order_id, 'modality' => $m->modality, 'body_part' => $m->body_part, 'priority' => $m->priority],
         ]));
 
         // People credential vault changes. The observer lives here so People
