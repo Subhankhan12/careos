@@ -109,6 +109,35 @@ const, stays green.
   (explicitly permitted — G3's core is the study record + worklist). FENCE: state + accession + worklist are
   facts; no computed image finding/CAD/priority; ordered-by-time not STAT (proven). 8 feature tests
   (`tests/Feature/Radiology/RadiologyStudyTest.php`). No charge. See D-144.
+- **RAD.G4**: the radiologist report + report routing — **THE FENCE GATE**. A report IS a REUSED sign-and-lock
+  Clinical `ClinicalNote` (write → sign → read-only → amend → version), authored by the radiologist on a reused
+  `Encounter`, tied to the RAD.G3 study by a radiology-side `imaging_study_reports` link (Clinical UNMODIFIED —
+  the `ed_visit_encounters` precedent). `RadiologyReportService` (`saveDraft`/`sign`/`amend`/`reportFor`/
+  `versionsFor`) composes `EncounterService`+`ClinicalNoteService`+`OrderService`+`ImagingStudyService`: signing
+  advances the study → reported + the reused Order → resulted (`recordResult` — the report IS the result), whence
+  the EXISTING order → review flow (`toReview`/`markReviewed`) routes it to the ordering clinician (reused, NOT
+  reinvented). `ImagingReportController` (`/radiology/orders/{radiologyOrder}/report` show/save/sign/amend) +
+  `Radiology/Report.vue` + `radiology.report.*` i18n; app-layer `radiology.report_started`; FIX.5 smoke extended
+  (report GET 200 + save 403). **THE FENCE:** the radiologist AUTHORS the report (findings=objective,
+  impression=assessment — prose); the system computes NO image finding/CAD/abnormality/confidence/auto-read/
+  suggested-diagnosis (a HARD non-goal); nothing auto-populates (proven); no such column/logic. Sign-and-lock
+  immutability + versioned amend reused (proven). 7 feature tests
+  (`tests/Feature/Radiology/RadiologyReportTest.php`). No charge. See D-145.
+
+## The radiologist report + routing (G4 — the fence gate; reuse sign-and-lock)
+
+A report IS a reused sign-and-lock `ClinicalNote` — the radiologist authors findings (→ objective) + impression
+(→ assessment) as PROSE on a reused `TYPE_CONSULTATION` `Encounter`, tied to the RAD.G3 study by the
+radiology-side `imaging_study_reports` link (one report-encounter per study; Clinical's Encounter/ClinicalNote
+schema + sign-and-lock + one-open-per-practitioner invariants UNTOUCHED — the `EdVisitEncounter` precedent).
+`RadiologyReportService::saveDraft` (note.write) / `sign` (note.sign + radiology.study + order.manage) / `amend`
+(note.write, a versioned successor). **Signing files the report:** sign the note (immutable) → study → reported
+(the G3 legal transition; requires acquired) → the reused Order → resulted (`OrderService::recordResult`, the
+impression as the result value, source=manual) — atomic. **Routing REUSES the order → review flow** (the resulted
+Order appears in `OrderService::toReview`; `markReviewed` → reviewed) — NOT reinvented (via the EXISTING
+`clinical.orders.worklist`). **THE FENCE (the sharpest in radiology):** the report is AUTHORED prose — NO
+computed image finding/CAD/abnormality/confidence/auto-read/diagnosis; nothing auto-populates; AI radiology is a
+HARD medical-device non-goal.
 
 ## The study record + modality worklist (G3 — the net-new domain)
 
@@ -140,9 +169,9 @@ audit `radiology.order_placed` (patient-scoped, app-layer).
 
 ## Not built yet (later gates)
 
-G4 the radiologist report (reuse the sign-and-lock
-`ClinicalNote`) + routing [the fence gate] · G5 radiology billing (the engine; reconcile-to-the-unit) ·
+G5 radiology billing (the engine; reconcile-to-the-unit) ·
 **G6 [SEAM-STUBBED] the DICOM/PACS/modality feed + diagnostic viewer — partner-gated, NOT built** (a certified
-PACS partner fills the `ImagingConnectivity` seam). After Phase 4, every hospital vertical is mapped/built;
-standing certified-partner seams: drug-safety, HL7/analyzer, PACS/DICOM, anaesthesia device-data. See
-`docs/HOSPITAL-PHASE4-RADIOLOGY-MAP.md`.
+PACS partner fills the `ImagingConnectivity` seam). Also DEFERRED: the optional uploaded still (dental
+`DocumentService` — a limited manual export, not a diagnostic viewer). After Phase 4, every hospital vertical is
+mapped/built; standing certified-partner seams: drug-safety, HL7/analyzer, PACS/DICOM, anaesthesia device-data.
+See `docs/HOSPITAL-PHASE4-RADIOLOGY-MAP.md`.

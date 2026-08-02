@@ -2426,3 +2426,39 @@ references the old ID.
   immutability/clinical-safety/triage-eval + RAD.G1/G2 + all vertical suites stay green (Clinical's Order
   reused/untouched). No charge. `tests/Feature/Radiology/RadiologyStudyTest.php` (8). See
   `docs/HOSPITAL-PHASE4-RADIOLOGY-MAP.md`, [[Radiology]], [[LOG]].
+- **D-145 — RAD.G4: the radiologist report (reuses sign-and-lock; authored not computed) + report routing —
+  THE FENCE GATE.** Per `docs/HOSPITAL-PHASE4-RADIOLOGY-MAP.md` §2.5. A report IS a REUSED sign-and-lock Clinical
+  `ClinicalNote` (write → sign → read-only → amend → version — the ED op-note / lab-result precedent), authored
+  by the radiologist (findings → objective, impression → assessment, as PROSE) on a reused `TYPE_CONSULTATION`
+  `Encounter`, tied to the RAD.G3 `ImagingStudy` by a radiology-side **`imaging_study_reports`** link (one
+  report-encounter per study; `unique(imaging_study_id)` + `unique(tenant, encounter_id)`; the
+  `ed_visit_encounters`/`ward_rounds` precedent). **Clinical is UNMODIFIED** — the `Encounter`/`ClinicalNote`
+  schema + sign-and-lock + one-open-per-practitioner invariants are untouched (proven: `clinical_notes`/
+  `encounters` carry no radiology column). `RadiologyReportService` (`saveDraft`/`sign`/`amend`/`reportFor`/
+  `versionsFor`) composes `EncounterService`+`ClinicalNoteService`+`OrderService`+`ImagingStudyService`:
+  **signing files the report** — sign the note (immutable, note.sign) → advance the study → reported (the G3
+  legal transition; requires acquired) → advance the reused Clinical `Order` → resulted
+  (`OrderService::recordResult` — the report IS the result; the impression as the raw result value,
+  source=manual) — atomically. **Report routing REUSES the existing order → review flow** (the resulted Order
+  appears in `OrderService::toReview`; `markReviewed` → reviewed) — NOT reinvented (the LAB.G5 posture, via the
+  EXISTING `clinical.orders.worklist`/`clinical.orders.review`; proven). **THE FENCE (the sharpest in
+  radiology):** the radiologist AUTHORS the report — findings + impression are PROSE the human writes; the
+  system computes NO image finding, runs NO CAD, flags NO abnormality, does NO auto-read, computes NO
+  confidence, suggests NO diagnosis — a HARD medical-device non-goal (the AGENTS.md / dental-imaging line).
+  Proven: nothing auto-populates (an empty draft stays empty); no computed-image-read column on
+  `imaging_study_reports`; no computeFinding/detectAbnormality/cadRead/autoRead/interpretImage/suggestDiagnosis/
+  confidenceScore/aiRead logic in `Modules\Radiology\src`; the clinical-safety eval stays green. Sign-and-lock
+  is reused, not weakened: a signed report is immutable (LogicException on edit); an amendment is a NEW version
+  (`supersedes_id` + reason; the original stays immutable). **RBAC:** authoring = `note.write`, signing =
+  `note.sign` (the radiologist holds both + `order.manage` + `radiology.study` + `encounter.manage`; reception
+  refused); viewing = `patient.view` (read-logged). Tenant + patient scoped, cross-tenant fail-closed. **AUDIT
+  (app-layer):** `ImagingStudyReport.created`→`radiology.report_started`; the note (note.signed/amended), the
+  Order (order.resulted), and the study (radiology.study.reported) are audited by existing hooks. **UI
+  (P0D.GU):** `ImagingReportController` (`/radiology/orders/{radiologyOrder}/report` show/save/sign/amend,
+  string-id FIX.1; the acting radiologist's StaffProfile resolved from the user) + `Radiology/Report.vue`
+  (findings/impression prose editor; sign → lock; amend → new version; a "route to the review worklist" link) +
+  `radiology.report.*` i18n. FIX.5 smoke extended (`/radiology/orders/{id}/report` GET 200; reception save 403).
+  NO billing UI this gate (G5). No existing behavior test modified; ClinicalNote/Encounter's invariant + the
+  clinical-safety/triage-eval + RAD.G1–G3 + all vertical suites stay green (Clinical REUSED, untouched). No
+  charge. `tests/Feature/Radiology/RadiologyReportTest.php` (7). See `docs/HOSPITAL-PHASE4-RADIOLOGY-MAP.md`,
+  [[Radiology]], [[LOG]].

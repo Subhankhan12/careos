@@ -85,6 +85,7 @@ use Modules\Pharmacy\Http\Controllers\MedicationOrderController;
 use Modules\Pharmacy\Http\Controllers\PricingController;
 use Modules\Platform\Http\Controllers\SettingsController;
 use Modules\Platform\Http\Controllers\UserRoleController;
+use Modules\Radiology\Http\Controllers\ImagingReportController;
 use Modules\Radiology\Http\Controllers\ImagingStudyController;
 use Modules\Radiology\Http\Controllers\RadiologyCatalogController;
 use Modules\Radiology\Http\Controllers\RadiologyOrderController;
@@ -542,6 +543,16 @@ Route::middleware('auth')->group(function () {
     Route::get('/radiology/orders/{radiologyOrder}/study', [ImagingStudyController::class, 'show'])->name('radiology.studies.show');
     Route::post('/radiology/orders/{radiologyOrder}/study/acquire', [ImagingStudyController::class, 'acquire'])->name('radiology.studies.acquire');
     Route::post('/radiology/studies/{study}/transition', [ImagingStudyController::class, 'transition'])->name('radiology.studies.transition');
+
+    // The radiologist report (RAD.G4) — THE FENCE GATE. The radiologist AUTHORS a report (findings + impression
+    // as prose) via the reused sign-and-lock ClinicalNote; signing files it (study → reported, Order → resulted)
+    // and the EXISTING order → review flow routes it to the ordering clinician. Viewing is `patient.view`
+    // (read-logged); authoring is `note.write`; signing is `note.sign`. FENCE: the report is authored — the
+    // system computes NO image finding/CAD/abnormality. {radiologyOrder} string-id (FIX.1).
+    Route::get('/radiology/orders/{radiologyOrder}/report', [ImagingReportController::class, 'show'])->name('radiology.reports.show');
+    Route::post('/radiology/orders/{radiologyOrder}/report', [ImagingReportController::class, 'store'])->name('radiology.reports.save');
+    Route::post('/radiology/orders/{radiologyOrder}/report/sign', [ImagingReportController::class, 'sign'])->name('radiology.reports.sign');
+    Route::post('/radiology/orders/{radiologyOrder}/report/amend', [ImagingReportController::class, 'amend'])->name('radiology.reports.amend');
 
     // Onboarding/migration: generic CSV patient import (RBAC 'data.import' enforced
     // in each controller action). Mandatory dry-run before commit.

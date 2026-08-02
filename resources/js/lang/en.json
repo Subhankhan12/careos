@@ -2587,6 +2587,29 @@
             "cancelReason": "Reason for cancelling this study:",
             "imageTitle": "Image",
             "imageSeamNote": "Image storage and viewing (DICOM/PACS) are provided by a certified imaging partner and are not available here. This is the study record (metadata) — not a diagnostic viewer."
+        },
+        "report": {
+            "title": "Radiology report",
+            "eyebrow": "Radiology · Report",
+            "author": "Author the report",
+            "findings": "Findings",
+            "findingsPlaceholder": "Findings (what you observe in the images) — your words",
+            "impression": "Impression",
+            "impressionPlaceholder": "Impression (your reading / conclusion) — your words",
+            "fenceHint": "You author the report. The system reads no images and computes no finding, CAD, abnormality flag or diagnosis — every word is yours.",
+            "noStudy": "No acquired study yet — acquire the study before reporting.",
+            "saveDraft": "Save draft",
+            "sign": "Sign & file report",
+            "amend": "Amend (new version)",
+            "amendReason": "Reason for the amendment:",
+            "history": "Report versions",
+            "empty": "No report authored yet.",
+            "version": "Version",
+            "signedAt": "Signed",
+            "draft": "Draft",
+            "signed": "Signed",
+            "routedNote": "On signing, the report routes to the ordering clinician’s review worklist (the shared order → review flow).",
+            "openReview": "Open review worklist"
         }
     }
 }

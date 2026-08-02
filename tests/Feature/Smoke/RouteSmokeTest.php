@@ -220,6 +220,7 @@ test('every major staff route is reachable through the real middleware stack (20
         'radiology.orders (C-1)' => '/radiology/patients/'.$fx['patient']->id.'/orders',
         'radiology.worklist' => '/radiology/worklist',
         'radiology.study (C-1)' => '/radiology/orders/'.$fx['radOrder']->id.'/study',
+        'radiology.report (C-1)' => '/radiology/orders/'.$fx['radOrder']->id.'/report',
     ];
 
     $failures = [];
@@ -618,6 +619,17 @@ test('per-role RBAC smoke: each role reaches its pages (200) and is denied other
         ->status();
     if ($radAcquireStatus !== 403) {
         $failures[] = "radiology.studies.acquire as reception -> {$radAcquireStatus} (expected 403)";
+    }
+
+    // RAD.G4: authoring a radiology report is note.write-gated (the radiologist). Reception (patient.view, so it
+    // can VIEW, but NO note.write) is denied on the report-save route at the gate through the real stack. The
+    // report is authored prose; the system computes no image finding/CAD (the fence).
+    smokeCtx()->forget();
+    $radReportStatus = $this->actingAs($u['reception'])
+        ->post('/radiology/orders/'.$fx['radOrder']->id.'/report', ['findings' => 'x', 'impression' => 'y'])
+        ->status();
+    if ($radReportStatus !== 403) {
+        $failures[] = "radiology.reports.save as reception -> {$radReportStatus} (expected 403)";
     }
 
     expect(implode("\n", $failures))->toBe('');

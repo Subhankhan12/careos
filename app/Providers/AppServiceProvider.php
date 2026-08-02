@@ -77,6 +77,7 @@ use Modules\Platform\Models\User;
 use Modules\Platform\Services\TenantContext;
 use Modules\Radiology\Models\ImagingStudy;
 use Modules\Radiology\Models\ImagingStudyEvent;
+use Modules\Radiology\Models\ImagingStudyReport;
 use Modules\Radiology\Models\RadiologyExam;
 use Modules\Radiology\Models\RadiologyOrder;
 use Modules\Scheduling\Channels\EmailAppointmentReminderChannel;
@@ -548,6 +549,17 @@ class AppServiceProvider extends ServiceProvider
             'resource_type' => 'imaging_study_event',
             'resource_id' => $m->id,
             'context' => ['imaging_study_id' => $m->imaging_study_id, 'event_type' => $m->event_type, 'reason' => $m->reason],
+        ]));
+        // The radiologist report (RAD.G4) — patient-scoped. The report itself is a REUSED sign-and-lock
+        // ClinicalNote (authored by a human; audited by Clinical's note.signed/amended) on a reused Encounter;
+        // this records the radiology-side link (the report encounter for a study). The signed report also
+        // advances the study (radiology.study.reported) + the Order (order.resulted), audited by those hooks.
+        // NO computed image read — the report is authored prose (the fence).
+        ImagingStudyReport::created(fn (ImagingStudyReport $m) => $this->auditChange('radiology.report_started', [
+            'patient_id' => $m->patient_id,
+            'resource_type' => 'imaging_study_report',
+            'resource_id' => $m->id,
+            'context' => ['imaging_study_id' => $m->imaging_study_id, 'encounter_id' => $m->encounter_id],
         ]));
 
         // People credential vault changes. The observer lives here so People

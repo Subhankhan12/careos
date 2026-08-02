@@ -129,6 +129,15 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
 > still (dental `DocumentService`) is DEFERRED. **FENCE:** state/accession/worklist are facts — no computed image
 > finding/CAD/priority (proven). Remaining radiology gates: G4 report + routing · G5 billing · **G6
 > [seam-stubbed] the DICOM/PACS feed + viewer.** See [[Radiology]] / D-144.
+>
+> **UPDATE (RAD.G4 — the fence gate):** the **radiologist report + routing are built** — a report IS a REUSED
+> sign-and-lock `ClinicalNote` (authored by the radiologist on a reused Encounter, tied to the study by a
+> radiology-side `imaging_study_reports` link; Clinical UNMODIFIED). Signing files it — study → reported + the
+> reused Order → resulted (`recordResult`) — and the EXISTING order → review flow routes it to the ordering
+> clinician (`toReview`/`markReviewed`; reused, not reinvented). **THE FENCE:** the radiologist AUTHORS the
+> report (findings/impression as prose); the system computes NO image finding/CAD/abnormality/confidence/
+> auto-read/diagnosis — a HARD medical-device non-goal (nothing auto-populates; proven). Remaining radiology
+> gates: G5 billing · **G6 [seam-stubbed] the DICOM/PACS feed + viewer.** See [[Radiology]] / D-145.
 
 **Read this before starting any work. The next unit of progress is DELIVERY, not another gate.**
 (Latest reconciliation: the full six-vertical handoff pass — clinic / dental / home-care / inpatient /
