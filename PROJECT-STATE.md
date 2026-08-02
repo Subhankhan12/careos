@@ -51,6 +51,15 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
 > lab.result, so the Order isn't advanced here). **FENCE:** state + accession are operational facts — no
 > computed priority/urgency/routing. Remaining lab gates: G4 result + reference-range display · G5 routing · G6
 > billing · **G7 [seam-stubbed] the HL7 feed.** See [[Lab]] / D-138.
+>
+> **UPDATE (LAB.G4 — the fence gate):** **manual result entry is built** — a lab result IS a Clinical
+> `OrderResult` (reused via `OrderService::recordResult`: append-only, raw, `source=manual`; advances the reused
+> `Order` → resulted). A thin append-only `lab_results` overlay links the reused result to the LAB.G3 specimen
+> (carries no value); `LabResultService::record` (gate `lab.result` + reuses `order.manage`) walks the specimen
+> → resulted. **THE FENCE (the sharpest):** the reference range is DISPLAYED reference data beside the raw value
+> — the system computes NO abnormal/high/low/critical flag, delta, or interpretation (proven: an out-of-range
+> value carries no flag; no computed-judgment column/key/logic anywhere). Remaining lab gates: G5 routing · G6
+> billing · **G7 [seam-stubbed] the HL7 feed.** See [[Lab]] / D-139.
 
 **Read this before starting any work. The next unit of progress is DELIVERY, not another gate.**
 (Latest reconciliation: the full six-vertical handoff pass — clinic / dental / home-care / inpatient /

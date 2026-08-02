@@ -2253,3 +2253,25 @@ references the old ID.
   (G4–G6). No existing behavior test modified; the reconciliation/fence/immutability/clinical-safety/triage-eval
   + LAB.G1/G2 + all vertical suites stay green (Clinical reused/untouched); no charge.
   `tests/Feature/Lab/SpecimenTest.php` (7). See `docs/HOSPITAL-PHASE3-LAB-MAP.md`, [[Lab]], [[LOG]].
+- **D-139 — LAB.G4: manual result entry + reference-range display — THE FENCE GATE (reuses `OrderResult`;
+  the range is a displayed fact, no computed abnormal flag).** Per `docs/HOSPITAL-PHASE3-LAB-MAP.md` §2.5/§4.
+  A lab result IS a Clinical `OrderResult` — `LabResultService::record` (gate `lab.result`; the reused path
+  also re-checks `order.manage`) REUSES `OrderService::recordResult` (append-only, RAW, `source=manual`;
+  advances the reused `Order` → resulted), appends the thin **`lab_results`** overlay (append-only,
+  `unique(order_result_id)` — the ONLY net-new; links the reused result to the LAB.G3 specimen that produced
+  it, carries NO value), and walks the specimen → resulted through the G3 legal machine (collected → in_lab →
+  resulted). **THE FENCE (the sharpest in lab):** the reference range (`unit`+`reference_range` from the LAB.G1
+  catalog) is DISPLAYED reference data beside the raw value — the system computes NO abnormal/high/low/critical
+  flag, NO delta-check, NO interpretation (the vitals-bands line; `OrderResult` already has no interpretation
+  column, `lab_results` adds none). Proven: an out-of-range value carries no flag; the Inertia payload key-sweep
+  finds no computed-judgment key; no such column on `order_results`/`lab_results`; no grade/flag logic in
+  `Modules\Lab\src`. The `LabConnectivity` seam stays the manual no-op (no homemade HL7 — that is LAB.G7). RBAC:
+  the `lab_tech`/`pathologist`/`org_admin` (both perms) record; a `phlebotomist` (lab.result only) is refused at
+  the reused Clinical path; reception refused; cross-tenant fail-closed. AUDIT (app-layer):
+  `LabResult.created`→`lab.result_recorded` (patient-scoped); the OrderResult audited by Clinical's
+  `order.resulted`. UI (P0D.GU): `LabResultController` (`/lab/orders/{labOrder}/results` view ·
+  `/lab/specimens/{specimen}/results` store) + `Lab/Results.vue`; `lab.results.*` i18n; FIX.5 smoke extended
+  (GET 200 + store 403). No result routing/billing this gate (G5/G6). No existing behavior test modified; the
+  reconciliation/fence/immutability/clinical-safety/triage-eval + LAB.G1–G3 + all vertical suites stay green
+  (Clinical's OrderResult/OrderService/seam reused/untouched); no charge.
+  `tests/Feature/Lab/LabResultTest.php` (7). See `docs/HOSPITAL-PHASE3-LAB-MAP.md`, [[Lab]], [[LOG]].

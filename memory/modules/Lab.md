@@ -102,6 +102,18 @@ schema unchanged). Placing reuses `order.manage`; `LabOrderController` (`/lab/pa
   (`/lab/orders/{labOrder}/specimens`) + `Lab/Specimens.vue` + `lab.specimens.*` i18n; FIX.5 smoke extended.
   FENCE: state + accession are facts, no computed priority/routing. 7 feature tests
   (`tests/Feature/Lab/SpecimenTest.php`). No charge. See D-138.
+- **LAB.G4**: manual result entry + reference-range display — **THE FENCE GATE**. A lab result IS a Clinical
+  `OrderResult` (REUSED via `OrderService::recordResult` — append-only, raw, `source=manual`; advances the reused
+  Order → resulted). Thin `lab_results` overlay (append-only, `unique(order_result_id)`) links the reused result
+  to the LAB.G3 specimen that produced it (carries NO value); `LabResultService::record` (gate `lab.result` +
+  reuses `order.manage`) also walks the specimen → resulted via the G3 legal machine. `LabResultController`
+  (`/lab/orders/{labOrder}/results` view · `/lab/specimens/{specimen}/results` store) + `Lab/Results.vue` +
+  `lab.results.*` i18n; app-layer `lab.result_recorded`; FIX.5 smoke extended (GET 200 + store 403). **THE
+  FENCE:** the reference range (`unit`+`reference_range` from the LAB.G1 catalog) is DISPLAYED beside the raw
+  value — the system computes NO abnormal/high/low/critical flag, no delta, no interpretation (proven: an
+  out-of-range value carries no flag; no computed-judgment column on `order_results`/`lab_results`; no
+  grade/flag logic in `Modules\Lab\src`; the payload key-sweep is clean). 7 feature tests
+  (`tests/Feature/Lab/LabResultTest.php`). No charge. See D-139.
 
 ## Specimen tracking (G3 — the net-new entity)
 
@@ -113,10 +125,22 @@ gate `lab.result`. **The Clinical Order is REUSED + UNTOUCHED** — collection r
 advance the Order (the phlebotomist has only lab.result; the Order's lifecycle is Clinical's, advanced by the
 result step G4). FENCE: state + accession are operational facts — no computed priority/urgency/routing.
 
+## Manual result entry (G4 — the fence gate; reuse OrderResult)
+
+A lab result IS a Clinical `OrderResult` — `LabResultService::record` REUSES `OrderService::recordResult`
+(append-only, raw, `source=manual`, advancing the reused `Order` → resulted), appends the thin `lab_results`
+overlay (append-only, `unique(order_result_id)`; the ONLY net-new — it links the reused result to the LAB.G3
+specimen that produced it and carries NO value), and advances the specimen → resulted through the G3 legal
+machine (collected → in_lab → resulted, each hop legal). Gated `lab.result` (the lab-domain permission) + the
+reused `recordResult` re-checks `order.manage` (the `lab_tech`/`pathologist`/`org_admin` holds both; a
+`phlebotomist` with only `lab.result` is refused at the reused Clinical path — proven). **THE FENCE (the
+sharpest):** the reference range (`unit`+`reference_range`) is DISPLAYED reference data read from the LAB.G1
+catalog beside the raw value — NEVER a threshold graded against. NO abnormal/high/low/critical flag, delta, or
+interpretation is computed anywhere (payload or UI); `order_results` stays raw (no interpretation column) and
+`lab_results` adds none. `LabConnectivity` stays the manual no-op (no homemade HL7 — that is LAB.G7).
+
 ## Not built yet (later gates)
 
-G4 manual result
-+ reference-range display (reuse `OrderResult`; the fence) · G5 routing + worklist · G6 billing (the engine) ·
-**G7 [SEAM-STUBBED] the HL7/FHIR/analyzer feed — partner-gated, NOT built** (a certified partner fills the
-`LabConnectivity` seam). Radiology (Phase 4) follows — also partner-gated (PACS/DICOM). See
-`docs/HOSPITAL-PHASE3-LAB-MAP.md`.
+G5 routing + worklist · G6 billing (the engine) · **G7 [SEAM-STUBBED] the HL7/FHIR/analyzer feed —
+partner-gated, NOT built** (a certified partner fills the `LabConnectivity` seam). Radiology (Phase 4) follows —
+also partner-gated (PACS/DICOM). See `docs/HOSPITAL-PHASE3-LAB-MAP.md`.

@@ -205,6 +205,7 @@ test('every major staff route is reachable through the real middleware stack (20
         'lab.catalog' => '/lab/catalog',
         'lab.orders (C-1)' => '/lab/patients/'.$fx['patient']->id.'/orders',
         'lab.specimens (C-1)' => '/lab/orders/'.$fx['labOrder']->id.'/specimens',
+        'lab.results (C-1)' => '/lab/orders/'.$fx['labOrder']->id.'/results',
     ];
 
     $failures = [];
@@ -544,6 +545,17 @@ test('per-role RBAC smoke: each role reaches its pages (200) and is denied other
         ->status();
     if ($specimenStatus !== 403) {
         $failures[] = "lab.specimens.collect as reception -> {$specimenStatus} (expected 403)";
+    }
+
+    // LAB.G4: entering a manual result is lab.result-gated (the lab bench). Reception (patient.view, so it can
+    // VIEW, but NO lab.result) is denied on the result route at the gate through the real stack. THE FENCE: the
+    // reference range is displayed reference data; the system computes no abnormal/critical flag.
+    smokeCtx()->forget();
+    $labResultStatus = $this->actingAs($u['reception'])
+        ->post('/lab/specimens/x/results', ['value' => '4.2'])
+        ->status();
+    if ($labResultStatus !== 403) {
+        $failures[] = "lab.results.store as reception -> {$labResultStatus} (expected 403)";
     }
 
     expect(implode("\n", $failures))->toBe('');

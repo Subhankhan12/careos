@@ -48,6 +48,7 @@ use Modules\Hospital\Models\DischargeSummary;
 use Modules\Hospital\Models\Handover;
 use Modules\Hospital\Models\Ward;
 use Modules\Lab\Models\LabOrder;
+use Modules\Lab\Models\LabResult;
 use Modules\Lab\Models\LabTest;
 use Modules\Lab\Models\Specimen;
 use Modules\Lab\Models\SpecimenEvent;
@@ -500,6 +501,16 @@ class AppServiceProvider extends ServiceProvider
             'resource_type' => 'specimen_event',
             'resource_id' => $m->id,
             'context' => ['specimen_id' => $m->specimen_id, 'event_type' => $m->event_type, 'reason' => $m->reason],
+        ]));
+        // Manual result entry (LAB.G4) — patient-scoped. The result itself is a REUSED Clinical `OrderResult`
+        // (audited by Clinical's `order.resulted`, raw); this records the thin lab overlay linking the result to
+        // the specimen that produced it. NO computed abnormal/critical flag — the value is raw, the range is
+        // displayed reference data (the fence).
+        LabResult::created(fn (LabResult $m) => $this->auditChange('lab.result_recorded', [
+            'patient_id' => $m->patient_id,
+            'resource_type' => 'lab_result',
+            'resource_id' => $m->id,
+            'context' => ['order_result_id' => $m->order_result_id, 'specimen_id' => $m->specimen_id],
         ]));
 
         // People credential vault changes. The observer lives here so People

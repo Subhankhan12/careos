@@ -63,6 +63,7 @@ use Modules\Hospital\Http\Controllers\WardBoardController;
 use Modules\Import\Http\Controllers\ImportBatchController;
 use Modules\Lab\Http\Controllers\LabCatalogController;
 use Modules\Lab\Http\Controllers\LabOrderController;
+use Modules\Lab\Http\Controllers\LabResultController;
 use Modules\Lab\Http\Controllers\SpecimenController;
 use Modules\Nursing\Http\Controllers\CompetencyController;
 use Modules\Nursing\Http\Controllers\DispatchActionController;
@@ -483,6 +484,14 @@ Route::middleware('auth')->group(function () {
     Route::get('/lab/orders/{labOrder}/specimens', [SpecimenController::class, 'show'])->name('lab.specimens.show');
     Route::post('/lab/orders/{labOrder}/specimens', [SpecimenController::class, 'collect'])->name('lab.specimens.collect');
     Route::post('/lab/specimens/{specimen}/transition', [SpecimenController::class, 'transition'])->name('lab.specimens.transition');
+
+    // Manual result entry (LAB.G4) — THE FENCE GATE. A lab result IS a Clinical `OrderResult` (REUSED via
+    // OrderService::recordResult — append-only, raw, source=manual); the reference range is DISPLAYED reference
+    // data beside the raw value. Viewing is `patient.view` (read-logged); entering a result is `lab.result`.
+    // FENCE: the system computes NO abnormal/high/low/critical flag / delta / interpretation — value + range are
+    // facts the clinician reads. {labOrder}/{specimen} string-id (FIX.1).
+    Route::get('/lab/orders/{labOrder}/results', [LabResultController::class, 'show'])->name('lab.results.show');
+    Route::post('/lab/specimens/{specimen}/results', [LabResultController::class, 'store'])->name('lab.results.store');
 
     // Onboarding/migration: generic CSV patient import (RBAC 'data.import' enforced
     // in each controller action). Mandatory dry-run before commit.
