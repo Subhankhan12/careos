@@ -207,6 +207,7 @@ test('every major staff route is reachable through the real middleware stack (20
         'lab.specimens (C-1)' => '/lab/orders/'.$fx['labOrder']->id.'/specimens',
         'lab.results (C-1)' => '/lab/orders/'.$fx['labOrder']->id.'/results',
         'lab.review' => '/lab/results/review',
+        'lab.billing (C-1)' => '/lab/orders/'.$fx['labOrder']->id.'/billing',
     ];
 
     $failures = [];
@@ -561,6 +562,17 @@ test('per-role RBAC smoke: each role reaches its pages (200) and is denied other
         ->status();
     if ($labResultStatus !== 403) {
         $failures[] = "lab.results.store as reception -> {$labResultStatus} (expected 403)";
+    }
+
+    // LAB.G6: capturing a lab charge is billing.manage-gated (the billing office, NOT the lab bench). Reception
+    // (no billing.manage) is denied on the charge route at the gate through the real stack, before any charge is
+    // captured. A lab fee is a tariff, never result-driven; no money math in Lab.
+    smokeCtx()->forget();
+    $labChargeStatus = $this->actingAs($u['reception'])
+        ->post('/lab/orders/'.$fx['labOrder']->id.'/billing/charge')
+        ->status();
+    if ($labChargeStatus !== 403) {
+        $failures[] = "lab.billing.charge as reception -> {$labChargeStatus} (expected 403)";
     }
 
     expect(implode("\n", $failures))->toBe('');

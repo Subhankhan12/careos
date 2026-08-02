@@ -69,6 +69,18 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
 > computed priority/urgency ranking, NO critical flag (proven: a later-resulted routine order outranks an
 > earlier-resulted STAT one). Remaining lab gates: G6 billing · **G7 [seam-stubbed] the HL7 feed.** See [[Lab]]
 > / D-140.
+>
+> **UPDATE (LAB.G6 — LAB CORE COMPLETE):** **lab billing is built** — a lab order accrues its test fee through
+> the EXISTING engine, reconciling-to-the-unit. STRICTLY ORCHESTRATION (no money math in Lab — the adversarial
+> grep is clean). A lab test is a tenant-authored `TariffItem`; `LabBillingService` captures the charge via the
+> existing `ChargeCaptureService` (engine-snapshotted), issues an outpatient invoice, or (inpatient/ED) lets the
+> lab charges ride the stay/episode invoice via `invoiceStay`. **Reconciles-to-the-unit proven both ways**
+> (outpatient δ=0; composite inpatient episode — lab + bed-days on one invoice — δ=0). **FENCE:** the fee is a
+> tariff, NOT result-driven. **The buildable LAB vertical (Phase 3 core) is COMPLETE** — G1 catalog+seam → G2
+> order → G3 specimen → G4 result+range → G5 review → G6 billing; a lab runs end-to-end as a manual
+> record-keeping shell. THE ONE DELIBERATE GAP: **LAB.G7** the HL7/FHIR/analyzer feed stays the CERTIFIED-PARTNER
+> `LabConnectivity` seam (manual today; imported-via-partner later, never interpreted); homemade HL7 = not built.
+> **Radiology (Phase 4) remains** — also partner-gated (PACS/DICOM). See [[Lab]] / D-141.
 
 **Read this before starting any work. The next unit of progress is DELIVERY, not another gate.**
 (Latest reconciliation: the full six-vertical handoff pass — clinic / dental / home-care / inpatient /

@@ -61,6 +61,7 @@ use Modules\Hospital\Http\Controllers\DischargeSummaryController;
 use Modules\Hospital\Http\Controllers\HandoverController;
 use Modules\Hospital\Http\Controllers\WardBoardController;
 use Modules\Import\Http\Controllers\ImportBatchController;
+use Modules\Lab\Http\Controllers\LabBillingController;
 use Modules\Lab\Http\Controllers\LabCatalogController;
 use Modules\Lab\Http\Controllers\LabOrderController;
 use Modules\Lab\Http\Controllers\LabResultController;
@@ -499,6 +500,17 @@ Route::middleware('auth')->group(function () {
     // review action REUSES the existing `clinical.orders.review` endpoint (markReviewed). Gated `order.manage`.
     // FENCE: facts + the recorded STAT flag (sortable) — NO computed priority ranking / critical flag.
     Route::get('/lab/results/review', LabReviewController::class)->name('lab.results.review');
+
+    // Lab billing (LAB.G6) — a lab order accrues its test fee through the EXISTING billing engine, reconciling-
+    // to-the-unit. STRICTLY ORCHESTRATION — NO money math (the engine owns pricing/line-totals). A lab test is a
+    // tenant-authored TariffItem (keyed by the catalog code, no licensed pricing); the charge is captured via
+    // ChargeCaptureService (snapshotted); outpatient issues an invoice, inpatient/ED lab charges join the stay/
+    // episode invoice. Gated `billing.manage` (the billing office, NOT the lab bench). FENCE: the fee is a
+    // tariff, NOT result-driven. {labOrder} string-id (FIX.1).
+    Route::get('/lab/orders/{labOrder}/billing', [LabBillingController::class, 'show'])->name('lab.billing.show');
+    Route::post('/lab/orders/{labOrder}/billing/price-test', [LabBillingController::class, 'priceTest'])->name('lab.billing.price-test');
+    Route::post('/lab/orders/{labOrder}/billing/charge', [LabBillingController::class, 'charge'])->name('lab.billing.charge');
+    Route::post('/lab/orders/{labOrder}/billing/invoice', [LabBillingController::class, 'invoice'])->name('lab.billing.invoice');
 
     // Onboarding/migration: generic CSV patient import (RBAC 'data.import' enforced
     // in each controller action). Mandatory dry-run before commit.

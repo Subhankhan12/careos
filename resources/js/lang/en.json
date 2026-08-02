@@ -729,6 +729,31 @@
             "reviewBtn": "Mark reviewed",
             "openResults": "Open results",
             "noResult": "—"
+        },
+        "billing": {
+            "title": "Lab billing",
+            "eyebrow": "Laboratory · Billing",
+            "subtitle": "Price the test, capture the charge, and invoice — through the shared billing engine.",
+            "price": "Price this test",
+            "priceMinor": "Price (minor units)",
+            "priceBtn": "Set price",
+            "priceHint": "The price is a tenant-authored tariff — a rate, never driven by the result value. The engine computes every total.",
+            "charge": "Capture the charge",
+            "chargeBtn": "Charge this order",
+            "charged": "Charges",
+            "noCharges": "No charge captured yet.",
+            "code": "Code",
+            "description": "Description",
+            "qty": "Qty",
+            "rate": "Rate",
+            "estimate": "Estimate",
+            "status": "Status",
+            "invoice": "Invoice",
+            "invoiceBtn": "Invoice (outpatient)",
+            "inpatientNote": "For an admitted patient, lab charges join the stay or episode invoice automatically — no order-level invoice.",
+            "issued": "Issued invoice",
+            "total": "Total",
+            "openInvoice": "Open invoice"
         }
     },
     "settings": {

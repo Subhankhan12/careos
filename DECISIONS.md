@@ -2298,3 +2298,31 @@ references the old ID.
   behavior test modified; the reconciliation/fence/immutability/clinical-safety/triage-eval + LAB.G1–G4 + all
   vertical suites stay green (Clinical's review flow reused/untouched); no charge.
   `tests/Feature/Lab/LabReviewTest.php` (6). See `docs/HOSPITAL-PHASE3-LAB-MAP.md`, [[Lab]], [[LOG]].
+- **D-141 — LAB.G6: lab billing — a lab order accrues its test fee through the EXISTING engine, reconciling-to-
+  the-unit. The FINAL buildable Phase-3 gate; the LAB core is COMPLETE.** Per `docs/HOSPITAL-PHASE3-LAB-MAP.md`.
+  STRICTLY ORCHESTRATION — Lab adds NO pricing/charge/VAT/line-total math (the ED.G6 / surgery-G5 / bed-day
+  pattern; the adversarial grep over `Modules\Lab\src` finds zero money math). A lab test is a tenant-authored
+  `TariffItem` in the `lab` `TariffCatalog` (keyed by the LAB.G1 catalog code, integer minor units, NO licensed
+  pricing). `LabBillingService` (`priceTest`/`chargeOrder`/`invoiceOrder`/`catalogTariffs`, gate
+  `billing.manage`) captures ONE charge per lab order via the EXISTING `ChargeCaptureService::captureManual`
+  (the engine resolves + SNAPSHOTS the fee + computes `line_total = qty × unit_price`); idempotent via the
+  `lab_order_charges` link (soft `charge_id` ref, NO money stored). Outpatient issues via the existing
+  `validateForPatientPeriod` → `createDraftFromCharges` → `issue`; an inpatient/ED patient's lab charges instead
+  join the stay/episode's discharge invoice via the existing `BedBillingService::invoiceStay` (same
+  gather-by-patient+period — no lab code). Service date = the resulted-time (a fact) else the order date.
+  `LabBillingController` (`/lab/orders/{labOrder}/billing` + price-test/charge/invoice) + `Lab/Billing.vue` +
+  `lab.billing.*` i18n; FIX.5 smoke extended (GET 200 + charge 403). No audit hook (the Charge/Invoice are
+  audited by Billing — the `EdVisitCharge`/`SurgicalCaseCharge`/`DispenseCharge` precedent). **RECONCILES-TO-
+  THE-UNIT proven BOTH ways:** an outpatient invoice with a lab charge (δ=0, six invariants); AND a composite
+  inpatient episode — the lab charge + bed-days swept onto ONE stay invoice by `invoiceStay` (δ=0). **THE
+  FENCE:** the lab fee is a plain tariff, NOT driven by the result value/abnormality (two opposite result values
+  → the SAME fee); the result is a clinical record, the fee is a rate — kept separate; `lab_order_charges`
+  carries no money/result/severity column. RBAC: `billing.manage` (the billing office, NOT the lab bench — a
+  `lab_tech` with order.manage+lab.result is refused); tenant scoped, fail-closed. No existing behavior test
+  modified; the reconciliation/fence/immutability/clinical-safety/triage-eval + LAB.G1–G5 + all vertical suites
+  stay green (the billing engine is REUSED, not changed). `tests/Feature/Lab/LabBillingTest.php` (7). **LAB CORE
+  COMPLETE (Phase 3):** G1 catalog+seam → G2 order → G3 specimen → G4 result+range → G5 review → G6 billing — a
+  lab runs end-to-end as a manual record-keeping shell. THE ONE DELIBERATE GAP: LAB.G7 (the HL7/FHIR/analyzer
+  feed) stays the CERTIFIED-PARTNER `LabConnectivity` seam (manual today; imported-via-partner later, never
+  interpreted); homemade HL7 = not built. Radiology (Phase 4) remains, also partner-gated (PACS/DICOM). See
+  `docs/HOSPITAL-PHASE3-LAB-MAP.md`, [[Lab]], [[LOG]].
