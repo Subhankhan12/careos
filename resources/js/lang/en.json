@@ -711,6 +711,24 @@
             "recordedAt": "Recorded",
             "source": "Source",
             "resulted": "Resulted"
+        },
+        "review": {
+            "title": "Results to review",
+            "eyebrow": "Laboratory · Review",
+            "subtitle": "Your resulted lab orders awaiting review. Shown as facts — the system never ranks by a computed priority.",
+            "empty": "No results awaiting your review.",
+            "test": "Test",
+            "result": "Result",
+            "reference": "Reference range",
+            "resultedAt": "Resulted",
+            "priority": "Priority",
+            "sortBy": "Sort by",
+            "sortResulted": "Resulted time",
+            "sortStat": "STAT flag",
+            "sortHint": "Sorting is by a recorded fact (the flag you set or resulted time) — never a computed priority, urgency or critical-result ranking.",
+            "reviewBtn": "Mark reviewed",
+            "openResults": "Open results",
+            "noResult": "—"
         }
     },
     "settings": {

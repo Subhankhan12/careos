@@ -64,6 +64,7 @@ use Modules\Import\Http\Controllers\ImportBatchController;
 use Modules\Lab\Http\Controllers\LabCatalogController;
 use Modules\Lab\Http\Controllers\LabOrderController;
 use Modules\Lab\Http\Controllers\LabResultController;
+use Modules\Lab\Http\Controllers\LabReviewController;
 use Modules\Lab\Http\Controllers\SpecimenController;
 use Modules\Nursing\Http\Controllers\CompetencyController;
 use Modules\Nursing\Http\Controllers\DispatchActionController;
@@ -492,6 +493,12 @@ Route::middleware('auth')->group(function () {
     // facts the clinician reads. {labOrder}/{specimen} string-id (FIX.1).
     Route::get('/lab/orders/{labOrder}/results', [LabResultController::class, 'show'])->name('lab.results.show');
     Route::post('/lab/specimens/{specimen}/results', [LabResultController::class, 'store'])->name('lab.results.store');
+
+    // Result routing + the "results to review" worklist (LAB.G5) — closes the order → result → review loop. A
+    // SURFACING of the EXISTING resulted → reviewed step for lab orders, routed to the ordering clinician; the
+    // review action REUSES the existing `clinical.orders.review` endpoint (markReviewed). Gated `order.manage`.
+    // FENCE: facts + the recorded STAT flag (sortable) — NO computed priority ranking / critical flag.
+    Route::get('/lab/results/review', LabReviewController::class)->name('lab.results.review');
 
     // Onboarding/migration: generic CSV patient import (RBAC 'data.import' enforced
     // in each controller action). Mandatory dry-run before commit.

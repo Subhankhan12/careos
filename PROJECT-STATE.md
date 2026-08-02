@@ -60,6 +60,15 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
 > — the system computes NO abnormal/high/low/critical flag, delta, or interpretation (proven: an out-of-range
 > value carries no flag; no computed-judgment column/key/logic anywhere). Remaining lab gates: G5 routing · G6
 > billing · **G7 [seam-stubbed] the HL7 feed.** See [[Lab]] / D-139.
+>
+> **UPDATE (LAB.G5):** the **result-review worklist is built** — closes the order → result → review loop by
+> SURFACING the EXISTING `resulted → reviewed` step for lab orders (reuse `OrderService`'s review, NOT
+> reinvented). `LabResultService::reviewWorklist` (gate `order.manage`) returns the ordering clinician's own
+> resulted lab orders, ordered by resulted-time (a fact); the review action reuses the existing
+> `clinical.orders.review` endpoint (`markReviewed`). **FENCE:** facts + the recorded STAT flag (sortable) — NO
+> computed priority/urgency ranking, NO critical flag (proven: a later-resulted routine order outranks an
+> earlier-resulted STAT one). Remaining lab gates: G6 billing · **G7 [seam-stubbed] the HL7 feed.** See [[Lab]]
+> / D-140.
 
 **Read this before starting any work. The next unit of progress is DELIVERY, not another gate.**
 (Latest reconciliation: the full six-vertical handoff pass — clinic / dental / home-care / inpatient /

@@ -206,6 +206,7 @@ test('every major staff route is reachable through the real middleware stack (20
         'lab.orders (C-1)' => '/lab/patients/'.$fx['patient']->id.'/orders',
         'lab.specimens (C-1)' => '/lab/orders/'.$fx['labOrder']->id.'/specimens',
         'lab.results (C-1)' => '/lab/orders/'.$fx['labOrder']->id.'/results',
+        'lab.review' => '/lab/results/review',
     ];
 
     $failures = [];
@@ -271,6 +272,10 @@ test('per-role RBAC smoke: each role reaches its pages (200) and is denied other
         [$u['reception'], '/patients', 200],
         [$u['reception'], '/billing/invoices', 403],
         [$u['reception'], '/reporting', 403],
+        // LAB.G5: the lab results-to-review worklist is order.manage-gated (the ordering clinician). The doctor
+        // reaches it; reception (no order.manage) is denied — same gate as the reused Clinical review flow.
+        [$u['doctor'], '/lab/results/review', 200],
+        [$u['reception'], '/lab/results/review', 403],
         // billing: billing yes; patients (no patient.view) no.
         [$u['billing'], '/billing/invoices', 200],
         [$u['billing'], $patientUrl, 403],

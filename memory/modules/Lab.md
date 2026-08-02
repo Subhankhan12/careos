@@ -114,6 +114,19 @@ schema unchanged). Placing reuses `order.manage`; `LabOrderController` (`/lab/pa
   out-of-range value carries no flag; no computed-judgment column on `order_results`/`lab_results`; no
   grade/flag logic in `Modules\Lab\src`; the payload key-sweep is clean). 7 feature tests
   (`tests/Feature/Lab/LabResultTest.php`). No charge. See D-139.
+- **LAB.G5**: result routing + the "results to review" worklist — closes the order → result → review loop by
+  SURFACING the EXISTING resulted → reviewed step for lab orders (reuse `OrderService`'s review, NOT
+  reinvented). `LabResultService::reviewWorklist` (gate `order.manage`) returns the ORDERING clinician's own
+  resulted lab orders (`Order.status=resulted` + `ordered_by`=actor), ordered by resulted-time (a FACT). The
+  review action REUSES the existing `clinical.orders.review` endpoint (`markReviewed`: resulted → reviewed) —
+  NO new review endpoint/model/migration. `LabReviewController` (invokable, `/lab/results/review`, the
+  `OrdersReviewController` analogue lab-scoped) + `Lab/Review.vue` + `lab.review.*` i18n; FIX.5 smoke extended
+  (GET 200 for doctor, 403 for reception). **FENCE:** facts + the recorded STAT flag (staff MAY sort by flag/
+  time — a fact); NO computed priority/urgency ranking, NO critical-result flag, NO review-first judgment
+  (proven: a later-resulted routine order outranks an earlier-resulted STAT one — ordered by time not STAT;
+  payload key-sweep clean; no rank/priority-score/flag-critical logic in `Modules\Lab\src`); result stays raw
+  value + displayed range (G4 carried). 6 feature tests (`tests/Feature/Lab/LabReviewTest.php`). No charge.
+  See D-140.
 
 ## Specimen tracking (G3 — the net-new entity)
 
@@ -139,8 +152,20 @@ catalog beside the raw value — NEVER a threshold graded against. NO abnormal/h
 interpretation is computed anywhere (payload or UI); `order_results` stays raw (no interpretation column) and
 `lab_results` adds none. `LabConnectivity` stays the manual no-op (no homemade HL7 — that is LAB.G7).
 
+## Result routing + review worklist (G5 — reuse the OrderService review flow)
+
+Closes the order → result → review loop. `LabResultService::reviewWorklist(actor)` (gate `order.manage` — the
+review permission) SURFACES the actor's own resulted lab orders (the reused Clinical `Order` at `resulted`,
+`ordered_by`=actor), ordered by resulted-time (the latest `OrderResult.entered_at` — a FACT, newest first).
+Reviewing REUSES the EXISTING `clinical.orders.review` endpoint (`OrderController::review` → `markReviewed`:
+resulted → reviewed) — the worklist posts `order_id` to it; **NO new review endpoint/model/migration** (the
+`OrdersReviewController` idiom, lab-scoped). **FENCE:** the worklist shows facts + the LAB.G2 recorded STAT flag
+(client-side sort by flag/time is allowed — a recorded fact, the ED-board precedent) — NO computed priority/
+urgency ranking, NO critical-result flag, NO review-first judgment; the result stays raw value + displayed range
+(G4). `LabReviewController` (`/lab/results/review`) + `Lab/Review.vue`.
+
 ## Not built yet (later gates)
 
-G5 routing + worklist · G6 billing (the engine) · **G7 [SEAM-STUBBED] the HL7/FHIR/analyzer feed —
-partner-gated, NOT built** (a certified partner fills the `LabConnectivity` seam). Radiology (Phase 4) follows —
-also partner-gated (PACS/DICOM). See `docs/HOSPITAL-PHASE3-LAB-MAP.md`.
+G6 billing (the engine) · **G7 [SEAM-STUBBED] the HL7/FHIR/analyzer feed — partner-gated, NOT built** (a
+certified partner fills the `LabConnectivity` seam). Radiology (Phase 4) follows — also partner-gated
+(PACS/DICOM). See `docs/HOSPITAL-PHASE3-LAB-MAP.md`.

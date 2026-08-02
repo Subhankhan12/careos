@@ -2,12 +2,14 @@
 
 namespace Modules\Lab\Services;
 
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Modules\Clinical\Models\Order;
 use Modules\Clinical\Models\OrderResult;
 use Modules\Clinical\Services\OrderService;
 use Modules\Lab\Exceptions\LabResultException;
+use Modules\Lab\Models\LabOrder;
 use Modules\Lab\Models\LabResult;
 use Modules\Lab\Models\Specimen;
 use Modules\Platform\Exceptions\CrossTenantReferenceException;
@@ -83,6 +85,41 @@ class LabResultService
 
             return ['result' => $result, 'labResult' => $labResult];
         });
+    }
+
+    /**
+     * The "results to review" worklist (LAB.G5) — a SURFACING of the EXISTING resulted → reviewed step for lab
+     * orders, routed to the ORDERING clinician. Returns the actor's own resulted (not-yet-reviewed) lab orders
+     * (the reused Clinical `Order` at status `resulted`, `ordered_by` = the actor), ordered by resulted-time (a
+     * FACT — the latest result's `entered_at`, newest first). Gated `order.manage` (the review permission — the
+     * same gate the existing `OrderService::toReview` uses; reviewing reuses `OrderService::markReviewed`).
+     *
+     * ELECTRIC FENCE: the ordering is by a RECORDED fact (resulted-time), NOT a computed priority/urgency/acuity
+     * ranking. The STAT flag on each row is the LAB.G2 clinician-recorded flag (staff MAY sort by it — a fact),
+     * never a computed "review this first". The results stay raw (the reference range is displayed, not graded).
+     *
+     * @return Collection<int, LabOrder>
+     */
+    public function reviewWorklist(User $actor): Collection
+    {
+        Gate::forUser($actor)->authorize('order.manage');
+
+        return LabOrder::query()
+            ->whereHas('order', function ($query) use ($actor): void {
+                $query->where('status', Order::STATUS_RESULTED)->where('ordered_by', $actor->getKey());
+            })
+            ->with(['order.orderableItem', 'order.results'])
+            ->get()
+            ->sortByDesc(function (LabOrder $labOrder): string {
+                $order = $labOrder->order;
+                if ($order === null) {
+                    return '';
+                }
+                $latest = $order->results->max('entered_at');
+
+                return $latest !== null ? (string) $latest : '';
+            })
+            ->values();
     }
 
     /**

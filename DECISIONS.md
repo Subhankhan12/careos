@@ -2275,3 +2275,26 @@ references the old ID.
   reconciliation/fence/immutability/clinical-safety/triage-eval + LAB.G1–G3 + all vertical suites stay green
   (Clinical's OrderResult/OrderService/seam reused/untouched); no charge.
   `tests/Feature/Lab/LabResultTest.php` (7). See `docs/HOSPITAL-PHASE3-LAB-MAP.md`, [[Lab]], [[LOG]].
+- **D-140 — LAB.G5: result routing + the "results to review" worklist (reuses the OrderService review flow;
+  facts, not computed prioritization).** Per `docs/HOSPITAL-PHASE3-LAB-MAP.md`. Closes the order → result →
+  review loop by SURFACING the EXISTING `resulted → reviewed` step for lab orders — the review flow is REUSED,
+  NOT reinvented. `LabResultService::reviewWorklist(actor)` (gate `order.manage` — the review permission)
+  returns the ORDERING clinician's own resulted-but-not-reviewed lab orders (the reused Clinical `Order` at
+  `resulted`, `ordered_by`=actor), ordered by resulted-time (the latest `OrderResult.entered_at` — a FACT,
+  newest first). `LabReviewController` (invokable, `/lab/results/review`, the `OrdersReviewController` analogue
+  lab-scoped) renders each row with the raw result value + the DISPLAYED reference range (LAB.G4), the recorded
+  STAT flag, and the resulted-time; the review action POSTs `order_id` to the EXISTING
+  `clinical.orders.review` endpoint (`OrderController::review` → `OrderService::markReviewed`) — **NO new
+  review endpoint/service/model/migration**. **THE FENCE:** the worklist shows facts + the LAB.G2 recorded STAT
+  flag (staff MAY sort by flag/time client-side — a recorded fact, the ED-board precedent); the system computes
+  NO priority/urgency ranking, NO critical-result flag, NO review-first judgment (proven: a later-resulted
+  routine order outranks an earlier-resulted STAT one — the server orders by resulted-time, not STAT; the
+  Inertia payload key-sweep finds no computed-judgment key; no rank/priority-score/flag-critical logic in
+  `Modules\Lab\src`); the result stays raw value + displayed range (G4's fence carried, no computed abnormal
+  flag). RBAC: `order.manage` (the doctor reaches it; reception refused — service + HTTP); tenant+patient
+  scoped (a resulted order in one tenant is invisible in another's worklist). No audit hook added (the review
+  is audited by Clinical's `order.reviewed`). UI (P0D.GU): `Lab/Review.vue`; `lab.review.*` i18n; FIX.5 smoke
+  extended (`/lab/results/review` GET 200 doctor / 403 reception). No billing this gate (G6). No existing
+  behavior test modified; the reconciliation/fence/immutability/clinical-safety/triage-eval + LAB.G1–G4 + all
+  vertical suites stay green (Clinical's review flow reused/untouched); no charge.
+  `tests/Feature/Lab/LabReviewTest.php` (6). See `docs/HOSPITAL-PHASE3-LAB-MAP.md`, [[Lab]], [[LOG]].
