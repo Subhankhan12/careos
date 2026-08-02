@@ -5,6 +5,7 @@ namespace Modules\Radiology\Models;
 use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Modules\Audit\Concerns\LogsReads;
 use Modules\Clinical\Models\Order;
 use Modules\Platform\Concerns\BelongsToTenant;
@@ -73,6 +74,16 @@ class RadiologyOrder extends Model
     public function order(): BelongsTo
     {
         return $this->belongsTo(Order::class);
+    }
+
+    /**
+     * The RAD.G3 study for this imaging order (net-new; one per order).
+     *
+     * @return HasOne<ImagingStudy, $this>
+     */
+    public function study(): HasOne
+    {
+        return $this->hasOne(ImagingStudy::class);
     }
 
     protected function auditPatientId(): ?string

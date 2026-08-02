@@ -95,6 +95,35 @@ const, stays green.
   `RadiologyOrderController` (`/radiology/patients/{patient}/orders`) + `Radiology/Orders.vue` +
   `radiology.orders.*` i18n; app-layer `radiology.order_placed`; FIX.5 smoke extended (GET 200 + place 403). 6
   feature tests (`tests/Feature/Radiology/RadiologyOrderTest.php`). No charge. See D-143.
+- **RAD.G3**: the net-new `ImagingStudy` record + the modality worklist. `imaging_studies` (accession
+  unique-per-tenant via the `Specimen` recipe [`IMG-%06d`]; legal-only `ordered → acquired → reported` +
+  cancelled) + append-only `imaging_study_events`; `ImagingStudyService` (register/acquire/transition/worklist,
+  gate `radiology.study`); acquiring does NOT advance the Clinical Order (the report step G4 does — Order
+  untouched). The modality worklist reuses the board/LAB.G5-review idiom (facts, ordered by ordered-time, NO
+  computed priority). `RadiologyWorklistController` (`/radiology/worklist`) + `ImagingStudyController`
+  (`/radiology/orders/{radiologyOrder}/study` show/acquire; `/radiology/studies/{study}/transition`) +
+  `Radiology/Worklist.vue` + `Radiology/Study.vue` + `radiology.worklist.*`/`radiology.study.*` i18n; app-layer
+  `radiology.study_accessioned` + `radiology.study.<event_type>`; FIX.5 smoke extended (worklist + study GET
+  200; acquire 403). **THE DICOM IMAGE PATH IS SEAM-STUBBED** (the study is metadata; no DICOM storage/viewer/
+  PACS built — RAD.G6). **The optional uploaded still (dental `DocumentService`) is DEFERRED** to a later gate
+  (explicitly permitted — G3's core is the study record + worklist). FENCE: state + accession + worklist are
+  facts; no computed image finding/CAD/priority; ordered-by-time not STAT (proven). 8 feature tests
+  (`tests/Feature/Radiology/RadiologyStudyTest.php`). No charge. See D-144.
+
+## The study record + modality worklist (G3 — the net-new domain)
+
+`imaging_studies` (BelongsToTenant, LogsReads) — registered against a RAD.G2 `RadiologyOrder`, `accession_number`
+(unique-per-tenant, the `Specimen` recipe under a tenant-row lock, `IMG-%06d`), `modality` (from the order),
+`acquired_by`/`acquired_at`, `status` (out of `$fillable`). Legal-only `ordered → acquired → reported` (+
+cancelled, reason required). `imaging_study_events` APPEND-ONLY (model guards + DB triggers). `ImagingStudyService`:
+`register` (create at ordered + accession + `ordered` event) / `acquire` (register-if-missing → ordered→acquired,
+records acquired_by/at) / `transition` (legal-only; `reported` reached by G4) / `worklist` (imaging orders
+awaiting acquisition — study null or `ordered` — ordered by ordered-time). Gate `radiology.study`. **The Clinical
+Order is REUSED + UNTOUCHED** — acquiring records the study; it does NOT advance the Order (the report step G4
+does). **THE IMAGE IS THE PARTNER's (RAD.G6):** the study is metadata; NO DICOM storage/diagnostic viewer/PACS is
+built (the optional dental-style uploaded still is DEFERRED). FENCE: state + accession are operational facts — no
+computed image finding/CAD/abnormality, no computed priority (the worklist shows the recorded STAT flag as a
+fact, ordered by ordered-time not by STAT — proven).
 
 ## Imaging order entry (G2 — reuse the Clinical Order)
 
@@ -111,7 +140,7 @@ audit `radiology.order_placed` (patient-scoped, app-layer).
 
 ## Not built yet (later gates)
 
-G3 the net-new `ImagingStudy` record + the modality worklist · G4 the radiologist report (reuse the sign-and-lock
+G4 the radiologist report (reuse the sign-and-lock
 `ClinicalNote`) + routing [the fence gate] · G5 radiology billing (the engine; reconcile-to-the-unit) ·
 **G6 [SEAM-STUBBED] the DICOM/PACS/modality feed + diagnostic viewer — partner-gated, NOT built** (a certified
 PACS partner fills the `ImagingConnectivity` seam). After Phase 4, every hospital vertical is mapped/built;

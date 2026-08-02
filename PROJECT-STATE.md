@@ -118,6 +118,17 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
 > Clinical's Order untouched), never computed; no computed image finding (no image yet). Placing reuses
 > `order.manage`; audit `radiology.order_placed`. Remaining radiology gates: G3 study record + worklist · G4
 > report + routing · G5 billing · **G6 [seam-stubbed] the DICOM/PACS feed + viewer.** See [[Radiology]] / D-143.
+>
+> **UPDATE (RAD.G3):** the **net-new `ImagingStudy` record + modality worklist are built** — the one genuine
+> net-new radiology entity (the lab-`Specimen` analog): `imaging_studies` (accession unique-per-tenant via the
+> `Specimen` recipe; legal-only `ordered → acquired → reported` + cancelled) + append-only events;
+> `ImagingStudyService` (register/acquire/transition/worklist, gate `radiology.study`); acquiring does NOT
+> advance the Clinical Order (the report step G4 does — Order untouched). The modality worklist reuses the
+> board/lab-review idiom (facts, ordered by ordered-time, no computed priority). **THE DICOM IMAGE PATH IS
+> SEAM-STUBBED** (the study is metadata; no DICOM storage/viewer/PACS built — RAD.G6); the optional uploaded
+> still (dental `DocumentService`) is DEFERRED. **FENCE:** state/accession/worklist are facts — no computed image
+> finding/CAD/priority (proven). Remaining radiology gates: G4 report + routing · G5 billing · **G6
+> [seam-stubbed] the DICOM/PACS feed + viewer.** See [[Radiology]] / D-144.
 
 **Read this before starting any work. The next unit of progress is DELIVERY, not another gate.**
 (Latest reconciliation: the full six-vertical handoff pass — clinic / dental / home-care / inpatient /

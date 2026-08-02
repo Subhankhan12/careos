@@ -85,8 +85,10 @@ use Modules\Pharmacy\Http\Controllers\MedicationOrderController;
 use Modules\Pharmacy\Http\Controllers\PricingController;
 use Modules\Platform\Http\Controllers\SettingsController;
 use Modules\Platform\Http\Controllers\UserRoleController;
+use Modules\Radiology\Http\Controllers\ImagingStudyController;
 use Modules\Radiology\Http\Controllers\RadiologyCatalogController;
 use Modules\Radiology\Http\Controllers\RadiologyOrderController;
+use Modules\Radiology\Http\Controllers\RadiologyWorklistController;
 use Modules\Reporting\Http\Controllers\ReportingDashboardController;
 use Modules\Scheduling\Http\Controllers\AppointmentSeriesController;
 use Modules\Scheduling\Http\Controllers\DayBoardActionController;
@@ -530,6 +532,16 @@ Route::middleware('auth')->group(function () {
     // ImagingConnectivity seam's transmitOrder() is the null no-op today (no homemade DICOM). {patient} string-id.
     Route::get('/radiology/patients/{patient}/orders', [RadiologyOrderController::class, 'show'])->name('radiology.orders.show');
     Route::post('/radiology/patients/{patient}/orders', [RadiologyOrderController::class, 'store'])->name('radiology.orders.store');
+
+    // The imaging study record + the modality worklist (RAD.G3) — the net-new study (accession + legal-only
+    // ordered → acquired → reported state) + the radiographer's "studies to acquire" worklist (facts, no
+    // computed priority). Viewing is `patient.view` (read-logged); acquiring + transitioning are
+    // `radiology.study`. THE DICOM IMAGE PATH IS SEAM-STUBBED (RAD.G6) — the study is metadata, not the image.
+    // {radiologyOrder}/{study} string-id (FIX.1).
+    Route::get('/radiology/worklist', RadiologyWorklistController::class)->name('radiology.worklist');
+    Route::get('/radiology/orders/{radiologyOrder}/study', [ImagingStudyController::class, 'show'])->name('radiology.studies.show');
+    Route::post('/radiology/orders/{radiologyOrder}/study/acquire', [ImagingStudyController::class, 'acquire'])->name('radiology.studies.acquire');
+    Route::post('/radiology/studies/{study}/transition', [ImagingStudyController::class, 'transition'])->name('radiology.studies.transition');
 
     // Onboarding/migration: generic CSV patient import (RBAC 'data.import' enforced
     // in each controller action). Mandatory dry-run before commit.

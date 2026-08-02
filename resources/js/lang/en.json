@@ -2549,6 +2549,44 @@
             "empty": "No imaging orders yet.",
             "status": "Status",
             "orderedAt": "Ordered"
+        },
+        "worklist": {
+            "title": "Modality worklist",
+            "eyebrow": "Radiology · Worklist",
+            "subtitle": "Imaging orders awaiting acquisition. Shown as facts — the system never ranks by a computed priority.",
+            "empty": "No studies awaiting acquisition.",
+            "exam": "Exam",
+            "modality": "Modality",
+            "bodyPart": "Body part",
+            "priority": "Priority",
+            "orderedAt": "Ordered",
+            "acquire": "Acquire",
+            "openStudy": "Open study"
+        },
+        "study": {
+            "title": "Imaging study",
+            "eyebrow": "Radiology · Study",
+            "accession": "Accession",
+            "modality": "Modality",
+            "status": {
+                "ordered": "Ordered",
+                "acquired": "Acquired",
+                "reported": "Reported",
+                "cancelled": "Cancelled"
+            },
+            "advanceTo": {
+                "acquired": "Mark acquired",
+                "reported": "Mark reported",
+                "cancelled": "Cancel"
+            },
+            "acquire": "Acquire the study",
+            "acquireHint": "An accession number is generated on acquisition — a unique study identifier (a fact).",
+            "acquireBtn": "Acquire study",
+            "noStudy": "No study yet. Acquire it from the order.",
+            "history": "State history",
+            "cancelReason": "Reason for cancelling this study:",
+            "imageTitle": "Image",
+            "imageSeamNote": "Image storage and viewing (DICOM/PACS) are provided by a certified imaging partner and are not available here. This is the study record (metadata) — not a diagnostic viewer."
         }
     }
 }

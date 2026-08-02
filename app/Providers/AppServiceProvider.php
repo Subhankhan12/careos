@@ -75,6 +75,8 @@ use Modules\Platform\Models\Setting;
 use Modules\Platform\Models\Tenant;
 use Modules\Platform\Models\User;
 use Modules\Platform\Services\TenantContext;
+use Modules\Radiology\Models\ImagingStudy;
+use Modules\Radiology\Models\ImagingStudyEvent;
 use Modules\Radiology\Models\RadiologyExam;
 use Modules\Radiology\Models\RadiologyOrder;
 use Modules\Scheduling\Channels\EmailAppointmentReminderChannel;
@@ -530,6 +532,22 @@ class AppServiceProvider extends ServiceProvider
             'resource_type' => 'radiology_order',
             'resource_id' => $m->id,
             'context' => ['order_id' => $m->order_id, 'modality' => $m->modality, 'body_part' => $m->body_part, 'priority' => $m->priority],
+        ]));
+        // The imaging study (RAD.G3) — patient-scoped. The study is accessioned + advanced through its
+        // legal-only state machine; each state is an append-only ImagingStudyEvent. Operational facts —
+        // accession + state, never a computed image finding/CAD or priority. The image is the PACS partner's
+        // (RAD.G6); this records metadata only.
+        ImagingStudy::created(fn (ImagingStudy $m) => $this->auditChange('radiology.study_accessioned', [
+            'patient_id' => $m->patient_id,
+            'resource_type' => 'imaging_study',
+            'resource_id' => $m->id,
+            'context' => ['radiology_order_id' => $m->radiology_order_id, 'accession_number' => $m->accession_number, 'modality' => $m->modality],
+        ]));
+        ImagingStudyEvent::created(fn (ImagingStudyEvent $m) => $this->auditChange('radiology.study.'.$m->event_type, [
+            'patient_id' => $m->patient_id,
+            'resource_type' => 'imaging_study_event',
+            'resource_id' => $m->id,
+            'context' => ['imaging_study_id' => $m->imaging_study_id, 'event_type' => $m->event_type, 'reason' => $m->reason],
         ]));
 
         // People credential vault changes. The observer lives here so People

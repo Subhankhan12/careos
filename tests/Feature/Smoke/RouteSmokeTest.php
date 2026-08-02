@@ -28,6 +28,9 @@ use Modules\Platform\Models\Role;
 use Modules\Platform\Models\RoleAssignment;
 use Modules\Platform\Models\User;
 use Modules\Platform\Services\TenantContext;
+use Modules\Radiology\Models\RadiologyOrder;
+use Modules\Radiology\Services\RadiologyCatalogService;
+use Modules\Radiology\Services\RadiologyOrderService;
 use Modules\Surgery\Services\SurgicalCaseService;
 use Modules\Surgery\Services\TheatreSchedulingService;
 
@@ -116,7 +119,12 @@ function smokeSeed(object $test): array
     $labTest = app(LabCatalogService::class)->authorTest($admin, 'SMK-LAB', 'Smoke test', 'Blood', 'mmol/L', '3.5–5.1');
     $labOrder = app(LabOrderService::class)->place($admin, $patient, $labTest, LabOrder::PRIORITY_ROUTINE)['labOrder'];
 
-    return compact('tenant', 'users', 'invoice', 'creditNote', 'payment', 'patient', 'encounter', 'note', 'batch', 'stay', 'surgicalCase', 'edVisit', 'labOrder');
+    // RAD.G2/G3: author an imaging exam + place an imaging order so the study-detail route (a C-1-class
+    // request-time surface) is covered. org_admin holds radiology.catalog + order.manage + radiology.study.
+    $radExam = app(RadiologyCatalogService::class)->authorExam($admin, 'SMK-RAD', 'Smoke CXR', 'X-ray', 'Chest', false);
+    $radOrder = app(RadiologyOrderService::class)->place($admin, $patient, $radExam, RadiologyOrder::PRIORITY_ROUTINE)['radiologyOrder'];
+
+    return compact('tenant', 'users', 'invoice', 'creditNote', 'payment', 'patient', 'encounter', 'note', 'batch', 'stay', 'surgicalCase', 'edVisit', 'labOrder', 'radOrder');
 }
 
 /** One request through the real stack with NO ambient tenant context (the C-1 condition). */
@@ -210,6 +218,8 @@ test('every major staff route is reachable through the real middleware stack (20
         'lab.billing (C-1)' => '/lab/orders/'.$fx['labOrder']->id.'/billing',
         'radiology.catalog' => '/radiology/catalog',
         'radiology.orders (C-1)' => '/radiology/patients/'.$fx['patient']->id.'/orders',
+        'radiology.worklist' => '/radiology/worklist',
+        'radiology.study (C-1)' => '/radiology/orders/'.$fx['radOrder']->id.'/study',
     ];
 
     $failures = [];
@@ -597,6 +607,17 @@ test('per-role RBAC smoke: each role reaches its pages (200) and is denied other
         ->status();
     if ($radOrderStatus !== 403) {
         $failures[] = "radiology.orders.store as reception -> {$radOrderStatus} (expected 403)";
+    }
+
+    // RAD.G3: acquiring an imaging study is radiology.study-gated (the radiographer). Reception (patient.view, so
+    // it can VIEW, but NO radiology.study) is denied on the acquire route at the gate through the real stack. The
+    // study state + accession are facts; the DICOM image path is the seam-stubbed RAD.G6, not built.
+    smokeCtx()->forget();
+    $radAcquireStatus = $this->actingAs($u['reception'])
+        ->post('/radiology/orders/'.$fx['radOrder']->id.'/study/acquire')
+        ->status();
+    if ($radAcquireStatus !== 403) {
+        $failures[] = "radiology.studies.acquire as reception -> {$radAcquireStatus} (expected 403)";
     }
 
     expect(implode("\n", $failures))->toBe('');
