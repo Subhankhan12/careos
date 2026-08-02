@@ -2505,5 +2505,26 @@
             "completed": "Completed",
             "declined": "Declined"
         }
+    },
+    "radiology": {
+        "catalog": {
+            "title": "Imaging exam catalog",
+            "eyebrow": "Radiology",
+            "subtitle": "Your own imaging exam menu — codes, modality, body part and contrast you author.",
+            "author": "Author an exam",
+            "seed": "Add starter set",
+            "code": "Code",
+            "name": "Name",
+            "modality": "Modality",
+            "bodyPart": "Body part",
+            "contrast": "Contrast",
+            "addExam": "Add exam",
+            "fenceHint": "The exam catalog records modality and body part — reference data the team reads. The system never computes an image finding, CAD read or abnormality flag; the radiologist authors the report.",
+            "menu": "Exam menu",
+            "empty": "No imaging exams yet. Add one, or seed the starter set.",
+            "deactivate": "Deactivate",
+            "inactive": "Inactive",
+            "withContrast": "With contrast"
+        }
     }
 }

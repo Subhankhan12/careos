@@ -19,6 +19,7 @@ use Modules\Patients\Providers\PatientsServiceProvider;
 use Modules\People\Providers\PeopleServiceProvider;
 use Modules\Pharmacy\Providers\PharmacyServiceProvider;
 use Modules\Platform\Providers\PlatformServiceProvider;
+use Modules\Radiology\Providers\RadiologyServiceProvider;
 use Modules\Reporting\Providers\ReportingServiceProvider;
 use Modules\Scheduling\Providers\SchedulingServiceProvider;
 use Modules\Surgery\Providers\SurgeryServiceProvider;
@@ -46,4 +47,5 @@ return [
     SurgeryServiceProvider::class,
     EDServiceProvider::class,
     LabServiceProvider::class,
+    RadiologyServiceProvider::class,
 ];

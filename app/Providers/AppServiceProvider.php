@@ -75,6 +75,7 @@ use Modules\Platform\Models\Setting;
 use Modules\Platform\Models\Tenant;
 use Modules\Platform\Models\User;
 use Modules\Platform\Services\TenantContext;
+use Modules\Radiology\Models\RadiologyExam;
 use Modules\Scheduling\Channels\EmailAppointmentReminderChannel;
 use Modules\Scheduling\Events\AppointmentBooked;
 use Modules\Scheduling\Events\AppointmentReminderDeliveryRecorded;
@@ -511,6 +512,14 @@ class AppServiceProvider extends ServiceProvider
             'resource_type' => 'lab_result',
             'resource_id' => $m->id,
             'context' => ['order_result_id' => $m->order_result_id, 'specimen_id' => $m->specimen_id],
+        ]));
+        // Radiology / RIS (RAD.G1 — Phase 4) — tenant-level (a catalog item, not patient-scoped) — so Radiology
+        // stays free of Audit. Authoring an imaging exam (the tenant's exam menu) is audited. An exam is an
+        // OrderableItem overlay; the order/report/image REUSE Clinical (audited there). NO computed image read.
+        RadiologyExam::created(fn (RadiologyExam $m) => $this->auditChange('radiology.exam_authored', [
+            'resource_type' => 'radiology_exam',
+            'resource_id' => $m->id,
+            'context' => ['orderable_item_id' => $m->orderable_item_id, 'body_part' => $m->body_part, 'contrast' => $m->contrast],
         ]));
 
         // People credential vault changes. The observer lives here so People

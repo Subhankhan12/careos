@@ -2326,3 +2326,40 @@ references the old ID.
   feed) stays the CERTIFIED-PARTNER `LabConnectivity` seam (manual today; imported-via-partner later, never
   interpreted); homemade HL7 = not built. Radiology (Phase 4) remains, also partner-gated (PACS/DICOM). See
   `docs/HOSPITAL-PHASE3-LAB-MAP.md`, [[Lab]], [[LOG]].
+- **D-142 — RAD.G1: radiology module + tenant-authored exam catalog + the CREATED `ImagingConnectivity` seam
+  (null-object) + radiology RBAC (Phase 4 foundation).** Per `docs/HOSPITAL-PHASE4-RADIOLOGY-MAP.md`. A peer
+  `Modules\Radiology` (mirrors Lab/ED), registered in `bootstrap/providers.php` + composer autoload; arch rule
+  `arch('Radiology …')` — may use Platform + care modules (Clinical/Patients/Billing) + Audit SERVICES, never
+  Audit models/AiCore/Comms/peer verticals. **Radiology REUSES Clinical's `Order`/`ClinicalNote`/`Document` — it
+  does NOT duplicate them** (the map's sharpest risk). **Exam catalog (overlay):** `radiology_exams`
+  (BelongsToTenant, `unique(orderable_item_id)`) overlays the EXISTING Clinical `OrderableItem` — an imaging
+  exam IS a tenant-authored `OrderableItem` (`category='imaging'` + the `specimen_or_modality` field **already
+  existed**; code/name/modality live there) + the overlay adding ONLY `body_part` + `contrast`.
+  `RadiologyCatalogService::authorExam` (gate `radiology.catalog`, one tx: `OrderableItem::updateOrCreate`
+  [category=imaging] + `RadiologyExam::updateOrCreate`) / `deactivate` (soft) / `seedStarter` (a SMALL GENERIC
+  editable template — RAD-CXR/AXR/CT-HEAD/CT-ABDO/MRI-BRAIN/US-ABDO, plain names; **NO licensed CPT/RadLex set
+  bundled**, tenant-isolated) / `catalog`. `RadiologyCatalogController` (`/radiology/catalog`) +
+  `Radiology/Catalog.vue` + `radiology.catalog.*` i18n; audited (app-layer `RadiologyExam.created` →
+  `radiology.exam_authored`, tenant-level). **CREATED the `ImagingConnectivity` (PACS/DICOM) seam:** unlike Lab
+  (whose `LabConnectivity` already existed), NO imaging seam existed — this gate CREATES
+  `Modules\Radiology\Contracts\ImagingConnectivity` (`transmitOrder(Order)` = the future DICOM MWL push /
+  `ingestStudy(array)` = a future imported study) + the ONLY impl `NullImagingConnectivity` (transmit no-op;
+  ingest THROWS "not available; recorded manually / images uploaded"), bound in
+  `RadiologyServiceProvider::register()` — the `LabConnectivity`/`TriageAcuityProvider`/`MedicationSafetyProvider`
+  precedent. **NO DICOM/PACS integration, NO diagnostic viewer, NO image storage built** (RAD.G6 is
+  SEAM-STUBBED, partner-gated; a homemade DICOM/PACS stack is a PERMANENT non-goal); the seam is swappable for a
+  certified partner WITHOUT touching consumers (proven — a partner double resolves via `app()->instance`); the
+  imported path is append-never-interpret. **THE FENCE (AI-imaging):** the radiologist AUTHORS the report (G4);
+  the system computes NO image finding/CAD/abnormality flag/confidence/auto-read — a HARD medical-device non-goal
+  (the DENTAL.G8 "AI radiology = NON-GOAL" line); the seam never interprets; `radiology_exams` carries no
+  finding/cad/abnormal/ai/confidence column; the grep over `Modules\Radiology\src` finds no
+  computeFinding/cadRead/interpretImage/aiRead logic + no homemade DICOM/PACS client. **RBAC (additive):** perms
+  `radiology.catalog` + `radiology.study`; roles `radiographer` (patient.view+order.manage+radiology.study) +
+  `radiologist` (+ radiology.catalog + note.write/sign + encounter.manage); ordering reuses `order.manage`, the
+  report reuses `note.write`/`note.sign`; `org_admin` gains both; reprovision migration
+  `add_radiology_permissions`. Tenant scoped, fail-closed. NO order/study/report/billing UI this gate (G2–G5).
+  No existing behavior test modified; the reconciliation/fence/immutability/clinical-safety/triage-eval + all
+  vertical (clinic/dental/home-care/inpatient/pharmacy/surgery/ED/lab) suites stay green (additive: a new module
+  + the overlay + new perms + the created seam; reusing Clinical). `tests/Feature/Radiology/RadiologyCatalogTest.php`
+  (5) + the arch rule. Module memory `memory/modules/Radiology.md`. See `docs/HOSPITAL-PHASE4-RADIOLOGY-MAP.md`,
+  [[Radiology]], [[LOG]].

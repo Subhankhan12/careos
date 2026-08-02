@@ -69,6 +69,10 @@ class RbacProvisioner
         // Ordering a lab test reuses the existing `order.manage`; results (LAB.G4) will use `lab.result`.
         'lab.catalog' => 'Author the tenant lab test catalog + reference ranges (Laboratory)',
         'lab.result' => 'Enter lab results and manage specimens (Laboratory)',
+        // Radiology / RIS vertical (RAD.G1 — Phase 4). Additive — see docs/HOSPITAL-PHASE4-RADIOLOGY-MAP.md §5.
+        // Ordering an imaging exam reuses the existing `order.manage`; the report reuses `note.write`/`note.sign`.
+        'radiology.catalog' => 'Author the tenant imaging exam catalog (Radiology)',
+        'radiology.study' => 'Record and track imaging studies + the modality worklist (Radiology)',
     ];
 
     /**
@@ -91,6 +95,7 @@ class RbacProvisioner
                 'theatre.manage', 'surgery.schedule', 'surgery.manage',
                 'ed.manage', 'triage.record',
                 'lab.catalog', 'lab.result',
+                'radiology.catalog', 'radiology.study',
             ],
         ],
         'coordinator' => [
@@ -283,6 +288,26 @@ class RbacProvisioner
             'permissions' => [
                 // Collects specimens (lab.result, scoped to specimen collection in G3).
                 'patient.view', 'lab.result',
+            ],
+        ],
+        // Radiology / RIS roles (RAD.G1 — Phase 4). Ordering reuses `order.manage`; the report reuses
+        // `note.write`/`note.sign` (the sign-and-lock note); the modality worklist + study record use
+        // `radiology.study`; the exam catalog uses `radiology.catalog`.
+        'radiographer' => [
+            'name' => 'Radiographer',
+            'permissions' => [
+                // The imaging bench: sees orders, records/acquires studies + manages the modality worklist (G3),
+                // uploads the exported still. NO catalog authoring.
+                'patient.view', 'order.manage', 'radiology.study',
+            ],
+        ],
+        'radiologist' => [
+            'name' => 'Radiologist',
+            'permissions' => [
+                // The radiology lead: authors the exam catalog (radiology.catalog), reads studies, and AUTHORS +
+                // signs the report (note.write/note.sign — the human read, recorded), charts clinically.
+                'patient.view', 'encounter.manage', 'note.write', 'note.sign', 'order.manage',
+                'radiology.catalog', 'radiology.study',
             ],
         ],
     ];

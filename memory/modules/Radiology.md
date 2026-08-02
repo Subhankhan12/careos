@@ -1,0 +1,99 @@
+# Module: Radiology (`Modules\Radiology`)
+
+## Purpose
+
+The Radiology / RIS vertical — **Phase 4** of the phased hospital build (the LAST hospital phase; Phases 1
+inpatient/ADT, 2 pharmacy, 3 lab/LIS, 5 surgery, 6 ED — all built). Planned as ~5 buildable gates + 1
+seam-stubbed (`docs/HOSPITAL-PHASE4-RADIOLOGY-MAP.md`): the module + exam catalog + the CREATED
+`ImagingConnectivity` (PACS/DICOM) seam + radiology RBAC (G1) → imaging order entry (reuse Clinical `Order`)
+(G2) → the study record (net-new `ImagingStudy`) + modality worklist (G3) → the radiologist report (reuse the
+sign-and-lock `ClinicalNote`) + report routing (G4) → radiology billing (G5) → **[SEAM-STUBBED] the DICOM/PACS/
+modality feed + diagnostic viewer (G6 — partner-gated, NOT built)**. **RAD.G1 (the FOUNDATION) is built.** Peer
+module, mirroring Lab/ED/Surgery/Pharmacy.
+
+## THE BIG REUSE (the map's core finding — do NOT duplicate)
+
+Radiology is **~95% reuse** — the most of any vertical. Clinical already provides everything: an imaging order
+IS a Clinical `Order` (**`OrderableItem::CATEGORY_IMAGING='imaging'` + the `specimen_or_modality` field already
+exist**; the lifecycle is modality-agnostic; `recordResult` already accepts a `document_id`); a report IS a
+sign-and-lock `ClinicalNote` (draft→sign→immutable→amend/version); routing IS `markReviewed`/`toReview` (the
+LAB.G5 worklist); the modality worklist IS the board idiom; billing IS the engine; **an uploaded exported still
+IS a `Document`** via the DENTAL.G8 `DocumentService` recipe (private disk, authenticated stream, no pixel
+analysis). Radiology REUSES them (G2/G4/G5) — it mints NO parallel order/report/image entity. The one genuinely
+net-new domain is the **study record** (`ImagingStudy`, G3 — the lab-`Specimen` analog: accession + a legal-only
+`ordered→acquired→reported` state).
+
+## The exam catalog (G1 — the overlay)
+
+`radiology_exams` (BelongsToTenant) is a thin overlay on the EXISTING Clinical `OrderableItem` (the `LabTest`/
+`DentalProcedure`/`SurgicalItem` precedent — `unique(orderable_item_id)`): an imaging exam IS a tenant-authored
+`OrderableItem` (`category='imaging'`; code/name + the **modality** in `specimen_or_modality` live there) + the
+overlay adding ONLY `body_part` + `contrast`. `RadiologyCatalogService::authorExam` (gate `radiology.catalog`,
+one `DB::transaction`: `OrderableItem::updateOrCreate`[category=imaging] + `RadiologyExam::updateOrCreate`) /
+`deactivate` (soft, `orderable.active=false`) / `seedStarter` (a SMALL GENERIC editable template — RAD-CXR/
+RAD-AXR/RAD-CT-HEAD/RAD-CT-ABDO/RAD-MRI-BRAIN/RAD-US-ABDO with plain names; **NO licensed CPT/RadLex set
+bundled**) / `catalog`. `RadiologyCatalogController` (`/radiology/catalog`) + `Radiology/Catalog.vue`; audited
+(app-layer `RadiologyExam.created` → `radiology.exam_authored`, tenant-level).
+
+## THE `ImagingConnectivity` SEAM (G1 — CREATED, not formalized)
+
+**Unlike Lab (whose `LabConnectivity` already existed), NO imaging seam existed — RAD.G1 CREATES it.**
+`Modules\Radiology\Contracts\ImagingConnectivity` (`transmitOrder(Order)` = the future DICOM Modality-Worklist
+push / `ingestStudy(array)` = a future imported study/report from PACS) + the ONLY shipped impl
+`NullImagingConnectivity` (transmit no-op; ingest **throws** "not available; recorded manually / images
+uploaded"), **bound in `RadiologyServiceProvider::register()`**. It MIRRORS `LabConnectivity`→
+`ManualLabConnectivity` / `MedicationSafetyProvider`→`Null*` / `TriageAcuityProvider`→`Null*` (referenced by
+name — no peer import). **Radiology OWNS this seam** (Lab consumed Clinical's; Radiology's is its own). The
+DICOM/PACS integration (native DICOM storage, MWL push, a diagnostic viewer, PACS retrieval) is the
+partner-gated **RAD.G6 — SEAM-STUBBED, NOT built**; a homemade DICOM/PACS stack is a PERMANENT non-goal. The
+seam is swappable for a certified partner WITHOUT touching consumers (proven: a partner test double resolves via
+`app()->instance`). The imported path is **append-never-interpret** — a partner records a study/report; the
+image is the partner's, NEVER interpreted.
+
+## THE FENCE (the AI-imaging line — a HARD medical-device non-goal)
+
+The radiologist AUTHORS the report (their recorded judgment — G4, via the sign-and-lock note). The system
+computes **NO** image finding / CAD / abnormality flag / auto-read / confidence score — "AI radiology" is a HARD
+medical-device non-goal (the DENTAL.G8 "AI radiology = NON-GOAL" line). The seam never interprets an image.
+`radiology_exams` carries no finding/cad/abnormal/ai/confidence/flag column; the grep over `Modules\Radiology\
+src` finds no computeFinding/detectAbnormality/cadRead/interpretImage/aiRead logic (and no homemade DICOM/PACS
+client — DicomClient/PacsClient/parseDicom/DicomViewer etc.). Enforced from G1; carried through every gate.
+
+## RBAC (additive)
+
+New perms `radiology.catalog` (author the exam menu) + `radiology.study` (record studies + the modality
+worklist, used G3). Ordering an imaging exam reuses the EXISTING `order.manage` (the clinician orders); the
+report reuses `note.write`/`note.sign` (the sign-and-lock note). New roles: `radiographer` (patient.view +
+order.manage + radiology.study — the imaging bench) + `radiologist` (the lead — + radiology.catalog +
+note.write/sign + encounter.manage). `org_admin` gains both perms. Reprovision migration
+`add_radiology_permissions` (the `add_lab_permissions` precedent); `RbacTest` count is self-referential to the
+const, stays green.
+
+## Boundaries / posture
+
+- **Arch:** `Modules\Radiology` may use Platform + care modules (Clinical [heavily — Order/ClinicalNote/Document/
+  OrderableItem]/Patients/Billing) + Audit SERVICES, but **not** `Audit\Models`, `AiCore`, `Comms`, or the peer
+  verticals (Nursing/Dental/Hospital/Pharmacy/Surgery/ED/Lab). `arch('Radiology …')` in `ModuleBoundariesTest`.
+- **Audit:** the `RadiologyExam.created` hook lives in `app/Providers/AppServiceProvider.php` (app-layer), so
+  Radiology stays free of Audit — the ED/Surgery/Pharmacy/Lab posture. Tenant-level (a catalog item, not
+  patient-scoped).
+- **No money math** in Radiology (billing is G5, via the existing engine).
+
+## Gate log
+
+- **RAD.G1**: module + tenant-authored imaging exam catalog (`RadiologyExam` overlay on `OrderableItem`
+  `category=imaging`, generic starter, NO licensed set) + the CREATED `ImagingConnectivity` (PACS/DICOM) seam
+  (null no-op, bound; no imaging seam existed before) + radiology RBAC (`radiology.catalog`/`radiology.study` +
+  radiographer/radiologist). 5 feature tests (`tests/Feature/Radiology/RadiologyCatalogTest.php`) + arch
+  boundary + reprovision migration + FIX.5 smoke (`/radiology/catalog`). REUSES Clinical's Order/ClinicalNote/
+  Document — does NOT duplicate. FENCE: the seam never interprets; no computed image read anywhere. See D-142.
+
+## Not built yet (later gates)
+
+G2 imaging order entry (reuse `Order` + thin modality/body-part overlay + STAT flag) · G3 the net-new
+`ImagingStudy` record + the modality worklist · G4 the radiologist report (reuse the sign-and-lock
+`ClinicalNote`) + routing [the fence gate] · G5 radiology billing (the engine; reconcile-to-the-unit) ·
+**G6 [SEAM-STUBBED] the DICOM/PACS/modality feed + diagnostic viewer — partner-gated, NOT built** (a certified
+PACS partner fills the `ImagingConnectivity` seam). After Phase 4, every hospital vertical is mapped/built;
+standing certified-partner seams: drug-safety, HL7/analyzer, PACS/DICOM, anaesthesia device-data. See
+`docs/HOSPITAL-PHASE4-RADIOLOGY-MAP.md`.

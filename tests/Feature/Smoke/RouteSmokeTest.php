@@ -208,6 +208,7 @@ test('every major staff route is reachable through the real middleware stack (20
         'lab.results (C-1)' => '/lab/orders/'.$fx['labOrder']->id.'/results',
         'lab.review' => '/lab/results/review',
         'lab.billing (C-1)' => '/lab/orders/'.$fx['labOrder']->id.'/billing',
+        'radiology.catalog' => '/radiology/catalog',
     ];
 
     $failures = [];
@@ -573,6 +574,17 @@ test('per-role RBAC smoke: each role reaches its pages (200) and is denied other
         ->status();
     if ($labChargeStatus !== 403) {
         $failures[] = "lab.billing.charge as reception -> {$labChargeStatus} (expected 403)";
+    }
+
+    // RAD.G1: authoring an imaging exam is radiology.catalog-gated. Reception (no radiology.catalog) is denied on
+    // the catalog store route at the gate through the real stack, before any exam is authored. The catalog records
+    // modality/body-part reference data; no computed image read.
+    smokeCtx()->forget();
+    $radCatalogStatus = $this->actingAs($u['reception'])
+        ->post('/radiology/catalog', ['code' => 'X', 'name' => 'X'])
+        ->status();
+    if ($radCatalogStatus !== 403) {
+        $failures[] = "radiology.catalog.store as reception -> {$radCatalogStatus} (expected 403)";
     }
 
     expect(implode("\n", $failures))->toBe('');

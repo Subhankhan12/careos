@@ -85,6 +85,7 @@ use Modules\Pharmacy\Http\Controllers\MedicationOrderController;
 use Modules\Pharmacy\Http\Controllers\PricingController;
 use Modules\Platform\Http\Controllers\SettingsController;
 use Modules\Platform\Http\Controllers\UserRoleController;
+use Modules\Radiology\Http\Controllers\RadiologyCatalogController;
 use Modules\Reporting\Http\Controllers\ReportingDashboardController;
 use Modules\Scheduling\Http\Controllers\AppointmentSeriesController;
 use Modules\Scheduling\Http\Controllers\DayBoardActionController;
@@ -511,6 +512,16 @@ Route::middleware('auth')->group(function () {
     Route::post('/lab/orders/{labOrder}/billing/price-test', [LabBillingController::class, 'priceTest'])->name('lab.billing.price-test');
     Route::post('/lab/orders/{labOrder}/billing/charge', [LabBillingController::class, 'charge'])->name('lab.billing.charge');
     Route::post('/lab/orders/{labOrder}/billing/invoice', [LabBillingController::class, 'invoice'])->name('lab.billing.invoice');
+
+    // Radiology / RIS — the tenant's imaging exam catalog (RAD.G1, Phase 4): the tenant authors its OWN exam
+    // menu (code/name/modality + body-part/contrast) — NO licensed CPT/RadLex set. An imaging exam is a Clinical
+    // `OrderableItem` (category=imaging) overlay; order/report/image reuse Clinical (later gates). Gated
+    // `radiology.catalog`. FENCE: the catalog records modality/body-part reference data, never a computed image
+    // read. {exam} string-id (FIX.1).
+    Route::get('/radiology/catalog', [RadiologyCatalogController::class, 'show'])->name('radiology.catalog');
+    Route::post('/radiology/catalog', [RadiologyCatalogController::class, 'store'])->name('radiology.catalog.store');
+    Route::post('/radiology/catalog/seed', [RadiologyCatalogController::class, 'seed'])->name('radiology.catalog.seed');
+    Route::post('/radiology/catalog/{exam}/deactivate', [RadiologyCatalogController::class, 'deactivate'])->name('radiology.catalog.deactivate');
 
     // Onboarding/migration: generic CSV patient import (RBAC 'data.import' enforced
     // in each controller action). Mandatory dry-run before commit.

@@ -246,3 +246,24 @@ arch('Lab may use care modules + Audit services but not Audit models, AiCore, pe
         'Modules\ED',
         'Modules\Comms',
     ]);
+
+// The Radiology / RIS is the radiology vertical (RAD.G1 — Phase 4). It REUSES Clinical heavily — an imaging
+// exam IS a Clinical `OrderableItem` (overlaid), an imaging order IS a Clinical `Order`, a report IS a Clinical
+// `ClinicalNote`, an uploaded still IS a Clinical `Document` — and it OWNS the created `ImagingConnectivity`
+// (PACS/DICOM) seam. So it MAY use Platform + care modules (Clinical/Patients/Billing) + Audit SERVICES — but
+// never Audit models directly, AiCore, or the PEER verticals (Nursing/Dental/Hospital/Pharmacy/Surgery/ED/Lab).
+// Cross-module audit composition lives in app/, so Radiology stays free of Audit — the ED/Surgery/Lab posture.
+arch('Radiology may use care modules + Audit services but not Audit models, AiCore, peer verticals, or Comms')
+    ->expect('Modules\Radiology')
+    ->not->toUse([
+        'Modules\Audit\Models',
+        'Modules\AiCore',
+        'Modules\Nursing',
+        'Modules\Dental',
+        'Modules\Hospital',
+        'Modules\Pharmacy',
+        'Modules\Surgery',
+        'Modules\ED',
+        'Modules\Lab',
+        'Modules\Comms',
+    ]);

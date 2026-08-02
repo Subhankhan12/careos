@@ -98,6 +98,18 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
 > HL7/analyzer, PACS/DICOM, anaesthesia device-data. Honest note: without PACS, radiology is an order-form + a
 > typed report + billing (+ an optional uploaded still), not a diagnostic imaging workstation. See
 > `docs/HOSPITAL-PHASE4-RADIOLOGY-MAP.md`.
+>
+> **UPDATE (RAD.G1 — Phase 4 STARTED):** the **Radiology / RIS (Phase 4)** FOUNDATION gate is **built** — a peer
+> `Modules\Radiology`: the tenant-authored **imaging exam catalog** (a `RadiologyExam` overlay on the EXISTING
+> Clinical `OrderableItem`, `category='imaging'` + the `specimen_or_modality` field both already existed; a
+> generic starter, NO licensed CPT/RadLex set), the **CREATED `ImagingConnectivity` (PACS/DICOM) seam** (unlike
+> Lab's pre-existing seam, none existed — created as a null no-op, bound; the `LabConnectivity`/`TriageAcuityProvider`
+> precedent), and radiology RBAC (`radiology.catalog`/`radiology.study` + radiographer/radiologist). **REUSES
+> Clinical's Order/ClinicalNote/Document — does NOT duplicate.** **FENCE:** the seam never interprets an image; a
+> computed image finding/CAD/auto-read is a HARD medical-device non-goal (the dental "AI radiology = non-goal"
+> line). NO DICOM/PACS integration/viewer/image-storage built (RAD.G6 seam-stubbed, partner-gated). Remaining
+> radiology gates: G2 order (reuse `Order`) · G3 study record + worklist · G4 report + routing · G5 billing ·
+> **G6 [seam-stubbed] the DICOM/PACS feed + viewer.** See [[Radiology]] / D-142.
 
 **Read this before starting any work. The next unit of progress is DELIVERY, not another gate.**
 (Latest reconciliation: the full six-vertical handoff pass — clinic / dental / home-care / inpatient /
