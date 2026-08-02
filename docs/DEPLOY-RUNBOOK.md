@@ -23,12 +23,25 @@
 
 ---
 
+> ### 🔁 Second review (2026-08-02) — reconciled against the current EIGHT-vertical code
+> Re-audited (read-only) after the hospital verticals (inpatient · pharmacy · lab · radiology · surgery · ED) landed. Three items were stale against today's code and are fixed inline below; nothing here is an application-code bug.
+>
+> | # | Section | Finding | Fix |
+> |---|---------|---------|-----|
+> | A | §7 scheduler | **BLOCKER** — `hospital:accrue-bed-days` (daily 05:30, inpatient per-diem accrual) was missing, and the table said "all eight" when [routes/console.php](../routes/console.php) defines **nine**. Without this cron, inpatient bed-day charges never accrue → hospital billing is incomplete. | Added the ninth row; corrected the count. |
+> | B | §11 step 3 | **DRIFT** — only the 6 clinic-era role templates were listed; [RbacProvisioner.php](../Modules/Platform/src/Services/RbacProvisioner.php) now seeds **17** (the hospital roles landed after this doc was drafted). A hospital customer could not be staffed from the runbook. | Listed all 17 templates, grouped by vertical. |
+> | C | §4 `.env` | **GAP** — the AiCore/LLM env block was absent; [config/aicore.php](../config/aicore.php) reads `ANTHROPIC_API_KEY` (no default) + `AICORE_*`. Without the key the front-desk agent + KB grounding silently fail (the AiCore CircuitBreaker degrades — the app still boots, but the AI features are dead). | Added an AiCore block (optional; graceful-degrade + the `AICORE_REGION=eu` data-residency note). |
+>
+> Re-verified STILL-CORRECT against current code: `LIVEKIT_HOST`/`LIVEKIT_API_KEY`/`LIVEKIT_API_SECRET` ([config/telehealth.php:15-20](../config/telehealth.php#L15-L20)); both asset builds ([package.json:5-6](../package.json#L5-L6)); `QUEUE_CONNECTION`/`CACHE_STORE`/`SESSION_DRIVER` all default to a NON-redis store, so the redis overrides are load-bearing; PHI on the private `local` disk (root `storage/app/private`, 10× `Storage::disk('local')`, **zero** public-URL leak on any PHI path); the Horizon dashboard gate = super-admin (`viewHorizon` → `isSuperAdmin`); **all 194 module migrations** are covered by `migrate --force` (every one of the 19 modules calls `loadMigrationsFrom` in its `src/Providers/*ServiceProvider.php`); `utf8mb4_unicode_ci`; and the demo-seeder class names (namespace `Database\Seeders`, so the short `--class=` name resolves).
+
+---
+
 ## 0 — Before you touch a server (decisions)
 
 - **Host:** a single Linux VM to start (Ubuntu 22.04/24.04 LTS). A 2–4 vCPU / 4–8 GB box is plenty for the first customers. (DigitalOcean, Hetzner, AWS Lightsail — any.)
 - **Domain:** pick the app domain (e.g. `app.careos.example`) and point an A record at the server's IP *before* you request HTTPS.
 - **Two-server-later note:** for now, app + MySQL + Redis on one box is fine. When you have paying load, split the DB onto managed MySQL. Don't prematurely split.
-- **Secrets you'll need on hand:** DB password, a fresh `APP_KEY` (generated below), SMTP credentials (host/user/pass), and the LiveKit host URL + API key + secret. **`APP_KEY` is the app's only encryption key** — it backs the credential-encryption path (`Crypt`); there is no separate credential/gateway key variable.
+- **Secrets you'll need on hand:** DB password, a fresh `APP_KEY` (generated below), SMTP credentials (host/user/pass), the LiveKit host URL + API key + secret, and — **only if the tenant uses the front-desk AI agent / KB grounding** — an Anthropic API key (`ANTHROPIC_API_KEY`, see §4). **`APP_KEY` is the app's only encryption key** — it backs the credential-encryption path (`Crypt`); there is no separate credential/gateway key variable.
 
 ---
 
@@ -178,6 +191,17 @@ LIVEKIT_API_SECRET=CHANGE_ME_LIVEKIT_SECRET
 # Filesystem. FILESYSTEM_DISK=local selects the PRIVATE disk (root storage/app/private).
 # NOTE: PHI paths hardcode disk('local') regardless, so PHI stays private even if this changes.
 FILESYSTEM_DISK=local
+
+# AiCore / LLM (front-desk agent + KB grounding). OPTIONAL — the app boots without it:
+# with no key the AiCore CircuitBreaker degrades every AI call gracefully (draft-until-approved,
+# never in the clinical-decision path). But the front-desk agent + KB answers will NOT work until
+# ANTHROPIC_API_KEY is set. If a tenant does not use AI at all, you may leave this block out.
+# config/aicore.php reads these; provider defaults to 'anthropic', region to 'eu' (data residency).
+ANTHROPIC_API_KEY=CHANGE_ME_ANTHROPIC_KEY   # no default in code — AI features are dead until set
+# AICORE_PROVIDER=anthropic
+# AICORE_REGION=eu                           # EU data-residency default; keep 'eu' for EU tenants
+# ANTHROPIC_MODEL=claude-sonnet-4-5          # code default; override per tenant if needed
+# AICORE_DEFAULT_MONTHLY_BUDGET_MINOR=5000   # per-tenant AI spend cap (integer minor units)
 ```
 
 > **There is no `CREDENTIAL_ENCRYPTION_KEY`.** The original draft carried a commented guess for it — remove it. Encryption uses Laravel's standard `APP_KEY` (AES-256-CBC, `config/app.php`). Just make sure `APP_KEY` is generated (next step).
@@ -262,14 +286,15 @@ On future redeploys, gracefully cycle workers with `php artisan horizon:terminat
 
 ### The scheduler cron (runs the scheduled jobs)
 
-A single `schedule:run` drives **all eight** scheduled commands (defined in `routes/console.php`):
+A single `schedule:run` drives **all nine** scheduled commands (defined in `routes/console.php`):
 
 | Command | Cadence | Purpose |
 |---|---|---|
 | `audit:verify-chains` | daily 01:30 | audit hash-chain verification |
 | `credentials:refresh-status` | daily 02:10 | staff credential status refresh |
-| `nursing:materialize-visits` | daily 02:20 | Spitex visit materialization |
+| `nursing:materialize-visits` | daily 02:20 | Spitex visit materialization (rolling 8-week horizon) |
 | `clinical:evaluate-recalls` | daily 02:30 | recall due-date evaluation |
+| `hospital:accrue-bed-days` | daily 05:30 | **inpatient per-diem bed-day accrual** — captures each active stay's bed-day charge through the billing engine (idempotent). Runs BEFORE the billing sweeps so the day's bed-days are in before dunning/reconcile. **Omit this and inpatient billing silently under-charges.** |
 | `billing:dunning-run` | daily 06:00 | dunning letters (the billing automation) |
 | `billing:reconcile` | daily 06:30 | reconciliation + raise/clear the reconcile alarm |
 | `appointments:dispatch-reminders` | every 15 min | enqueue due appointment reminders |
@@ -361,6 +386,19 @@ Run every one of these before you tell a customer it's live. This is the "local-
 - [ ] **RBAC by URL:** a low-permission role hitting a privileged route → 403.
 - [ ] **LiveKit:** start a telehealth session → the staff + patient can connect; confirm "not recorded" holds. (If it fails to connect, first check `LIVEKIT_HOST` — not `LIVEKIT_URL` — is set.)
 
+**Core-flow smoke walk (per vertical — on a throwaway/demo tenant, before real go-live)**
+On a demo box you can seed the fixtures first: `php artisan migrate:fresh --force` then the three demo seeders (§10). On a customer box do NOT seed — walk only the verticals that customer bought, in a fresh empty tenant. For each, drive ONE end-to-end flow and confirm the two invariants below hold in prod (not just in CI):
+- [ ] **Clinic:** book an appointment (no double-book) → open the encounter → record a vital → sign a SOAP note → issue an invoice.
+- [ ] **Dental:** open the odontogram → chart a tooth → perform a procedure (charts + charges atomically) → the diagnosis screen suggests **nothing**.
+- [ ] **Home-care / Spitex:** a planned visit shows on the dispatcher board → assign it (no double-assign) → the Nurse PWA (`/nurse-pwa`) loads its day-pack.
+- [ ] **Inpatient / ADT:** claim a bed (no double-claim) → admit → transfer → discharge; confirm a **bed-day charge accrued** (proves the §7 `hospital:accrue-bed-days` cron path).
+- [ ] **Pharmacy:** place a medication order → record an eMAR administration → dispense (stock decrements, no oversell); the drug-safety seam is advisory only (never auto-blocks).
+- [ ] **Surgery / OR:** schedule a theatre slot (no overlap) → run the case lifecycle + WHO checklist (RECORDED, never gates the case) → an implant lot/serial is traceable.
+- [ ] **ED:** create an ED visit → triage acuity is **nurse-ASSIGNED** (nothing computed) → disposition; an admit reuses ADT (one composite episode invoice).
+- [ ] **Lab:** place a lab order → collect specimen (accession) → enter a result — the reference range is **DISPLAYED beside the raw value with no high/low/abnormal flag**.
+- [ ] **Radiology:** place an imaging order → register the study (accession) → the radiologist **AUTHORS** the report (no computed finding/CAD/auto-read).
+- [ ] **Both invariants, every vertical:** **billing reconciles to the unit** (δ=0 in the reporting/aging figures) and **every fenced surface renders raw** (values/ranges shown, never a computed judgment/score/flag).
+
 **Backups (before real patient data lands)**
 - [ ] A nightly MySQL dump (cron: `mysqldump` → off-box storage) is configured. *Do this before importing a real customer's patients — healthcare data with no backup is a non-starter.*
 
@@ -388,7 +426,16 @@ Once the platform is live, bring each paying customer online. Same sequence per 
 
 1. **Create their tenant** (their practice), set locale/currency (CHF for the Swiss clinic; the dentist's currency), and the practice profile (W8b) — branches, opening hours, timezone. (Branch CRUD + 7-day opening-hours editor + timezone exist under `admin.branches.*` / `settings.*`.)
 2. **Set up their branch(es) + resources** (W8b/W8c): rooms/chairs via `admin.resources.*`. **⚠️ Availability windows have no admin screen yet** (the W8c availability UI is a documented deferred follow-up) — a resource's availability rows must be **seeded programmatically** today. This matters: **until a resource has availability rows, the slot finder returns zero bookable slots for it.** Plan to seed availability as part of onboarding, or scheduling will appear empty.
-3. **Assign roles** (W8): create their users and assign the built role templates. Available templates are **org_admin, coordinator, doctor, nurse, reception, billing** — there is **no `dentist` template**. For a dentist, assign **`doctor`** (it carries the `dental.chart` / odontogram permission). A dedicated dentist/hygienist/assistant split is a later dental gate.
+3. **Assign roles** (W8): create their users and assign the built role templates. `RbacProvisioner` now seeds **17** templates (the hospital roles landed after the first draft) — assign only the ones the customer's vertical needs:
+   - **Clinic / shared:** `org_admin`, `coordinator`, `doctor`, `nurse`, `reception`, `billing`.
+   - **Inpatient / ADT:** `ward_nurse`, `charge_nurse`.
+   - **Pharmacy:** `pharmacist`.
+   - **Surgery / OR:** `surgeon`, `scrub_nurse`.
+   - **ED:** `ed_physician`, `triage_nurse`, `ed_charge_nurse`.
+   - **Lab:** `lab_tech`.
+   - **Radiology:** `radiographer`, `radiologist`.
+
+   There is still **no `dentist` template** — for a dentist, assign **`doctor`** (it carries the `dental.chart` / odontogram permission). A dedicated dentist/hygienist/assistant split is a later dental gate. (See [RbacProvisioner.php](../Modules/Platform/src/Services/RbacProvisioner.php) for the exact permission set behind each template.)
 4. **For the dentist:** load their **fee schedule** via `dental.fee-schedule.*` (the tenant-authored dental procedure catalog — their own codes/fees; no CDT/SSO code set is bundled). Start from the generic starter template, then edit codes/fees. `billing.manage`-gated.
 5. **Import their patients** via the **P.6 CSV tool** (`import.*`): upload their export → **dry-run** (`validate` — writes nothing, shows the preview + dedup) → verify the mapping and the duplicate handling (skip / import_as_new / merge) → **commit**. Their existing patients are now in, through the real services (MRN/audit/tenancy applied).
 6. **Configure their KB** (W10) via `governance.kb.*` if they use the front-desk agent. Note: this curates KB **content** only — the agent's answer/refuse/escalate behaviour and electric-fence are fixed in code, not a tenant-configurable setting. Wire their real mail sender if per-tenant.
