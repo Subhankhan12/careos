@@ -155,14 +155,22 @@ SURGERY.G1–G5)**. Each vertical was MAP-FIRST (a reconciliation/scope map befo
 increasingly PARTNER/INTEGRATION-gated, not code-gated.
 
 **Remaining hospital phases (parked — map-first when pulled forward):**
-- **Lab (Phase 3).** An orders→results board. The orders half already exists (P0P.G11 structured clinical
-  orders + MANUAL results; `Clinical\Contracts\LabConnectivity` → `ManualLabConnectivity`, transmit is a
-  no-op). The remaining value is mostly an **integration SHELL** pending a real HL7/FHIR lab partner (see
-  the lab-connectivity item above). The electric fence holds: never interpret a result, even auto-ingested.
-  **TRIGGER:** a customer using a specific lab AND a funded integration against that lab's interface.
-- **Radiology (Phase 4).** An imaging orders + report worklist. Mostly an **integration SHELL** pending a
-  **PACS/DICOM** partner (image storage/streaming is a vendor product, not a CareOS feature). The radiologist
-  authors the report; the system records it. **TRIGGER:** a customer with a PACS AND a funded DICOM integration.
+- **Lab (Phase 3) — BUILT (LAB.G1–G6).** The manual LIS shell is built end-to-end: tenant-authored test
+  catalog, lab order (reuses the Clinical `Order`), specimen tracking (net-new), manual result entry (reuses
+  `OrderResult`; reference range DISPLAYED, no computed abnormal flag), review worklist, billing (reconciles).
+  The ONLY remaining piece is **LAB.G7 — the HL7/FHIR/analyzer FEED**, the `LabConnectivity` →
+  `ManualLabConnectivity` certified-partner seam (transmit is a no-op; automated ingestion throws today; a
+  homemade HL7 client = not built). The electric fence holds: never interpret a result, even auto-ingested.
+  **TRIGGER:** a customer using a specific lab/analyzer AND a funded HL7/FHIR integration.
+- **Radiology (Phase 4) — BUILT (RAD.G1–G5).** The order-form-with-no-image shell is built end-to-end:
+  tenant-authored exam catalog, imaging order (reuses the Clinical `Order`), the net-new `ImagingStudy`
+  (accession + legal state machine) + modality worklist, the radiologist REPORT (reuses the sign-and-lock
+  `ClinicalNote` — AUTHORED prose), report routing, billing (reconciles). The ONLY remaining piece is **RAD.G6
+  — the DICOM/PACS/modality FEED + diagnostic viewer**, the CREATED `ImagingConnectivity` →
+  `NullImagingConnectivity` certified-partner seam (null no-op today; image storage/streaming/a diagnostic
+  viewer is a vendor product, not a CareOS feature). The radiologist authors the report; the system records it;
+  AI radiology/CAD = HARD non-goal. Also deferred: the optional uploaded still (dental `DocumentService` — a
+  limited manual export). **TRIGGER:** a customer with a PACS AND a funded DICOM integration.
 - **ED / Emergency Department (Phase 6).** A buildable ED board (arrivals, bays, disposition) over the
   existing scheduling/ADT/clinical spine. **The fence line is TRIAGE: acuity is a clinician-ASSIGNED value
   (record-not-judge), never a CareOS-computed triage score** (no homemade ESI/CTAS/MTS algorithm — a

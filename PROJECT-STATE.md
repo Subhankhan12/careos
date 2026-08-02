@@ -3,7 +3,68 @@
 Short, factual snapshot of where the project stands. Updated at consolidations and after gates
 (per the MEMORY PROTOCOL in AGENTS.md).
 
-## STATUS: BACKEND FEATURE-COMPLETE · SEVEN VERTICALS (ED / Phase 6 COMPLETE) · CURRENT FOCUS = DEPLOY (not building)
+## STATUS: BUILD COMPLETE · EIGHT VERTICALS · ALL HOSPITAL PHASES BUILT · CURRENT FOCUS = DEPLOY + PARTNERSHIPS (not building)
+
+> **RECONCILED (this pass — eight verticals, all hospital phases built).** CareOS is a multi-tenant agentic
+> healthcare-operations platform (EU-first). **Stack:** Laravel 12, Inertia v2 + Vue 3 + TS + Tailwind v4
+> (Eucalyptus Glow) + a separate offline Nurse PWA; dev MariaDB 10.4 @3306, prod+CI MySQL 8 + Redis 7 + Node 22;
+> Horizon via Memurai locally. **Latest commit:** the RAD.G5 / radiology-complete commit (`bf1406d`), then this
+> reconciliation. **Suite:** `composer check` green — Pest **953 passed / 2 skipped** (13,544 assertions),
+> PHPStan L5 `[OK]`, Pint clean; CI green on MySQL 8; the FIX.5 route-smoke guards against request-time 500s.
+>
+> **THE EIGHT VERTICALS (all built + green on the shared platform):**
+> - **CLINIC** — delivered (design-wired W1–W7, QA-audited FIX.1–FIX.5, admin W8–W10, UI F1–F2, polish 1–3).
+> - **DENTAL** (G1–G9) — odontogram, procedures, treatment plans, perio, dentist-authored diagnosis, imaging;
+>   record-not-judge; billing reuses the engine; tenant-authored catalogs (no CDT).
+> - **HOME-CARE / SPITEX** — visit planning/dispatch + the offline Nurse PWA.
+> - **INPATIENT / ADT** (Phase 1, G1–G7) — beds (net-new, concurrency-safe claim), Stay (above an unmodified
+>   Encounter), atomic admit/transfer/discharge, ward board, bedside charting (reuses Clinical), SBAR handover,
+>   bed-to-billing (reconciles), discharge/LOS/summary.
+> - **PHARMACY** (Phase 2, G1–G5) — tenant-authored formulary, medication orders, eMAR, dispensing/inventory
+>   (concurrency-safe), billing (reconciles). Drug-safety = the `MedicationSafetyProvider` certified-partner
+>   seam (null-object; homemade interaction/dose checking = permanent non-goal).
+> - **SURGERY / OR** (Phase 5, G1–G5) — theatre scheduling (overlap-safe), case lifecycle + op docs (reuses
+>   Clinical), WHO checklist (RECORDED not enforced), consumables + implant lot/serial/UDI traceability
+>   (concurrency-safe stock), billing (reconciles). ASA/Mallampati = assigned facts; computed surgical-risk =
+>   non-goal; anaesthesia device-data = partner seam.
+> - **ED** (Phase 6, G1–G6) — net-new EdVisit flow entity, triage (nurse-ASSIGNED acuity, TriageAcuityProvider
+>   seam), tracking board, clinical docs (reuses Clinical), disposition + the ED→ADT handoff (admit reuses
+>   AdmissionService → an inpatient Stay, admission_type=emergency, atomic), billing (reconciles; composite
+>   emergency→inpatient episode on one invoice). Computed triage acuity = non-goal/certified-partner.
+> - **LAB / LIS** (Phase 3, G1–G6) — a lab test IS a Clinical Order (~85% reuse); tenant-authored test catalog,
+>   lab order overlay (specimen + recorded priority), specimen tracking (net-new: accession + legal state
+>   machine), manual result entry (reuses OrderResult; reference range DISPLAYED — NO computed abnormal flag),
+>   review worklist (reuses order→review), billing (reconciles). HL7/FHIR/analyzer FEED (LAB.G7) = the
+>   `LabConnectivity` certified-partner seam (manual today; homemade HL7 = not built). Honest: a manual
+>   record-keeping shell pending the HL7 partner.
+> - **RADIOLOGY / RIS** (Phase 4, G1–G5) — an imaging order IS a Clinical Order (~95% reuse); tenant-authored
+>   exam catalog, imaging order overlay (modality/body-part + recorded priority), the net-new ImagingStudy
+>   (accession + legal ordered→acquired→reported), the modality worklist, the radiologist REPORT (reuses
+>   sign-and-lock ClinicalNote — AUTHORED prose, NO computed image finding/CAD/auto-read), report routing,
+>   billing (reconciles). DICOM/PACS IMAGE FEED (RAD.G6) = the `ImagingConnectivity` certified-partner seam
+>   (not built); AI imaging/CAD = HARD non-goal. Honest: an order-form-with-no-image shell pending PACS (the
+>   study is metadata; no diagnostic viewer).
+>
+> **BUSINESS PICTURE:** 2–3 outpatient paying customers (clinic/dental/home-care DONE, NOT DEPLOYED); a
+> committed mid-size general-hospital buyer drove the phased hospital build (now complete). **CURRENT FOCUS —
+> THE BUILD IS COMPLETE; there are NO more verticals to build.** The only remaining progress is NOT code:
+> (1) **DEPLOY** the built verticals to the paying customers (`docs/DEPLOY-RUNBOOK.md` + the rehearsed
+> onboarding are ready), and (2) the **PARTNERSHIP/INTEGRATION** work that fills the certified-partner seams —
+> drug-safety (pharmacy), HL7/FHIR (lab), PACS/DICOM (radiology), anaesthesia device-data (surgery) — business
+> conversations with long lead times, not gates.
+>
+> **DEMO TENANTS (all reconcile-to-the-unit + chain-verify):** `DemoClinicSeeder`, `DemoSpitexSeeder`,
+> `DemoDentalSeeder`. **No inpatient/pharmacy/surgery/ED/lab/radiology demo seeder exists yet** (a documented
+> follow-up). Seed: `php artisan db:seed --class=Database\\Seeders\\DemoClinicSeeder` (likewise Spitex/Dental).
+>
+> **DEPLOY-READY:** MySQL 8 parity proven (`docs/DB-PARITY.md`; the P0P.G15 mutable-moment `dateTime()`
+> convention); NOT yet deployed; real email/LiveKit/prod config still needed. **Documented follow-ups:** the
+> missing hospital/vertical demo seeders; the certified-partner seams (MedicationSafetyProvider,
+> TriageAcuityProvider, LabConnectivity, ImagingConnectivity, anaesthesia device-data); full per-widget timezone
+> display; the resource-availability admin screen; the optional radiology uploaded-still (dental DocumentService).
+> New session onboarding: read **`docs/ONBOARDING.md`** first.
+
+## (historical) STATUS: BACKEND FEATURE-COMPLETE · SEVEN VERTICALS (ED / Phase 6 COMPLETE) · CURRENT FOCUS = DEPLOY (not building)
 
 > **UPDATE (ED / Phase 6 COMPLETE — G1→G6):** the committed hospital buyer's phased build delivered a
 > **SEVENTH vertical** — **Hospital Phase 6 (Emergency Department) is mapped (`docs/HOSPITAL-PHASE6-ED-MAP.md`)
