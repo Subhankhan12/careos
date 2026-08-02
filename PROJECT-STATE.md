@@ -138,6 +138,21 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
 > report (findings/impression as prose); the system computes NO image finding/CAD/abnormality/confidence/
 > auto-read/diagnosis — a HARD medical-device non-goal (nothing auto-populates; proven). Remaining radiology
 > gates: G5 billing · **G6 [seam-stubbed] the DICOM/PACS feed + viewer.** See [[Radiology]] / D-145.
+>
+> **UPDATE (RAD.G5 — RADIOLOGY CORE COMPLETE · ALL HOSPITAL PHASES BUILT):** **radiology billing is built** — an
+> imaging order accrues its exam fee through the EXISTING engine, reconciling-to-the-unit. STRICTLY ORCHESTRATION
+> (no money math in Radiology — the adversarial grep is clean). An imaging exam is a tenant-authored `TariffItem`;
+> `RadiologyBillingService` captures the charge via the existing `ChargeCaptureService` (engine-snapshotted),
+> issues an outpatient invoice, or (inpatient/ED) lets the imaging charges ride the stay/episode invoice via
+> `invoiceStay`. **Reconciles-to-the-unit proven both ways** (outpatient δ=0; composite inpatient episode —
+> imaging + bed-days on one invoice — δ=0). **FENCE:** the fee is a tariff, NOT report-driven. **The buildable
+> RADIOLOGY vertical (Phase 4 core) is COMPLETE** — G1 catalog+seam → G2 order → G3 study+worklist → G4
+> report+routing → G5 billing. THE ONE DELIBERATE GAP: **RAD.G6** the DICOM/PACS feed + diagnostic viewer stays
+> the CERTIFIED-PARTNER `ImagingConnectivity` seam (null today); AI radiology/CAD = hard non-goal. **AFTER PHASE
+> 4, EVERY HOSPITAL VERTICAL IS BUILT** — eight verticals (clinic · dental · home-care · inpatient · pharmacy ·
+> surgery · ED · lab · radiology) on the shared platform; the only remaining work is DEPLOYMENT + the
+> certified-partner integrations (drug-safety, HL7/analyzer, PACS/DICOM, anaesthesia device-data), not code. See
+> [[Radiology]] / D-146.
 
 **Read this before starting any work. The next unit of progress is DELIVERY, not another gate.**
 (Latest reconciliation: the full six-vertical handoff pass — clinic / dental / home-care / inpatient /

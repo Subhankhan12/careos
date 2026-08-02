@@ -221,6 +221,7 @@ test('every major staff route is reachable through the real middleware stack (20
         'radiology.worklist' => '/radiology/worklist',
         'radiology.study (C-1)' => '/radiology/orders/'.$fx['radOrder']->id.'/study',
         'radiology.report (C-1)' => '/radiology/orders/'.$fx['radOrder']->id.'/report',
+        'radiology.billing (C-1)' => '/radiology/orders/'.$fx['radOrder']->id.'/billing',
     ];
 
     $failures = [];
@@ -630,6 +631,17 @@ test('per-role RBAC smoke: each role reaches its pages (200) and is denied other
         ->status();
     if ($radReportStatus !== 403) {
         $failures[] = "radiology.reports.save as reception -> {$radReportStatus} (expected 403)";
+    }
+
+    // RAD.G5: capturing a radiology charge is billing.manage-gated (the billing office, NOT the radiology bench).
+    // Reception (no billing.manage) is denied on the charge route at the gate through the real stack, before any
+    // charge is captured. An exam fee is a tariff, never report-driven; no money math in Radiology.
+    smokeCtx()->forget();
+    $radChargeStatus = $this->actingAs($u['reception'])
+        ->post('/radiology/orders/'.$fx['radOrder']->id.'/billing/charge')
+        ->status();
+    if ($radChargeStatus !== 403) {
+        $failures[] = "radiology.billing.charge as reception -> {$radChargeStatus} (expected 403)";
     }
 
     expect(implode("\n", $failures))->toBe('');

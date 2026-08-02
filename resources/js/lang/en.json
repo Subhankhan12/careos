@@ -2610,6 +2610,31 @@
             "signed": "Signed",
             "routedNote": "On signing, the report routes to the ordering clinician’s review worklist (the shared order → review flow).",
             "openReview": "Open review worklist"
+        },
+        "billing": {
+            "title": "Radiology billing",
+            "eyebrow": "Radiology · Billing",
+            "subtitle": "Price the exam, capture the charge, and invoice — through the shared billing engine.",
+            "price": "Price this exam",
+            "priceMinor": "Price (minor units)",
+            "priceBtn": "Set price",
+            "priceHint": "The price is a tenant-authored tariff — a rate, never driven by the report or findings. The engine computes every total.",
+            "charge": "Capture the charge",
+            "chargeBtn": "Charge this order",
+            "charged": "Charges",
+            "noCharges": "No charge captured yet.",
+            "code": "Code",
+            "description": "Description",
+            "qty": "Qty",
+            "rate": "Rate",
+            "estimate": "Estimate",
+            "status": "Status",
+            "invoice": "Invoice",
+            "invoiceBtn": "Invoice (outpatient)",
+            "inpatientNote": "For an admitted patient, imaging charges join the stay or episode invoice automatically — no order-level invoice.",
+            "issued": "Issued invoice",
+            "total": "Total",
+            "openInvoice": "Open invoice"
         }
     }
 }

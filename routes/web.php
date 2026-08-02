@@ -87,6 +87,7 @@ use Modules\Platform\Http\Controllers\SettingsController;
 use Modules\Platform\Http\Controllers\UserRoleController;
 use Modules\Radiology\Http\Controllers\ImagingReportController;
 use Modules\Radiology\Http\Controllers\ImagingStudyController;
+use Modules\Radiology\Http\Controllers\RadiologyBillingController;
 use Modules\Radiology\Http\Controllers\RadiologyCatalogController;
 use Modules\Radiology\Http\Controllers\RadiologyOrderController;
 use Modules\Radiology\Http\Controllers\RadiologyWorklistController;
@@ -553,6 +554,17 @@ Route::middleware('auth')->group(function () {
     Route::post('/radiology/orders/{radiologyOrder}/report', [ImagingReportController::class, 'store'])->name('radiology.reports.save');
     Route::post('/radiology/orders/{radiologyOrder}/report/sign', [ImagingReportController::class, 'sign'])->name('radiology.reports.sign');
     Route::post('/radiology/orders/{radiologyOrder}/report/amend', [ImagingReportController::class, 'amend'])->name('radiology.reports.amend');
+
+    // Radiology billing (RAD.G5) — an imaging order accrues its exam fee through the EXISTING billing engine,
+    // reconciling-to-the-unit. STRICTLY ORCHESTRATION — NO money math (the engine owns pricing/line-totals). An
+    // imaging exam is a tenant-authored TariffItem (keyed by the catalog code, no licensed pricing); the charge
+    // is captured via ChargeCaptureService (snapshotted); outpatient issues an invoice, inpatient/ED imaging
+    // charges join the stay/episode invoice. Gated `billing.manage` (the billing office, NOT the radiology
+    // bench). FENCE: the fee is a tariff, NOT report-driven. {radiologyOrder} string-id (FIX.1).
+    Route::get('/radiology/orders/{radiologyOrder}/billing', [RadiologyBillingController::class, 'show'])->name('radiology.billing.show');
+    Route::post('/radiology/orders/{radiologyOrder}/billing/price-exam', [RadiologyBillingController::class, 'priceExam'])->name('radiology.billing.price-exam');
+    Route::post('/radiology/orders/{radiologyOrder}/billing/charge', [RadiologyBillingController::class, 'charge'])->name('radiology.billing.charge');
+    Route::post('/radiology/orders/{radiologyOrder}/billing/invoice', [RadiologyBillingController::class, 'invoice'])->name('radiology.billing.invoice');
 
     // Onboarding/migration: generic CSV patient import (RBAC 'data.import' enforced
     // in each controller action). Mandatory dry-run before commit.

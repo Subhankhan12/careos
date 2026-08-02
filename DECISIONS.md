@@ -2462,3 +2462,33 @@ references the old ID.
   clinical-safety/triage-eval + RAD.G1–G3 + all vertical suites stay green (Clinical REUSED, untouched). No
   charge. `tests/Feature/Radiology/RadiologyReportTest.php` (7). See `docs/HOSPITAL-PHASE4-RADIOLOGY-MAP.md`,
   [[Radiology]], [[LOG]].
+- **D-146 — RAD.G5: radiology billing — an imaging order accrues its exam fee through the EXISTING engine,
+  reconciling-to-the-unit. The LAST buildable Phase-4 gate; the RADIOLOGY core is COMPLETE.** Per
+  `docs/HOSPITAL-PHASE4-RADIOLOGY-MAP.md`. STRICTLY ORCHESTRATION — Radiology adds NO pricing/charge/VAT/
+  line-total math (the LAB.G6 / ED.G6 pattern; the adversarial grep over `Modules\Radiology\src` finds zero
+  money math). An imaging exam is a tenant-authored `TariffItem` in the `radiology` `TariffCatalog` (keyed by
+  the RAD.G1 exam code, integer minor units, NO licensed pricing). `RadiologyBillingService`
+  (`priceExam`/`chargeOrder`/`invoiceOrder`/`catalogTariffs`, gate `billing.manage`) captures ONE charge per
+  imaging order via the EXISTING `ChargeCaptureService::captureManual` (the engine resolves + SNAPSHOTS the fee
+  + computes `line_total = qty × unit_price`); idempotent via the `radiology_order_charges` link (soft
+  `charge_id` ref, NO money stored). Outpatient issues via `validateForPatientPeriod`→`createDraftFromCharges`→
+  `issue`; an inpatient/ED patient's imaging charges instead join the stay/episode's discharge invoice via the
+  existing `BedBillingService::invoiceStay` (same gather-by-patient+period — no radiology code). Service date =
+  the exam's order date. **RECONCILES-TO-THE-UNIT proven BOTH ways:** an outpatient invoice with an imaging
+  charge (δ=0, six invariants); AND a composite inpatient episode — the imaging charge + bed-days on ONE stay
+  invoice (δ=0). **THE FENCE:** the exam fee is a plain tariff, NOT driven by the report/finding or any
+  modality-severity (two orders for the same exam → the SAME fee; STAT priority doesn't change it); fees
+  snapshotted (re-pricing never changes a past charge); `radiology_order_charges` carries no
+  money/report/finding/severity column. RBAC: `billing.manage` (the billing office, NOT the radiology bench — a
+  `radiographer` with order.manage+radiology.study is refused); tenant scoped, fail-closed. No audit hook (the
+  Charge/Invoice audited by Billing — the `LabOrderCharge`/`EdVisitCharge` precedent). UI (P0D.GU):
+  `RadiologyBillingController` (`/radiology/orders/{radiologyOrder}/billing` + price-exam/charge/invoice) +
+  `Radiology/Billing.vue` + `radiology.billing.*` i18n; FIX.5 smoke extended (GET 200 + charge 403). No existing
+  behavior test modified; the reconciliation/fence/immutability/clinical-safety/triage-eval + RAD.G1–G4 + all
+  vertical suites stay green (the billing engine REUSED, not changed). `tests/Feature/Radiology/RadiologyBillingTest.php`
+  (7). **RADIOLOGY CORE COMPLETE (Phase 4):** G1 catalog+seam → G2 order → G3 study+worklist → G4 report+routing
+  → G5 billing — a radiology dept runs end-to-end as an order-form-with-no-image shell. THE ONE DELIBERATE GAP:
+  RAD.G6 (the DICOM/PACS feed + diagnostic viewer) stays the CERTIFIED-PARTNER `ImagingConnectivity` seam (null
+  today; a partner fills it); AI radiology/CAD = hard non-goal; the optional uploaded still deferred. **After
+  Phase 4, EVERY hospital vertical is built** (inpatient/pharmacy/lab/radiology/surgery/ED). See
+  `docs/HOSPITAL-PHASE4-RADIOLOGY-MAP.md`, [[Radiology]], [[LOG]].

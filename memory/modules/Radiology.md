@@ -8,7 +8,8 @@ seam-stubbed (`docs/HOSPITAL-PHASE4-RADIOLOGY-MAP.md`): the module + exam catalo
 `ImagingConnectivity` (PACS/DICOM) seam + radiology RBAC (G1) → imaging order entry (reuse Clinical `Order`)
 (G2) → the study record (net-new `ImagingStudy`) + modality worklist (G3) → the radiologist report (reuse the
 sign-and-lock `ClinicalNote`) + report routing (G4) → radiology billing (G5) → **[SEAM-STUBBED] the DICOM/PACS/
-modality feed + diagnostic viewer (G6 — partner-gated, NOT built)**. **RAD.G1 (the FOUNDATION) is built.** Peer
+modality feed + diagnostic viewer (G6 — partner-gated, NOT built)**. **The buildable RADIOLOGY core (G1–G5) is
+COMPLETE** (see "RADIOLOGY core COMPLETE" below); only the partner-gated G6 DICOM/PACS feed remains a seam. Peer
 module, mirroring Lab/ED/Surgery/Pharmacy.
 
 ## THE BIG REUSE (the map's core finding — do NOT duplicate)
@@ -123,6 +124,51 @@ const, stays green.
   suggested-diagnosis (a HARD non-goal); nothing auto-populates (proven); no such column/logic. Sign-and-lock
   immutability + versioned amend reused (proven). 7 feature tests
   (`tests/Feature/Radiology/RadiologyReportTest.php`). No charge. See D-145.
+- **RAD.G5**: radiology billing — an imaging order accrues its exam fee through the EXISTING engine,
+  reconciling-to-the-unit. **The LAST buildable Phase-4 gate — the RADIOLOGY core is COMPLETE.** STRICTLY
+  ORCHESTRATION (the LAB.G6 / ED.G6 pattern) — NO money math. An imaging exam is a tenant-authored `TariffItem`
+  (radiology catalog, keyed by the RAD.G1 code, no licensed pricing); `RadiologyBillingService`
+  (`priceExam`/`chargeOrder`/`invoiceOrder`/`catalogTariffs`, gate `billing.manage`) captures ONE charge per
+  imaging order via `ChargeCaptureService::captureManual` (engine snapshots the fee + computes the line total),
+  idempotent via `radiology_order_charges` (link, no money); outpatient issues via `validateForPatientPeriod`→
+  `createDraftFromCharges`→`issue`, inpatient/ED imaging charges join the stay/episode invoice via the existing
+  `invoiceStay`. `RadiologyBillingController` (`/radiology/orders/{radiologyOrder}/billing` + price-exam/charge/
+  invoice) + `Radiology/Billing.vue` + `radiology.billing.*` i18n; FIX.5 smoke extended (GET 200 + charge 403).
+  No audit hook (Charge/Invoice audited by Billing). **RECONCILES-TO-THE-UNIT proven both ways** (outpatient
+  invoice δ=0; composite inpatient episode — imaging charges + bed-days on ONE stay invoice — δ=0). **FENCE:**
+  the fee is a tariff, NOT report-driven (two orders for the same exam → same fee; STAT priority doesn't change
+  it); the adversarial grep over `Modules\Radiology\src` finds zero money math; `radiology_order_charges`
+  carries no money/report/finding/severity column. 7 feature tests
+  (`tests/Feature/Radiology/RadiologyBillingTest.php`). See D-146.
+
+## Radiology billing (G5 — the existing engine, reconciles-to-the-unit)
+
+STRICTLY ORCHESTRATION — Radiology adds NO pricing/charge/VAT/line-total math (the adversarial grep over
+`Modules\Radiology\src` is clean). An imaging exam is a tenant-authored `TariffItem` in the `radiology`
+`TariffCatalog` (keyed by the RAD.G1 exam code, integer minor units, no licensed pricing).
+`RadiologyBillingService::chargeOrder` captures ONE charge per imaging order via the EXISTING
+`ChargeCaptureService::captureManual` (the engine resolves + SNAPSHOTS the fee + computes `line_total = qty ×
+price`); idempotent via the `radiology_order_charges` link (soft `charge_id` ref, no money). Outpatient →
+`invoiceOrder` (the existing validate→draft→issue flow, service date = the order date); inpatient/ED → the
+imaging charges join the stay/episode's discharge invoice via `BedBillingService::invoiceStay`. **RECONCILES-TO-
+THE-UNIT** proven both ways (outpatient δ=0; composite inpatient episode — imaging + bed-days on one invoice —
+δ=0). Gated `billing.manage` (the billing office, NOT the radiology bench). **FENCE:** the fee is a tariff, NOT
+report-driven (the report is a clinical record, the fee a rate).
+
+## RADIOLOGY core COMPLETE (Phase 4) + the one deliberate gap
+
+The buildable RADIOLOGY vertical is COMPLETE: **G1** module + tenant-authored exam catalog + the CREATED
+`ImagingConnectivity` seam → **G2** order (reuse Clinical `Order`) → **G3** the net-new `ImagingStudy` (accession
++ legal state machine) + modality worklist → **G4** the radiologist report (reuse sign-and-lock `ClinicalNote`;
+the fence) + routing → **G5** billing (the existing engine; reconciles-to-the-unit). A radiology dept now runs
+end-to-end AS AN ORDER-FORM-WITH-NO-IMAGE SHELL: a clinician orders an exam, a radiographer records + accessions
+the study on the modality worklist, a radiologist authors + signs the report (never a computed image read), it
+routes to the ordering clinician, the office bills it. **THE ONE DELIBERATE GAP — RAD.G6 (NOT built):** the
+DICOM/PACS/modality feed + diagnostic viewer is the CERTIFIED-PARTNER seam (`ImagingConnectivity`, null today; a
+certified PACS partner fills it). AI radiology/CAD is a HARD medical-device non-goal. Also deferred: the optional
+uploaded still (dental `DocumentService`). **After Phase 4, EVERY hospital vertical is built** (inpatient ·
+pharmacy · lab · radiology · surgery · ED); standing certified-partner seams: drug-safety, HL7/analyzer,
+PACS/DICOM, anaesthesia device-data. See `docs/HOSPITAL-PHASE4-RADIOLOGY-MAP.md`.
 
 ## The radiologist report + routing (G4 — the fence gate; reuse sign-and-lock)
 
@@ -169,9 +215,8 @@ audit `radiology.order_placed` (patient-scoped, app-layer).
 
 ## Not built yet (later gates)
 
-G5 radiology billing (the engine; reconcile-to-the-unit) ·
 **G6 [SEAM-STUBBED] the DICOM/PACS/modality feed + diagnostic viewer — partner-gated, NOT built** (a certified
 PACS partner fills the `ImagingConnectivity` seam). Also DEFERRED: the optional uploaded still (dental
 `DocumentService` — a limited manual export, not a diagnostic viewer). After Phase 4, every hospital vertical is
-mapped/built; standing certified-partner seams: drug-safety, HL7/analyzer, PACS/DICOM, anaesthesia device-data.
+built; standing certified-partner seams: drug-safety, HL7/analyzer, PACS/DICOM, anaesthesia device-data.
 See `docs/HOSPITAL-PHASE4-RADIOLOGY-MAP.md`.
