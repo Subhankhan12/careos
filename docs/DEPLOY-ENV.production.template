@@ -1,0 +1,156 @@
+# ============================================================================
+# CareOS — PRODUCTION .env TEMPLATE  (placeholders only — NO real secrets)
+# ============================================================================
+# Fill placeholders ON THE SERVER; NEVER commit the filled file; NEVER share
+# filled secrets. This template is derived from the actual config/*.php the code
+# reads (verified against HEAD e9f9247) — every key below is read by the app.
+#
+# FILL ORDER (do these in sequence):
+#   1. Copy this file to the server as  /var/www/careos/.env
+#   2. Fill the __FILL_*__ secrets:  DB_PASSWORD, REDIS_PASSWORD, the MAIL_*
+#      credentials, the LIVEKIT_* trio, and (only if AI is used) ANTHROPIC_API_KEY.
+#   3. Run  php artisan key:generate  — this writes APP_KEY into .env for you.
+#   4. Set APP_URL to the real HTTPS URL (must match the cert's domain).
+#   5. Continue with the runbook's migrate + cache steps.
+#
+# FULL SEQUENCE: docs/DEPLOY-RUNBOOK.md  (this file only supplies the .env).
+#
+# Placeholder convention:
+#   __GENERATE_ON_SERVER__  = produced by a command (never typed by hand)
+#   __FILL_*__              = a real secret or host value YOU supply on the server
+#   __FILL_OR_BLANK__       = optional secret; leave empty if not applicable
+# ============================================================================
+
+
+# --- APP -------------------------------------------------------------------
+APP_NAME=CareOS
+APP_ENV=production
+APP_KEY=__GENERATE_ON_SERVER__          # run: php artisan key:generate  (the app's ONLY encryption key)
+APP_DEBUG=false                         # MUST be false in prod — true leaks stack traces + data
+APP_URL=__FILL_HTTPS_URL__              # e.g. https://app.careos.example  (must match the TLS cert)
+
+APP_LOCALE=en                           # default UI locale; per-tenant locale is set in-app (W8b)
+APP_FALLBACK_LOCALE=en
+# NOTE: the app reads NO APP_TIMEZONE (Laravel 12 dropped it). The app runs in UTC;
+# each tenant's display timezone is configured in-app (settings/W8b), not here.
+
+
+# --- LOGGING ---------------------------------------------------------------
+LOG_CHANNEL=stack
+LOG_STACK=daily                         # rotate daily in prod (single = one growing file)
+LOG_LEVEL=warning                       # not 'debug' in prod (info/error also fine)
+LOG_DAILY_DAYS=14
+
+
+# --- DATABASE (MySQL 8 — the prod/CI target, NOT MariaDB) ------------------
+DB_CONNECTION=mysql                     # code default is 'sqlite' — MUST be mysql
+DB_HOST=127.0.0.1
+DB_PORT=3306
+DB_DATABASE=careos                      # code default is 'laravel' — set your DB name
+DB_USERNAME=careos                      # code default is 'root' — use a least-privilege app user
+DB_PASSWORD=__FILL_DB_PASSWORD__        # SECRET
+DB_CHARSET=utf8mb4
+DB_COLLATION=utf8mb4_unicode_ci         # parity: NOT MySQL 8's default utf8mb4_0900_ai_ci (see DB-PARITY.md)
+# MYSQL_ATTR_SSL_CA=__FILL_OR_BLANK__   # only for managed MySQL requiring TLS (path to the CA bundle)
+
+
+# --- REDIS (backs cache, session, queue + Horizon) -------------------------
+REDIS_CLIENT=phpredis                   # code default; set 'predis' to use the bundled PHP client instead
+REDIS_HOST=127.0.0.1
+REDIS_PORT=6379
+REDIS_PASSWORD=__FILL_OR_BLANK__        # SECRET — set if redis.conf has requirepass (recommended in prod)
+# REDIS_USERNAME=__FILL_OR_BLANK__      # only for Redis ACL users (Redis 6+); usually blank
+REDIS_DB=0
+REDIS_CACHE_DB=1
+
+
+# --- CACHE / SESSION / QUEUE (redis overrides — LOAD-BEARING) --------------
+# Each of these defaults to a NON-redis store in code. Horizon consumes ONLY redis,
+# so QUEUE_CONNECTION=redis is mandatory or queued jobs (reminders, notifications)
+# silently never run while Horizon reports healthy.
+CACHE_STORE=redis                       # code default: database
+SESSION_DRIVER=redis                    # code default: database
+QUEUE_CONNECTION=redis                  # code default: database — MUST be redis for Horizon
+QUEUE_FAILED_DRIVER=database-uuids      # failed jobs still land in the DB failed_jobs table
+
+SESSION_LIFETIME=120
+SESSION_SECURE_COOKIE=true              # prod is HTTPS-only — cookie must be Secure
+SESSION_SAME_SITE=lax
+SESSION_HTTP_ONLY=true
+
+
+# --- MAIL (real SMTP — 2FA, reminders, portal, dunning all depend on it) ---
+# Code default MAIL_MAILER=log DROPS every message to the log — 2FA/portal/reminders
+# would silently fail. A working mailer is mandatory before go-live.
+MAIL_MAILER=smtp
+MAIL_HOST=__FILL_SMTP_HOST__
+MAIL_PORT=587
+MAIL_USERNAME=__FILL_SMTP_USER__
+MAIL_PASSWORD=__FILL_SMTP_PASS__        # SECRET
+# MAIL_SCHEME=smtps                     # Laravel 12 uses MAIL_SCHEME (NOT MAIL_ENCRYPTION):
+#                                       #   port 587 STARTTLS -> leave MAIL_SCHEME unset (blank)
+#                                       #   port 465 implicit TLS -> set MAIL_SCHEME=smtps + MAIL_PORT=465
+MAIL_FROM_ADDRESS=__FILL_FROM_ADDRESS__   # the tenant/brand 'from' sender address (host-specific, no default)
+MAIL_FROM_NAME="${APP_NAME}"
+
+
+# --- FILESYSTEM / PHI ------------------------------------------------------
+# FILESYSTEM_DISK=local selects the PRIVATE disk (root storage/app/private).
+# Patient documents, dental/radiology images and PDFs stream from this PRIVATE disk
+# through authenticated, Gate-checked controllers — they MUST NOT be web-public.
+# (PHI writes hardcode disk('local') regardless, so PHI stays private even if this changes.)
+FILESYSTEM_DISK=local
+
+
+# --- TELEHEALTH (LiveKit) --------------------------------------------------
+# EXACT var names the code reads: LIVEKIT_HOST / _API_KEY / _API_SECRET.
+# LIVEKIT_URL is NOT read — using it leaves the host at 'https://livekit.invalid'
+# and telehealth fails silently.
+TELEHEALTH_PROVIDER=livekit
+TELEHEALTH_MAX_TOKEN_TTL=600            # hard ceiling for join-token TTL (seconds)
+LIVEKIT_HOST=__FILL_LIVEKIT_HOST_URL__  # e.g. https://your-livekit.example  (NOT LIVEKIT_URL)
+LIVEKIT_API_KEY=__FILL_LIVEKIT_KEY__    # SECRET
+LIVEKIT_API_SECRET=__FILL_LIVEKIT_SECRET__  # SECRET
+
+
+# --- AICORE / LLM (front-desk agent + KB grounding) ------------------------
+# OPTIONAL. With a BLANK ANTHROPIC_API_KEY the AiCore CircuitBreaker degrades every
+# AI call gracefully (draft-until-approved, never in the clinical-decision path) and
+# the app still boots — but the front-desk agent + KB answers will NOT work until the
+# key is set. If the tenant uses no AI at all, leave the key blank.
+ANTHROPIC_API_KEY=__FILL_OR_LEAVE_BLANK_FOR_NO_AI__   # SECRET; blank = AI off (app still boots)
+AICORE_PROVIDER=anthropic
+AICORE_REGION=eu                        # EU data-residency default; keep 'eu' for EU tenants
+# ANTHROPIC_MODEL=claude-sonnet-4-5     # code default; override per deployment if needed
+AICORE_DEFAULT_MONTHLY_BUDGET_MINOR=5000  # per-tenant AI spend cap (integer minor units)
+# Tuning (safe defaults — override only if needed):
+# AICORE_TIMEOUT_SECONDS=10
+# AICORE_RETRIES=1
+# AICORE_CIRCUIT_FAILURE_THRESHOLD=3
+# AICORE_CIRCUIT_OPEN_SECONDS=300
+# ANTHROPIC_ENDPOINT=https://api.anthropic.com/v1/messages
+# ANTHROPIC_MODEL_VERSION=2026-07-08
+# ANTHROPIC_VERSION_HEADER=2023-06-01
+
+
+# --- HORIZON (queue dashboard) ---------------------------------------------
+# Dashboard at /horizon is gated to super-admin users (viewHorizon -> isSuperAdmin);
+# these only customise its mount path/name and are optional.
+# HORIZON_PATH=horizon
+# HORIZON_DOMAIN=__FILL_OR_BLANK__
+# HORIZON_NAME=__FILL_OR_BLANK__
+
+
+# --- FRAMEWORK DEFAULTS (read by the app; override only if you must) --------
+# These have safe defaults in code — listed for completeness so nothing the app
+# reads is a surprise. Leave as-is unless you have a specific reason.
+# APP_MAINTENANCE_DRIVER=file
+# APP_MAINTENANCE_STORE=database
+# AUTH_GUARD=web
+# AUTH_PASSWORD_BROKER=users
+# AUTH_PASSWORD_TIMEOUT=10800
+# SANCTUM_STATEFUL_DOMAINS=__FILL_OR_BLANK__   # defaults to APP_URL's host; set only for a split API/SPA domain
+# SANCTUM_TOKEN_PREFIX=
+# ============================================================================
+# END — verify with the docs/DEPLOY-RUNBOOK.md §9 post-deploy checklist.
+# ============================================================================
