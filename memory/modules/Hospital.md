@@ -349,3 +349,18 @@ phased roadmap — each mapped before building. See [[D-113]], [[D-114]], [[D-11
   DRG/case-mix grouper.
 - Long poles (partner-gated / non-goal): HL7/FHIR ADT feed (`Interop`), bedside device capture, certified
   early-warning/deterioration engine (NEWS2 — fence + regulated device, never homemade), DRG/case-mix grouper.
+
+## Demo data (DemoHospitalSeeder — D-147)
+- `database/seeders/DemoHospitalSeeder.php` (+ `tests/Feature/Demo/DemoHospitalSeederTest.php`) seeds **Klinik
+  Bergblick** (CHF, de) — a coherent, reconciling demo tenant for ALL SIX hospital verticals, built through the
+  REAL services (no raw rows). 20 users (one per hospital role, `twoFactorEnabled` for Playwright); 2 wards / 7
+  beds (varied housekeeping states) / an OP-Saal; tenant-authored catalogs+tariffs. Actor = org_admin (holds
+  every hospital gate), role `StaffProfile`s carry provenance.
+- **THE COMPOSITE EPISODE:** one patient ED→admit(emergency Stay)→bed-days→meds(eMAR)→surgery(WHO+ASA+implant/
+  consumable)→labs→radiology(report)→discharge → the whole episode on ONE `invoiceStay` invoice (13 charges,
+  CHF 5187.20), reconciles δ=0. Plus a 2nd elective inpatient, a still-admitted transfer (live occupancy, DRAFT
+  bed-days), an ED-discharge, standalone outpatient lab+radiology, and live pending states — 5 gapless invoices.
+- Period = the CURRENT month (services stamp `now()`; `billing:reconcile` reconciles the current period);
+  admissions back-dated via `forceFill(admitted_at)` (data, not the clock). PROVEN: `billing:reconcile`=PASS,
+  `audit:verify-chains`=OK, `ReconciliationEngine::run` all 6 invariants δ=0. Fence proven at schema level.
+- Run manually (not in `DatabaseSeeder`): `php artisan db:seed --class=DemoHospitalSeeder`. See [[LOG]].

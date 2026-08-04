@@ -53,13 +53,15 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
 > drug-safety (pharmacy), HL7/FHIR (lab), PACS/DICOM (radiology), anaesthesia device-data (surgery) — business
 > conversations with long lead times, not gates.
 >
-> **DEMO TENANTS (all reconcile-to-the-unit + chain-verify):** `DemoClinicSeeder`, `DemoSpitexSeeder`,
-> `DemoDentalSeeder`. **No inpatient/pharmacy/surgery/ED/lab/radiology demo seeder exists yet** (a documented
-> follow-up). Seed: `php artisan db:seed --class=Database\\Seeders\\DemoClinicSeeder` (likewise Spitex/Dental).
+> **DEMO TENANTS (all reconcile-to-the-unit + chain-verify):** FOUR now — `DemoClinicSeeder`, `DemoSpitexSeeder`,
+> `DemoDentalSeeder`, and **`DemoHospitalSeeder`** (Klinik Bergblick, CHF — the six hospital verticals with a
+> composite ED→admit→beds→meds→surgery→labs→imaging episode on ONE reconciling invoice; D-147). Seed:
+> `php artisan db:seed --class=DemoHospitalSeeder` (likewise Clinic/Spitex/Dental). All run manually (none is
+> wired into `DatabaseSeeder`).
 >
 > **DEPLOY-READY:** MySQL 8 parity proven (`docs/DB-PARITY.md`; the P0P.G15 mutable-moment `dateTime()`
 > convention); NOT yet deployed; real email/LiveKit/prod config still needed. **Documented follow-ups:** the
-> missing hospital/vertical demo seeders; the certified-partner seams (MedicationSafetyProvider,
+> certified-partner seams (MedicationSafetyProvider,
 > TriageAcuityProvider, LabConnectivity, ImagingConnectivity, anaesthesia device-data); full per-widget timezone
 > display; the resource-availability admin screen; the optional radiology uploaded-still (dental DocumentService).
 > New session onboarding: read **`docs/ONBOARDING.md`** first.

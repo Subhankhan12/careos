@@ -2492,3 +2492,27 @@ references the old ID.
   today; a partner fills it); AI radiology/CAD = hard non-goal; the optional uploaded still deferred. **After
   Phase 4, EVERY hospital vertical is built** (inpatient/pharmacy/lab/radiology/surgery/ED). See
   `docs/HOSPITAL-PHASE4-RADIOLOGY-MAP.md`, [[Radiology]], [[LOG]].
+- **D-147 — DemoHospitalSeeder: a coherent, reconciling demo dataset for the six hospital verticals (seed data,
+  not a feature).** Resolves the standing "no inpatient/pharmacy/surgery/ED/lab/radiology demo seeder" follow-up
+  so the hospital build is runtime-demonstrable + auditable + demoable. SEED DATA ONLY — no new app logic, no
+  raw-row inserts (everything built through the REAL services so it reconciles + chain-verifies), no existing
+  behavior changed (P0D.GU). **Klinik Bergblick** (CHF, de), idempotent-by-slug, on the `DemoDentalSeeder`
+  convention (tenant→`RbacProvisioner` roles→`TenantContext`→`SettingsService`→branch). **20 users — one per
+  hospital role**, each `twoFactorEnabled()` (fixed factory secret → Playwright login). **Actor model:**
+  org_admin performs the calls (holds every hospital gate — the dental owner-does-everything precedent), while
+  role-specific `StaffProfile`s carry the clinical provenance. **THE COMPOSITE EPISODE (showpiece):** one
+  patient ED→admit(emergency `Stay`)→bed-days→meds(order+eMAR+dispense)→surgery(theatre+lifecycle+WHO+ASA+
+  consumable)→labs→radiology(report)→discharge, whose WHOLE episode bills onto **ONE invoice via `invoiceStay`**
+  (13 charges across all six verticals, CHF 5187.20) and **reconciles δ=0**. Plus a 2nd elective inpatient
+  (partial pay), a still-admitted transferred patient (live occupancy; DRAFT bed-days excluded from
+  reconciliation), an ED-discharged-home (own invoice), standalone outpatient lab + radiology (own invoices) +
+  live pending states — 5 gapless invoices. **Period = the CURRENT calendar month** (services stamp `now()`;
+  `billing:reconcile` reconciles the current period); admissions back-dated via `forceFill(admitted_at)` (data,
+  not the clock — the composite-test pattern) so bed-days accrue in-month. **PROVEN for the tenant:**
+  `billing:reconcile`=PASS · `audit:verify-chains`=OK · `ReconciliationEngine::run` all 6 invariants δ=0 (incl.
+  I4). **FENCE (proven at schema level):** ed_triages/medication_administrations/order_results/imaging_studies
+  carry no severity/score/grade/stage/flag/abnormal/risk column; acuity ASSIGNED, ASA ASSIGNED, report AUTHORED,
+  lab values raw beside displayed ranges, WHO checklist RECORDED not enforced; the partner seams stay
+  null-objects. NOT wired into `DatabaseSeeder` (matches the three siblings) — run via
+  `php artisan db:seed --class=DemoHospitalSeeder`. `tests/Feature/Demo/DemoHospitalSeederTest.php` (3 /
+  85 assertions). See [[Hospital]], [[LOG]].
