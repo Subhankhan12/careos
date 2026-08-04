@@ -2516,3 +2516,15 @@ references the old ID.
   null-objects. NOT wired into `DatabaseSeeder` (matches the three siblings) — run via
   `php artisan db:seed --class=DemoHospitalSeeder`. `tests/Feature/Demo/DemoHospitalSeederTest.php` (3 /
   85 assertions). See [[Hospital]], [[LOG]].
+- **D-148 — A11Y.1: patient-360 heading hierarchy + dental chart `<select>` accessible names (presentational
+  a11y markup only).** Fixes the two Low findings (U-1, U-2) from the QA re-audit — purely presentational,
+  no logic/fence/billing/clinical/RBAC/data/behaviour change, no visual change (P0D.GU). **U-1**
+  (`Patients/Show.vue`): the outline had only the `h1` name; added a visually-hidden `sr-only <h2>` per tab
+  section (reusing `patients.show.tabs.*`) + promoted two visible sub-titles from `<p>` to `<h3>` (identical
+  classes → identical visual under Tailwind's heading reset) → a navigable h1→h2→h3 outline; browser-verified
+  no visible heading added. **U-2** (`Dental/Odontogram.vue`): the 6 selects each gained `:aria-label` reusing
+  the same existing i18n key as their visible `<span>` label — explicit accessible name, no new strings, no
+  visual change. Guard: `resources/js/a11y-markup.test.ts` (source-level Vitest assertions — chosen because
+  there is no `@vue/test-utils` mount harness and the Pest UI rule forbids markup assertions; the gate's
+  permitted fallback). Scope was EXACTLY U-1+U-2; a broader grid/keyboard/ARIA a11y sweep remains a separate
+  noted pass. See [[LOG]].

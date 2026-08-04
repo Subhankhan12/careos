@@ -215,10 +215,12 @@ function withdrawConsent(url: string): void {
             <div class="glass-card p-6">
                 <Tabs v-model:active="activeTab" :tabs="tabs">
                     <section v-if="activeTab === 'demographics'">
+                        <h2 class="sr-only">{{ t('patients.show.tabs.demographics') }}</h2>
                         <DataList :items="demographics" />
                     </section>
 
                     <section v-if="activeTab === 'contacts'" class="grid gap-4 md:grid-cols-2">
+                        <h2 class="sr-only">{{ t('patients.show.tabs.contacts') }}</h2>
                         <div
                             v-for="contact in patient.contacts"
                             :key="String(contact.id)"
@@ -232,6 +234,7 @@ function withdrawConsent(url: string): void {
                     </section>
 
                     <section v-if="activeTab === 'coverages'" class="grid gap-4 md:grid-cols-2">
+                        <h2 class="sr-only">{{ t('patients.show.tabs.coverages') }}</h2>
                         <div
                             v-for="coverage in patient.coverages"
                             :key="String(coverage.id)"
@@ -244,11 +247,12 @@ function withdrawConsent(url: string): void {
                     </section>
 
                     <section v-if="activeTab === 'consents'" class="space-y-4">
+                        <h2 class="sr-only">{{ t('patients.show.tabs.consents') }}</h2>
                         <div
                             v-if="actions.can_edit"
                             class="rounded-xl border border-line bg-surface-2 p-4"
                         >
-                            <p class="mb-3 text-sm font-semibold text-ink">{{ t('patients.show.grantTitle') }}</p>
+                            <h3 class="mb-3 text-sm font-semibold text-ink">{{ t('patients.show.grantTitle') }}</h3>
                             <div class="grid gap-3 md:grid-cols-[1fr_1fr_auto] md:items-end">
                                 <Input id="consent_template_key" v-model="consentTemplateKey" :label="t('patients.show.consentTemplate')" />
                                 <Input id="consent_signature" v-model="consentSignature" :label="t('patients.show.consentSignature')" />
@@ -307,9 +311,10 @@ function withdrawConsent(url: string): void {
                     </section>
 
                     <section v-if="activeTab === 'access'" class="space-y-6">
+                        <h2 class="sr-only">{{ t('patients.show.tabs.access') }}</h2>
                         <p class="text-sm text-ink-muted">{{ t('patients.show.accessHint') }}</p>
                         <div v-for="group in groupedAccess" :key="group.date" class="space-y-2">
-                            <p class="text-xs font-semibold uppercase tracking-[0.14em] text-ink-subtle">{{ group.date }}</p>
+                            <h3 class="text-xs font-semibold uppercase tracking-[0.14em] text-ink-subtle">{{ group.date }}</h3>
                             <div
                                 v-for="entry in group.entries"
                                 :key="`${entry.actor_type}-${entry.actor_id}-${entry.occurred_at}`"

@@ -288,14 +288,14 @@ function dateTime(iso: string): string {
                             <p class="text-xs font-semibold uppercase tracking-wide text-ink-muted">{{ t('dental.record') }}</p>
                             <label class="block">
                                 <span class="mb-1 block text-xs font-medium text-ink">{{ t('dental.scope') }}</span>
-                                <select v-model="form.surface" class="block w-full rounded-md border border-line bg-surface px-3 py-2 text-sm text-ink" @change="form.condition = ''">
+                                <select v-model="form.surface" :aria-label="t('dental.scope')" class="block w-full rounded-md border border-line bg-surface px-3 py-2 text-sm text-ink" @change="form.condition = ''">
                                     <option value="">{{ t('dental.wholeTooth') }}</option>
                                     <option v-for="s in surfaces" :key="s" :value="s">{{ t(`dental.surfaces.${s}`) }}</option>
                                 </select>
                             </label>
                             <label class="block">
                                 <span class="mb-1 block text-xs font-medium text-ink">{{ t('dental.condition') }}</span>
-                                <select v-model="form.condition" class="block w-full rounded-md border border-line bg-surface px-3 py-2 text-sm text-ink">
+                                <select v-model="form.condition" :aria-label="t('dental.condition')" class="block w-full rounded-md border border-line bg-surface px-3 py-2 text-sm text-ink">
                                     <option value="" disabled>{{ t('dental.chooseCondition') }}</option>
                                     <option v-for="c in conditionOptions" :key="c" :value="c">{{ t(`dental.conditions.${c}`) }}</option>
                                 </select>
@@ -311,7 +311,7 @@ function dateTime(iso: string): string {
                             <p class="text-xs font-semibold uppercase tracking-wide text-ink-muted">{{ t('dental.perform.title') }}</p>
                             <label class="block">
                                 <span class="mb-1 block text-xs font-medium text-ink">{{ t('dental.perform.procedure') }}</span>
-                                <select v-model="performForm.dental_procedure_id" class="block w-full rounded-md border border-line bg-surface px-3 py-2 text-sm text-ink">
+                                <select v-model="performForm.dental_procedure_id" :aria-label="t('dental.perform.procedure')" class="block w-full rounded-md border border-line bg-surface px-3 py-2 text-sm text-ink">
                                     <option value="" disabled>{{ t('dental.perform.chooseProcedure') }}</option>
                                     <option v-for="p in procedures" :key="p.id" :value="p.id">{{ p.code }} — {{ p.name }}</option>
                                 </select>
@@ -319,21 +319,21 @@ function dateTime(iso: string): string {
                             </label>
                             <label class="block">
                                 <span class="mb-1 block text-xs font-medium text-ink">{{ t('dental.perform.branch') }}</span>
-                                <select v-model="performForm.branch_id" class="block w-full rounded-md border border-line bg-surface px-3 py-2 text-sm text-ink">
+                                <select v-model="performForm.branch_id" :aria-label="t('dental.perform.branch')" class="block w-full rounded-md border border-line bg-surface px-3 py-2 text-sm text-ink">
                                     <option value="" disabled>{{ t('dental.perform.chooseBranch') }}</option>
                                     <option v-for="b in branches" :key="b.id" :value="b.id">{{ b.name }}</option>
                                 </select>
                             </label>
                             <label class="block">
                                 <span class="mb-1 block text-xs font-medium text-ink">{{ t('dental.perform.resultingState') }}</span>
-                                <select v-model="performForm.tooth_state" class="block w-full rounded-md border border-line bg-surface px-3 py-2 text-sm text-ink">
+                                <select v-model="performForm.tooth_state" :aria-label="t('dental.perform.resultingState')" class="block w-full rounded-md border border-line bg-surface px-3 py-2 text-sm text-ink">
                                     <option value="">{{ t('dental.perform.noChange') }}</option>
                                     <option v-for="c in allConditions" :key="c" :value="c">{{ t(`dental.conditions.${c}`) }}</option>
                                 </select>
                             </label>
                             <label v-if="performForm.tooth_state && conditions.surface.includes(performForm.tooth_state)" class="block">
                                 <span class="mb-1 block text-xs font-medium text-ink">{{ t('dental.scope') }}</span>
-                                <select v-model="performForm.surface" class="block w-full rounded-md border border-line bg-surface px-3 py-2 text-sm text-ink">
+                                <select v-model="performForm.surface" :aria-label="t('dental.scope')" class="block w-full rounded-md border border-line bg-surface px-3 py-2 text-sm text-ink">
                                     <option value="" disabled>{{ t('dental.condition') }}</option>
                                     <option v-for="s in surfaces" :key="s" :value="s">{{ t(`dental.surfaces.${s}`) }}</option>
                                 </select>
