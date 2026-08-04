@@ -67,10 +67,14 @@ php artisan migrate:fresh --seed            # WIPES + rebuilds + base seeders (p
 php artisan db:seed --class=DemoClinicSeeder    # Praxis Lindenhof (CHF, clinic resources, realistic vitals)
 php artisan db:seed --class=DemoSpitexSeeder    # Spitex Sonnengarten (EU-Generic home-care)
 php artisan db:seed --class=DemoDentalSeeder    # Zahnarztpraxis Morgenstern (CHF, general-dental)
+php artisan db:seed --class=DemoHospitalSeeder  # Klinik Bergblick (CHF — the SIX hospital verticals + composite episode)
 ```
-All three demo seeders reconcile-to-the-unit and chain-verify. **There is NO inpatient / pharmacy / surgery / ED /
-lab / radiology demo seeder yet** — those verticals are proven by their feature tests (which build their own
-fixtures + reconcile), not a rich demo tenant; the missing demo seeders are a documented follow-up (`DEFERRED.md`).
+**FOUR** demo seeders now, all reconcile-to-the-unit + chain-verify (D-147 added the hospital one). **`DemoHospitalSeeder`**
+(Klinik Bergblick) makes the six hospital verticals runtime-demonstrable — 20 users, one per hospital role (each
+`twoFactorEnabled`, so log in via Playwright with the fixed secret), wards/beds/theatre, tenant-authored catalogs, and
+**THE COMPOSITE EPISODE**: one patient ED→admit→beds→meds→surgery→labs→imaging billed on ONE `invoiceStay` invoice
+(CHF 5187.20, 13 charges), reconciling δ=0. Its period is the CURRENT month (the others bill the previous month). All
+four run manually (none is wired into `DatabaseSeeder`). **NOTE:** the QA audits leave mutations — re-seed to reset.
 
 **Quality gates (must be green before commit):**
 ```
@@ -247,11 +251,18 @@ factory TOTP secret is the fixed **`JBSWY3DPEHPK3PXP`** — derive the current O
   non-goal/certified-partner.
 - **INSURANCE / CLAIMS — NOT built** (needs a clearinghouse partner; a future commercial decision).
 
-**CURRENT FOCUS = DEPLOY + PARTNERSHIPS, NOT building.** There are **no more verticals to build.** The outpatient
+**CURRENT STAGE = DEPLOYMENT, NOT building.** The build is complete AND **audited** — THREE audits
+(`docs/FULL-SYSTEM-QA-REPORT.md`: a full-system QA audit, a re-audit at real coverage ~45%→~80% once the hospital
+tenant was seeded, and the **A11Y.1** fix) converged on **ZERO must-fix**: the electric fence holds LIVE across all
+eight verticals (record-not-judge, often declared in the UI), billing reconciles δ=0 for every tenant incl. the
+composite ED→inpatient episode, RBAC is airtight per-vertical, append-only holds, the kiosk leaks no PHI. The only
+findings were 2 Low a11y items, **both fixed (D-148)**. There are **no more verticals to build.** The outpatient
 verticals (clinic/dental/home-care) target **2–3 prospective paying customers** (DONE, NOT deployed); the hospital
 build was driven by a **committed mid-size general-hospital buyer** (now complete). The only remaining progress:
-1. **DEPLOY** the built verticals to the paying customers — deploy to a Linux host, wire real email + LiveKit,
-   import via the P.6 CSV tool, onboard. The runbook (`docs/DEPLOY-RUNBOOK.md`) + rehearsed onboarding are ready.
+1. **DEPLOY** the built verticals to the paying customers — staging deploy → smoke-test → onboard: to a Linux host,
+   wire real email + LiveKit, import via the P.6 CSV tool. Ready: `docs/DEPLOY-RUNBOOK.md` (audited against the
+   8-vertical code — the accrual cron + all 17 role templates fixed), `docs/DEPLOY-ENV.production.template` (71 keys,
+   placeholders + a MUST-FILL list), and the rehearsed onboarding (4 programmatic steps).
 2. **PARTNERSHIP/INTEGRATION** work that fills the certified-partner seams — drug-safety (pharmacy), HL7/FHIR
    (lab), PACS/DICOM (radiology), anaesthesia device-data (surgery). Business conversations with long lead times,
    not gates.

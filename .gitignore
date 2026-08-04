@@ -26,3 +26,6 @@ yarn-error.log
 /.nova
 /.vscode
 /.zed
+
+# Memurai/Redis persistence dump (appears when Redis runs in the repo dir)
+dump.rdb

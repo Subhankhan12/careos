@@ -6,6 +6,15 @@ Deliberately deferred work. Not forgotten — parked until the right phase.
   target is MySQL 8).
 - Upgrade to **Laravel 13 / PHP 8.3+** when convenient (PHP 8.2 security support ends
   ~Dec 2026).
+- **Broader accessibility sweep (dense grids) — non-blocking, from the QA re-audit
+  (`docs/FULL-SYSTEM-QA-REPORT.md`).** A11Y.1 (D-148) fixed the two named Low findings (patient-360
+  heading outline; dental-chart select accessible names). A full keyboard/focus/contrast/ARIA audit of
+  the dense grids (odontogram, perio, ward board, ED board, eMAR) remains a separate pass. **Trigger:** an
+  accessibility requirement from a customer/procurement, or a dedicated a11y hardening pass before a
+  public-sector deployment.
+- **Realistic-volume load / performance test — non-blocking, from the QA re-audit.** The audits ran on
+  modest demo volume (no N+1 symptom observable, but not a load assessment). **Trigger:** before onboarding
+  a high-volume customer, or the first sign of a slow board/worklist under real data.
 - **Voice receptionist.**
 - **Route optimization** (OR-tools).
 - ~~**MAR** (medication administration record).~~ **BUILT** as the eMAR in **PHARMACY.G3** (append-only

@@ -3,14 +3,15 @@
 Short, factual snapshot of where the project stands. Updated at consolidations and after gates
 (per the MEMORY PROTOCOL in AGENTS.md).
 
-## STATUS: BUILD COMPLETE · EIGHT VERTICALS · ALL HOSPITAL PHASES BUILT · CURRENT FOCUS = DEPLOY + PARTNERSHIPS (not building)
+## STATUS: BUILD COMPLETE + AUDITED (3 audits, ZERO must-fix) · EIGHT VERTICALS · DEMOABLE HOSPITAL TENANT · CURRENT STAGE = DEPLOYMENT (not building)
 
-> **RECONCILED (this pass — eight verticals, all hospital phases built).** CareOS is a multi-tenant agentic
-> healthcare-operations platform (EU-first). **Stack:** Laravel 12, Inertia v2 + Vue 3 + TS + Tailwind v4
+> **RECONCILED (this pass — eight verticals built + audited; at the DEPLOY stage).** CareOS is a multi-tenant
+> agentic healthcare-operations platform (EU-first). **Stack:** Laravel 12, Inertia v2 + Vue 3 + TS + Tailwind v4
 > (Eucalyptus Glow) + a separate offline Nurse PWA; dev MariaDB 10.4 @3306, prod+CI MySQL 8 + Redis 7 + Node 22;
-> Horizon via Memurai locally. **Latest commit:** the RAD.G5 / radiology-complete commit (`bf1406d`), then this
-> reconciliation. **Suite:** `composer check` green — Pest **953 passed / 2 skipped** (13,544 assertions),
-> PHPStan L5 `[OK]`, Pint clean; CI green on MySQL 8; the FIX.5 route-smoke guards against request-time 500s.
+> Horizon via Memurai locally. **Latest commit:** `6955769` (A11Y.1 — the two Low a11y findings fixed), after
+> DemoHospitalSeeder (D-147) + the full-system QA audit + re-audit + this reconciliation. **Suite:** `composer
+> check` green — Pest **958 passed** (13,634 assertions), PHPStan L5 `[OK]`, Pint clean; `composer test:smoke`
+> green; CI green on MySQL 8; the FIX.5 route-smoke guards against request-time 500s.
 >
 > **THE EIGHT VERTICALS (all built + green on the shared platform):**
 > - **CLINIC** — delivered (design-wired W1–W7, QA-audited FIX.1–FIX.5, admin W8–W10, UI F1–F2, polish 1–3).
@@ -45,13 +46,30 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
 >   (not built); AI imaging/CAD = HARD non-goal. Honest: an order-form-with-no-image shell pending PACS (the
 >   study is metadata; no diagnostic viewer).
 >
+> **QA STATUS — THREE audits converged on ZERO must-fix (`docs/FULL-SYSTEM-QA-REPORT.md`).** The full-system
+> QA audit (Playwright + authenticated HTTP + code-level), a re-audit at real coverage (~45%→~80%, once the
+> hospital tenant was seeded), and the A11Y.1 fix. **Confirmed LIVE across all eight verticals:** the electric
+> fence holds — record-not-judge, and often DECLARED in the UI (the surgery checklist "does not block the
+> surgery", the lab worklist "never ranks by a computed priority", the radiology report "computes no
+> finding/CAD/diagnosis", the ED board sorts only by recorded facts, the odontogram "not its severity");
+> billing reconciles **δ=0 for all tenants incl. the composite ED→inpatient episode** (CHF 5187.20, 13 charges
+> on ONE invoice); RBAC is airtight per-vertical; append-only holds; the kiosk leaks no PHI on a bad attempt;
+> telehealth shows the not-recorded discipline. **No Critical/High defect.** The only findings were **2 Low
+> a11y items — BOTH FIXED in A11Y.1 (D-148)** (patient-360 heading outline; dental-chart select accessible
+> names). **Remaining audit limits (non-blocking):** exhaustive write-flow click-through wasn't enumerated
+> (the write mechanism is proven); ~8 of 17+ roles were individually driven (rapid logins hit TOTP one-time-use
+> — the 2FA feature); the offline Nurse PWA isn't browser-drivable here; no wireframe pixel-diff (the six
+> hospital verticals have no wireframe — design-system consistency only).
+>
 > **BUSINESS PICTURE:** 2–3 outpatient paying customers (clinic/dental/home-care DONE, NOT DEPLOYED); a
-> committed mid-size general-hospital buyer drove the phased hospital build (now complete). **CURRENT FOCUS —
-> THE BUILD IS COMPLETE; there are NO more verticals to build.** The only remaining progress is NOT code:
-> (1) **DEPLOY** the built verticals to the paying customers (`docs/DEPLOY-RUNBOOK.md` + the rehearsed
-> onboarding are ready), and (2) the **PARTNERSHIP/INTEGRATION** work that fills the certified-partner seams —
-> drug-safety (pharmacy), HL7/FHIR (lab), PACS/DICOM (radiology), anaesthesia device-data (surgery) — business
-> conversations with long lead times, not gates.
+> committed mid-size general-hospital buyer drove the phased hospital build (now complete). **CURRENT STAGE —
+> THE BUILD + 3 AUDITS ARE DONE; there are NO more verticals to build.** The only remaining progress is NOT
+> code: (1) **DEPLOY** the built verticals to the paying customers — staging deploy → smoke-test → onboard
+> (`docs/DEPLOY-RUNBOOK.md` + `docs/DEPLOY-ENV.production.template` + the rehearsed onboarding are ready), and
+> (2) the **PARTNERSHIP/INTEGRATION** work that fills the certified-partner seams — drug-safety (pharmacy),
+> HL7/FHIR (lab), PACS/DICOM (radiology), anaesthesia device-data (surgery) — business conversations with long
+> lead times, not gates. A new session should NOT invent a vertical or open a gate; if asked "what next," the
+> answer is DEPLOY + partnerships.
 >
 > **DEMO TENANTS (all reconcile-to-the-unit + chain-verify):** FOUR now — `DemoClinicSeeder`, `DemoSpitexSeeder`,
 > `DemoDentalSeeder`, and **`DemoHospitalSeeder`** (Klinik Bergblick, CHF — the six hospital verticals with a
@@ -59,11 +77,18 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
 > `php artisan db:seed --class=DemoHospitalSeeder` (likewise Clinic/Spitex/Dental). All run manually (none is
 > wired into `DatabaseSeeder`).
 >
-> **DEPLOY-READY:** MySQL 8 parity proven (`docs/DB-PARITY.md`; the P0P.G15 mutable-moment `dateTime()`
-> convention); NOT yet deployed; real email/LiveKit/prod config still needed. **Documented follow-ups:** the
-> certified-partner seams (MedicationSafetyProvider,
+> **DEPLOY-READY assets:** MySQL 8 parity proven (`docs/DB-PARITY.md`; the P0P.G15 mutable-moment `dateTime()`
+> convention); **`docs/DEPLOY-RUNBOOK.md`** (audited against the 8-vertical code — the `hospital:accrue-bed-days`
+> accrual cron + all 17 role templates + the per-vertical smoke-walk added); **`docs/DEPLOY-ENV.production.template`**
+> (71 keys, placeholders only, MUST-FILL list: `APP_KEY` via `key:generate`, `APP_URL`, `DB_PASSWORD`, `MAIL_*`
+> [default `log` silently drops mail], `LIVEKIT_*` [default `.invalid`], redis for queue/cache/session,
+> `ANTHROPIC_API_KEY` optional [AiCore degrades via CircuitBreaker]); the rehearsed onboarding (4 programmatic
+> steps: tenant → resource availability [programmatic — no admin UI] → catalogs → staff-user; dentist = the
+> `doctor` role). **NOT yet deployed; real email/LiveKit/prod config still to fill. Documented follow-ups**
+> (all non-blocking per the QA re-audit): the certified-partner seams (MedicationSafetyProvider,
 > TriageAcuityProvider, LabConnectivity, ImagingConnectivity, anaesthesia device-data); full per-widget timezone
-> display; the resource-availability admin screen; the optional radiology uploaded-still (dental DocumentService).
+> display; the resource-availability admin screen; a broader dense-grid keyboard/ARIA a11y sweep + a
+> realistic-volume load test; the optional radiology uploaded-still (dental DocumentService).
 > New session onboarding: read **`docs/ONBOARDING.md`** first.
 
 ## (historical) STATUS: BACKEND FEATURE-COMPLETE · SEVEN VERTICALS (ED / Phase 6 COMPLETE) · CURRENT FOCUS = DEPLOY (not building)
