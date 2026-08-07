@@ -12,6 +12,7 @@ use App\Http\Controllers\GovernanceDashboardController;
 use App\Http\Controllers\KbArticleController;
 use App\Http\Controllers\Portal\PortalHomeController;
 use App\Http\Controllers\ResourceController;
+use App\Http\Controllers\SchedulingSettingsController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 use Modules\Billing\Http\Controllers\AgingController;
@@ -656,6 +657,12 @@ Route::middleware('auth')->group(function () {
     // each tool's ceiling); it never raises autonomy or writes ai.autonomy.* raw.
     Route::get('/admin/agents', [AgentAutonomyController::class, 'index'])->name('admin.agents.index');
     Route::post('/admin/agents', [AgentAutonomyController::class, 'update'])->name('admin.agents.update');
+
+    // Scheduling settings (SETTINGS.P3) — presentation over settings the schedulers already read
+    // (scheduling.portal.cancel_min_hours, nursing.dispatch.average_speed_kmh). admin.manage-gated;
+    // validated + audited in the app-layer controller. Buffers stay per-Service (no global here).
+    Route::get('/admin/scheduling', [SchedulingSettingsController::class, 'index'])->name('admin.scheduling.index');
+    Route::post('/admin/scheduling', [SchedulingSettingsController::class, 'update'])->name('admin.scheduling.update');
 
     // Branch management (CLINIC.W8b) — app-layer controller (deactivation guard spans
     // Platform + Scheduling); soft-deactivate blocked when future appointments exist.

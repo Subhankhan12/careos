@@ -825,6 +825,11 @@
             "subtitle": "How far each governed agent may act — capped at suggest, never past human approval.",
             "link": "Manage agents & automation →"
         },
+        "scheduling": {
+            "title": "Scheduling",
+            "subtitle": "Portal cancellation window and dispatch travel speed.",
+            "link": "Manage scheduling →"
+        },
         "gaps": {
             "title": "Not yet configurable",
             "subtitle": "On the roadmap — these have no backend to save to yet.",
@@ -867,6 +872,31 @@
             "approve": "The agent proposes; a human must approve before it acts.",
             "auto": "The agent acts without human approval."
         }
+    },
+    "schedulingSettings": {
+        "eyebrow": "Administration",
+        "title": "Scheduling",
+        "subtitle": "Buffers and the portal cancellation window. The server enforces every value — this page only reflects it.",
+        "backToSettings": "← Back to settings",
+        "flash": {
+            "saved": "Scheduling settings saved."
+        },
+        "cancelWindow": {
+            "label": "Portal cancellation window",
+            "help": "How far ahead patients may cancel online.",
+            "unit": "hours"
+        },
+        "travelSpeed": {
+            "label": "Nurse travel speed",
+            "help": "Used to validate dispatch travel time.",
+            "unit": "km/h"
+        },
+        "buffer": {
+            "label": "Default appointment buffer",
+            "help": "Buffers are set per service (before/after each visit), not globally — so nothing here silently overrides a service.",
+            "value": "Set per service"
+        },
+        "save": "Save scheduling"
     },
     "roles": {
         "eyebrow": "Administration",

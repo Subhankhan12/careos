@@ -230,7 +230,7 @@ Updated as the SETTINGS.P1–P6 fix parts land. One commit per part (AGENTS.md "
 |---|---|---|
 | 4 · Glass visual language (canvas glow, blur cards, pill+gradient buttons, entrance anim, focus ring) | **RESOLVED (P1)** | `SETTINGS.P1` |
 | 1 · Agents & automation card over `AutonomyPolicy` | **RESOLVED (P2)** | `SETTINGS.P2` |
-| 2 · Scheduling card | pending (P3) | — |
+| 2 · Scheduling card | **RESOLVED (P3)** | `SETTINGS.P3` |
 | 5 · Security card (2FA read-only-locked) | pending (P4) | — |
 | 6 · Notifications card + email prefs store (SMS deferred) | pending (P5) | — |
 | 7 · Staff invite flow | pending (P6) | — |
@@ -270,3 +270,20 @@ Off/Suggest/Approve/Auto control. It is **presentation over the existing gate**,
 - Per-section Save + "Agent autonomy saved." flash; `ai.manage`-gated (reception 403); tenant-scoped; the change
   audited as `ai.autonomy_changed`. Uses the P1 visual language (glass card, pill Save, eucardIn). 8 new tests;
   no existing behavior test modified. Correctly-more-real items un-regressed.
+
+**P3 note — Scheduling card over existing settings (with an honest buffer):** a new `/admin/scheduling` page
+(app-layer `SchedulingSettingsController`, gated `admin.manage`, cross-linked from `/settings`) surfaces the
+scheduling settings that **already exist and are already read by the schedulers**:
+- **Portal cancellation window** → `scheduling.portal.cancel_min_hours` (default 24), read by
+  `PortalAppointmentController::cancelMinHours()`. **Nurse travel speed** → `nursing.dispatch.average_speed_kmh`
+  (default 40), read by `Nursing\AssignmentValidator` + the dispatch proposal engine. The card writes ONLY these
+  exact keys through `SettingsService::set()`, so a saved value is **honored, not ignored** (a test asserts the
+  reader's own expression returns the new value). Validated (cancel 0–168h, speed 1–200 km/h), audited
+  (`settings.scheduling_changed`), per-section Save + "Scheduling settings saved." flash.
+- **Default appointment buffer — decision (a), the honest option:** there is **no global-default buffer setting**
+  the scheduler reads (buffers exist only per `Service.buffer_before/after_minutes`). So the buffer is rendered
+  **read-only as a per-service pointer** ("Set per service"), **not** an editable global that would persist a value
+  nothing consumes. A test proves no global buffer setting is written even if the request includes one.
+- App-layer because the write is audited and `Modules\Platform` may not depend on `Modules\Audit` (arch rule).
+  `admin.manage`-gated (reception 403); tenant-scoped. P1 visual language. 7 new tests; no existing behavior test
+  modified; correctly-more-real items un-regressed.

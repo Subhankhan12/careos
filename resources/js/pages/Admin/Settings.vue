@@ -158,6 +158,11 @@ function saveBilling(): void {
                 <Link href="/admin/agents" class="inline-flex text-sm font-semibold text-euca-700 hover:text-euca-800">{{ t('settings.agents.link') }}</Link>
             </Card>
 
+            <!-- Scheduling cross-link (SETTINGS.P3) — presentation over existing scheduling settings. -->
+            <Card animate :style="{ '--euca-card-delay': '0.22s' }" :title="t('settings.scheduling.title')" :subtitle="t('settings.scheduling.subtitle')">
+                <Link href="/admin/scheduling" class="inline-flex text-sm font-semibold text-euca-700 hover:text-euca-800">{{ t('settings.scheduling.link') }}</Link>
+            </Card>
+
             <!-- Check-in kiosk devices cross-link (POLISH.1 — was reachable only by URL). admin.manage-gated like this page. -->
             <Card animate :style="{ '--euca-card-delay': '0.22s' }" :title="t('settings.kiosks.title')" :subtitle="t('settings.kiosks.subtitle')">
                 <Link href="/admin/kiosks" class="inline-flex text-sm font-semibold text-euca-700 hover:text-euca-800">{{ t('settings.kiosks.link') }}</Link>

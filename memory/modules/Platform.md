@@ -203,8 +203,15 @@ running shows up as an absence rather than as nothing at all.
   (`/admin/agents`, gated `ai.manage`, cross-linked from `/settings`) is presentation over AiCore's
   `AutonomyPolicy` (see [[AiCore]]): lists the real governed tools, LOWERS autonomy through `AutonomyPolicy::set()`
   (which clamps), never raises past a tool's ceiling (the fence), audits `ai.autonomy_changed`.
-  Parts P3–P6 (Scheduling/Security/Notifications cards + invite + sub-nav) remain — each preserves the real
-  server gate (suggest-cap, mandatory 2FA, reflect-only RBAC).
+  **SETTINGS.P3 (done):** the "Scheduling" card — a new app-layer `SchedulingSettingsController`
+  (`/admin/scheduling`, gated `admin.manage`, cross-linked from `/settings`) surfaces the settings the schedulers
+  ALREADY read: `scheduling.portal.cancel_min_hours` (24) + `nursing.dispatch.average_speed_kmh` (40), written
+  through `SettingsService::set()` at the exact reader keys (validated 0–168h / 1–200 km/h, audited
+  `settings.scheduling_changed`). The "default buffer" is an HONEST per-service pointer (no global setting exists;
+  buffers live on `Service`) — no fake global persisted. App-layer because the write is audited (Platform ↛ Audit).
+  NOTE: its page i18n block is `schedulingSettings` (a top-level `scheduling` key already exists).
+  Parts P4–P6 (Security/Notifications cards + invite + sub-nav) remain — each preserves the real server gate
+  (suggest-cap, mandatory 2FA, reflect-only RBAC).
 
 ## Open items
 
