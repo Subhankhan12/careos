@@ -13,6 +13,7 @@ use App\Http\Controllers\KbArticleController;
 use App\Http\Controllers\Portal\PortalHomeController;
 use App\Http\Controllers\ResourceController;
 use App\Http\Controllers\SchedulingSettingsController;
+use App\Http\Controllers\SecuritySettingsController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 use Modules\Billing\Http\Controllers\AgingController;
@@ -663,6 +664,11 @@ Route::middleware('auth')->group(function () {
     // validated + audited in the app-layer controller. Buffers stay per-Service (no global here).
     Route::get('/admin/scheduling', [SchedulingSettingsController::class, 'index'])->name('admin.scheduling.index');
     Route::post('/admin/scheduling', [SchedulingSettingsController::class, 'update'])->name('admin.scheduling.update');
+
+    // Security settings (SETTINGS.P4) — strictly READ-ONLY reflection of the real enforced controls
+    // (mandatory 2FA middleware, session lifetime, PWA idle wipe). admin.manage-gated. There is
+    // deliberately NO POST route: nothing here can disable or weaken a security control.
+    Route::get('/admin/security', [SecuritySettingsController::class, 'index'])->name('admin.security.index');
 
     // Branch management (CLINIC.W8b) — app-layer controller (deactivation guard spans
     // Platform + Scheduling); soft-deactivate blocked when future appointments exist.

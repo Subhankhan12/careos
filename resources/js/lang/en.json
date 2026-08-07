@@ -830,6 +830,11 @@
             "subtitle": "Portal cancellation window and dispatch travel speed.",
             "link": "Manage scheduling →"
         },
+        "security": {
+            "title": "Security",
+            "subtitle": "Two-factor, session timeout and device wipe — enforced platform-wide.",
+            "link": "View security →"
+        },
         "gaps": {
             "title": "Not yet configurable",
             "subtitle": "On the roadmap — these have no backend to save to yet.",
@@ -897,6 +902,28 @@
             "value": "Set per service"
         },
         "save": "Save scheduling"
+    },
+    "securitySettings": {
+        "eyebrow": "Administration",
+        "title": "Security",
+        "subtitle": "Some controls are enforced platform-wide and can't be lowered. The server enforces every value — this page only reflects it.",
+        "backToSettings": "← Back to settings",
+        "platformNote": "Enforced platform-wide",
+        "twoFactor": {
+            "label": "Two-factor authentication",
+            "help": "Required for every account — enforced by the platform.",
+            "locked": "Mandatory · locked"
+        },
+        "sessionTimeout": {
+            "label": "Staff session timeout",
+            "help": "Automatic sign-out after inactivity.",
+            "unit": "min"
+        },
+        "pwaWipe": {
+            "label": "Nurse PWA idle wipe",
+            "help": "Clears the encrypted day pack after inactivity.",
+            "unit": "min"
+        }
     },
     "roles": {
         "eyebrow": "Administration",

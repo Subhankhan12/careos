@@ -210,7 +210,13 @@ running shows up as an absence rather than as nothing at all.
   `settings.scheduling_changed`). The "default buffer" is an HONEST per-service pointer (no global setting exists;
   buffers live on `Service`) — no fake global persisted. App-layer because the write is audited (Platform ↛ Audit).
   NOTE: its page i18n block is `schedulingSettings` (a top-level `scheduling` key already exists).
-  Parts P4–P6 (Security/Notifications cards + invite + sub-nav) remain — each preserves the real server gate
+  **SETTINGS.P4 (done):** the "Security" card — a new app-layer `SecuritySettingsController` (`/admin/security`,
+  GET-ONLY, gated `admin.manage`, cross-linked from `/settings`) renders the enforced controls READ-ONLY: 2FA
+  "Mandatory · locked" (reflects `EnsureTwoFactorEnabled`; no setting disables it), session timeout =
+  `config('session.lifetime')` (120), Nurse-PWA idle wipe = 15 (PWA client build constant, never server-read) —
+  both read-only (decision (a)). NO POST/update action exists → structurally no path to disable/weaken 2FA; the
+  middleware stays authoritative. Nothing written (no audit). i18n block `securitySettings` (unique).
+  Parts P5–P6 (Notifications card + invite + sub-nav) remain — each preserves the real server gate
   (suggest-cap, mandatory 2FA, reflect-only RBAC).
 
 ## Open items

@@ -231,7 +231,7 @@ Updated as the SETTINGS.P1–P6 fix parts land. One commit per part (AGENTS.md "
 | 4 · Glass visual language (canvas glow, blur cards, pill+gradient buttons, entrance anim, focus ring) | **RESOLVED (P1)** | `SETTINGS.P1` |
 | 1 · Agents & automation card over `AutonomyPolicy` | **RESOLVED (P2)** | `SETTINGS.P2` |
 | 2 · Scheduling card | **RESOLVED (P3)** | `SETTINGS.P3` |
-| 5 · Security card (2FA read-only-locked) | pending (P4) | — |
+| 5 · Security card (2FA read-only-locked) | **RESOLVED (P4)** | `SETTINGS.P4` |
 | 6 · Notifications card + email prefs store (SMS deferred) | pending (P5) | — |
 | 7 · Staff invite flow | pending (P6) | — |
 | 3 · Left sub-nav / IA | pending (P6) | — |
@@ -287,3 +287,20 @@ scheduling settings that **already exist and are already read by the schedulers*
 - App-layer because the write is audited and `Modules\Platform` may not depend on `Modules\Audit` (arch rule).
   `admin.manage`-gated (reception 403); tenant-scoped. P1 visual language. 7 new tests; no existing behavior test
   modified; correctly-more-real items un-regressed.
+
+**P4 note — Security card, read-only over the real gates (2FA locked, no disable path):** a new `/admin/security`
+page (app-layer `SecuritySettingsController`, gated `admin.manage`, cross-linked from `/settings`) renders the
+enforced controls **read-only** — it has **no POST route and no update action at all**, so structurally nothing
+here can weaken a control:
+- **Two-factor authentication → "Mandatory · locked"** (read-only badge), reflecting the
+  `EnsureTwoFactorEnabled` middleware (mandatory for every authenticated user; there is no setting that disables
+  it). **THE GATE test** proves there is no `admin.security.update` route and only GET/HEAD verbs exist under
+  `admin/security`, and that the middleware still redirects an un-enrolled user — the card cannot turn 2FA off.
+- **Staff session timeout → decision (a) read-only** = `config('session.lifetime')` (120 min), a deployment
+  config, not a tenant setting. **Nurse-PWA idle wipe → decision (a) read-only** = 15 min, a *client build
+  constant* in the separate PWA (`nurse-pwa/src/idle.ts`, `VITE_NURSE_IDLE_TIMEOUT_MS ?? 15 min`) never read from
+  the server — an editable server setting would be ignored by the already-built PWA (dishonest), so it is shown
+  read-only.
+- Nothing is written (a test asserts rendering the card creates no `Setting` row) → no audit, no tenant write.
+  `admin.manage`-gated (reception 403). P1 visual language. i18n block named `securitySettings` (unique — the P3
+  duplicate-key guard). 5 new tests; no existing behavior test modified; correctly-more-real items un-regressed.

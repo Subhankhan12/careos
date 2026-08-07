@@ -163,6 +163,11 @@ function saveBilling(): void {
                 <Link href="/admin/scheduling" class="inline-flex text-sm font-semibold text-euca-700 hover:text-euca-800">{{ t('settings.scheduling.link') }}</Link>
             </Card>
 
+            <!-- Security cross-link (SETTINGS.P4) — read-only reflection of the enforced controls. -->
+            <Card animate :style="{ '--euca-card-delay': '0.24s' }" :title="t('settings.security.title')" :subtitle="t('settings.security.subtitle')">
+                <Link href="/admin/security" class="inline-flex text-sm font-semibold text-euca-700 hover:text-euca-800">{{ t('settings.security.link') }}</Link>
+            </Card>
+
             <!-- Check-in kiosk devices cross-link (POLISH.1 — was reachable only by URL). admin.manage-gated like this page. -->
             <Card animate :style="{ '--euca-card-delay': '0.22s' }" :title="t('settings.kiosks.title')" :subtitle="t('settings.kiosks.subtitle')">
                 <Link href="/admin/kiosks" class="inline-flex text-sm font-semibold text-euca-700 hover:text-euca-800">{{ t('settings.kiosks.link') }}</Link>
