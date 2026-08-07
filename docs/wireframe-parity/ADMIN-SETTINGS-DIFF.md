@@ -229,7 +229,7 @@ Updated as the SETTINGS.P1–P6 fix parts land. One commit per part (AGENTS.md "
 | Punch-list item | Status | Commit |
 |---|---|---|
 | 4 · Glass visual language (canvas glow, blur cards, pill+gradient buttons, entrance anim, focus ring) | **RESOLVED (P1)** | `SETTINGS.P1` |
-| 1 · Agents & automation card over `AutonomyPolicy` | pending (P2) | — |
+| 1 · Agents & automation card over `AutonomyPolicy` | **RESOLVED (P2)** | `SETTINGS.P2` |
 | 2 · Scheduling card | pending (P3) | — |
 | 5 · Security card (2FA read-only-locked) | pending (P4) | — |
 | 6 · Notifications card + email prefs store (SMS deferred) | pending (P5) | — |
@@ -253,3 +253,20 @@ only, no logic change:
 
 Correctly-more-real items (§6) confirmed **un-regressed** by P1 (purely presentational; the deeper RBAC catalog,
 richer profile/billing, read-only identity, honesty card, last-admin guard, Branches/Kiosks untouched).
+
+**P2 note — Agents & automation card over `AutonomyPolicy` (the fence gate):** a new `/admin/agents` page
+(app-layer `AgentAutonomyController`, gated `ai.manage`, cross-linked from `/settings`) lists the **real
+registered governed tools** (`ToolRegistry::all()`, the reserved `demo.*` echo excluded — 10 tools) with an
+Off/Suggest/Approve/Auto control. It is **presentation over the existing gate**, not new policy:
+- **Reads through `AutonomyPolicy`** — current level via `levelFor()`, the locked limit via a new
+  `effectiveCeiling()` accessor (= the same `cap(AUTO)` the runtime applies). Levels above the ceiling render
+  **disabled + lock-icon** (clinical → locked above Suggest; clinical/financial → locked at Approve; Auto locked
+  for all but the operational approve-ceiling tools). The banner carries the thesis: *"Every agent is capped at
+  suggest — the ceiling can be lowered but never raised past human approval."*
+- **Writes only through `AutonomyPolicy::set()`** (never a raw `ai.autonomy.*` write), which **clamps** any level
+  above the ceiling. THE FENCE test proves a forged `auto` on a clinical tool persists as `suggest` and on a
+  financial tool as `approve` — the card is structurally incapable of raising autonomy past the cap. `AutonomyPolicy`
+  is **un-weakened** (the two new methods are read accessors reusing `cap()`).
+- Per-section Save + "Agent autonomy saved." flash; `ai.manage`-gated (reception 403); tenant-scoped; the change
+  audited as `ai.autonomy_changed`. Uses the P1 visual language (glass card, pill Save, eucardIn). 8 new tests;
+  no existing behavior test modified. Correctly-more-real items un-regressed.

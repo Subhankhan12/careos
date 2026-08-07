@@ -820,10 +820,52 @@
             "subtitle": "Manage who can do what in your practice.",
             "link": "Manage roles & access →"
         },
+        "agents": {
+            "title": "Agents & automation",
+            "subtitle": "How far each governed agent may act — capped at suggest, never past human approval.",
+            "link": "Manage agents & automation →"
+        },
         "gaps": {
             "title": "Not yet configurable",
             "subtitle": "On the roadmap — these have no backend to save to yet.",
             "items": "Adding resources (rooms/chairs) to a branch · Feature toggles · Plan & subscription"
+        }
+    },
+    "agents": {
+        "eyebrow": "Administration",
+        "title": "Agents & automation",
+        "subtitle": "How far each governed agent may act. The server enforces every ceiling — this page only reflects it.",
+        "banner": "Every agent is capped at suggest — the ceiling can be lowered but never raised past human approval.",
+        "backToSettings": "← Back to settings",
+        "flash": {
+            "saved": "Agent autonomy saved."
+        },
+        "columns": {
+            "agent": "Agent tool",
+            "autonomy": "Autonomy"
+        },
+        "ceiling": {
+            "label": "Ceiling",
+            "locked": "Locked at {level} — the server enforces this cap"
+        },
+        "empty": "No governed agents are registered.",
+        "save": "Save agents",
+        "categories": {
+            "operational": "Operational",
+            "clinical": "Clinical",
+            "financial": "Financial"
+        },
+        "levels": {
+            "off": "Off",
+            "suggest": "Suggest",
+            "approve": "Approve",
+            "auto": "Auto"
+        },
+        "levelHint": {
+            "off": "The agent does nothing.",
+            "suggest": "The agent drafts a suggestion; a human decides.",
+            "approve": "The agent proposes; a human must approve before it acts.",
+            "auto": "The agent acts without human approval."
         }
     },
     "roles": {

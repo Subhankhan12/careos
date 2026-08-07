@@ -31,4 +31,16 @@ class ToolRegistry
 
         return $this->tools[$key];
     }
+
+    /**
+     * All registered tools, keyed by tool key. A read accessor for presentation (the Settings
+     * "Agents & automation" card enumerates the real governed-tool set through this) — it adds
+     * no registration or resolution logic.
+     *
+     * @return array<string, AiTool>
+     */
+    public function all(): array
+    {
+        return $this->tools;
+    }
 }

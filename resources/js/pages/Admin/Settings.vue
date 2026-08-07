@@ -153,6 +153,11 @@ function saveBilling(): void {
                 <Link :href="rolesUrl" class="inline-flex text-sm font-semibold text-euca-700 hover:text-euca-800">{{ t('settings.access.link') }}</Link>
             </Card>
 
+            <!-- Agents & automation cross-link (SETTINGS.P2) — presentation over AutonomyPolicy. -->
+            <Card animate :style="{ '--euca-card-delay': '0.2s' }" :title="t('settings.agents.title')" :subtitle="t('settings.agents.subtitle')">
+                <Link href="/admin/agents" class="inline-flex text-sm font-semibold text-euca-700 hover:text-euca-800">{{ t('settings.agents.link') }}</Link>
+            </Card>
+
             <!-- Check-in kiosk devices cross-link (POLISH.1 — was reachable only by URL). admin.manage-gated like this page. -->
             <Card animate :style="{ '--euca-card-delay': '0.22s' }" :title="t('settings.kiosks.title')" :subtitle="t('settings.kiosks.subtitle')">
                 <Link href="/admin/kiosks" class="inline-flex text-sm font-semibold text-euca-700 hover:text-euca-800">{{ t('settings.kiosks.link') }}</Link>

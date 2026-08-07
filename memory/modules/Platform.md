@@ -198,8 +198,13 @@ running shows up as an absence rather than as nothing at all.
   **SETTINGS.P1 (done):** glass visual-language parity — `eucardIn` entrance (`.euca-card-in` + reduced-motion
   guard; `Card` `animate` prop), pill+gradient Save (`Button` `pill` prop over `.btn-glow`), and an unlayered
   `.settings-surface :focus-visible` euca-700 ring. Presentational only; the glow (`.euca-wash`) + glass
-  (`.glass-card`) already existed. Parts P2–P6 (Agents/Scheduling/Security/Notifications cards + invite + sub-nav)
-  are the remaining fix parts — each preserves the real server gate (suggest-cap, mandatory 2FA, reflect-only RBAC).
+  (`.glass-card`) already existed.
+  **SETTINGS.P2 (done):** the "Agents & automation" card — a new app-layer `AgentAutonomyController`
+  (`/admin/agents`, gated `ai.manage`, cross-linked from `/settings`) is presentation over AiCore's
+  `AutonomyPolicy` (see [[AiCore]]): lists the real governed tools, LOWERS autonomy through `AutonomyPolicy::set()`
+  (which clamps), never raises past a tool's ceiling (the fence), audits `ai.autonomy_changed`.
+  Parts P3–P6 (Scheduling/Security/Notifications cards + invite + sub-nav) remain — each preserves the real
+  server gate (suggest-cap, mandatory 2FA, reflect-only RBAC).
 
 ## Open items
 

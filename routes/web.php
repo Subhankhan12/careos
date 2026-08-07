@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\AgentAutonomyController;
 use App\Http\Controllers\AiApprovalQueueController;
 use App\Http\Controllers\AppLandingController;
 use App\Http\Controllers\BranchController;
@@ -649,6 +650,12 @@ Route::middleware('auth')->group(function () {
     Route::post('/settings/profile', [SettingsController::class, 'updateProfile'])->name('settings.profile.update');
     Route::get('/admin/roles', [UserRoleController::class, 'index'])->name('admin.roles.index');
     Route::post('/admin/roles/assign', [UserRoleController::class, 'assign'])->name('admin.roles.assign');
+
+    // Agents & automation (SETTINGS.P2) — presentation over AiCore's AutonomyPolicy. The
+    // controller gates ai.manage and writes ONLY through AutonomyPolicy::set() (which clamps to
+    // each tool's ceiling); it never raises autonomy or writes ai.autonomy.* raw.
+    Route::get('/admin/agents', [AgentAutonomyController::class, 'index'])->name('admin.agents.index');
+    Route::post('/admin/agents', [AgentAutonomyController::class, 'update'])->name('admin.agents.update');
 
     // Branch management (CLINIC.W8b) — app-layer controller (deactivation guard spans
     // Platform + Scheduling); soft-deactivate blocked when future appointments exist.

@@ -170,6 +170,20 @@ electric fence are UNCHANGED — `KbRetriever` already filters `where('is_active
 immediately stops being grounded on** (locked by `tests/Feature/Kb/KbAdminTest.php`, which drives the retriever
 before/after). Tenant-scoped (string ids → cross-tenant 404). The P.4 front-desk evals were NOT touched. See [[D-098]].
 
+## Agents & automation settings card (SETTINGS.P2)
+
+The autonomy dial now has an admin surface — an app-layer `App\Http\Controllers\AgentAutonomyController`
+(`/admin/agents`, `ai.manage`, cross-linked from `/settings`) that lists the real registered governed tools
+(`ToolRegistry::all()`, the reserved `demo.*` echo excluded → 10 tools) with an Off/Suggest/Approve/Auto control.
+It is presentation over `AutonomyPolicy` and adds NO policy: it READS the current level via `levelFor()` and the
+locked limit via the new `AutonomyPolicy::effectiveCeiling()` (= `cap(AUTO)`, the SAME clamp the runtime applies —
+a read-only view), and WRITES only through `AutonomyPolicy::set()` (which clamps), auditing `ai.autonomy_changed`.
+`ToolRegistry::all()` is a new read accessor (enumeration only). THE FENCE: the card can only LOWER autonomy — the
+UI offers levels ≤ the ceiling AND `set()` clamps a forged higher level server-side (a POSTed `auto` persists as
+`suggest` for a clinical tool, `approve` for a financial tool); `AutonomyPolicy::cap()` is un-weakened. Locked by
+`tests/Feature/Admin/AgentAutonomyTest.php` (8 tests, incl. the clamp-above-ceiling fence). The eval suite was
+UNCHANGED. See the DIFF doc `docs/wireframe-parity/ADMIN-SETTINGS-DIFF.md` and [[Platform]].
+
 ## Open items
 
 - Richer production-grade vector retrieval is still unbuilt (KB admin UI now exists, W10 above; approval-queue UI, W9).
