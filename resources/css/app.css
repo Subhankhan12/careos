@@ -221,4 +221,43 @@
         background-image: linear-gradient(180deg, #ffffff, #f4f8f2);
         box-shadow: 0 1px 2px rgba(53, 70, 47, 0.12);
     }
+
+    /* Card entrance (SETTINGS.P1): fade + rise + micro-scale, matching the Eucalyptus Glow
+       prototype's eucardIn. Opt-in per card via the `.euca-card-in` class (Card `animate` prop);
+       an optional --euca-card-delay staggers a stack. Motion is guarded below. */
+    .euca-card-in {
+        animation: eucardIn 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+        animation-delay: var(--euca-card-delay, 0s);
+    }
+}
+
+@keyframes eucardIn {
+    from {
+        opacity: 0;
+        transform: translateY(16px) scale(0.985);
+    }
+    to {
+        opacity: 1;
+        transform: none;
+    }
+}
+
+/* Honor reduced-motion: no entrance animation, no residual offset. */
+@media (prefers-reduced-motion: reduce) {
+    .euca-card-in {
+        animation: none;
+    }
+}
+
+/*
+ * Settings surface focus ring (SETTINGS.P1). A 2px euca-700 outline on focusable controls that
+ * carry the browser default (inputs, selects, links) — matching the prototype's
+ * `:focus-visible{outline:2px solid #5C7D55;outline-offset:2px}`. Buttons keep their own euca ring
+ * (Button.vue). Scoped to `.settings-surface` so it never changes focus styling app-wide.
+ * Deliberately UNLAYERED: Tailwind v4 puts base in a cascade layer, and the browser's unlayered
+ * UA `:focus-visible { outline: auto }` would otherwise win over a layered author rule.
+ */
+.settings-surface :is(a, select, input, textarea, [tabindex]):focus-visible {
+    outline: 2px solid var(--color-euca-700);
+    outline-offset: 2px;
 }

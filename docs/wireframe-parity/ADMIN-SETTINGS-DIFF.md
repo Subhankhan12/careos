@@ -219,3 +219,37 @@ All four wireframe fences are **already server-enforced**. When these cards are 
 **Fence guard for the whole gate:** every card above must match the wireframe's *locked/capped visual* while
 **preserving server enforcement** — the suggest-cap, mandatory 2FA, reflect-only RBAC, and the human hand-off are
 already real; the fix reflects them, it must never add a control that weakens them.
+
+---
+
+## 8. Parity progress (RESOLVED status per punch-list)
+
+Updated as the SETTINGS.P1–P6 fix parts land. One commit per part (AGENTS.md "one gate = one commit").
+
+| Punch-list item | Status | Commit |
+|---|---|---|
+| 4 · Glass visual language (canvas glow, blur cards, pill+gradient buttons, entrance anim, focus ring) | **RESOLVED (P1)** | `SETTINGS.P1` |
+| 1 · Agents & automation card over `AutonomyPolicy` | pending (P2) | — |
+| 2 · Scheduling card | pending (P3) | — |
+| 5 · Security card (2FA read-only-locked) | pending (P4) | — |
+| 6 · Notifications card + email prefs store (SMS deferred) | pending (P5) | — |
+| 7 · Staff invite flow | pending (P6) | — |
+| 3 · Left sub-nav / IA | pending (P6) | — |
+
+**P1 note — audit correction:** the "no canvas glow / no glass blur" visual deltas in §3 were a *headless
+measurement artifact*. Repo reality: `AppLayout.vue` already wraps the surface in `.euca-wash` (the layered
+radial-glow cream/sage canvas) and `Card.vue` already uses `.glass-card` (`backdrop-filter: blur(24px)`,
+translucent gradient, hairline, soft `rgba(53,70,47,·)` shadow, `radius-2xl`), and `Button.vue` primary is already
+`.btn-glow` (euca gradient). The genuine P1 gaps were therefore narrower — implemented additively, tokens/i18n
+only, no logic change:
+- **`eucardIn` entrance** — new `@keyframes eucardIn` + `.euca-card-in` utility in `app.css` (with a
+  `prefers-reduced-motion: reduce` guard), opted-in per card via a new `Card` `animate` prop (default off → no
+  app-wide regression); applied + lightly staggered on the Settings + Roles cards.
+- **Pill + gradient Save buttons** — new `Button` `pill` prop (default off → `rounded-xl` unchanged elsewhere);
+  the primary Save actions render `rounded-full` over the existing `.btn-glow` gradient.
+- **Focus ring** — an *unlayered* `.settings-surface … :focus-visible { outline: 2px solid var(--color-euca-700) }`
+  rule (unlayered so it wins over the browser's UA `:focus-visible`, which beats Tailwind's layered base).
+  Browser-verified euca-700 `solid` on inputs/selects (at 80%-zoom the 2px renders as 1.6px).
+
+Correctly-more-real items (§6) confirmed **un-regressed** by P1 (purely presentational; the deeper RBAC catalog,
+richer profile/billing, read-only identity, honesty card, last-admin guard, Branches/Kiosks untouched).

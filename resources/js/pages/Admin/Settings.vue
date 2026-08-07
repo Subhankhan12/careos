@@ -59,7 +59,7 @@ function saveBilling(): void {
 <template>
     <AppLayout>
         <Head :title="t('settings.title')" />
-        <div class="space-y-6">
+        <div class="settings-surface space-y-6">
             <div>
                 <p class="text-xs font-semibold uppercase tracking-[0.14em] text-euca-700">{{ t('settings.eyebrow') }}</p>
                 <h1 class="mt-1 text-2xl font-semibold tracking-tight text-ink">{{ t('settings.title') }}</h1>
@@ -71,7 +71,7 @@ function saveBilling(): void {
             </p>
 
             <!-- Editable practice profile → tenant columns + locale/timezone settings. -->
-            <Card :title="t('settings.profile.title')" :subtitle="t('settings.profile.subtitle')">
+            <Card animate :style="{ '--euca-card-delay': '0.02s' }" :title="t('settings.profile.title')" :subtitle="t('settings.profile.subtitle')">
                 <form class="grid gap-4 sm:grid-cols-2" @submit.prevent="saveProfile">
                     <Input id="p-name" v-model="profileForm.name" :label="t('settings.profile.name')" :error="profileForm.errors.name" />
                     <Input id="p-email" v-model="profileForm.contact_email" type="email" :label="t('settings.profile.contactEmail')" :error="profileForm.errors.contact_email" />
@@ -94,18 +94,18 @@ function saveBilling(): void {
                         </select>
                     </label>
                     <div class="sm:col-span-2">
-                        <Button type="submit" :block="false" :disabled="profileForm.processing">{{ t('settings.profile.save') }}</Button>
+                        <Button type="submit" pill :block="false" :disabled="profileForm.processing">{{ t('settings.profile.save') }}</Button>
                     </div>
                 </form>
             </Card>
 
             <!-- Read-only identity/plan. -->
-            <Card :title="t('settings.identity.title')" :subtitle="t('settings.identity.subtitle')">
+            <Card animate :style="{ '--euca-card-delay': '0.06s' }" :title="t('settings.identity.title')" :subtitle="t('settings.identity.subtitle')">
                 <DataList :items="identityItems" />
             </Card>
 
             <!-- Editable billing identity + currency (SettingsService). -->
-            <Card :title="t('settings.billing.title')" :subtitle="t('settings.billing.subtitle')">
+            <Card animate :style="{ '--euca-card-delay': '0.1s' }" :title="t('settings.billing.title')" :subtitle="t('settings.billing.subtitle')">
                 <form class="grid gap-4 sm:grid-cols-2" @submit.prevent="saveBilling">
                     <label class="block">
                         <span class="mb-1.5 block text-sm font-medium text-ink">{{ t('settings.billing.currency') }}</span>
@@ -117,13 +117,13 @@ function saveBilling(): void {
                     <Input id="seller-name" v-model="billingForm.seller_name" :label="t('settings.billing.sellerName')" :placeholder="t('settings.billing.sellerNamePlaceholder')" :error="billingForm.errors.seller_name" />
                     <Input id="seller-vat" v-model="billingForm.seller_vat_id" :label="t('settings.billing.sellerVatId')" :placeholder="t('settings.billing.sellerVatIdPlaceholder')" :error="billingForm.errors.seller_vat_id" />
                     <div class="sm:col-span-2">
-                        <Button type="submit" :block="false" :disabled="billingForm.processing">{{ t('settings.billing.save') }}</Button>
+                        <Button type="submit" pill :block="false" :disabled="billingForm.processing">{{ t('settings.billing.save') }}</Button>
                     </div>
                 </form>
             </Card>
 
             <!-- Branch summary + management link. -->
-            <Card :title="t('settings.branches.title')" :subtitle="t('settings.branches.subtitle')">
+            <Card animate :style="{ '--euca-card-delay': '0.14s' }" :title="t('settings.branches.title')" :subtitle="t('settings.branches.subtitle')">
                 <table v-if="branches.length" class="w-full text-left text-sm">
                     <thead class="text-ink-muted">
                         <tr class="border-b border-line">
@@ -149,17 +149,17 @@ function saveBilling(): void {
             </Card>
 
             <!-- Roles & access cross-link. -->
-            <Card :title="t('settings.access.title')" :subtitle="t('settings.access.subtitle')">
+            <Card animate :style="{ '--euca-card-delay': '0.18s' }" :title="t('settings.access.title')" :subtitle="t('settings.access.subtitle')">
                 <Link :href="rolesUrl" class="inline-flex text-sm font-semibold text-euca-700 hover:text-euca-800">{{ t('settings.access.link') }}</Link>
             </Card>
 
             <!-- Check-in kiosk devices cross-link (POLISH.1 — was reachable only by URL). admin.manage-gated like this page. -->
-            <Card :title="t('settings.kiosks.title')" :subtitle="t('settings.kiosks.subtitle')">
+            <Card animate :style="{ '--euca-card-delay': '0.22s' }" :title="t('settings.kiosks.title')" :subtitle="t('settings.kiosks.subtitle')">
                 <Link href="/admin/kiosks" class="inline-flex text-sm font-semibold text-euca-700 hover:text-euca-800">{{ t('settings.kiosks.link') }}</Link>
             </Card>
 
             <!-- Honest gaps note. -->
-            <Card :title="t('settings.gaps.title')" :subtitle="t('settings.gaps.subtitle')">
+            <Card animate :style="{ '--euca-card-delay': '0.26s' }" :title="t('settings.gaps.title')" :subtitle="t('settings.gaps.subtitle')">
                 <p class="text-sm text-ink-muted">{{ t('settings.gaps.items') }}</p>
             </Card>
         </div>

@@ -39,7 +39,7 @@ function assign(userId: number): void {
 <template>
     <AppLayout>
         <Head :title="t('roles.title')" />
-        <div class="space-y-6">
+        <div class="settings-surface space-y-6">
             <div>
                 <p class="text-xs font-semibold uppercase tracking-[0.14em] text-euca-700">{{ t('roles.eyebrow') }}</p>
                 <h1 class="mt-1 text-2xl font-semibold tracking-tight text-ink">{{ t('roles.title') }}</h1>
@@ -53,7 +53,7 @@ function assign(userId: number): void {
             </p>
 
             <!-- Team: current role + assign one of the built-in templates. -->
-            <Card :title="t('roles.team.title')" :subtitle="t('roles.team.subtitle')">
+            <Card animate :style="{ '--euca-card-delay': '0.02s' }" :title="t('roles.team.title')" :subtitle="t('roles.team.subtitle')">
                 <p v-if="users.length === 0" class="text-sm text-ink-muted">{{ t('roles.team.empty') }}</p>
                 <table v-else class="w-full text-left text-sm">
                     <thead class="text-ink-muted">
@@ -87,7 +87,7 @@ function assign(userId: number): void {
             </Card>
 
             <!-- Read-only: what each role template grants. -->
-            <Card :title="t('roles.catalog.title')" :subtitle="t('roles.catalog.subtitle')">
+            <Card animate :style="{ '--euca-card-delay': '0.06s' }" :title="t('roles.catalog.title')" :subtitle="t('roles.catalog.subtitle')">
                 <div class="space-y-5">
                     <div v-for="role in catalog" :key="role.key">
                         <div class="flex items-baseline justify-between">

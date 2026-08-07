@@ -191,6 +191,16 @@ running shows up as an absence rather than as nothing at all.
   approvals`, `ai.manage`) approves/rejects only through `AiCore\ApprovalQueue` (see [[AiCore]] / [[D-097]]).
   `audit.view` + `ai.manage` added to `HandleInertiaRequests::NAV_PERMISSIONS`. See [[D-097]].
 
+## Settings UI — wireframe parity (SETTINGS.P*)
+
+- `/settings` (`SettingsController` → `Admin/Settings.vue`) is being brought to visual + card parity with
+  `resources/prototype/admin-settings.wireframe.html` (audit: `docs/wireframe-parity/ADMIN-SETTINGS-DIFF.md`).
+  **SETTINGS.P1 (done):** glass visual-language parity — `eucardIn` entrance (`.euca-card-in` + reduced-motion
+  guard; `Card` `animate` prop), pill+gradient Save (`Button` `pill` prop over `.btn-glow`), and an unlayered
+  `.settings-surface :focus-visible` euca-700 ring. Presentational only; the glow (`.euca-wash`) + glass
+  (`.glass-card`) already existed. Parts P2–P6 (Agents/Scheduling/Security/Notifications cards + invite + sub-nav)
+  are the remaining fix parts — each preserves the real server gate (suggest-cap, mandatory 2FA, reflect-only RBAC).
+
 ## Open items
 
 - ABAC condition evaluation (`abac_conditions`) not yet implemented (Phase B, needs patients/audit).
