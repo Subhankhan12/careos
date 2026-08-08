@@ -10,6 +10,7 @@ use Inertia\Response;
 use Modules\AiCore\Exceptions\AiCoreException;
 use Modules\AiCore\Models\AgentAction;
 use Modules\AiCore\Services\ApprovalQueue;
+use Modules\AiCore\Services\AutonomyPolicy;
 use Modules\AiCore\Services\ToolRegistry;
 use Modules\Platform\Models\User;
 
@@ -45,7 +46,7 @@ class AiApprovalQueueController
 {
     private const RESOLVED_LIMIT = 20;
 
-    public function index(Request $request, ToolRegistry $tools): Response
+    public function index(Request $request, ToolRegistry $tools, AutonomyPolicy $autonomy): Response
     {
         Gate::authorize('ai.manage');
         $actor = $request->user();
@@ -55,7 +56,7 @@ class AiApprovalQueueController
             ->where('status', AgentAction::STATUS_PENDING)
             ->orderByDesc('id')
             ->get()
-            ->map(fn (AgentAction $action): array => $this->presentPending($action, $tools, $actor))
+            ->map(fn (AgentAction $action): array => $this->presentPending($action, $tools, $autonomy, $actor))
             ->all();
 
         $resolved = AgentAction::query()
@@ -116,9 +117,9 @@ class AiApprovalQueueController
     /**
      * @return array<string, mixed>
      */
-    private function presentPending(AgentAction $action, ToolRegistry $tools, User $actor): array
+    private function presentPending(AgentAction $action, ToolRegistry $tools, AutonomyPolicy $autonomy, User $actor): array
     {
-        [$toolName, $category, $canReview] = $this->toolContext($action->tool_key, $tools, $actor);
+        [$toolName, $category, $permission, $canReview, $ceiling] = $this->toolContext($action->tool_key, $tools, $autonomy, $actor);
 
         return [
             'id' => $action->id,
@@ -127,14 +128,57 @@ class AiApprovalQueueController
             'toolKey' => $action->tool_key,
             'toolName' => $toolName,
             'category' => $category,
+            // The tool's REAL declared permission — the same one approve re-authorises against.
+            'permission' => $permission,
             'autonomyLevel' => $action->autonomy_level,
+            // The tool's effective CEILING (the AutonomyPolicy cap) — distinct from the proposed level.
+            'ceiling' => $ceiling,
             'why' => $action->why,
+            // Real recorded grounding: the distinct `source` refs the tool put on its draft lines
+            // (kb_article / admin_fact). Empty when the action carries none — never fabricated.
+            'sources' => $this->sourcesFor($action->proposed_output),
             'proposedOutput' => $action->proposed_output,
             'diff' => $action->diff,
+            'queuedAt' => $action->created_at?->toIso8601String(),
             'canReview' => $canReview,
             'approveUrl' => route('governance.approvals.approve', $action->id),
             'rejectUrl' => route('governance.approvals.reject', $action->id),
         ];
+    }
+
+    /**
+     * The distinct grounding sources an action's draft recorded on its lines — REAL provenance only
+     * (`{type: kb_article|admin_fact, id|key}`). Returns [] when the action carries no structured
+     * sources (a handoff draft, or a tool that records none); nothing is ever invented.
+     *
+     * @param  array<string, mixed>|null  $proposedOutput
+     * @return list<array{type: string, ref: string}>
+     */
+    private function sourcesFor(?array $proposedOutput): array
+    {
+        $lines = is_array($proposedOutput['lines'] ?? null) ? $proposedOutput['lines'] : [];
+        $seen = [];
+        $sources = [];
+
+        foreach ($lines as $line) {
+            $source = is_array($line) && is_array($line['source'] ?? null) ? $line['source'] : null;
+            if ($source === null) {
+                continue;
+            }
+
+            $type = (string) ($source['type'] ?? '');
+            $ref = (string) ($source['key'] ?? $source['id'] ?? '');
+            $dedupe = $type.'|'.$ref;
+
+            if ($type === '' || $ref === '' || isset($seen[$dedupe])) {
+                continue;
+            }
+
+            $seen[$dedupe] = true;
+            $sources[] = ['type' => $type, 'ref' => $ref];
+        }
+
+        return $sources;
     }
 
     /**
@@ -154,24 +198,28 @@ class AiApprovalQueueController
     }
 
     /**
-     * Resolve display context for a tool, and whether THIS reviewer holds the tool's
-     * permission — a UX hint mirroring the service-side authorize(); the server stays
-     * authoritative. An unregistered tool key degrades to "cannot review".
+     * Resolve display context for a tool: its name, category, the REAL required permission (the one
+     * approve re-authorises against), whether THIS reviewer holds it (a UX hint; the server stays
+     * authoritative), and the tool's effective CEILING (the AutonomyPolicy cap). An unregistered
+     * tool key degrades to "cannot review". All values are read from the tool's own declaration —
+     * none are fabricated.
      *
-     * @return array{0: string|null, 1: string|null, 2: bool}
+     * @return array{0: string|null, 1: string|null, 2: string|null, 3: bool, 4: string|null}
      */
-    private function toolContext(string $toolKey, ToolRegistry $tools, User $actor): array
+    private function toolContext(string $toolKey, ToolRegistry $tools, AutonomyPolicy $autonomy, User $actor): array
     {
         try {
             $definition = $tools->get($toolKey)->definition();
         } catch (AiCoreException) {
-            return [null, null, false];
+            return [null, null, null, false, null];
         }
 
         return [
             $definition->name,
             $definition->category,
+            $definition->permission,
             Gate::forUser($actor)->allows($definition->permission),
+            $autonomy->effectiveCeiling($definition),
         ];
     }
 }

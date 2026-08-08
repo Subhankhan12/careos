@@ -16,10 +16,14 @@ interface PendingAction {
     toolKey: string;
     toolName: string | null;
     category: string | null;
+    permission: string | null;
     autonomyLevel: string;
+    ceiling: string | null;
     why: string;
+    sources: Array<{ type: string; ref: string }>;
     proposedOutput: Record<string, unknown> | null;
     diff: Record<string, unknown> | null;
+    queuedAt: string | null;
     canReview: boolean;
     approveUrl: string;
     rejectUrl: string;
@@ -148,26 +152,50 @@ function dateTime(iso: string | null): string {
                     :style="{ '--euca-card-delay': (0.02 + index * 0.04) + 's' }"
                 >
                     <div class="flex flex-wrap items-start justify-between gap-3">
-                        <div>
+                        <div class="min-w-0">
                             <div class="flex flex-wrap items-center gap-2">
-                                <span class="text-sm font-semibold text-ink">{{ action.toolName ?? action.toolKey }}</span>
+                                <span class="inline-flex items-center rounded-full bg-euca-100 px-2 py-0.5 text-[11px] font-medium text-euca-800">{{ agentLabel(action.agent) }}</span>
+                                <!-- Tool-permission chip: the tool_key + the REAL permission approve re-authorises against. -->
+                                <span class="inline-flex items-center gap-1 rounded-full bg-euca-50 px-2.5 py-0.5 text-xs font-medium text-euca-700">
+                                    <span class="font-mono">{{ action.toolKey }}</span>
+                                    <span v-if="action.permission" class="text-euca-800/70">· {{ t('aiQueue.card.requires', { permission: action.permission }) }}</span>
+                                </span>
                                 <span v-if="action.category" class="inline-flex items-center rounded-full bg-euca-50 px-2.5 py-0.5 text-xs font-medium text-euca-700">{{ action.category }}</span>
+                                <!-- Autonomy: the PROPOSED level. Ceiling: the AutonomyPolicy CAP (distinct). -->
                                 <span class="inline-flex items-center rounded-full bg-euca-50 px-2.5 py-0.5 text-xs font-medium text-euca-700">{{ t('aiQueue.card.autonomy', { level: action.autonomyLevel }) }}</span>
+                                <span v-if="action.ceiling" class="inline-flex items-center rounded-full border border-euca-300 bg-euca-50 px-2.5 py-0.5 text-xs font-semibold text-euca-800">{{ t('aiQueue.card.ceiling', { level: action.ceiling }) }}</span>
                             </div>
-                            <p class="mt-0.5 text-xs text-ink-subtle">{{ t('aiQueue.card.agent', { agent: action.agent }) }} · <span class="font-mono">{{ action.feature }}</span></p>
+                            <p class="mt-1 text-xs text-ink-subtle">
+                                {{ t('aiQueue.card.agent', { agent: action.agent }) }} · <span class="font-mono">{{ action.feature }}</span>
+                                <span v-if="action.queuedAt"> · {{ t('aiQueue.card.queued', { time: dateTime(action.queuedAt) }) }}</span>
+                            </p>
                         </div>
                         <!-- Fence discipline: AI content is always badged, never presented as authoritative judgment. -->
-                        <span class="inline-flex items-center rounded-full border border-warning/30 bg-warning-soft px-2.5 py-1 text-xs font-semibold text-warning">{{ t('aiQueue.badge') }}</span>
+                        <span class="inline-flex flex-none items-center rounded-full border border-warning/30 bg-warning-soft px-2.5 py-1 text-xs font-semibold text-warning">{{ t('aiQueue.badge') }}</span>
                     </div>
 
                     <div class="mt-4 space-y-3 text-sm">
+                        <!-- What / Why — the action's real intent (the tool's declared name) + its recorded reason. -->
+                        <div>
+                            <p class="text-xs font-semibold uppercase tracking-wide text-ink-muted">{{ t('aiQueue.card.what') }}</p>
+                            <p class="mt-1 font-medium text-ink">{{ action.toolName ?? action.toolKey }}</p>
+                        </div>
                         <div>
                             <p class="text-xs font-semibold uppercase tracking-wide text-ink-muted">{{ t('aiQueue.card.why') }}</p>
                             <p class="mt-1 text-ink">{{ action.why }}</p>
                         </div>
                         <div>
                             <p class="text-xs font-semibold uppercase tracking-wide text-ink-muted">{{ t('aiQueue.card.grounding') }}</p>
+                            <!-- The full inspectable payload stays (correctly-more-real). -->
                             <pre class="mt-1 max-h-56 overflow-auto rounded-xl border border-line bg-surface-2/60 p-3 text-xs text-ink">{{ pretty(action.proposedOutput) }}</pre>
+                            <!-- Sources — the REAL recorded grounding refs, or an honest absence (never fabricated). -->
+                            <p class="mt-2 flex flex-wrap items-center gap-1.5 text-xs">
+                                <span class="font-semibold text-ink-muted">{{ t('aiQueue.card.sources') }}:</span>
+                                <template v-if="action.sources.length">
+                                    <span v-for="(source, i) in action.sources" :key="i" :title="source.type + ' · ' + source.ref" class="inline-flex max-w-full items-center gap-1 truncate rounded-full bg-euca-50 px-2 py-0.5 font-mono text-euca-700">↳ {{ source.type }} · {{ source.ref }}</span>
+                                </template>
+                                <span v-else class="text-ink-subtle">{{ t('aiQueue.card.noSources') }}</span>
+                            </p>
                         </div>
                     </div>
 

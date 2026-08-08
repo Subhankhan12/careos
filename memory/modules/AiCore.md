@@ -164,8 +164,14 @@ props/gate — dashed glass cards + `eucardIn` + P1 pill buttons + a danger reje
 and agent-type filter pills (All + the REAL agents `inbox`/`scheduler`, client-side; not hardcoded). Honest copy
 (no "edit"/stat-strip claim yet). NO gate/backend change — approve/reject still route through `ApprovalQueue`
 (re-authorise + re-ground + assert-pending + reason-required intact). Audit: `docs/wireframe-parity/APPROVAL-QUEUE-DIFF.md`;
-locked by `tests/Feature/Governance/ApprovalQueueChromeTest.php` (3). Remaining parts: card anatomy, stat strip,
-edit-before-sending, bulk-approve (excludes clinical), resolved filters, fence-refused modelling.
+locked by `tests/Feature/Governance/ApprovalQueueChromeTest.php` (3).
+**APPROVAL.P2 (card anatomy, presentational):** `AiApprovalQueueController` now surfaces per pending action (present-only,
+no gate change) `permission` (the tool's real `ToolDefinition::permission` — the one approve re-authorises against),
+`ceiling` (`AutonomyPolicy::effectiveCeiling`, the cap, distinct from the proposed level), `queuedAt`, and `sources`
+(real grounding from `proposed_output.lines[].source`, or `[]`/honest-absence — never fabricated); the Vue card shows the
+tool-permission chip, the `ceiling:` cap, What/Why, the ↳ sources line, and keeps the full inspectable payload. Locked by
+`tests/Feature/Governance/ApprovalCardAnatomyTest.php` (3). Remaining: stat strip, edit-before-sending, bulk-approve
+(excludes clinical), resolved filters, fence-refused modelling, the re-authorise/re-ground caption.
 
 ## KB admin UI (CLINIC.W10)
 

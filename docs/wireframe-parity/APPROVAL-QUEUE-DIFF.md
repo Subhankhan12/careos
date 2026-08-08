@@ -167,13 +167,31 @@ Updated as APPROVAL.P1–… land. One commit per part.
 | Punch-list item | Status | Commit |
 |---|---|---|
 | 8 · Visual/chrome (dashed cards, pill buttons, Pending/Resolved toggle, agent filter pills, eucardIn/focus) | **RESOLVED (P1)** | `APPROVAL.P1` |
-| 1 · Surface approve = re-authorise + re-ground + ceiling | pending | — |
+| 7 · Card anatomy + grounding presentation (What/Why, tool-permission chip, ceiling cap, sources) | **RESOLVED (P2)** | `APPROVAL.P2` |
+| 1 · Surface approve = re-authorise + re-ground (the ceiling label part landed in P2) | **partial (P2)** — ceiling shown; the re-authorise/re-ground caption still pending | `APPROVAL.P2` |
 | 2 · Edit-before-sending | pending | — |
 | 3 · Governance stat strip | pending | — |
 | 4 · Fence-refused modelling | pending | — |
 | 5 · Bulk-approve (low-risk only) | pending | — |
 | 6 · Resolved search/filters/reviewer/grouping | pending | — |
-| 7 · Card anatomy + grounding presentation | pending | — |
+
+**P2 note — card anatomy (surface real provenance, presentational only, no gate change):** the pending card now
+shows, over the action's EXISTING data:
+- **What / Why** — What = the tool's declared name (the action's real intent), Why = the action's recorded `why`.
+- **Tool-permission chip** — `<tool_key> · requires <permission>` where the permission is the tool's **real
+  declared permission** (`comms.draft_reply → comms.manage`, `scheduler.fill_from_waitlist → appointment.manage`)
+  — **the same one `ApprovalQueue::approve` re-authorises against**.
+- **Ceiling cap label** — `ceiling: <cap>` from `AutonomyPolicy::effectiveCeiling` (the CAP), rendered **distinct**
+  from the `Autonomy: <proposed>` level (a test proves ceiling comes from `effectiveCeiling`, not the proposed
+  level).
+- **↳ Sources line** — the action's **real recorded grounding** (`proposed_output.lines[].source` →
+  `{type: kb_article|admin_fact, ref}`, deduped) or an **honest "No linked sources on this action."** when none
+  (the seeded handoff draft + the scheduler action both carry none) — **never fabricated** (the fence-adjacent
+  honesty point). Queued-at time added; the **full inspectable `proposed_output` well is kept** (correctly-more-
+  real, un-regressed).
+- **No gate/backend change** — the controller only surfaces `permission`/`ceiling`/`sources`/`queuedAt` (present-
+  only, read from the tool's own declaration + the payload); approve/reject/re-authorise/re-ground/reason-required
+  are untouched. 3 new tests; no existing behavior test modified.
 
 **P1 note — visual/chrome parity (frontend only, no gate change):** `Governance/ApprovalQueue.vue` +
 `aiQueue.*` i18n (unique `aiQueue.chrome.*` sub-block; the `@`-escape/dup-key guards observed):

@@ -23,6 +23,8 @@ use Modules\Platform\Concerns\BelongsToTenant;
  * @property Carbon|null $approved_at
  * @property Carbon|null $rejected_at
  * @property Carbon|null $executed_at
+ * @property Carbon|null $created_at
+ * @property Carbon|null $updated_at
  * @property string|null $rejection_reason
  * @property string $why
  * @property array<string, mixed> $input_payload

@@ -2260,10 +2260,17 @@
             "rejected": "Action rejected. Nothing was executed."
         },
         "card": {
+            "what": "What",
             "why": "Why",
             "grounding": "Proposed output (source-grounded)",
             "autonomy": "Autonomy: {level}",
-            "agent": "Agent: {agent}"
+            "ceiling": "ceiling: {level}",
+            "requires": "requires {permission}",
+            "queued": "Queued {time}",
+            "agent": "Agent: {agent}",
+            "sources": "Sources",
+            "noSources": "No linked sources on this action.",
+            "detailsToggle": "Payload"
         },
         "actions": {
             "approve": "Approve",
