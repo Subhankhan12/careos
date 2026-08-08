@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { Head, Link } from '@inertiajs/vue3';
 import { useI18n } from 'vue-i18n';
-import AppLayout from '@/Layouts/AppLayout.vue';
+import SettingsLayout from '@/Layouts/SettingsLayout.vue';
 import Card from '@/Components/Card.vue';
 
 const { t } = useI18n();
@@ -13,7 +13,7 @@ defineProps<{
 </script>
 
 <template>
-    <AppLayout>
+    <SettingsLayout>
         <Head :title="t('securitySettings.title')" />
         <div class="settings-surface space-y-6">
             <div>
@@ -72,5 +72,5 @@ defineProps<{
                 </p>
             </Card>
         </div>
-    </AppLayout>
+    </SettingsLayout>
 </template>

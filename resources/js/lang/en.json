@@ -965,6 +965,54 @@
         },
         "save": "Save notifications"
     },
+    "settingsNav": {
+        "heading": "Settings",
+        "practice": "Practice",
+        "scheduling": "Scheduling",
+        "onlineBooking": "Online booking",
+        "agents": "Agents",
+        "notifications": "Notifications",
+        "team": "Team & roles",
+        "security": "Security"
+    },
+    "staffInvite": {
+        "form": {
+            "title": "Invite a member",
+            "subtitle": "Send an email invitation to join your practice with a built-in role.",
+            "email": "Email",
+            "emailPlaceholder": "name{'@'}practice.example",
+            "role": "Role",
+            "submit": "+ Invite member"
+        },
+        "pending": {
+            "title": "Pending invites",
+            "subtitle": "Invitations that have been sent but not yet accepted.",
+            "empty": "No pending invites.",
+            "email": "Email",
+            "role": "Role",
+            "status": "Status",
+            "expires": "Expires",
+            "resend": "Resend",
+            "revoke": "Revoke",
+            "badge": "Pending"
+        },
+        "flash": {
+            "invited": "Invitation sent.",
+            "resent": "Invitation resent.",
+            "revoked": "Invitation revoked."
+        },
+        "accept": {
+            "title": "Accept your invitation",
+            "roleLine": "You've been invited to {tenant} as {role}.",
+            "email": "Email",
+            "name": "Your name",
+            "password": "Password",
+            "passwordConfirm": "Confirm password",
+            "submit": "Create account",
+            "invalidTitle": "This invitation is no longer valid",
+            "invalidBody": "It may have expired, been revoked, or already been used. Ask your practice administrator to send a new one."
+        }
+    },
     "roles": {
         "eyebrow": "Administration",
         "title": "Roles & access",

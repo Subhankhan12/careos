@@ -15,6 +15,8 @@ use App\Http\Controllers\Portal\PortalHomeController;
 use App\Http\Controllers\ResourceController;
 use App\Http\Controllers\SchedulingSettingsController;
 use App\Http\Controllers\SecuritySettingsController;
+use App\Http\Controllers\StaffInviteAcceptController;
+use App\Http\Controllers\StaffInviteController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 use Modules\Billing\Http\Controllers\AgingController;
@@ -654,6 +656,12 @@ Route::middleware('auth')->group(function () {
     Route::get('/admin/roles', [UserRoleController::class, 'index'])->name('admin.roles.index');
     Route::post('/admin/roles/assign', [UserRoleController::class, 'assign'])->name('admin.roles.assign');
 
+    // Staff invites (SETTINGS.P6) — create/resend/revoke, admin.manage-gated; the invite grants a
+    // built-in role template via the real RBAC path (audited). Invites resolve by string id (FIX.1).
+    Route::post('/admin/invites', [StaffInviteController::class, 'store'])->name('admin.invites.store');
+    Route::post('/admin/invites/{invite}/resend', [StaffInviteController::class, 'resend'])->name('admin.invites.resend');
+    Route::post('/admin/invites/{invite}/revoke', [StaffInviteController::class, 'revoke'])->name('admin.invites.revoke');
+
     // Agents & automation (SETTINGS.P2) — presentation over AiCore's AutonomyPolicy. The
     // controller gates ai.manage and writes ONLY through AutonomyPolicy::set() (which clamps to
     // each tool's ceiling); it never raises autonomy or writes ai.autonomy.* raw.
@@ -718,6 +726,14 @@ Route::prefix('book/{tenant:slug}')
         Route::post('/slots', [PublicBookingController::class, 'slots'])->name('slots');
         Route::post('/', [PublicBookingController::class, 'store'])->name('store');
     });
+
+// Public staff-invite acceptance (SETTINGS.P6) — a guest redeems the single-use token from the
+// invite email; accept provisions the user in the invite's tenant and logs them in (2FA enrollment
+// follows via the mandatory-2FA middleware). Rate-limited; the token is the single-use secret.
+Route::prefix('invite')->name('staff-invite.')->middleware('throttle:10,1')->group(function () {
+    Route::get('/{token}', [StaffInviteAcceptController::class, 'show'])->name('show');
+    Route::post('/{token}', [StaffInviteAcceptController::class, 'accept'])->name('accept');
+});
 
 Route::prefix('portal')->name('portal.')->group(function () {
     Route::get('/login', [PortalAuthController::class, 'showLogin'])->name('login');

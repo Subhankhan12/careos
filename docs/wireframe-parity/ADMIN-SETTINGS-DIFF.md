@@ -233,8 +233,16 @@ Updated as the SETTINGS.P1–P6 fix parts land. One commit per part (AGENTS.md "
 | 2 · Scheduling card | **RESOLVED (P3)** | `SETTINGS.P3` |
 | 5 · Security card (2FA read-only-locked) | **RESOLVED (P4)** | `SETTINGS.P4` |
 | 6 · Notifications card + email prefs store (SMS deferred) | **RESOLVED (P5)** | `SETTINGS.P5` |
-| 7 · Staff invite flow | pending (P6) | — |
-| 3 · Left sub-nav / IA | pending (P6) | — |
+| 7 · Staff invite flow | **RESOLVED (P6)** | `SETTINGS.P6` |
+| 3 · Left sub-nav / IA | **RESOLVED (P6)** | `SETTINGS.P6` |
+
+**✅ ADMIN SETTINGS WIREFRAME-PARITY COMPLETE** — all seven punch-list items resolved across P1 (visual) → P2
+(Agents) → P3 (Scheduling) → P4 (Security) → P5 (Notifications) → P6 (invite + sub-nav/IA). The **correctly-more-
+real** items in §6 were kept throughout (deeper 26-role/40-perm RBAC catalog, richer profile/billing, read-only
+slug/identity, the honesty card, the last-admin guard, Branches/Kiosks). **RBAC stays reflect-only** — the role
+catalog is a read-only view; there is deliberately no editable permission grid (the only role-write is
+template assignment + invites, which grant a template role). Deferred (noted, non-blocking): a real **SMS
+provider/channel** (P5's SMS seam is inert).
 
 **P1 note — audit correction:** the "no canvas glow / no glass blur" visual deltas in §3 were a *headless
 measurement artifact*. Repo reality: `AppLayout.vue` already wraps the surface in `.euca-wash` (the layered
@@ -326,3 +334,29 @@ here can weaken a control:
   (unique). 8 new tests; no existing behavior test modified (NotificationService gained a constructor dep +
   a pref check, default-ON so existing sends are unchanged — its suite stays green); correctly-more-real
   un-regressed. **Deferred:** a real SMS provider/channel (the seam is intentionally inert this gate).
+
+**P6 note — staff invite flow + the Settings sub-nav/IA (parity complete):**
+- **Staff invite (a real feature):** `staff_invites` (BelongsToTenant: email + role_id + sha256 `token_hash` +
+  status + invited_by + expiry) + `app/Services/StaffInviteService` (invite/resend/revoke/accept, audited).
+  Admin actions are app-layer (`StaffInviteController`, `admin.manage`, string-id FIX.1); the public accept is a
+  throttled guest route (`/invite/{token}`). Creating an invite **emails** the accept link
+  (`Notification::route('mail',…)->notify(StaffInviteNotification)` — the same mechanism as the patient portal
+  invite; degrades cleanly if mail is off). **Accept provisions the User in the invite's tenant with the invited
+  role via the REAL path** — `User::create` + `RoleAssignment::create` (which auto-audits `role.assigned`) — then
+  logs in, and the existing mandatory-2FA middleware forces enrollment on first request. **Token is single-use,
+  expiring, and tenant-bound** (resolved unscoped from the token, then the tenant is taken *from* the invite —
+  it can only provision into its own tenant). The Team & roles card wires **[+ Invite member]** (email + role
+  from the real catalog) + a **pending-invites** list (resend/revoke).
+- **THE FENCE (governance preserved, tested):** no path to disable — RBAC stays **reflect-only** (a test asserts
+  there is **no permission-edit route**; the only `/admin/roles` write is `assign`); the invite grants a **template
+  role**, never per-permission; the **last-admin guard** is intact (a test re-confirms the sole org_admin can't be
+  demoted); **tenant isolation** holds (a test proves an alpha invite provisions only into alpha); **single-use**
+  and **expiry/revoke** invalidate the token (tested). The P2/P4/P5 locks are untouched.
+- **Settings sub-nav / IA:** a sticky left sub-nav (`SettingsNav.vue` in a shared `SettingsLayout.vue`) ties the
+  Settings surfaces together — Practice · Scheduling · Online booking · Agents · Notifications · Team & roles ·
+  Security — with an active-item state, on all six pages. "Online booking" has no dedicated page, so it links to
+  `/settings` (where the public-booking slug + patient-facing profile live) rather than faking a dead section.
+- 9 new invite tests + the FIX.5 route-smoke extended (invite create `admin.manage` 302 / reception 403; the
+  public accept route reachable; the P2–P5 admin surfaces). i18n block `staffInvite` (unique; the email
+  placeholder's literal `@` is escaped `{'@'}` — a vue-i18n message-syntax guard). No existing behavior test
+  modified. Correctly-more-real items un-regressed.

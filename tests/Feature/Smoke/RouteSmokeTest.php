@@ -319,6 +319,16 @@ test('per-role RBAC smoke: each role reaches its pages (200) and is denied other
         [$u['org_admin'], '/settings', 200],
         [$u['org_admin'], '/admin/roles', 200],
         [$u['org_admin'], '/admin/branches', 200],
+        // SETTINGS.P2–P6: the Settings surfaces are admin.manage (agents = ai.manage) — reception
+        // denied, org_admin reaches each (never a request-time 500).
+        [$u['reception'], '/admin/agents', 403],
+        [$u['reception'], '/admin/scheduling', 403],
+        [$u['reception'], '/admin/security', 403],
+        [$u['reception'], '/admin/notifications', 403],
+        [$u['org_admin'], '/admin/agents', 200],
+        [$u['org_admin'], '/admin/scheduling', 200],
+        [$u['org_admin'], '/admin/security', 200],
+        [$u['org_admin'], '/admin/notifications', 200],
         // Governance + AI approval queue are audit.view / ai.manage — org_admin holds both,
         // reception holds neither. (W9: the two most safety-sensitive admin surfaces.)
         [$u['reception'], '/governance', 403],
@@ -357,6 +367,27 @@ test('per-role RBAC smoke: each role reaches its pages (200) and is denied other
         if ($status !== $expected) {
             $failures[] = "resource.store as {$role} -> {$status} (expected {$expected})";
         }
+    }
+
+    // SETTINGS.P6: the staff-invite create route is admin.manage-gated. Reception is denied (403);
+    // org_admin reaches it and redirects (302, never a 500). A valid role id is resolved live.
+    $nurseRoleId = Role::query()->where('key', 'nurse')->value('id');
+    foreach ([['reception', 403], ['org_admin', 302]] as [$role, $expected]) {
+        smokeCtx()->forget();
+        $status = $this->actingAs($u[$role])
+            ->post('/admin/invites', ['email' => $role.'.smoke.invite@example.test', 'role_id' => $nurseRoleId])
+            ->status();
+        if ($status !== $expected) {
+            $failures[] = "staff-invite.store as {$role} -> {$status} (expected {$expected})";
+        }
+    }
+
+    // SETTINGS.P6: the PUBLIC accept route is reachable by a guest (200, renders the accept page;
+    // an unknown token simply shows the "no longer valid" state — never a 500).
+    smokeCtx()->forget();
+    $acceptStatus = $this->get('/invite/'.str_repeat('a', 64))->status();
+    if ($acceptStatus !== 200) {
+        $failures[] = "staff-invite.accept (guest) -> {$acceptStatus} (expected 200)";
     }
 
     // DENTAL.G4: the perform-a-procedure write route is dental.chart-gated (clinical). Reception

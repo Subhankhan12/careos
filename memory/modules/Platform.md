@@ -222,8 +222,17 @@ running shows up as an absence rather than as nothing at all.
   suppresses a non-legal email event whose pref is OFF (legal never suppressible). SMS is an inert seam (no
   provider); the clinician-attention flag is the Inbox agent's AI hand-off, locked-on with no disable path.
   i18n block `notificationSettings` (unique). Deferred: a real SMS provider.
-  Part P6 (staff invite + Settings sub-nav/IA) remains — it preserves the real server gate (suggest-cap,
-  mandatory 2FA, reflect-only RBAC, last-admin guard).
+  **SETTINGS.P6 (done) — parity COMPLETE:** a real STAFF-INVITE flow + the Settings sub-nav/IA. `staff_invites`
+  (BelongsToTenant: email + role_id + sha256 token_hash + status + expiry) + `app/Services/StaffInviteService`
+  (app-layer; invite/resend/revoke/accept, audited) + `StaffInviteController` (admin.manage) + a public throttled
+  accept (`/invite/{token}`). Accept provisions the User in the invite's tenant with the invited TEMPLATE role via
+  the REAL path (`User::create` + `RoleAssignment::create` → `role.assigned`); token is single-use/expiring/
+  tenant-bound (resolved unscoped via `withoutTenantContext`+`system` — `TenantScope` constrains to the current
+  tenant even in system mode, so a guest must forget context first). RBAC stays REFLECT-ONLY (no permission-edit
+  route; a test asserts it); the last-admin guard + tenant isolation intact. A sticky `SettingsNav`/`SettingsLayout`
+  ties the six Settings pages (Practice/Scheduling/Online booking/Agents/Notifications/Team & roles/Security).
+  **The full arc P1→P6 makes the Admin Settings page wireframe-parity complete.** Deferred (non-blocking): a real
+  SMS provider (P5's seam is inert).
 
 ## Open items
 

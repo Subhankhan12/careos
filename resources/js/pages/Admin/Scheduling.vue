@@ -2,7 +2,7 @@
 import { Head, Link, useForm, usePage } from '@inertiajs/vue3';
 import { computed } from 'vue';
 import { useI18n } from 'vue-i18n';
-import AppLayout from '@/Layouts/AppLayout.vue';
+import SettingsLayout from '@/Layouts/SettingsLayout.vue';
 import Button from '@/Components/Button.vue';
 import Card from '@/Components/Card.vue';
 
@@ -32,7 +32,7 @@ function save(): void {
 </script>
 
 <template>
-    <AppLayout>
+    <SettingsLayout>
         <Head :title="t('schedulingSettings.title')" />
         <div class="settings-surface space-y-6">
             <div>
@@ -106,5 +106,5 @@ function save(): void {
                 </form>
             </Card>
         </div>
-    </AppLayout>
+    </SettingsLayout>
 </template>

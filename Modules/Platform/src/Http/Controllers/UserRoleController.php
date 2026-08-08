@@ -10,6 +10,7 @@ use Inertia\Inertia;
 use Inertia\Response;
 use Modules\Platform\Models\Role;
 use Modules\Platform\Models\RoleAssignment;
+use Modules\Platform\Models\StaffInvite;
 use Modules\Platform\Models\User;
 use Modules\Platform\Services\RbacProvisioner;
 
@@ -73,6 +74,22 @@ class UserRoleController
                     ->map(fn (string $key): array => ['key' => $key, 'label' => $permissionLabels[$key] ?? $key])
                     ->all(),
             ])->all(),
+            // Pending staff invites (SETTINGS.P6) — StaffInvite is tenant-scoped, so this is confined
+            // to this tenant. Creating/resending/revoking goes through the app-layer invite endpoints.
+            'invites' => StaffInvite::query()
+                ->where('status', StaffInvite::STATUS_PENDING)
+                ->orderByDesc('created_at')
+                ->get()
+                ->map(fn (StaffInvite $invite): array => [
+                    'id' => $invite->id,
+                    'email' => $invite->email,
+                    'role' => $roleNames->get($invite->role_id),
+                    'status' => $invite->status,
+                    'expiresAt' => $invite->expires_at->toIso8601String(),
+                    'resendUrl' => route('admin.invites.resend', $invite->id),
+                    'revokeUrl' => route('admin.invites.revoke', $invite->id),
+                ])->all(),
+            'inviteUrl' => route('admin.invites.store'),
             'assignUrl' => route('admin.roles.assign'),
             'settingsUrl' => route('settings.index'),
         ]);
