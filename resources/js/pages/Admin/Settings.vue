@@ -168,6 +168,11 @@ function saveBilling(): void {
                 <Link href="/admin/security" class="inline-flex text-sm font-semibold text-euca-700 hover:text-euca-800">{{ t('settings.security.link') }}</Link>
             </Card>
 
+            <!-- Notifications cross-link (SETTINGS.P5) — email preference store (SMS seam). -->
+            <Card animate :style="{ '--euca-card-delay': '0.26s' }" :title="t('settings.notifications.title')" :subtitle="t('settings.notifications.subtitle')">
+                <Link href="/admin/notifications" class="inline-flex text-sm font-semibold text-euca-700 hover:text-euca-800">{{ t('settings.notifications.link') }}</Link>
+            </Card>
+
             <!-- Check-in kiosk devices cross-link (POLISH.1 — was reachable only by URL). admin.manage-gated like this page. -->
             <Card animate :style="{ '--euca-card-delay': '0.22s' }" :title="t('settings.kiosks.title')" :subtitle="t('settings.kiosks.subtitle')">
                 <Link href="/admin/kiosks" class="inline-flex text-sm font-semibold text-euca-700 hover:text-euca-800">{{ t('settings.kiosks.link') }}</Link>

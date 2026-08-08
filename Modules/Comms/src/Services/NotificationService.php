@@ -88,6 +88,7 @@ class NotificationService
         private readonly TenantContext $tenantContext,
         private readonly ConsentService $consents,
         private readonly AuditService $audit,
+        private readonly NotificationPreferenceService $preferences,
         EmailNotificationDriver $email,
     ) {
         $this->drivers = [$email->channel() => $email];
@@ -143,6 +144,15 @@ class NotificationService
         $existing = NotificationDelivery::query()->where('dedupe_key', $dedupeKey)->first();
         if ($existing instanceof NotificationDelivery) {
             return $existing;
+        }
+
+        // Tenant email-preference gate (SETTINGS.P5): a NON-LEGAL email event whose email preference
+        // is OFF is not sent. Legal notices (dunning, statutory) are never suppressible — the same
+        // posture as the consent gate below. Absence of a preference row means ON (default send).
+        if ($template['channel'] === NotificationTemplate::CHANNEL_EMAIL
+            && $template['category'] !== NotificationTemplate::CATEGORY_LEGAL
+            && ! $this->preferences->emailEnabled($template['key'])) {
+            return $this->record($template, $recipient, $rendered, $dedupeKey, NotificationDelivery::STATUS_SKIPPED, skippedReason: 'pref_off');
         }
 
         // Consent gate (D-G4): the template's category decides. Legal is never

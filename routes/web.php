@@ -10,6 +10,7 @@ use App\Http\Controllers\Comms\InboxAgentController;
 use App\Http\Controllers\EdDispositionController;
 use App\Http\Controllers\GovernanceDashboardController;
 use App\Http\Controllers\KbArticleController;
+use App\Http\Controllers\NotificationSettingsController;
 use App\Http\Controllers\Portal\PortalHomeController;
 use App\Http\Controllers\ResourceController;
 use App\Http\Controllers\SchedulingSettingsController;
@@ -669,6 +670,12 @@ Route::middleware('auth')->group(function () {
     // (mandatory 2FA middleware, session lifetime, PWA idle wipe). admin.manage-gated. There is
     // deliberately NO POST route: nothing here can disable or weaken a security control.
     Route::get('/admin/security', [SecuritySettingsController::class, 'index'])->name('admin.security.index');
+
+    // Notification settings (SETTINGS.P5) — presentation over the per-event EMAIL preference store
+    // NotificationService consults. admin.manage-gated; validated + audited. SMS is an inert seam;
+    // the clinician-attention hand-off is locked-on (not a preference), so neither is writable here.
+    Route::get('/admin/notifications', [NotificationSettingsController::class, 'index'])->name('admin.notifications.index');
+    Route::post('/admin/notifications', [NotificationSettingsController::class, 'update'])->name('admin.notifications.update');
 
     // Branch management (CLINIC.W8b) — app-layer controller (deactivation guard spans
     // Platform + Scheduling); soft-deactivate blocked when future appointments exist.

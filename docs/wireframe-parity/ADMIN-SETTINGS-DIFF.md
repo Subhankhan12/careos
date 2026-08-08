@@ -232,7 +232,7 @@ Updated as the SETTINGS.P1–P6 fix parts land. One commit per part (AGENTS.md "
 | 1 · Agents & automation card over `AutonomyPolicy` | **RESOLVED (P2)** | `SETTINGS.P2` |
 | 2 · Scheduling card | **RESOLVED (P3)** | `SETTINGS.P3` |
 | 5 · Security card (2FA read-only-locked) | **RESOLVED (P4)** | `SETTINGS.P4` |
-| 6 · Notifications card + email prefs store (SMS deferred) | pending (P5) | — |
+| 6 · Notifications card + email prefs store (SMS deferred) | **RESOLVED (P5)** | `SETTINGS.P5` |
 | 7 · Staff invite flow | pending (P6) | — |
 | 3 · Left sub-nav / IA | pending (P6) | — |
 
@@ -304,3 +304,25 @@ here can weaken a control:
 - Nothing is written (a test asserts rendering the card creates no `Setting` row) → no audit, no tenant write.
   `admin.manage`-gated (reception 403). P1 visual language. i18n block named `securitySettings` (unique — the P3
   duplicate-key guard). 5 new tests; no existing behavior test modified; correctly-more-real items un-regressed.
+
+**P5 note — Notifications card + email preference store (SMS seam; attention-flag locked-on):** a new
+`notification_preferences` store (tenant-scoped model + migration in Comms) + a `/admin/notifications` page
+(app-layer `NotificationSettingsController`, gated `admin.manage`, cross-linked from `/settings`):
+- **Email preference store the engine consults:** `NotificationPreferenceService` manages per-event email
+  on/off for the real non-legal built-in email events (`appointment.reminder`, `waitlist.offer`,
+  `telehealth.invite`); default ON (absence = enabled). `NotificationService::send()` now checks the pref —
+  **a non-legal email event whose pref is OFF is SKIPPED (`pref_off`), not sent** (tested end-to-end: on→SENT,
+  off→SKIPPED). **Legal notices are never suppressible** — the gate excludes `CATEGORY_LEGAL` (same posture as
+  the consent gate) and the store refuses to write a legal/unknown key (tested). Writes validated + audited
+  (`notification.preferences_changed`); per-section Save + "Notification preferences saved." flash.
+- **SMS = an inert seam:** the card renders a disabled SMS column ("Coming with SMS"); no SMS provider/driver is
+  wired, no SMS preference is stored or consulted, and the controller ignores any posted `sms` key (tested).
+- **Clinician-attention flag = locked-on, no disable path:** it is the **Inbox agent's AI safety hand-off** (the
+  agent sets `clinician_attention_at` on a thread when it refuses a clinical question — the electric fence), not
+  a notification preference. The card shows it "Locked · on"; it is not in `MANAGEABLE`, the store refuses it,
+  and the endpoint ignores an attention key — **THE FENCE test proves there is no path from this card to disable
+  it**.
+- `admin.manage`-gated (reception 403); tenant-scoped. P1 visual language. i18n block `notificationSettings`
+  (unique). 8 new tests; no existing behavior test modified (NotificationService gained a constructor dep +
+  a pref check, default-ON so existing sends are unchanged — its suite stays green); correctly-more-real
+  un-regressed. **Deferred:** a real SMS provider/channel (the seam is intentionally inert this gate).

@@ -835,6 +835,11 @@
             "subtitle": "Two-factor, session timeout and device wipe — enforced platform-wide.",
             "link": "View security →"
         },
+        "notifications": {
+            "title": "Notifications",
+            "subtitle": "How the practice and patients are told about activity.",
+            "link": "Manage notifications →"
+        },
         "gaps": {
             "title": "Not yet configurable",
             "subtitle": "On the roadmap — these have no backend to save to yet.",
@@ -924,6 +929,41 @@
             "help": "Clears the encrypted day pack after inactivity.",
             "unit": "min"
         }
+    },
+    "notificationSettings": {
+        "eyebrow": "Administration",
+        "title": "Notifications",
+        "subtitle": "How the practice and patients are told about activity. The server enforces every value — this page only reflects it.",
+        "backToSettings": "← Back to settings",
+        "flash": {
+            "saved": "Notification preferences saved."
+        },
+        "columns": {
+            "event": "Event",
+            "email": "Email",
+            "sms": "SMS"
+        },
+        "smsSeam": "Coming with SMS",
+        "events": {
+            "appointmentReminder": {
+                "label": "Appointment reminders",
+                "help": "Sent to patients before an appointment."
+            },
+            "waitlistOffer": {
+                "label": "Waitlist slot offers",
+                "help": "When a freed slot is offered to a waitlisted patient."
+            },
+            "telehealthInvite": {
+                "label": "Telehealth invitations",
+                "help": "When a video consultation is set up."
+            }
+        },
+        "attention": {
+            "label": "Clinician-attention flag",
+            "help": "When the agent flags a clinical question — always on. It's the agent's safety hand-off to a human, not a notification you can switch off.",
+            "locked": "Locked · on"
+        },
+        "save": "Save notifications"
     },
     "roles": {
         "eyebrow": "Administration",

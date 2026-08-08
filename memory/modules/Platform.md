@@ -216,8 +216,14 @@ running shows up as an absence rather than as nothing at all.
   `config('session.lifetime')` (120), Nurse-PWA idle wipe = 15 (PWA client build constant, never server-read) —
   both read-only (decision (a)). NO POST/update action exists → structurally no path to disable/weaken 2FA; the
   middleware stays authoritative. Nothing written (no audit). i18n block `securitySettings` (unique).
-  Parts P5–P6 (Notifications card + invite + sub-nav) remain — each preserves the real server gate
-  (suggest-cap, mandatory 2FA, reflect-only RBAC).
+  **SETTINGS.P5 (done):** the "Notifications" card — a new app-layer `NotificationSettingsController`
+  (`/admin/notifications`, gated `admin.manage`, cross-linked from `/settings`) over a new per-event EMAIL
+  preference store in Comms (`notification_preferences`; see [[Comms]]). `NotificationService::send()` now
+  suppresses a non-legal email event whose pref is OFF (legal never suppressible). SMS is an inert seam (no
+  provider); the clinician-attention flag is the Inbox agent's AI hand-off, locked-on with no disable path.
+  i18n block `notificationSettings` (unique). Deferred: a real SMS provider.
+  Part P6 (staff invite + Settings sub-nav/IA) remains — it preserves the real server gate (suggest-cap,
+  mandatory 2FA, reflect-only RBAC, last-admin guard).
 
 ## Open items
 

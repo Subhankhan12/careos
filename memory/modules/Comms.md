@@ -117,7 +117,22 @@ append-only messages.
   + patient-scoped read-logged by the existing service. Locked by `tests/Feature/Telehealth/StaffTelehealthTest.php`.
   See [[D-098]].
 
+## Notification email preferences (SETTINGS.P5)
+
+Per-event EMAIL on/off preferences: `notification_preferences` (BelongsToTenant: `event_key` + `email_enabled`,
+`unique(tenant,event_key)`) + `NotificationPreference` model + `NotificationPreferenceService` (const `MANAGEABLE`
+= the non-legal built-in email events `appointment.reminder`/`waitlist.offer`/`telehealth.invite`; `emailEnabled`
+default-ON when no row; `setEmail` refuses a non-manageable key). **`NotificationService::send()` consults it**
+(after dedupe, before consent): a NON-LEGAL email event whose pref is OFF is recorded `SKIPPED` `pref_off`; LEGAL
+(dunning/statutory) is excluded and never suppressible. Default-ON, so pre-existing sends are unchanged. The admin
+surface is app-layer `NotificationSettingsController` (`/admin/notifications`, `admin.manage`, audited
+`notification.preferences_changed`). **SMS is an inert seam** (no driver/pref). The **clinician-attention flag**
+(`threads.clinician_attention_at`, set by the Inbox agent on a clinical refusal — the D-G5 fence) is NOT a
+preference: locked-on, no disable path. Locked by `tests/Feature/Admin/NotificationSettingsTest.php` (8). Deferred:
+a real SMS provider/channel. See the DIFF doc + [[Platform]].
+
 ## Open items
 
 - G.2 notification engine; G.3 unified inbox UI (adds `thread_reads` + `assigned_to`); G.4 telehealth;
   G.6 Inbox agent (`ai_assisted` drafts).
+- SMS channel/provider is unwired (SETTINGS.P5 renders an inert SMS seam only).
