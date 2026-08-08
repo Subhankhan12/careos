@@ -159,6 +159,14 @@ audit). Actions resolve by string id (FIX.1) → cross-tenant/missing = 404. The
 ledger + kill-switch state. Locked by `tests/Feature/Governance/AiApprovalQueueTest.php` (incl. the cap-binds-via-UI
 test). See [[D-097]]. The P.4 eval suite was UNCHANGED by this gate.
 
+**APPROVAL.P1 (wireframe-parity, presentational only):** `Governance/ApprovalQueue.vue` re-skinned over the SAME
+props/gate — dashed glass cards + `eucardIn` + P1 pill buttons + a danger reject panel, a Pending/Resolved toggle,
+and agent-type filter pills (All + the REAL agents `inbox`/`scheduler`, client-side; not hardcoded). Honest copy
+(no "edit"/stat-strip claim yet). NO gate/backend change — approve/reject still route through `ApprovalQueue`
+(re-authorise + re-ground + assert-pending + reason-required intact). Audit: `docs/wireframe-parity/APPROVAL-QUEUE-DIFF.md`;
+locked by `tests/Feature/Governance/ApprovalQueueChromeTest.php` (3). Remaining parts: card anatomy, stat strip,
+edit-before-sending, bulk-approve (excludes clinical), resolved filters, fence-refused modelling.
+
 ## KB admin UI (CLINIC.W10)
 
 The KB now has an admin surface — app-layer `App\Http\Controllers\KbArticleController` (`/governance/kb`,

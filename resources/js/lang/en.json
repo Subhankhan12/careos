@@ -2244,11 +2244,17 @@
         }
     },
     "aiQueue": {
-        "eyebrow": "Governance",
-        "title": "AI approval queue",
-        "subtitle": "AI actions awaiting human approval. Approve or reject each — it runs only through the tested path, and the caps still bind.",
+        "eyebrow": "Governance · Agent actions",
+        "title": "Approval queue",
+        "subtitle": "Every agent action is suggest-only — a human approves or rejects before anything happens.",
         "badge": "AI draft — requires human review",
         "empty": "No AI actions are awaiting review.",
+        "chrome": {
+            "pending": "Pending {count}",
+            "resolved": "Resolved",
+            "allAgents": "All agents",
+            "noneForFilter": "No pending actions for this agent."
+        },
         "flash": {
             "approved": "Action approved and executed through the existing path.",
             "rejected": "Action rejected. Nothing was executed."
@@ -2264,6 +2270,7 @@
             "reject": "Reject",
             "confirmReject": "Confirm reject",
             "cancel": "Cancel",
+            "reasonLabel": "Reason for rejecting · recorded on the action",
             "reasonPlaceholder": "Reason for rejecting (required)",
             "noPermission": "You do not hold the permission this tool requires, so you cannot review this action."
         },

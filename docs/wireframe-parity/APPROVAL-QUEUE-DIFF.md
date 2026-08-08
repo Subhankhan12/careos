@@ -157,3 +157,39 @@ strengthen the gate) · **(d)** correctly-more-real. Severity = distance from pa
 **Fence guard for the whole page:** every item must **match the wireframe's governance visual while preserving/
 strengthening the real gate** — suggest-only, approve=re-authorise+re-ground+pending, reason-required, the
 autonomy ceiling, and bulk-excludes-clinical are the gates; surfacing them must never weaken them.
+
+---
+
+## 8. Parity progress (RESOLVED status per punch-list)
+
+Updated as APPROVAL.P1–… land. One commit per part.
+
+| Punch-list item | Status | Commit |
+|---|---|---|
+| 8 · Visual/chrome (dashed cards, pill buttons, Pending/Resolved toggle, agent filter pills, eucardIn/focus) | **RESOLVED (P1)** | `APPROVAL.P1` |
+| 1 · Surface approve = re-authorise + re-ground + ceiling | pending | — |
+| 2 · Edit-before-sending | pending | — |
+| 3 · Governance stat strip | pending | — |
+| 4 · Fence-refused modelling | pending | — |
+| 5 · Bulk-approve (low-risk only) | pending | — |
+| 6 · Resolved search/filters/reviewer/grouping | pending | — |
+| 7 · Card anatomy + grounding presentation | pending | — |
+
+**P1 note — visual/chrome parity (frontend only, no gate change):** `Governance/ApprovalQueue.vue` +
+`aiQueue.*` i18n (unique `aiQueue.chrome.*` sub-block; the `@`-escape/dup-key guards observed):
+- **Cards** now render as **dashed glass** (`.glass-card border-dashed border-euca-300`) with the **`eucardIn`**
+  entrance (staggered) and **P1 pill buttons** (`Button pill`: Approve = primary/gradient, Reject = secondary,
+  Confirm reject = **danger**, Cancel = ghost); the reject flow gained a danger-tinted panel with the "Reason for
+  rejecting · recorded on the action" label. Euca-wash + glass already applied via `AppLayout` (verified in
+  browser — not re-added); `.settings-surface` added for the euca-700 focus ring.
+- **Pending / Resolved toggle** — a segmented tablist over the two **already-loaded** views (pending stack /
+  resolved table); browser-verified switching.
+- **Agent-type filter pills** — **All agents + the REAL agents present** (`inbox`, `scheduler` — derived from the
+  loaded actions' `agent`, not hardcoded); a client-side filter; browser-verified (Inbox → only the inbox card).
+- **Honest copy** — eyebrow "Governance · Agent actions", caption "Every agent action is suggest-only — a human
+  approves or rejects before anything happens" (**no premature "edit"** — that's a later part — and **no faked
+  stat strip**).
+- **PURELY presentational — no gate/governance/backend change.** The approve/reject POST targets, the
+  re-authorise + re-ground + assert-pending path, and the reason-required gate are untouched (3 light tests
+  assert the prop shape the chrome renders over, that approve still routes through `ApprovalQueue` →
+  `executed`, and that reject still requires a reason). Correctly-more-real items (§6) un-regressed.

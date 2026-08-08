@@ -3,6 +3,7 @@ import { Head, router, useForm, usePage } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import AppLayout from '@/Layouts/AppLayout.vue';
+import Button from '@/Components/Button.vue';
 import Card from '@/Components/Card.vue';
 
 const { t } = useI18n();
@@ -24,27 +25,36 @@ interface PendingAction {
     rejectUrl: string;
 }
 
-defineProps<{
+const props = defineProps<{
     pending: PendingAction[];
     resolved: Array<{ id: string; agent: string; toolKey: string; status: string; reviewedBy: string | null; rejectionReason: string | null; resolvedAt: string | null }>;
 }>();
 
 const flash = computed(() => (page.props.flash as { status?: string } | undefined)?.status);
 
-// One reject reason box open at a time. Approve/reject POST straight to the existing path.
+// ── Chrome (presentational, client-side over already-loaded data) ─────────────
+const view = ref<'pending' | 'resolved'>('pending');
+
+// The REAL agent types present in the loaded pending actions (not a hardcoded set).
+const agentTypes = computed(() => Array.from(new Set(props.pending.map((a) => a.agent))));
+const agentFilter = ref<string>('all');
+const filteredPending = computed(() =>
+    agentFilter.value === 'all' ? props.pending : props.pending.filter((a) => a.agent === agentFilter.value),
+);
+const agentLabel = (agent: string): string => agent.charAt(0).toUpperCase() + agent.slice(1);
+
+// ── Approve / reject — UNCHANGED: POST straight to the existing gate path ──────
 const rejectingId = ref<string | null>(null);
 const rejectForm = useForm({ reason: '' });
 
 function approve(action: PendingAction): void {
     router.post(action.approveUrl, {}, { preserveScroll: true });
 }
-
 function openReject(id: string): void {
     rejectingId.value = id;
     rejectForm.reason = '';
     rejectForm.clearErrors();
 }
-
 function confirmReject(action: PendingAction): void {
     rejectForm.post(action.rejectUrl, {
         preserveScroll: true,
@@ -57,7 +67,6 @@ function confirmReject(action: PendingAction): void {
 function pretty(value: Record<string, unknown> | null): string {
     return value ? JSON.stringify(value, null, 2) : '—';
 }
-
 function dateTime(iso: string | null): string {
     return iso ? new Date(iso).toLocaleString() : '—';
 }
@@ -66,71 +75,130 @@ function dateTime(iso: string | null): string {
 <template>
     <AppLayout>
         <Head :title="t('aiQueue.title')" />
-        <div class="space-y-6">
-            <div>
-                <p class="text-xs font-semibold uppercase tracking-[0.14em] text-euca-700">{{ t('aiQueue.eyebrow') }}</p>
-                <h1 class="mt-1 text-2xl font-semibold tracking-tight text-ink">{{ t('aiQueue.title') }}</h1>
-                <p class="mt-1 text-sm text-ink-muted">{{ t('aiQueue.subtitle') }}</p>
+        <div class="settings-surface space-y-6">
+            <div class="flex flex-wrap items-start justify-between gap-4">
+                <div>
+                    <p class="text-xs font-semibold uppercase tracking-[0.14em] text-euca-700">{{ t('aiQueue.eyebrow') }}</p>
+                    <h1 class="mt-1 text-2xl font-semibold tracking-tight text-ink">{{ t('aiQueue.title') }}</h1>
+                    <p class="mt-1 text-sm text-ink-muted">{{ t('aiQueue.subtitle') }}</p>
+                </div>
+
+                <!-- Pending / Resolved view toggle (a view switch over existing data). -->
+                <div class="inline-flex flex-none items-center gap-1 rounded-full bg-euca-50/80 p-1" role="tablist" :aria-label="t('aiQueue.title')">
+                    <button
+                        type="button"
+                        role="tab"
+                        :aria-selected="view === 'pending'"
+                        class="rounded-full px-3.5 py-1.5 text-sm font-medium transition"
+                        :class="view === 'pending' ? 'nav-pill-active text-ink' : 'text-ink-muted hover:text-ink'"
+                        @click="view = 'pending'"
+                    >
+                        {{ t('aiQueue.chrome.pending', { count: pending.length }) }}
+                    </button>
+                    <button
+                        type="button"
+                        role="tab"
+                        :aria-selected="view === 'resolved'"
+                        class="rounded-full px-3.5 py-1.5 text-sm font-medium transition"
+                        :class="view === 'resolved' ? 'nav-pill-active text-ink' : 'text-ink-muted hover:text-ink'"
+                        @click="view = 'resolved'"
+                    >
+                        {{ t('aiQueue.chrome.resolved') }}
+                    </button>
+                </div>
             </div>
 
             <p v-if="flash === 'approved' || flash === 'rejected'" class="rounded-2xl border border-success/30 bg-success-soft p-4 text-sm text-success">
                 {{ t(`aiQueue.flash.${flash}`) }}
             </p>
 
-            <!-- Pending queue: each item is approved/rejected ONLY through the existing service path. -->
-            <p v-if="!pending.length" class="rounded-2xl border border-line bg-surface p-6 text-sm text-ink-muted">{{ t('aiQueue.empty') }}</p>
+            <!-- ── PENDING VIEW ─────────────────────────────────────────────── -->
+            <template v-if="view === 'pending'">
+                <!-- Agent-type filter pills (client-side over the loaded actions; real agents only). -->
+                <div v-if="agentTypes.length > 1" class="inline-flex flex-wrap items-center gap-1 rounded-full bg-euca-50/80 p-1">
+                    <button
+                        type="button"
+                        class="rounded-full px-3 py-1.5 text-sm font-medium transition"
+                        :class="agentFilter === 'all' ? 'nav-pill-active text-ink' : 'text-ink-muted hover:text-ink'"
+                        @click="agentFilter = 'all'"
+                    >
+                        {{ t('aiQueue.chrome.allAgents') }}
+                    </button>
+                    <button
+                        v-for="agent in agentTypes"
+                        :key="agent"
+                        type="button"
+                        class="rounded-full px-3 py-1.5 text-sm font-medium transition"
+                        :class="agentFilter === agent ? 'nav-pill-active text-ink' : 'text-ink-muted hover:text-ink'"
+                        @click="agentFilter = agent"
+                    >
+                        {{ agentLabel(agent) }}
+                    </button>
+                </div>
 
-            <div v-for="action in pending" :key="action.id" class="glass-card p-5">
-                <div class="flex flex-wrap items-start justify-between gap-3">
-                    <div>
-                        <div class="flex flex-wrap items-center gap-2">
-                            <span class="text-sm font-semibold text-ink">{{ action.toolName ?? action.toolKey }}</span>
-                            <span v-if="action.category" class="inline-flex items-center rounded-full bg-euca-50 px-2.5 py-0.5 text-xs font-medium text-euca-700">{{ action.category }}</span>
-                            <span class="inline-flex items-center rounded-full bg-euca-50 px-2.5 py-0.5 text-xs font-medium text-euca-700">{{ t('aiQueue.card.autonomy', { level: action.autonomyLevel }) }}</span>
+                <p v-if="!pending.length" class="rounded-2xl border border-line bg-surface p-6 text-sm text-ink-muted">{{ t('aiQueue.empty') }}</p>
+                <p v-else-if="!filteredPending.length" class="rounded-2xl border border-line bg-surface p-6 text-sm text-ink-muted">{{ t('aiQueue.chrome.noneForFilter') }}</p>
+
+                <!-- Pending action cards — dashed glass, eucardIn entrance; the review controls
+                     are UNCHANGED (approve/reject route through the existing ApprovalQueue path). -->
+                <div
+                    v-for="(action, index) in filteredPending"
+                    :key="action.id"
+                    class="glass-card euca-card-in border-dashed border-euca-300 p-5"
+                    :style="{ '--euca-card-delay': (0.02 + index * 0.04) + 's' }"
+                >
+                    <div class="flex flex-wrap items-start justify-between gap-3">
+                        <div>
+                            <div class="flex flex-wrap items-center gap-2">
+                                <span class="text-sm font-semibold text-ink">{{ action.toolName ?? action.toolKey }}</span>
+                                <span v-if="action.category" class="inline-flex items-center rounded-full bg-euca-50 px-2.5 py-0.5 text-xs font-medium text-euca-700">{{ action.category }}</span>
+                                <span class="inline-flex items-center rounded-full bg-euca-50 px-2.5 py-0.5 text-xs font-medium text-euca-700">{{ t('aiQueue.card.autonomy', { level: action.autonomyLevel }) }}</span>
+                            </div>
+                            <p class="mt-0.5 text-xs text-ink-subtle">{{ t('aiQueue.card.agent', { agent: action.agent }) }} · <span class="font-mono">{{ action.feature }}</span></p>
                         </div>
-                        <p class="mt-0.5 text-xs text-ink-subtle">{{ t('aiQueue.card.agent', { agent: action.agent }) }} · <span class="font-mono">{{ action.feature }}</span></p>
+                        <!-- Fence discipline: AI content is always badged, never presented as authoritative judgment. -->
+                        <span class="inline-flex items-center rounded-full border border-warning/30 bg-warning-soft px-2.5 py-1 text-xs font-semibold text-warning">{{ t('aiQueue.badge') }}</span>
                     </div>
-                    <!-- Fence discipline: AI content is always badged, never presented as authoritative judgment. -->
-                    <span class="inline-flex items-center rounded-full border border-warning/30 bg-warning-soft px-2.5 py-1 text-xs font-semibold text-warning">{{ t('aiQueue.badge') }}</span>
-                </div>
 
-                <div class="mt-4 space-y-3 text-sm">
-                    <div>
-                        <p class="text-xs font-semibold uppercase tracking-wide text-ink-muted">{{ t('aiQueue.card.why') }}</p>
-                        <p class="mt-1 text-ink">{{ action.why }}</p>
-                    </div>
-                    <div>
-                        <p class="text-xs font-semibold uppercase tracking-wide text-ink-muted">{{ t('aiQueue.card.grounding') }}</p>
-                        <pre class="mt-1 max-h-56 overflow-auto rounded-xl border border-line bg-euca-50/60 p-3 text-xs text-ink">{{ pretty(action.proposedOutput) }}</pre>
-                    </div>
-                </div>
-
-                <!-- Act-through-existing-path controls. Hidden when this reviewer lacks the tool's
-                     permission — a UX hint; the server denies regardless (the cap binds server-side). -->
-                <div v-if="action.canReview" class="mt-4 flex flex-wrap items-center gap-2">
-                    <template v-if="rejectingId !== action.id">
-                        <button type="button" class="btn-glow rounded-xl px-4 py-2 text-sm font-semibold" @click="approve(action)">{{ t('aiQueue.actions.approve') }}</button>
-                        <button type="button" class="rounded-xl border border-line px-4 py-2 text-sm font-semibold text-ink hover:bg-euca-50" @click="openReject(action.id)">{{ t('aiQueue.actions.reject') }}</button>
-                    </template>
-                    <div v-else class="w-full space-y-2">
-                        <textarea
-                            v-model="rejectForm.reason"
-                            :placeholder="t('aiQueue.actions.reasonPlaceholder')"
-                            rows="2"
-                            class="block w-full rounded-xl border border-line bg-surface px-3 py-2 text-sm text-ink"
-                        ></textarea>
-                        <p v-if="rejectForm.errors.reason" class="text-xs text-danger">{{ rejectForm.errors.reason }}</p>
-                        <div class="flex items-center gap-2">
-                            <button type="button" class="rounded-xl bg-danger px-4 py-2 text-sm font-semibold text-white hover:opacity-90" :disabled="rejectForm.processing" @click="confirmReject(action)">{{ t('aiQueue.actions.confirmReject') }}</button>
-                            <button type="button" class="rounded-xl border border-line px-4 py-2 text-sm font-semibold text-ink hover:bg-euca-50" @click="rejectingId = null">{{ t('aiQueue.actions.cancel') }}</button>
+                    <div class="mt-4 space-y-3 text-sm">
+                        <div>
+                            <p class="text-xs font-semibold uppercase tracking-wide text-ink-muted">{{ t('aiQueue.card.why') }}</p>
+                            <p class="mt-1 text-ink">{{ action.why }}</p>
+                        </div>
+                        <div>
+                            <p class="text-xs font-semibold uppercase tracking-wide text-ink-muted">{{ t('aiQueue.card.grounding') }}</p>
+                            <pre class="mt-1 max-h-56 overflow-auto rounded-xl border border-line bg-surface-2/60 p-3 text-xs text-ink">{{ pretty(action.proposedOutput) }}</pre>
                         </div>
                     </div>
-                </div>
-                <p v-else class="mt-4 text-xs text-ink-subtle">{{ t('aiQueue.actions.noPermission') }}</p>
-            </div>
 
-            <!-- Recently resolved (read-only context). -->
-            <Card :title="t('aiQueue.resolved.title')" :subtitle="t('aiQueue.resolved.subtitle')">
+                    <!-- Act-through-existing-path controls. Hidden when this reviewer lacks the tool's
+                         permission — a UX hint; the server denies regardless (the cap binds server-side). -->
+                    <div v-if="action.canReview" class="mt-4 flex flex-wrap items-center gap-2">
+                        <template v-if="rejectingId !== action.id">
+                            <Button type="button" pill :block="false" @click="approve(action)">{{ t('aiQueue.actions.approve') }}</Button>
+                            <Button type="button" variant="secondary" pill :block="false" @click="openReject(action.id)">{{ t('aiQueue.actions.reject') }}</Button>
+                        </template>
+                        <div v-else class="w-full space-y-2 rounded-2xl border border-danger/20 bg-danger-soft/50 p-3">
+                            <p class="text-xs font-semibold text-danger">{{ t('aiQueue.actions.reasonLabel') }}</p>
+                            <textarea
+                                v-model="rejectForm.reason"
+                                :placeholder="t('aiQueue.actions.reasonPlaceholder')"
+                                rows="2"
+                                class="block w-full rounded-xl border border-line bg-surface px-3 py-2 text-sm text-ink"
+                            ></textarea>
+                            <p v-if="rejectForm.errors.reason" class="text-xs text-danger">{{ rejectForm.errors.reason }}</p>
+                            <div class="flex items-center gap-2">
+                                <Button type="button" variant="danger" pill :block="false" :disabled="rejectForm.processing" @click="confirmReject(action)">{{ t('aiQueue.actions.confirmReject') }}</Button>
+                                <Button type="button" variant="ghost" pill :block="false" @click="rejectingId = null">{{ t('aiQueue.actions.cancel') }}</Button>
+                            </div>
+                        </div>
+                    </div>
+                    <p v-else class="mt-4 text-xs text-ink-subtle">{{ t('aiQueue.actions.noPermission') }}</p>
+                </div>
+            </template>
+
+            <!-- ── RESOLVED VIEW ────────────────────────────────────────────── -->
+            <Card v-else :title="t('aiQueue.resolved.title')" :subtitle="t('aiQueue.resolved.subtitle')">
                 <table v-if="resolved.length" class="w-full text-left text-sm">
                     <thead class="text-ink-muted">
                         <tr class="border-b border-line">
