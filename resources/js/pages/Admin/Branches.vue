@@ -31,7 +31,9 @@ type Branch = {
     postal_code: string | null;
     country: string | null;
     timezone: string;
+    phone: string | null;
     active: boolean;
+    accepts_online_bookings: boolean;
     active_resources: number;
     future_appointments: number;
     hours: DayHours[];
@@ -39,6 +41,7 @@ type Branch = {
     resourceStoreUrl: string;
     updateUrl: string;
     hoursUrl: string;
+    onlineBookingsUrl: string;
     deactivateUrl: string;
     activateUrl: string;
 };
@@ -64,6 +67,7 @@ const createForm = useForm({
     postal_code: '',
     country: '',
     timezone: props.timezones[0] ?? 'UTC',
+    phone: '',
 });
 
 // Per-branch editable details + hours (plain reactive state; submitted via router.post).
@@ -83,6 +87,7 @@ props.branches.forEach((branch) => {
         postal_code: branch.postal_code ?? '',
         country: branch.country ?? '',
         timezone: branch.timezone,
+        phone: branch.phone ?? '',
     };
     hours[branch.id] = branch.hours.map((day) => ({ ...day }));
     newResource[branch.id] = { name: '', type: defaultType() };
@@ -102,6 +107,11 @@ function saveHours(branch: Branch): void {
 }
 function setActive(branch: Branch, active: boolean): void {
     router.post(active ? branch.activateUrl : branch.deactivateUrl, {}, { preserveScroll: true });
+}
+// Soft-suspend: turn online bookings on/off. Distinct from deactivate — always allowed, keeps
+// existing appointments + the day-board; the server enforces the online-booking gate.
+function setOnlineBookings(branch: Branch, accepts: boolean): void {
+    router.post(branch.onlineBookingsUrl, { accepts_online_bookings: accepts }, { preserveScroll: true });
 }
 function createResource(branch: Branch): void {
     router.post(branch.resourceStoreUrl, newResource[branch.id], {
@@ -135,7 +145,7 @@ function hoursInvalid(branchId: string): boolean {
                 <Link :href="settingsUrl" class="mt-2 inline-flex text-sm font-semibold text-euca-700 hover:text-euca-800">{{ t('branchesAdmin.backToSettings') }}</Link>
             </div>
 
-            <p v-if="flash && ['created', 'updated', 'hoursSaved', 'deactivated', 'activated', 'resourceCreated', 'resourceUpdated', 'resourceDeactivated', 'resourceActivated'].includes(flash)" class="rounded-2xl border border-success/30 bg-success-soft p-4 text-sm text-success">
+            <p v-if="flash && ['created', 'updated', 'hoursSaved', 'deactivated', 'activated', 'onlineBookingsEnabled', 'onlineBookingsSuspended', 'resourceCreated', 'resourceUpdated', 'resourceDeactivated', 'resourceActivated'].includes(flash)" class="rounded-2xl border border-success/30 bg-success-soft p-4 text-sm text-success">
                 {{ t(`branchesAdmin.flash.${flash}`) }}
             </p>
             <p v-if="errors.branch === 'has_appointments'" class="rounded-2xl border border-danger/30 bg-danger-soft p-4 text-sm text-danger">
@@ -154,6 +164,7 @@ function hoursInvalid(branchId: string): boolean {
                     <Input id="c-city" v-model="createForm.city" :label="t('branchesAdmin.fields.city')" :error="createForm.errors.city" />
                     <Input id="c-postal" v-model="createForm.postal_code" :label="t('branchesAdmin.fields.postalCode')" :error="createForm.errors.postal_code" />
                     <Input id="c-country" v-model="createForm.country" :label="t('branchesAdmin.fields.country')" :error="createForm.errors.country" />
+                    <Input id="c-phone" v-model="createForm.phone" :label="t('branchesAdmin.fields.phone')" :error="createForm.errors.phone" />
                     <label class="block">
                         <span class="mb-1.5 block text-sm font-medium text-ink">{{ t('branchesAdmin.fields.timezone') }}</span>
                         <select v-model="createForm.timezone" class="block w-full rounded-md border border-line bg-surface px-3 py-2 text-sm text-ink">
@@ -174,12 +185,28 @@ function hoursInvalid(branchId: string): boolean {
                         <span class="rounded-full px-2.5 py-0.5 text-xs font-semibold" :class="branch.active ? 'bg-success-soft text-success' : 'bg-surface-2 text-ink-muted'">
                             {{ branch.active ? t('branchesAdmin.status.active') : t('branchesAdmin.status.inactive') }}
                         </span>
+                        <!-- Soft-suspend state (distinct from active): online booking on/off. -->
+                        <span class="rounded-full px-2.5 py-0.5 text-xs font-semibold" :class="branch.accepts_online_bookings ? 'bg-euca-50 text-euca-800' : 'bg-surface-2 text-ink-muted'">
+                            {{ branch.accepts_online_bookings ? t('branchesAdmin.onlineBookings.on') : t('branchesAdmin.onlineBookings.off') }}
+                        </span>
                         <span class="text-ink-muted">{{ t('branchesAdmin.list.resources', { count: branch.active_resources }, branch.active_resources) }}</span>
                         <span class="text-ink-muted">·</span>
                         <span class="text-ink-muted">{{ t('branchesAdmin.list.appointments', { count: branch.future_appointments }, branch.future_appointments) }}</span>
                         <span class="grow"></span>
                         <Button v-if="branch.active" type="button" variant="danger" :block="false" :disabled="branch.future_appointments > 0" @click="setActive(branch, false)">{{ t('branchesAdmin.actions.deactivate') }}</Button>
                         <Button v-else type="button" variant="secondary" :block="false" @click="setActive(branch, true)">{{ t('branchesAdmin.actions.activate') }}</Button>
+                    </div>
+
+                    <!-- Accept online bookings (soft-suspend) — always allowed; stops NEW online bookings,
+                         keeps existing appointments + the day-board. Distinct from deactivate. -->
+                    <div class="flex flex-wrap items-center gap-3 rounded-xl border border-line bg-surface-2/40 p-3 text-sm">
+                        <div class="min-w-0">
+                            <p class="font-medium text-ink">{{ t('branchesAdmin.onlineBookings.title') }}</p>
+                            <p class="text-xs text-ink-muted">{{ t('branchesAdmin.onlineBookings.help') }}</p>
+                        </div>
+                        <span class="grow"></span>
+                        <Button v-if="branch.accepts_online_bookings" type="button" variant="secondary" :block="false" @click="setOnlineBookings(branch, false)">{{ t('branchesAdmin.onlineBookings.suspend') }}</Button>
+                        <Button v-else type="button" :block="false" @click="setOnlineBookings(branch, true)">{{ t('branchesAdmin.onlineBookings.enable') }}</Button>
                     </div>
                     <p v-if="branch.active && branch.future_appointments > 0" class="text-xs text-ink-subtle">
                         {{ t('branchesAdmin.errors.hasAppointments', { count: branch.future_appointments }, branch.future_appointments) }}
@@ -194,6 +221,7 @@ function hoursInvalid(branchId: string): boolean {
                         <Input :id="`${branch.id}-city`" v-model="details[branch.id].city" :label="t('branchesAdmin.fields.city')" />
                         <Input :id="`${branch.id}-postal`" v-model="details[branch.id].postal_code" :label="t('branchesAdmin.fields.postalCode')" />
                         <Input :id="`${branch.id}-country`" v-model="details[branch.id].country" :label="t('branchesAdmin.fields.country')" />
+                        <Input :id="`${branch.id}-phone`" v-model="details[branch.id].phone" :label="t('branchesAdmin.fields.phone')" />
                         <label class="block">
                             <span class="mb-1.5 block text-sm font-medium text-ink">{{ t('branchesAdmin.fields.timezone') }}</span>
                             <select v-model="details[branch.id].timezone" class="block w-full rounded-md border border-line bg-surface px-3 py-2 text-sm text-ink">

@@ -3,7 +3,7 @@
 Short, factual snapshot of where the project stands. Updated at consolidations and after gates
 (per the MEMORY PROTOCOL in AGENTS.md).
 
-## STATUS: BUILD COMPLETE + AUDITED (3 audits, ZERO must-fix) · EIGHT VERTICALS · DEMOABLE HOSPITAL TENANT · CURRENT STAGE = DEPLOYMENT · WIREFRAME-PARITY PASS IN PROGRESS (Admin Settings done · Approval Queue COMPLETE (P1→P7) · Branches queued)
+## STATUS: BUILD COMPLETE + AUDITED (3 audits, ZERO must-fix) · EIGHT VERTICALS · DEMOABLE HOSPITAL TENANT · CURRENT STAGE = DEPLOYMENT · WIREFRAME-PARITY PASS IN PROGRESS (Admin Settings done · Approval Queue COMPLETE (P1→P7) · Branches → P1 backend/soft-suspend)
 
 > **RECONCILED (this pass — eight verticals built + audited; at the DEPLOY stage; a page-by-page wireframe-parity
 > pass now in progress).** CareOS is a multi-tenant agentic healthcare-operations platform (EU-first). **Stack:**
@@ -11,8 +11,8 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
 > 10.4 @3306, prod+CI MySQL 8 + Redis 7 + Node 22; Horizon via Memurai locally. **Latest commit:** `aac95c8`
 > (APPROVAL.P3 — the Approval Queue approve-contract caption), after the Admin Settings parity chain (→ `e7cabf0`),
 > DemoHospitalSeeder (D-147), the full-system QA audit + re-audit, and A11Y.1. **Suite:** `composer check` green —
-> Pest **1021 passed** (+4 from APPROVAL.P7), PHPStan L5 `[OK]`, Pint clean; `composer test:smoke`
-> green; CI green on MySQL 8; the FIX.5 route-smoke guards against request-time 500s. (Latest commit: APPROVAL.P7.)
+> Pest **1027 passed** (+6 from BRANCH.P1), PHPStan L5 `[OK]`, Pint clean; `composer test:smoke`
+> green; CI green on MySQL 8; the FIX.5 route-smoke guards against request-time 500s. (Latest commit: BRANCH.P1.)
 >
 > **WIREFRAME-PARITY PASS (in progress) — the discipline:** each app page is matched to its decoded wireframe in
 > the gitignored `resources/prototype/` (decode the bundler-shell HTML → AUDIT/diff into `docs/wireframe-parity/*.md`
@@ -40,8 +40,14 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
 >   server-side (a forged bulk including one is refused for that item — a test proves it); the fence still fires per
 >   item (P5) and per-item RBAC binds. **Approval Queue parity is now COMPLETE (P1→P7); two pages done in the pass
 >   (Admin Settings + Approval Queue), Branches next.** Audit `docs/wireframe-parity/APPROVAL-QUEUE-DIFF.md`.
-> - **Branches — QUEUED next** (decoded to `resources/prototype/branches.wireframe.html`; a rich master-detail,
->   largely correctly-more-real — bring the visual to parity WITHOUT regressing the more-real functionality).
+> - **Branches — IN PROGRESS** (audit `docs/wireframe-parity/BRANCHES-DIFF.md`; largely correctly-more-real — the
+>   W8b/W8c backend is built). **BRANCH.P1 (backend/soft-suspend)** added a REAL per-branch `accepts_online_bookings`
+>   (the wireframe's "Accept online bookings" toggle = a distinct SOFT-SUSPEND: stops NEW online bookings, keeps
+>   existing appointments + the day-board, always allowed) wired into the online write path + public/portal slot
+>   surfaces, + a `phone` field. **The suspend-vs-deactivate reconciliation resolved via option (b)** — soft-suspend
+>   is a DISTINCT state, NOT a weakening: the HARD deactivate guard (active=false blocked while future appointments
+>   exist) is UNCHANGED. Remaining Branches parts: master-detail restructure + glass/eucardIn/terracotta (P2+), the
+>   create modal wizard, the "main"/default-branch decision, practitioner-resources-read-only.
 > See D-149 for the parity discipline; the per-page/per-part gate approach; reflect-only-RBAC; surface-don't-fabricate.
 >
 > **THE EIGHT VERTICALS (all built + green on the shared platform):**

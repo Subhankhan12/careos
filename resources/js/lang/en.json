@@ -2100,6 +2100,8 @@
             "hoursSaved": "Opening hours saved.",
             "deactivated": "Branch deactivated.",
             "activated": "Branch reactivated.",
+            "onlineBookingsEnabled": "Online bookings turned on for this branch.",
+            "onlineBookingsSuspended": "Online bookings suspended — new online bookings are stopped; existing appointments are kept.",
             "resourceCreated": "Resource added.",
             "resourceUpdated": "Resource updated.",
             "resourceDeactivated": "Resource deactivated.",
@@ -2118,7 +2120,16 @@
             "city": "City",
             "postalCode": "Postal code",
             "country": "Country (2-letter)",
-            "timezone": "Timezone"
+            "timezone": "Timezone",
+            "phone": "Phone"
+        },
+        "onlineBookings": {
+            "title": "Accept online bookings",
+            "help": "Patients can book bookable-online services at this branch. Turning this off stops new online bookings; existing appointments and the day-board are kept.",
+            "on": "Online booking on",
+            "off": "Online booking off",
+            "enable": "Turn on online booking",
+            "suspend": "Suspend online booking"
         },
         "weekday": [
             "Sunday",

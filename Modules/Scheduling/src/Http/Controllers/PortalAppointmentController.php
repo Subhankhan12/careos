@@ -63,7 +63,7 @@ class PortalAppointmentController
                 'name' => $service->name,
                 'duration' => $service->default_duration_minutes,
             ])->all(),
-            'branches' => Branch::query()->where('active', true)->orderBy('name')->get(['id', 'name'])->all(),
+            'branches' => Branch::query()->onlineBookable()->orderBy('name')->get(['id', 'name'])->all(),
             'cancelMinHours' => $this->cancelMinHours(),
             'contact' => $this->contactSnapshot($account->patient_id),
             'actions' => [
@@ -91,6 +91,11 @@ class PortalAppointmentController
             ->where('active', true)
             ->where('bookable_online', true)
             ->firstOrFail();
+
+        // A soft-suspended (or inactive) branch exposes NO online slots (BRANCH.P1).
+        if (! Branch::query()->onlineBookable()->whereKey($data['branch_id'])->exists()) {
+            return response()->json(['slots' => []]);
+        }
 
         return response()->json([
             'slots' => $finder->forServiceBranchDate($service, $data['branch_id'], $data['date'], 12),

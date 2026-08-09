@@ -177,6 +177,20 @@ running shows up as an absence rather than as nothing at all.
   future appointments exist; audited via app-layer hooks (branch.*, tenant.profile_updated, branch.hours_changed).
   See [[D-095]].
 
+- **BRANCH.P1 (wireframe-parity) — per-branch `accepts_online_bookings` (SOFT-SUSPEND) + `phone`.** Additive migration
+  `2026_08_23_000001` (accepts_online_bookings bool default **true**, phone nullable). `Branch::scopeOnlineBookable()`
+  = `active AND accepts_online_bookings`. **The SOFT-SUSPEND (distinct from hard deactivate, NOT a weakening):**
+  setting `accepts_online_bookings=false` stops NEW online bookings but keeps the branch `active` — existing
+  appointments + the internal day-board are untouched, staff `book()` still works. Enforced in the ONLINE write path
+  (`BookingService::createBooking` refuses `SOURCE_ONLINE` when not online-bookable → `BookingUnavailableException::onlineBookingsSuspended`;
+  see [[Scheduling]]); the public + portal branch lists + slots surfaces honor it (slots → `[]`). Admin toggle
+  `POST /admin/branches/{branch}/online-bookings` (`BranchController::onlineBookings` → `BranchService::setOnlineBookings`),
+  admin.manage-gated, validated, tenant-scoped, **audited distinctly** (`branch.online_bookings_enabled`/`_suspended`
+  derived in the `Branch::updated` hook). `phone` added to the branch update validation + index payload. **The HARD
+  deactivate guard is UNCHANGED** (active=false still blocked while future appointments exist). Minimal UI on the
+  existing page (status pill + toggle + phone input; full master-detail visual is P2+). Locked by
+  `tests/Feature/Scheduling/BranchOnlineBookingTest.php` (6). See `docs/wireframe-parity/BRANCHES-DIFF.md` §5.1 (option b).
+
 - Bookable-resource CRUD (CLINIC.W8c) closes the W8b "no resource backend" gap: rooms/chairs/vehicles are created
   under a branch on the same `/admin/branches` admin screen. The `Resource` model + guard are SCHEDULING (see
   [[Scheduling]] / [[D-096]]) — noted here because it is administered from the Platform branch-admin surface and its

@@ -37,6 +37,18 @@ class BranchService
     }
 
     /**
+     * SOFT-SUSPEND toggle (BRANCH.P1): turn online bookings on/off for a branch. `false` stops NEW
+     * online bookings (the branch is hidden from public/portal booking and the online write path
+     * refuses it) while the branch stays `active` — existing appointments and the day-board are
+     * untouched. Always allowed (unlike hard deactivation, it never strands scheduled care), and
+     * audited distinctly (branch.online_bookings_enabled / _suspended) via the model hook.
+     */
+    public function setOnlineBookings(Branch $branch, bool $accepts): void
+    {
+        $branch->update(['accepts_online_bookings' => $accepts]);
+    }
+
+    /**
      * Future appointments that would be stranded if the branch were removed — the
      * blocking-status set (booked/confirmed/arrived/in-progress), starting from now.
      */

@@ -113,8 +113,17 @@ class BookingService
 
         $service = Service::query()->findOrFail($serviceId);
 
-        if (! Branch::query()->whereKey($branchId)->exists()) {
+        $branch = Branch::query()->whereKey($branchId)->first();
+        if ($branch === null) {
             throw CrossTenantReferenceException::forAttribute('branch_id', $branchId);
+        }
+
+        // SOFT-SUSPEND (BRANCH.P1): a branch that has turned off online bookings takes no NEW
+        // ONLINE bookings — but stays active for staff and keeps its existing appointments. This
+        // gates the ONLINE source only; staff/agent bookings are unaffected (they can still work a
+        // soft-suspended branch). It is DISTINCT from the hard active=false deactivation guard.
+        if ($source === Appointment::SOURCE_ONLINE && ! ($branch->active && $branch->accepts_online_bookings)) {
+            throw BookingUnavailableException::onlineBookingsSuspended($branchId);
         }
 
         if ($patientId !== null && ! Patient::query()->whereKey($patientId)->exists()) {

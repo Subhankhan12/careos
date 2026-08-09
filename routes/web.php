@@ -692,6 +692,7 @@ Route::middleware('auth')->group(function () {
     Route::post('/admin/branches', [BranchController::class, 'store'])->name('admin.branches.store');
     Route::post('/admin/branches/{branch}/update', [BranchController::class, 'update'])->name('admin.branches.update');
     Route::post('/admin/branches/{branch}/hours', [BranchController::class, 'hours'])->name('admin.branches.hours');
+    Route::post('/admin/branches/{branch}/online-bookings', [BranchController::class, 'onlineBookings'])->name('admin.branches.online_bookings');
     Route::post('/admin/branches/{branch}/deactivate', [BranchController::class, 'deactivate'])->name('admin.branches.deactivate');
     Route::post('/admin/branches/{branch}/activate', [BranchController::class, 'activate'])->name('admin.branches.activate');
 

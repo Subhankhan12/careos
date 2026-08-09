@@ -219,3 +219,43 @@ wireframe never mentions — keep the code field.
 preserving** the hard deactivation guard, the resource guards, the branch-scoped booking gate, and the structured
 data model. Where the wireframe implies a control the backend doesn't have (soft-suspend, online-booking toggle,
 default-branch, phone), it's a **flagged decision / separate gate**, never a faked control.
+
+---
+
+## 9. Parity progress (RESOLVED status per punch-list)
+
+Updated as BRANCH.P1–… land. One commit per part.
+
+| Punch-list item | Status | Commit |
+|---|---|---|
+| 4/5 · Soft-suspend (`accepts_online_bookings`) as a REAL state — chosen option (b): a distinct control alongside the hard deactivate guard | **RESOLVED (P1)** | `BRANCH.P1` |
+| 7 · Phone field (`Branch.phone`) | **RESOLVED (P1)** | `BRANCH.P1` |
+| 5 · Online-booking control wired to the REAL gate | **RESOLVED (P1)** — real, not a faked switch | `BRANCH.P1` |
+| 1 · Master-detail restructure | pending (P2+) | — |
+| 2 · Glass + eucardIn + pills + terracotta | pending (P2+) | — |
+| 3 · Create modal wizard | pending | — |
+| 6 · "main"/default-branch flag | pending (decision) | — |
+| 8 · Practitioner resources read-only in the roster | pending | — |
+
+**P1 note — per-branch `accepts_online_bookings` (soft-suspend) + `phone`; slot-finder-gated; hard deactivate
+guard unchanged (option (b) from §5.1):** the suspend-vs-deactivate reconciliation resolved by adding the SOFT
+control as a **distinct real state**, NOT by weakening the hard guard.
+- **Migration** (additive/defaulted): `branches.accepts_online_bookings` (bool, default **true** → existing
+  branches unchanged) + `branches.phone` (nullable). `Branch::scopeOnlineBookable()` = `active AND
+  accepts_online_bookings`.
+- **REAL gate (not cosmetic):** the ONLINE write path `BookingService::createBooking` refuses a NEW booking when
+  `$source === SOURCE_ONLINE` and the branch isn't online-bookable (`BookingUnavailableException::onlineBookingsSuspended`);
+  the public + portal branch lists use `scopeOnlineBookable`; the public + portal **slots endpoints return `[]`** for
+  a suspended branch. **Staff `book()` (SOURCE_STAFF) is unaffected** — the shared `AvailableSlotFinder`/day-board is
+  untouched, so staff still operate a soft-suspended branch and its existing appointments stand.
+- **THE GUARD DISTINCTION (verified):** soft-suspend (`accepts_online_bookings=false`, `active=true`) is a **separate
+  action from** hard deactivate (`active=false`). Soft-suspend is **always allowed** (never strands care) and does
+  **not** deactivate; the **hard deactivate guard is UNCHANGED** — still blocked while future appointments exist (a
+  regression test proves it). Admin toggle route `POST /admin/branches/{branch}/online-bookings`
+  (`BranchService::setOnlineBookings`), validated + admin.manage-gated + tenant-scoped + audited distinctly
+  (`branch.online_bookings_enabled` / `_suspended`). `phone` added to the branch update validation.
+- **UI:** a minimal control on the existing (functional-plain) page — an online-booking status pill + a
+  Turn-on/Suspend button + a phone input; **full master-detail visual parity is P2+**. i18n unique
+  `branchesAdmin.onlineBookings.*` + `fields.phone` + two `flash` keys. **No existing behaviour test modified**;
+  W8b/W8c + booking/slot-finder suites stay green. Locked by `tests/Feature/Scheduling/BranchOnlineBookingTest.php`
+  (6 tests). **Correctly-more-real items (§6) un-regressed.**

@@ -28,7 +28,9 @@ class PublicBookingController
         return Inertia::render('Public/Book', [
             'tenant' => ['slug' => $tenant->slug, 'name' => $tenant->name],
             'services' => $this->bookableServices(),
-            'branches' => Branch::query()->where('active', true)->orderBy('name')->get(['id', 'name'])->all(),
+            // Only branches that are active AND accepting online bookings are offered to patients
+            // (BRANCH.P1 soft-suspend). A soft-suspended branch simply isn't listed here.
+            'branches' => Branch::query()->onlineBookable()->orderBy('name')->get(['id', 'name'])->all(),
             'slotsUrl' => route('public.booking.slots', $tenant->slug),
             'storeUrl' => route('public.booking.store', $tenant->slug),
         ]);
@@ -50,6 +52,12 @@ class PublicBookingController
             ->where('bookable_online', true)
             ->where('active', true)
             ->findOrFail($data['service_id']);
+
+        // A soft-suspended (or inactive) branch exposes NO online slots. The write path
+        // (bookOnline → createBooking) also refuses it, so this is the UX mirror of that gate.
+        if (! Branch::query()->onlineBookable()->whereKey($data['branch_id'])->exists()) {
+            return response()->json(['slots' => []]);
+        }
 
         return response()->json([
             'slots' => $slots->forServiceBranchDate($service, $data['branch_id'], $data['date']),

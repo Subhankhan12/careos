@@ -59,7 +59,10 @@ class BranchController
                 'postal_code' => $branch->postal_code,
                 'country' => $branch->country,
                 'timezone' => $branch->timezone,
+                'phone' => $branch->phone,
                 'active' => $branch->active,
+                // Soft-suspend state (BRANCH.P1): distinct from `active`. false = online bookings off.
+                'accepts_online_bookings' => $branch->accepts_online_bookings,
                 'active_resources' => $branches->activeResourceCount($branch->id),
                 'future_appointments' => $branches->futureAppointmentCount($branch->id),
                 'hours' => $this->hoursFor($hoursByBranch->get($branch->id)),
@@ -67,6 +70,7 @@ class BranchController
                 'resourceStoreUrl' => route('admin.resources.store', $branch->id),
                 'updateUrl' => route('admin.branches.update', $branch->id),
                 'hoursUrl' => route('admin.branches.hours', $branch->id),
+                'onlineBookingsUrl' => route('admin.branches.online_bookings', $branch->id),
                 'deactivateUrl' => route('admin.branches.deactivate', $branch->id),
                 'activateUrl' => route('admin.branches.activate', $branch->id),
             ])->all(),
@@ -143,6 +147,26 @@ class BranchController
         return redirect()->route('admin.branches.index')->with('status', 'hoursSaved');
     }
 
+    /**
+     * SOFT-SUSPEND toggle (BRANCH.P1): turn online bookings on/off. This is DISTINCT from
+     * deactivate — it never strands scheduled care (existing appointments + the day-board are
+     * untouched), so it is ALWAYS allowed; it only stops NEW online bookings. Validated + audited
+     * (branch.online_bookings_enabled / _suspended) + tenant-scoped + admin.manage-gated.
+     */
+    public function onlineBookings(Request $request, string $branch, BranchService $branches): RedirectResponse
+    {
+        Gate::authorize('admin.manage');
+        abort_unless($request->user() instanceof User, 403);
+
+        $model = Branch::query()->whereKey($branch)->firstOrFail();
+        $data = $request->validate(['accepts_online_bookings' => ['required', 'boolean']]);
+
+        $branches->setOnlineBookings($model, (bool) $data['accepts_online_bookings']);
+
+        return redirect()->route('admin.branches.index')
+            ->with('status', $data['accepts_online_bookings'] ? 'onlineBookingsEnabled' : 'onlineBookingsSuspended');
+    }
+
     public function deactivate(Request $request, string $branch, BranchService $branches): RedirectResponse
     {
         Gate::authorize('admin.manage');
@@ -187,6 +211,7 @@ class BranchController
             'postal_code' => ['nullable', 'string', 'max:20'],
             'country' => ['nullable', 'string', 'size:2'],
             'timezone' => ['required', 'string', 'timezone'],
+            'phone' => ['nullable', 'string', 'max:40'],
         ]);
     }
 

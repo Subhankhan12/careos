@@ -2,6 +2,7 @@
 
 namespace Modules\Platform\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -24,6 +25,8 @@ use Modules\Platform\Concerns\BelongsToTenant;
  * @property string|null $country
  * @property string $timezone
  * @property bool $active
+ * @property bool $accepts_online_bookings
+ * @property string|null $phone
  */
 class Branch extends Model
 {
@@ -43,11 +46,14 @@ class Branch extends Model
         'country',
         'timezone',
         'active',
+        'accepts_online_bookings',
+        'phone',
     ];
 
     protected $attributes = [
         'timezone' => 'UTC',
         'active' => true,
+        'accepts_online_bookings' => true,
     ];
 
     /**
@@ -57,7 +63,21 @@ class Branch extends Model
     {
         return [
             'active' => 'boolean',
+            'accepts_online_bookings' => 'boolean',
         ];
+    }
+
+    /**
+     * A branch is exposed to online booking only when it is BOTH active AND accepting online
+     * bookings. `accepts_online_bookings=false` (the soft-suspend) hides it from online booking
+     * while it stays active for staff (day-board/dispatch) and keeps its existing appointments.
+     *
+     * @param  Builder<Branch>  $query
+     * @return Builder<Branch>
+     */
+    public function scopeOnlineBookable($query)
+    {
+        return $query->where('active', true)->where('accepts_online_bookings', true);
     }
 
     public function departments(): HasMany

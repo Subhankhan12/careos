@@ -202,9 +202,16 @@ class AppServiceProvider extends ServiceProvider
             'context' => ['name' => $m->name, 'code' => $m->code],
         ]));
         Branch::updated(function (Branch $m): void {
-            $action = $m->wasChanged('active')
-                ? ($m->active ? 'branch.activated' : 'branch.deactivated')
-                : 'branch.updated';
+            // Distinct audit actions: hard activate/deactivate (active), the soft-suspend
+            // (accepts_online_bookings — stops NEW online bookings, keeps the branch active),
+            // else a generic profile update.
+            if ($m->wasChanged('active')) {
+                $action = $m->active ? 'branch.activated' : 'branch.deactivated';
+            } elseif ($m->wasChanged('accepts_online_bookings')) {
+                $action = $m->accepts_online_bookings ? 'branch.online_bookings_enabled' : 'branch.online_bookings_suspended';
+            } else {
+                $action = 'branch.updated';
+            }
             $this->auditChange($action, [
                 'resource_type' => 'branch',
                 'resource_id' => $m->id,
