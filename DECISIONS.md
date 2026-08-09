@@ -2528,3 +2528,29 @@ references the old ID.
   there is no `@vue/test-utils` mount harness and the Pest UI rule forbids markup assertions; the gate's
   permitted fallback). Scope was EXACTLY U-1+U-2; a broader grid/keyboard/ARIA a11y sweep remains a separate
   noted pass. See [[LOG]].
+- **D-149 — WIREFRAME-PARITY PASS: match the visual, never weaken a gate, surface-don't-fabricate (per-page,
+  per-part gates).** With the eight verticals built + 3 audits clean + A11Y done + at the DEPLOY stage, a
+  page-by-page **wireframe-parity pass** brings each app page up to its designed wireframe. **The loop:** decode
+  the self-unpacking "bundler-shell" wireframe HTML → readable HTML in the **gitignored** `resources/prototype/`
+  (no app-code change, no commit) → **AUDIT** the live page against it on every axis into a classified diff report
+  `docs/wireframe-parity/<PAGE>-DIFF.md` (report-only, one "docs: … (audit only)" commit) → **FIX** per-part as
+  `P0D.GU` gates (presentational Vue + server-side rules + behavior tests), **one part = one commit + STOP**, each
+  ending with a GATE REPORT + CI-green. **THE HARD DISCIPLINE (the crux):**
+  1. **Match the LOCKED/CAPPED visual, but NEVER weaken a real, enforced server gate.** The wireframe often shows a
+     softer control than the enforced rule (a suggest-cap, mandatory 2FA, a required reject-reason, an
+     AutonomyPolicy ceiling, approve = re-authorise + re-ground + still-pending). The visual is brought to parity;
+     the gate is untouched (proven by a behavior test each part).
+  2. **Never regress a "correctly-more-real" item.** Where the live page is already MORE real than the wireframe
+     (e.g. the full inspectable payload well, a real ceiling label), it stays.
+  3. **RBAC is reflect-only** — a control the reviewer's permission doesn't allow is a UX hint (hidden/disabled);
+     the server Gate stays authoritative and denies regardless (the cap binds server-side).
+  4. **Surface-don't-fabricate / honest-copy / no-faked-control.** Every governance element the page surfaces must
+     be REAL — the tool's real declared permission, the real `AutonomyPolicy::effectiveCeiling`, the action's real
+     recorded grounding sources, the real enforced approve contract — or an **honest absence** ("No linked sources
+     on this action."). No invented permission/ceiling/source, no premature "edit"/stat claim, no control the
+     backend can't honour. Copy states only what the server actually does (verified before it's written).
+  **Applied so far:** Admin Settings (SETTINGS.P1–P6, COMPLETE — `e7cabf0`) and Approval Queue (APPROVAL.P1 chrome
+  → P2 real-provenance card anatomy → P3 the honest approve-contract caption, `aac95c8`; the caption is accurate
+  per action — a draft says "re-grounds the draft…posts", a direct action "re-derives the action…runs" — driven by
+  a real `reGroundsDraft` flag read from the action's own `proposed_output`, interpolating the action's real tool
+  permission). Branches is queued next. See `docs/wireframe-parity/*.md`, [[AiCore]], [[Platform]], [[LOG]].

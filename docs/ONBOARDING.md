@@ -3,14 +3,32 @@
 The single file a new session (Claude Code **or** Codex) reads first. After this, the read order below gives you
 the COMPLETE, accurate context of everything built: **EIGHT verticals** (clinic · dental · home-care · inpatient ·
 pharmacy · surgery · ED · lab · radiology) on one shared multi-tenant platform. **THE BUILD IS COMPLETE — all
-hospital phases are built.** The next progress is **deployment + certified-partner integrations, not more code.**
+hospital phases are built.** The next progress is **deployment + certified-partner integrations, not more code** —
+AND, running alongside deploy prep, a page-by-page **WIREFRAME-PARITY PASS** (bring each app page up to its designed
+wireframe without weakening a single enforced gate). See §5.
+
+> **WIREFRAME-PARITY PASS (in progress — D-149).** The loop, per page: **decode** the self-unpacking "bundler-shell"
+> wireframe HTML → readable HTML in the **gitignored** `resources/prototype/` (no app change, no commit) → **AUDIT**
+> the live page against it into `docs/wireframe-parity/<PAGE>-DIFF.md` (report-only commit) → **FIX** per-part as
+> `P0D.GU` gates, **one part = one commit + STOP**, GATE REPORT + CI-green each. **The discipline (non-negotiable):
+> match the LOCKED/CAPPED visual, but NEVER weaken a real enforced server gate (suggest-cap, mandatory 2FA,
+> required reject-reason, the AutonomyPolicy ceiling, approve = re-authorise + re-ground + still-pending); never
+> regress a "correctly-more-real" item; RBAC is reflect-only (server Gate stays authoritative); surface-don't-
+> fabricate (every permission/ceiling/source shown is REAL or an honest absence — no faked control/count/copy).**
+> **Where each page stands:** **Admin Settings = COMPLETE** (SETTINGS.P1–P6, `e7cabf0`); **Approval Queue = MID-CHAIN**
+> (P1 chrome → P2 real-provenance card anatomy → P3 approve-contract caption, `aac95c8`; remaining: edit-before-
+> sending, stat strip, fence-refused modelling, bulk-approve[excludes clinical], resolved filters); **Branches = NEXT**
+> (decoded to `resources/prototype/branches.wireframe.html`). Do NOT start the next part unprompted — each is its own
+> re-issued gate.
 
 > **One-liner to paste at the start of a new session:**
 > *"CareOS is a multi-tenant, agentic healthcare-operations SaaS (Laravel 12 · Inertia/Vue 3 · Eucalyptus Glow ·
 > offline Nurse PWA). THE BUILD IS COMPLETE — EIGHT built + green verticals on one platform: CLINIC (delivered +
 > admin), DENTAL (G1–G9), HOME-CARE/SPITEX, INPATIENT/ADT (Hospital P1), PHARMACY (P2), LAB/LIS (P3), RADIOLOGY/RIS
 > (P4), SURGERY/OR (P5), ED (P6) — ALL hospital phases built. Current focus is DEPLOY + PARTNERSHIPS, NOT building
-> (there are no more verticals to build). Read docs/ONBOARDING.md → AGENTS.md → PROJECT-STATE.md → DECISIONS.md →
+> (there are no more verticals to build); a page-by-page WIREFRAME-PARITY pass also runs alongside (Admin Settings
+> done · Approval Queue → P3 · Branches next — match the visual, NEVER weaken a gate, surface-don't-fabricate, one
+> part = one commit; D-149 + docs/wireframe-parity/). Read docs/ONBOARDING.md → AGENTS.md → PROJECT-STATE.md → DECISIONS.md →
 > DEFERRED.md → memory/LOG.md first. HARD RULES: electric fence (record-not-judge; no AI in the clinical-decision
 > path; checklists RECORD not ENFORCE; ranges/results DISPLAYED not FLAGGED; reports/acuity/ASA AUTHORED/ASSIGNED
 > not computed; every safety judgment — drug interactions, triage, HL7, DICOM/CAD — is a certified-partner seam,
@@ -25,7 +43,8 @@ hospital phases are built.** The next progress is **deployment + certified-partn
 1. **`AGENTS.md`** — single source of truth: project, stack, hard rules, workflow, module map, MEMORY PROTOCOL.
 2. **`PROJECT-STATE.md`** — authoritative "where we are" snapshot (BUILD COMPLETE · eight verticals · all hospital
    phases · focus = deploy + partnerships · latest commit + suite counts).
-3. **`DECISIONS.md`** — architecture decision log, **D-001 → D-146** (append-only; never edit past entries).
+3. **`DECISIONS.md`** — architecture decision log, **D-001 → D-149** (append-only; never edit past entries; **D-149**
+   = the wireframe-parity discipline).
 4. **`DEFERRED.md`** — the parked backlog, each item with its pull-forward TRIGGER (the certified-partner seams +
    medical-device non-goals + earlier parked items).
 5. **`memory/LOG.md`** — one line per completed gate; the full build history (Phases 0/A–G · P0P · CLINIC.W1–W10 ·
@@ -44,6 +63,10 @@ hospital phases are built.** The next progress is **deployment + certified-partn
 11. **The audit reports** — `docs/QA-AUDIT-REPORT.md` (live-browser QA + FIX.1–5), `docs/DEEP-AUDIT-REPORT.md`,
     `docs/FULL-EXERCISE-AUDIT-REPORT.md` (all-roles exercise). Plus `docs/ONBOARDING-REHEARSAL-REPORT.md`,
     `docs/DISCOVERY.md`, `docs/SCREENS.md`, `docs/AGENT-EVALS.md`, `docs/DEPLOY-RUNBOOK.md`.
+14. **`docs/wireframe-parity/*.md`** — the wireframe-parity pass (D-149): per-page audit/diff reports +
+    per-part progress. `ADMIN-SETTINGS-DIFF.md` (COMPLETE), `APPROVAL-QUEUE-DIFF.md` (mid-chain, through P3). The
+    decoded wireframes live in the **gitignored** `resources/prototype/` (regenerate by decoding the bundle, never
+    committed).
 12. **The scoping doc** (`careos-hospital-expansion-scoping.md`) — **NOT in-repo** (external); the hospital build is
     captured in the six HOSPITAL-PHASE maps above.
 13. **this file** (`docs/ONBOARDING.md`).
