@@ -2257,7 +2257,16 @@
         },
         "flash": {
             "approved": "Action approved and executed through the existing path.",
+            "approved_edited": "Your edited action was approved and posted through the same gate — recorded as human-edited.",
             "rejected": "Action rejected. Nothing was executed."
+        },
+        "edit": {
+            "action": "Edit before sending",
+            "title": "Edit the payload before it posts",
+            "help": "Your edit is the content posted through the gate. On approve the server still re-authorises you against {permission} and re-grounds/re-derives against current state before it posts — and records the post as human-edited. An edit is not a bypass.",
+            "invalidJson": "This is not valid JSON — fix it before approving.",
+            "submit": "Approve edited",
+            "cancel": "Cancel"
         },
         "card": {
             "what": "What",

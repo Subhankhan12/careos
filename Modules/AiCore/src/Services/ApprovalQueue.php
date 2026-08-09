@@ -61,6 +61,17 @@ class ApprovalQueue
     }
 
     /**
+     * Approve and execute a pending action — optionally with a human-edited payload.
+     *
+     * An edit is NOT a bypass. Whether or not the reviewer supplied `$editedPayload`, the SAME
+     * gate runs: the reviewer is re-authorised against the tool's OWN permission, the action must
+     * still be pending, and the tool re-executes (re-grounding/re-deriving from live state) on the
+     * payload. The edit changes only the CONTENT the human is posting through the gate; when one is
+     * present the action is RECORDED as human-edited — the `edited_payload` column holds the edit,
+     * the executed result carries a `human_edited` marker (beside the tool's own provenance), and
+     * the executed `ai_interactions` row records it — so an edited post is always distinguishable
+     * from an unedited approve.
+     *
      * @param  array<string, mixed>|null  $editedPayload
      */
     public function approve(AgentAction $action, User $reviewer, ?array $editedPayload = null): AgentAction
@@ -69,6 +80,7 @@ class ApprovalQueue
         $this->authorize($reviewer, $tool->definition()->permission);
         $this->assertPending($action);
 
+        $humanEdited = $editedPayload !== null;
         $payload = $editedPayload ?? $action->input_payload;
         $prompt = $this->prompts->get($action->feature);
 
@@ -83,9 +95,17 @@ class ApprovalQueue
             toolCalls: [['tool' => $action->tool_key]],
             outputRef: $action->id,
             approverId: (string) $reviewer->getKey(),
+            metadata: $humanEdited ? ['human_edited' => true] : null,
         );
 
         $result = $tool->execute($payload, $reviewer);
+
+        if ($humanEdited) {
+            // Provenance stamp: the human authored the final content THROUGH the gate. This sits
+            // beside the tool's own markers (e.g. ai_assisted) so the posted result is auditable
+            // as human-edited — never a claim the tool makes about itself.
+            $result['human_edited'] = true;
+        }
 
         $action->forceFill([
             'status' => AgentAction::STATUS_EXECUTED,
@@ -107,6 +127,7 @@ class ApprovalQueue
             toolCalls: [['tool' => $action->tool_key]],
             outputRef: $action->id,
             approverId: (string) $reviewer->getKey(),
+            metadata: $humanEdited ? ['human_edited' => true] : null,
         );
 
         event(new AgentActionLifecycleChanged($action, 'approved'));

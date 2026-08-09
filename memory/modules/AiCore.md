@@ -187,6 +187,26 @@ untouched); the caption only renders when `canReview && permission`. Locked by
 `reGroundsDraft` tracks the action's actual shape). Browser-verified: `comms.draft_reply`→comms.manage/draft-variant,
 `scheduler.fill_from_waitlist`→appointment.manage/action-variant. Remaining: stat strip, edit-before-sending, bulk-approve
 (excludes clinical/financial), resolved filters, fence-refused modelling.
+**APPROVAL.P4 (edit-before-sending, over the EXISTING `editedPayload` support — additive, NOT a bypass):**
+`ApprovalQueue::approve($action, $reviewer, ?array $editedPayload)` already re-authorised + asserted-pending + re-ran
+`tool->execute($editedPayload ?? $input_payload)` (which re-grounds/re-derives) + recorded the `edited_payload` column;
+P4 WIRES the wireframe's **[Edit before sending]** to it and EXTENDS provenance. **Service:** when `$editedPayload !== null`,
+`approve()` stamps `result['human_edited']=true` (beside the tool's own markers, e.g. DraftReplyTool `ai_assisted`) and
+`metadata:['human_edited'=>true]` on the `approved`+`executed` `ai_interactions` rows — an edited post is distinguishable
+from an unedited one (which carries none). **Controller** reads an OPTIONAL `edited_payload` (`sometimes|array` — still
+can't raise autonomy / swap the tool), passes it to `approve()`, flashes `approved_edited`; surfaces a new `inputPayload`
+prop (the tool INPUT execute re-grounds, distinct from the `proposed_output` preview). **Vue** shows an *Edit before sending*
+pill (canReview-gated) → an inline editor seeded from `inputPayload` (JSON; invalid JSON refused client-side) → *Approve
+edited* POSTs `{edited_payload}` to the SAME approve route; reuses the P1/P2 visual + the P3 caption. **THE GATE
+(unchanged): the edited approve STILL re-authorises + re-grounds + asserts-pending — the edit is the CONTENT, not the
+gate.** RBAC canReview-gated (server re-authorises regardless). i18n unique `aiQueue.edit.*` + `flash.approved_edited`.
+Locked by `tests/Feature/Governance/ApprovalEditBeforeSendingTest.php` (5 — edited approve posts the EDITED payload +
+records human-edited [result + ledger]; unedited carries no marker; unauthorized edited approve → 403 nothing runs;
+non-pending edited approve refused, result not overwritten; an edited CLINICAL draft [note.write] still re-authorised →
+a reviewer without it denied). No existing behaviour test modified; the eval suite stays green. Browser-verified: an
+edited demo.echo posted `result.message`='EDITED…', `human_edited`=true, `edited_payload` + ledger recorded; reject still
+works. Remaining APPROVAL parts: stat strip, fence-refused modelling, bulk-approve (excludes clinical/financial),
+resolved filters.
 
 ## KB admin UI (CLINIC.W10)
 

@@ -80,19 +80,26 @@ class AiApprovalQueueController
         $actor = $request->user();
         abort_unless($actor instanceof User, 403);
 
+        // Edit-before-sending: an OPTIONAL human edit of the drafted payload. When present it is the
+        // CONTENT the human is posting through the gate — nothing more. Only `edited_payload` is read,
+        // so the request still cannot raise autonomy or swap the tool that runs. ApprovalQueue::approve
+        // runs the SAME gate on it as an unedited approve: it re-authorises the reviewer against the
+        // tool's own permission (403 if the reviewer lacks it — left to propagate), asserts the action
+        // is still pending, and re-runs the tool (re-grounding/re-deriving from live state) before it
+        // posts. An edit is NOT a bypass; when supplied it is RECORDED as human-edited by the service.
+        $data = $request->validate(['edited_payload' => ['sometimes', 'array']]);
+        $editedPayload = $data['edited_payload'] ?? null;
+
         $action = AgentAction::query()->whereKey($id)->firstOrFail();
 
         try {
-            // Approve AS-IS through the existing path. No edited payload, no autonomy input:
-            // the request body cannot raise autonomy or alter the tool that runs. The service
-            // re-authorizes against the tool's permission (403 if the reviewer lacks it —
-            // left to propagate) and executes only through tool->execute().
-            app(ApprovalQueue::class)->approve($action, $actor);
+            app(ApprovalQueue::class)->approve($action, $actor, $editedPayload);
         } catch (AiCoreException $e) {
             return back()->withErrors(['action' => $e->getMessage()]);
         }
 
-        return redirect()->route('governance.approvals.index')->with('status', 'approved');
+        return redirect()->route('governance.approvals.index')
+            ->with('status', $editedPayload !== null ? 'approved_edited' : 'approved');
     }
 
     public function reject(Request $request, string $id): RedirectResponse
@@ -143,6 +150,10 @@ class AiApprovalQueueController
             // caption so it never claims "re-grounds the draft" for an action with no draft. Read from
             // the action's own proposed_output shape — not a hardcode.
             'reGroundsDraft' => $this->reGroundsDraft($action->proposed_output),
+            // The tool INPUT payload — what execute() consumes and re-grounds. Editing this (and
+            // submitting it as edited_payload) is what "edit before sending" changes; the tool then
+            // re-derives from it through the same gate. Distinct from proposed_output (the preview).
+            'inputPayload' => $action->input_payload,
             'proposedOutput' => $action->proposed_output,
             'diff' => $action->diff,
             'queuedAt' => $action->created_at?->toIso8601String(),

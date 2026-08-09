@@ -169,11 +169,39 @@ Updated as APPROVAL.P1–… land. One commit per part.
 | 8 · Visual/chrome (dashed cards, pill buttons, Pending/Resolved toggle, agent filter pills, eucardIn/focus) | **RESOLVED (P1)** | `APPROVAL.P1` |
 | 7 · Card anatomy + grounding presentation (What/Why, tool-permission chip, ceiling cap, sources) | **RESOLVED (P2)** | `APPROVAL.P2` |
 | 1 · Surface approve = re-authorise + re-ground (ceiling label in P2; the contract caption in P3) | **RESOLVED (P3)** | `APPROVAL.P2` + `APPROVAL.P3` |
-| 2 · Edit-before-sending | pending | — |
+| 2 · Edit-before-sending | **RESOLVED (P4)** | `APPROVAL.P4` |
 | 3 · Governance stat strip | pending | — |
 | 4 · Fence-refused modelling | pending | — |
 | 5 · Bulk-approve (low-risk only) | pending | — |
 | 6 · Resolved search/filters/reviewer/grouping | pending | — |
+
+**P4 note — edit-before-sending (over the EXISTING `editedPayload` support, purely additive — no second approve
+path):** the wireframe's **[Edit before sending]** action is now wired on each pending card, and it goes through the
+SAME gate as an unedited approve — the edit is NOT a bypass.
+- **The affordance** — an **Edit before sending** pill opens an inline editor seeded with the action's **input
+  payload** (the tool INPUT that `execute()` re-grounds — surfaced as a new `inputPayload` prop, distinct from the
+  read-only `proposed_output` preview well, which is kept). The reviewer edits the payload; **Approve edited**
+  submits it as `edited_payload` to the **same** `POST …/approve` route; invalid JSON is refused client-side before
+  any submit.
+- **THE GATE (unchanged) — the edit changes CONTENT, not the gate.** The controller reads only `edited_payload`
+  (`validate(['edited_payload' => 'sometimes|array'])` — the request still cannot raise autonomy or swap the tool)
+  and passes it to the **already-supporting** `ApprovalQueue::approve($action, $reviewer, $editedPayload)`. That
+  path **re-authorises** the reviewer against the tool's own permission, **asserts still-pending**, and **re-runs
+  the tool** (which re-grounds/re-derives from live state) on the payload — exactly as an unedited approve. Proven:
+  an **unauthorized** edited approve is **403** (nothing runs), a **non-pending** edited approve is refused by
+  assert-pending (the executed result is not overwritten), and an **edited CLINICAL draft** is re-authorised against
+  the clinical tool's `note.write` — a reviewer lacking it is denied (the edit does not lower the clinical bar).
+- **PROVENANCE — recorded as human-edited (distinguishable).** When an edited payload is supplied, the action's
+  `edited_payload` column holds the edit, the executed `result` carries a **`human_edited` marker** (beside the
+  tool's own provenance, e.g. `ai_assisted`), and the executed `ai_interactions` ledger row records
+  `metadata.human_edited=true` — so an edited post is always distinguishable from an unedited approve (an unedited
+  approve carries none of these). The flash reads "…posted through the same gate — recorded as human-edited."
+- **RBAC** — the edit affordance renders only when `canReview` (a UX hint); the server re-authorises regardless
+  (same gate as approve — no separate weaker path). **i18n** — a unique `aiQueue.edit.*` sub-block + a
+  `flash.approved_edited`; reuses the P1/P2 visual (mono well / pill buttons) and the P3 approve-contract caption
+  (which applies to the edited approve too). **Purely additive over the existing `editedPayload` support** — no
+  second approve path, no new backend judgment. 5 new tests (`ApprovalEditBeforeSendingTest`); no existing behaviour
+  test modified; the eval suite + AiApprovalQueue/anatomy/caption/chrome suites stay green.
 
 **P3 note — surface the approve contract (presentational caption, no gate change):** each pending card now carries,
 beside its approve/reject controls, the caption **"On approve, the server re-authorises you against `<permission>`

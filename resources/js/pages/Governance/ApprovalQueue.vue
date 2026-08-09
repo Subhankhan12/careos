@@ -22,6 +22,7 @@ interface PendingAction {
     why: string;
     sources: Array<{ type: string; ref: string }>;
     reGroundsDraft: boolean;
+    inputPayload: Record<string, unknown> | null;
     proposedOutput: Record<string, unknown> | null;
     diff: Record<string, unknown> | null;
     queuedAt: string | null;
@@ -48,7 +49,7 @@ const filteredPending = computed(() =>
 );
 const agentLabel = (agent: string): string => agent.charAt(0).toUpperCase() + agent.slice(1);
 
-// ── Approve / reject — UNCHANGED: POST straight to the existing gate path ──────
+// ── Approve / reject — POST straight to the existing gate path ─────────────────
 const rejectingId = ref<string | null>(null);
 const rejectForm = useForm({ reason: '' });
 
@@ -57,6 +58,7 @@ function approve(action: PendingAction): void {
 }
 function openReject(id: string): void {
     rejectingId.value = id;
+    editingId.value = null;
     rejectForm.reason = '';
     rejectForm.clearErrors();
 }
@@ -67,6 +69,47 @@ function confirmReject(action: PendingAction): void {
             rejectingId.value = null;
         },
     });
+}
+
+// ── Edit before sending — the SAME approve path, carrying an edited payload ─────
+// The reviewer edits the tool's INPUT payload (what execute re-grounds). Submitting it as
+// edited_payload posts the edited content THROUGH the gate: ApprovalQueue::approve still
+// re-authorises + re-grounds + asserts-pending, and records it as human-edited. This is not
+// a second path and not a bypass — it changes the content, never the gate.
+const editingId = ref<string | null>(null);
+const editText = ref('');
+const editError = ref('');
+const editProcessing = ref(false);
+
+function openEdit(action: PendingAction): void {
+    editingId.value = action.id;
+    rejectingId.value = null;
+    editError.value = '';
+    editText.value = JSON.stringify(action.inputPayload ?? {}, null, 2);
+}
+function submitEdit(action: PendingAction): void {
+    let parsed: Record<string, unknown>;
+    try {
+        parsed = JSON.parse(editText.value);
+    } catch {
+        editError.value = t('aiQueue.edit.invalidJson');
+        return;
+    }
+    editError.value = '';
+    editProcessing.value = true;
+    router.post(
+        action.approveUrl,
+        { edited_payload: parsed },
+        {
+            preserveScroll: true,
+            onSuccess: () => {
+                editingId.value = null;
+            },
+            onFinish: () => {
+                editProcessing.value = false;
+            },
+        },
+    );
 }
 
 function pretty(value: Record<string, unknown> | null): string {
@@ -113,7 +156,7 @@ function dateTime(iso: string | null): string {
                 </div>
             </div>
 
-            <p v-if="flash === 'approved' || flash === 'rejected'" class="rounded-2xl border border-success/30 bg-success-soft p-4 text-sm text-success">
+            <p v-if="flash === 'approved' || flash === 'rejected' || flash === 'approved_edited'" class="rounded-2xl border border-success/30 bg-success-soft p-4 text-sm text-success">
                 {{ t(`aiQueue.flash.${flash}`) }}
             </p>
 
@@ -213,10 +256,33 @@ function dateTime(iso: string | null): string {
                     </p>
 
                     <div v-if="action.canReview" class="mt-3 flex flex-wrap items-center gap-2">
-                        <template v-if="rejectingId !== action.id">
+                        <!-- Default controls: approve as-is, edit-before-sending, or reject. -->
+                        <template v-if="rejectingId !== action.id && editingId !== action.id">
                             <Button type="button" pill :block="false" @click="approve(action)">{{ t('aiQueue.actions.approve') }}</Button>
+                            <Button type="button" variant="secondary" pill :block="false" @click="openEdit(action)">{{ t('aiQueue.edit.action') }}</Button>
                             <Button type="button" variant="secondary" pill :block="false" @click="openReject(action.id)">{{ t('aiQueue.actions.reject') }}</Button>
                         </template>
+
+                        <!-- Edit-before-sending panel: edit the tool's input payload, then approve. The
+                             edited content posts THROUGH the same gate (re-authorise + re-ground +
+                             still-pending) and is recorded as human-edited — see the approve contract above. -->
+                        <div v-else-if="editingId === action.id" class="w-full space-y-2 rounded-2xl border border-euca-300 bg-euca-50/40 p-3">
+                            <p class="text-xs font-semibold text-euca-800">{{ t('aiQueue.edit.title') }}</p>
+                            <p class="text-xs text-ink-subtle">{{ t('aiQueue.edit.help', { permission: action.permission ?? '—' }) }}</p>
+                            <textarea
+                                v-model="editText"
+                                rows="8"
+                                spellcheck="false"
+                                class="block w-full rounded-xl border border-line bg-surface px-3 py-2 font-mono text-xs text-ink"
+                            ></textarea>
+                            <p v-if="editError" class="text-xs text-danger">{{ editError }}</p>
+                            <div class="flex items-center gap-2">
+                                <Button type="button" pill :block="false" :disabled="editProcessing" @click="submitEdit(action)">{{ t('aiQueue.edit.submit') }}</Button>
+                                <Button type="button" variant="ghost" pill :block="false" @click="editingId = null">{{ t('aiQueue.edit.cancel') }}</Button>
+                            </div>
+                        </div>
+
+                        <!-- Reject panel. -->
                         <div v-else class="w-full space-y-2 rounded-2xl border border-danger/20 bg-danger-soft/50 p-3">
                             <p class="text-xs font-semibold text-danger">{{ t('aiQueue.actions.reasonLabel') }}</p>
                             <textarea
