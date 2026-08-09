@@ -3,9 +3,11 @@
 namespace App\Http\Controllers;
 
 use App\AiCore\Tools\DraftReplyTool;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Gate;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -62,19 +64,180 @@ class AiApprovalQueueController
             ->map(fn (AgentAction $action): array => $this->presentPending($action, $tools, $autonomy, $actor))
             ->all();
 
-        $resolved = AgentAction::query()
+        // ── Resolved view (search + status/date/reviewer filters + grouping), over REAL data ──────
+        // RBAC: the resolved history is limited to tools THIS reviewer may review — the same per-tool
+        // permission the approve gate enforces — so a reviewer never sees (or counts) actions they
+        // could not have acted on. An unregistered tool_key is excluded (fail-closed).
+        $filters = $this->resolvedFilters($request);
+        $allowedToolKeys = $this->allowedToolKeys($tools, $actor);
+
+        $base = AgentAction::query()
             ->whereIn('status', [AgentAction::STATUS_EXECUTED, AgentAction::STATUS_REJECTED, AgentAction::STATUS_FENCE_REFUSED])
-            ->orderByDesc('id')
+            ->whereIn('tool_key', $allowedToolKeys);
+        $this->applyResolvedFilters($base, $filters); // search / reviewer / date — NOT the status pill
+
+        // Real per-status counts over the filtered base (before the status pill narrows the list).
+        $countRows = (clone $base)->selectRaw('status, count(*) as c')->groupBy('status')->pluck('c', 'status');
+        $resolvedCounts = [
+            'all' => (int) ($countRows[AgentAction::STATUS_EXECUTED] ?? 0) + (int) ($countRows[AgentAction::STATUS_REJECTED] ?? 0) + (int) ($countRows[AgentAction::STATUS_FENCE_REFUSED] ?? 0),
+            'executed' => (int) ($countRows[AgentAction::STATUS_EXECUTED] ?? 0),
+            'rejected' => (int) ($countRows[AgentAction::STATUS_REJECTED] ?? 0),
+            'fence_refused' => (int) ($countRows[AgentAction::STATUS_FENCE_REFUSED] ?? 0),
+        ];
+
+        $listQuery = clone $base;
+        if ($filters['status'] !== 'all') {
+            $listQuery->where('status', $filters['status']);
+        }
+        $rows = $listQuery
+            ->orderByRaw('COALESCE(executed_at, rejected_at, fence_refused_at) DESC')
             ->limit(self::RESOLVED_LIMIT)
-            ->get()
-            ->map(fn (AgentAction $action): array => $this->presentResolved($action))
-            ->all();
+            ->get();
+
+        // Resolve human reviewer names in bulk (fence_refused rows are system-attributed, not a human).
+        $reviewerIds = $rows->reject(fn (AgentAction $a): bool => $a->status === AgentAction::STATUS_FENCE_REFUSED)
+            ->pluck('reviewed_by')->filter()->unique()->values();
+        $reviewerNames = $reviewerIds->isEmpty()
+            ? collect()
+            : User::query()->whereIn('id', $reviewerIds->all())->pluck('name', 'id');
+        $toolNames = $this->toolNames($tools, $rows->pluck('tool_key')->unique()->all());
+
+        $resolved = $rows->map(fn (AgentAction $action): array => $this->presentResolved($action, $reviewerNames, $toolNames))->all();
 
         return Inertia::render('Governance/ApprovalQueue', [
             'pending' => $pending,
             'resolved' => $resolved,
             'stats' => $this->stats(),
+            'resolvedCounts' => $resolvedCounts,
+            'resolvedReviewers' => $this->resolvedReviewers($allowedToolKeys),
+            'resolvedFilters' => $filters,
         ]);
+    }
+
+    /**
+     * The active resolved-view filters, from real query params only. Every value maps to a real
+     * column: status → the action status; q → a text search over tool_key/agent/feature/why/reason;
+     * reviewer → reviewed_by; from/to → the resolved timestamp. Unknown/invalid values fall back to
+     * a safe default (no fabricated attribute is ever filterable).
+     *
+     * @return array{status: string, q: string, reviewer: string, from: string, to: string}
+     */
+    private function resolvedFilters(Request $request): array
+    {
+        $status = (string) $request->query('rstatus', 'all');
+        if (! in_array($status, ['all', AgentAction::STATUS_EXECUTED, AgentAction::STATUS_REJECTED, AgentAction::STATUS_FENCE_REFUSED], true)) {
+            $status = 'all';
+        }
+
+        $date = static fn (string $v): string => preg_match('/^\d{4}-\d{2}-\d{2}$/', $v) === 1 ? $v : '';
+
+        return [
+            'status' => $status,
+            'q' => trim((string) $request->query('rq', '')),
+            'reviewer' => trim((string) $request->query('rreviewer', '')),
+            'from' => $date(trim((string) $request->query('rfrom', ''))),
+            'to' => $date(trim((string) $request->query('rto', ''))),
+        ];
+    }
+
+    /**
+     * Apply the search / reviewer / date filters (NOT the status pill) to a resolved query. Every
+     * clause targets a REAL column: the free-text search matches the action's own tool key, agent,
+     * feature, recorded why, and recorded reason (the searchable text columns — not the nested
+     * payload); reviewer is reviewed_by; the date range is the real resolved timestamp.
+     *
+     * @param  Builder<AgentAction>  $query
+     * @param  array{status: string, q: string, reviewer: string, from: string, to: string}  $filters
+     */
+    private function applyResolvedFilters($query, array $filters): void
+    {
+        if ($filters['q'] !== '') {
+            $like = '%'.$filters['q'].'%';
+            $query->where(function ($sub) use ($like): void {
+                $sub->where('tool_key', 'like', $like)
+                    ->orWhere('agent', 'like', $like)
+                    ->orWhere('feature', 'like', $like)
+                    ->orWhere('why', 'like', $like)
+                    ->orWhere('rejection_reason', 'like', $like);
+            });
+        }
+
+        if ($filters['reviewer'] !== '') {
+            $query->where('reviewed_by', $filters['reviewer']);
+        }
+
+        if ($filters['from'] !== '') {
+            $query->whereRaw('COALESCE(executed_at, rejected_at, fence_refused_at) >= ?', [$filters['from'].' 00:00:00']);
+        }
+        if ($filters['to'] !== '') {
+            $query->whereRaw('COALESCE(executed_at, rejected_at, fence_refused_at) <= ?', [$filters['to'].' 23:59:59']);
+        }
+    }
+
+    /**
+     * The tool keys THIS reviewer may review — the ones whose declared permission the actor holds
+     * (the same per-tool gate the approve path enforces). Used to RBAC-scope the resolved history
+     * and its counts so a reviewer never sees actions they could not have acted on.
+     *
+     * @return list<string>
+     */
+    private function allowedToolKeys(ToolRegistry $tools, User $actor): array
+    {
+        $keys = [];
+        foreach ($tools->all() as $key => $tool) {
+            if (Gate::forUser($actor)->allows($tool->definition()->permission)) {
+                $keys[] = $key;
+            }
+        }
+
+        return $keys;
+    }
+
+    /**
+     * Distinct HUMAN reviewers who resolved (approved/rejected) an action within the RBAC-allowed
+     * set — the real options for the reviewer sub-filter. Fence refusals are system-attributed and
+     * are reached through the Fence-refused status pill, not this list.
+     *
+     * @param  list<string>  $allowedToolKeys
+     * @return list<array{id: string, name: string}>
+     */
+    private function resolvedReviewers(array $allowedToolKeys): array
+    {
+        $ids = AgentAction::query()
+            ->whereIn('status', [AgentAction::STATUS_EXECUTED, AgentAction::STATUS_REJECTED])
+            ->whereIn('tool_key', $allowedToolKeys)
+            ->whereNotNull('reviewed_by')
+            ->distinct()
+            ->pluck('reviewed_by')
+            ->all();
+
+        if ($ids === []) {
+            return [];
+        }
+
+        return User::query()->whereIn('id', $ids)->orderBy('name')->get(['id', 'name'])
+            ->map(fn (User $u): array => ['id' => (string) $u->id, 'name' => (string) $u->name])
+            ->all();
+    }
+
+    /**
+     * Map each tool key to its real declared name (unregistered → null). Presentation only.
+     *
+     * @param  list<string>  $toolKeys
+     * @return array<string, string|null>
+     */
+    private function toolNames(ToolRegistry $tools, array $toolKeys): array
+    {
+        $names = [];
+        foreach ($toolKeys as $key) {
+            try {
+                $names[$key] = $tools->get($key)->definition()->name;
+            } catch (AiCoreException) {
+                $names[$key] = null;
+            }
+        }
+
+        return $names;
     }
 
     /**
@@ -286,16 +449,26 @@ class AiApprovalQueueController
     }
 
     /**
+     * @param  Collection<string, string>  $reviewerNames  reviewed_by → user name
+     * @param  array<string, string|null>  $toolNames  tool_key → declared name
      * @return array<string, mixed>
      */
-    private function presentResolved(AgentAction $action): array
+    private function presentResolved(AgentAction $action, $reviewerNames, array $toolNames): array
     {
+        // Fence refusals are the electric fence's own outcome — system-attributed, NOT a human
+        // reviewer, even though a human's approve click triggered the (recorded) refusal.
+        $isFence = $action->status === AgentAction::STATUS_FENCE_REFUSED;
+
         return [
             'id' => $action->id,
             'agent' => $action->agent,
             'toolKey' => $action->tool_key,
+            'toolName' => $toolNames[$action->tool_key] ?? null,
             'status' => $action->status,
-            'reviewedBy' => $action->reviewed_by,
+            // Real attribution: the human reviewer who resolved it, or system for a fence refusal.
+            'reviewedBy' => $isFence ? null : $action->reviewed_by,
+            'reviewerName' => $isFence ? null : ($action->reviewed_by !== null ? ($reviewerNames[$action->reviewed_by] ?? null) : null),
+            'systemAttributed' => $isFence,
             // For a fence_refused row this carries the fence's own reason (kept in rejection_reason,
             // distinguished by the status) — a human reject carries the reviewer's reason.
             'rejectionReason' => $action->rejection_reason,

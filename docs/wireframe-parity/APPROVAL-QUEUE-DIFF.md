@@ -172,8 +172,32 @@ Updated as APPROVAL.P1–… land. One commit per part.
 | 2 · Edit-before-sending | **RESOLVED (P4)** | `APPROVAL.P4` |
 | 4 · Fence-refused modelling | **RESOLVED (P5)** | `APPROVAL.P5` |
 | 3 · Governance stat strip | **RESOLVED (P5)** | `APPROVAL.P5` |
+| 6 · Resolved search/filters/reviewer/grouping | **RESOLVED (P6)** | `APPROVAL.P6` |
 | 5 · Bulk-approve (low-risk only) | pending | — |
-| 6 · Resolved search/filters/reviewer/grouping | pending | — |
+
+**P6 note — the Resolved view: search + status/date/reviewer filters + grouping, over REAL data:** resolves
+punch-list item 6.
+- **The list** (behind the P1 Pending/Resolved toggle) now renders the real resolved set — **executed / rejected /
+  P5 fence_refused** — grouped by day, each row showing the action (tool name · agent), **real attribution** (the
+  human reviewer's name, or **"Refused by the electric fence (system)"** for a fence_refused row — never a human),
+  the **real reason** (a human reject reason, or the fence's own reason), and the outcome badge.
+- **Search + filters query REAL columns only** (`AiApprovalQueueController::index` + helpers, server-side): the
+  free-text **search** matches the action's `tool_key` / `agent` / `feature` / `why` / `rejection_reason` (the
+  real text columns — not the nested payload, stated honestly); the **status pills** (All / Approved=executed /
+  Rejected / Fence-refused) carry **real per-status counts**; the **reviewer** dropdown lists real reviewers
+  (`reviewed_by`); the **date** range filters the real resolved timestamp. Every filter maps to a real field — no
+  fabricated attribute is filterable.
+- **THE FENCE / honesty:** the **Fence-refused** pill uses the P5 `fence_refused` status; those rows are
+  **system-attributed** (the fence, with its reason), not a human. Every row + count is a real record.
+- **Tenant + RBAC scoped:** the resolved list AND its counts are limited to the tools the reviewer may review (the
+  same per-tool permission the approve gate enforces — an `allowedToolKeys` `whereIn`, fail-closed on an
+  unregistered key), and tenant-scoped by `BelongsToTenant`. A reviewer never sees (or counts) actions they could
+  not have acted on. Grouping-by-day is presentational (client-side over the returned rows). **i18n** extends the
+  unique `aiQueue.resolved.*` sub-block (search / filter pills / reviewer / dates / attribution). **No existing
+  behaviour test modified.** 4 new tests (`ApprovalResolvedViewTest`): real outcome badge + reviewer/system
+  attribution + real reason; the Fence-refused filter returns only system-attributed fence rows with the fence
+  reason; search matches the real `why` + reviewer maps to `reviewed_by`; tenant + RBAC scoping (an ai.manage-only
+  reviewer sees the demo.echo but not the comms fence refusal; a second tenant sees none). Browser-verified.
 
 **P5 note — model fence-refused as a countable outcome + the stat strip from real data (no faked numbers):**
 resolves punch-list items 4 (fence-refused modelling) + 3 (stat strip).

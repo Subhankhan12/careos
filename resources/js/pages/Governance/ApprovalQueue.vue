@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Head, router, useForm, usePage } from '@inertiajs/vue3';
-import { computed, ref } from 'vue';
+import { computed, reactive, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import Button from '@/Components/Button.vue';
@@ -31,13 +31,31 @@ interface PendingAction {
     rejectUrl: string;
 }
 
+interface ResolvedAction {
+    id: string;
+    agent: string;
+    toolKey: string;
+    toolName: string | null;
+    status: string;
+    reviewedBy: string | null;
+    reviewerName: string | null;
+    systemAttributed: boolean;
+    rejectionReason: string | null;
+    resolvedAt: string | null;
+}
+
 const props = defineProps<{
     pending: PendingAction[];
-    resolved: Array<{ id: string; agent: string; toolKey: string; status: string; reviewedBy: string | null; rejectionReason: string | null; resolvedAt: string | null }>;
+    resolved: ResolvedAction[];
     // Governance stat strip — every value computed server-side from REAL records; approvedPct /
     // avgReviewMinutes are null when there is no real source (no resolved actions in the window),
     // rendered as an honest "—" rather than a fabricated number.
     stats: { pending: number; fenceRefused: number; approvedPct: number | null; avgReviewMinutes: number | null; windowDays: number };
+    // Resolved-view: real per-status counts, the real reviewer options, and the active filters —
+    // all computed server-side over the RBAC-scoped, tenant-scoped resolved set (never fabricated).
+    resolvedCounts: { all: number; executed: number; rejected: number; fence_refused: number };
+    resolvedReviewers: Array<{ id: string; name: string }>;
+    resolvedFilters: { status: string; q: string; reviewer: string; from: string; to: string };
 }>();
 
 const flash = computed(() => (page.props.flash as { status?: string } | undefined)?.status);
@@ -131,6 +149,66 @@ function resolvedStatusClass(status: string): string {
     if (status === 'executed') return 'bg-success-soft text-success';
     if (status === 'fence_refused') return 'bg-warning-soft text-warning';
     return 'bg-danger-soft text-danger';
+}
+
+// ── Resolved view — search + status/date/reviewer filters over REAL fields (server-side) ─────────
+// Every filter maps to a real column; the server RBAC/tenant-scopes the results and counts. Changing
+// a filter partial-reloads only the resolved props, preserving the component (the Resolved tab stays).
+const rFilters = reactive({ ...props.resolvedFilters });
+let searchTimer: ReturnType<typeof setTimeout> | undefined;
+
+function submitResolvedFilters(): void {
+    const params: Record<string, string> = {};
+    if (rFilters.status !== 'all') params.rstatus = rFilters.status;
+    if (rFilters.q) params.rq = rFilters.q;
+    if (rFilters.reviewer) params.rreviewer = rFilters.reviewer;
+    if (rFilters.from) params.rfrom = rFilters.from;
+    if (rFilters.to) params.rto = rFilters.to;
+
+    router.get('/governance/approvals', params, {
+        preserveState: true,
+        preserveScroll: true,
+        replace: true,
+        only: ['resolved', 'resolvedCounts', 'resolvedReviewers', 'resolvedFilters'],
+    });
+}
+function setResolvedStatus(status: string): void {
+    rFilters.status = status;
+    submitResolvedFilters();
+}
+function onSearchInput(): void {
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(submitResolvedFilters, 300);
+}
+
+// Group the (already resolved-time ordered) rows by their local resolved date — presentational.
+const groupedResolved = computed(() => {
+    const groups: Array<{ label: string; rows: ResolvedAction[] }> = [];
+    const index = new Map<string, ResolvedAction[]>();
+    for (const row of props.resolved) {
+        const label = row.resolvedAt ? new Date(row.resolvedAt).toLocaleDateString() : '—';
+        if (!index.has(label)) {
+            const rows: ResolvedAction[] = [];
+            index.set(label, rows);
+            groups.push({ label, rows });
+        }
+        index.get(label)!.push(row);
+    }
+    return groups;
+});
+function timeOnly(iso: string | null): string {
+    return iso ? new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—';
+}
+const hasResolvedFilters = computed(
+    () => rFilters.status !== 'all' || !!rFilters.q || !!rFilters.reviewer || !!rFilters.from || !!rFilters.to,
+);
+function clearResolvedFilters(): void {
+    rFilters.status = 'all';
+    rFilters.q = '';
+    rFilters.reviewer = '';
+    rFilters.from = '';
+    rFilters.to = '';
+    submitResolvedFilters();
 }
 </script>
 
@@ -341,34 +419,75 @@ function resolvedStatusClass(status: string): string {
                 </div>
             </template>
 
-            <!-- ── RESOLVED VIEW ────────────────────────────────────────────── -->
+            <!-- ── RESOLVED VIEW — search + status/date/reviewer filters + grouping ─────────── -->
             <Card v-else :title="t('aiQueue.resolved.title')" :subtitle="t('aiQueue.resolved.subtitle')">
-                <table v-if="resolved.length" class="w-full text-left text-sm">
-                    <thead class="text-ink-muted">
-                        <tr class="border-b border-line">
-                            <th class="py-2 pr-4 font-medium">{{ t('aiQueue.resolved.tool') }}</th>
-                            <th class="py-2 pr-4 font-medium">{{ t('aiQueue.resolved.status') }}</th>
-                            <th class="py-2 pr-4 font-medium">{{ t('aiQueue.resolved.reason') }}</th>
-                            <th class="py-2 font-medium">{{ t('aiQueue.resolved.when') }}</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr v-for="action in resolved" :key="action.id" class="border-b border-line/60">
-                            <td class="py-2 pr-4 font-mono text-ink">{{ action.toolKey }}</td>
-                            <td class="py-2 pr-4">
-                                <span
-                                    class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold"
-                                    :class="resolvedStatusClass(action.status)"
-                                >
-                                    {{ t(`aiQueue.status.${action.status}`) }}
-                                </span>
-                            </td>
-                            <td class="py-2 pr-4 text-ink-muted">{{ action.rejectionReason ?? '—' }}</td>
-                            <td class="py-2 text-ink-subtle">{{ dateTime(action.resolvedAt) }}</td>
-                        </tr>
-                    </tbody>
-                </table>
-                <p v-else class="text-sm text-ink-muted">{{ t('aiQueue.resolved.empty') }}</p>
+                <div class="space-y-4">
+                    <!-- Search over REAL fields (tool / agent / feature / why / reason). -->
+                    <div class="flex items-center gap-2 rounded-xl border border-line bg-surface px-3 py-2">
+                        <svg class="h-4 w-4 flex-none text-ink-subtle" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="11" cy="11" r="6.5" stroke="currentColor" stroke-width="1.7" /><path d="m20 20-3.8-3.8" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" /></svg>
+                        <input
+                            v-model="rFilters.q"
+                            type="search"
+                            :placeholder="t('aiQueue.resolved.search')"
+                            class="w-full bg-transparent text-sm text-ink outline-none"
+                            @input="onSearchInput"
+                        />
+                    </div>
+
+                    <!-- Status filter pills with REAL counts + reviewer / date sub-filters. -->
+                    <div class="flex flex-wrap items-center gap-2">
+                        <div class="inline-flex flex-wrap items-center gap-1 rounded-full bg-euca-50/80 p-1">
+                            <button type="button" class="rounded-full px-3 py-1.5 text-sm font-medium transition" :class="rFilters.status === 'all' ? 'nav-pill-active text-ink' : 'text-ink-muted hover:text-ink'" @click="setResolvedStatus('all')">
+                                {{ t('aiQueue.resolved.filterAll', { count: resolvedCounts.all }) }}
+                            </button>
+                            <button type="button" class="rounded-full px-3 py-1.5 text-sm font-medium transition" :class="rFilters.status === 'executed' ? 'nav-pill-active text-ink' : 'text-ink-muted hover:text-ink'" @click="setResolvedStatus('executed')">
+                                {{ t('aiQueue.resolved.filterApproved', { count: resolvedCounts.executed }) }}
+                            </button>
+                            <button type="button" class="rounded-full px-3 py-1.5 text-sm font-medium transition" :class="rFilters.status === 'rejected' ? 'nav-pill-active text-ink' : 'text-ink-muted hover:text-ink'" @click="setResolvedStatus('rejected')">
+                                {{ t('aiQueue.resolved.filterRejected', { count: resolvedCounts.rejected }) }}
+                            </button>
+                            <button type="button" class="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium transition" :class="rFilters.status === 'fence_refused' ? 'nav-pill-active text-ink' : 'text-ink-muted hover:text-ink'" @click="setResolvedStatus('fence_refused')">
+                                <span class="h-1.5 w-1.5 rounded-full bg-danger"></span>{{ t('aiQueue.resolved.filterFenceRefused', { count: resolvedCounts.fence_refused }) }}
+                            </button>
+                        </div>
+
+                        <select v-model="rFilters.reviewer" class="rounded-full border border-line bg-surface px-3 py-1.5 text-sm text-ink" @change="submitResolvedFilters">
+                            <option value="">{{ t('aiQueue.resolved.anyReviewer') }}</option>
+                            <option v-for="r in resolvedReviewers" :key="r.id" :value="r.id">{{ r.name }}</option>
+                        </select>
+                        <input v-model="rFilters.from" type="date" :aria-label="t('aiQueue.resolved.dateFrom')" class="rounded-full border border-line bg-surface px-3 py-1.5 text-sm text-ink" @change="submitResolvedFilters" />
+                        <input v-model="rFilters.to" type="date" :aria-label="t('aiQueue.resolved.dateTo')" class="rounded-full border border-line bg-surface px-3 py-1.5 text-sm text-ink" @change="submitResolvedFilters" />
+                        <button v-if="hasResolvedFilters" type="button" class="text-xs font-medium text-euca-700 hover:text-euca-800" @click="clearResolvedFilters">{{ t('aiQueue.resolved.clear') }}</button>
+                    </div>
+
+                    <!-- Grouped-by-day list — real resolved actions, real attribution + reasons. -->
+                    <p v-if="!resolved.length" class="rounded-2xl border border-line bg-surface p-6 text-sm text-ink-muted">
+                        {{ hasResolvedFilters ? t('aiQueue.resolved.noneForFilters') : t('aiQueue.resolved.empty') }}
+                    </p>
+                    <div v-for="group in groupedResolved" v-else :key="group.label" class="space-y-2">
+                        <p class="text-xs font-semibold uppercase tracking-wide text-ink-muted">{{ group.label }}</p>
+                        <div
+                            v-for="action in group.rows"
+                            :key="action.id"
+                            class="flex flex-wrap items-start justify-between gap-3 rounded-xl border border-line/60 bg-surface p-3"
+                        >
+                            <div class="min-w-0">
+                                <p class="text-sm font-medium text-ink">
+                                    {{ action.toolName ?? action.toolKey }} <span class="text-ink-subtle">· {{ agentLabel(action.agent) }}</span>
+                                </p>
+                                <!-- Real attribution: the human reviewer, or the system (fence). -->
+                                <p class="mt-0.5 text-xs text-ink-subtle">
+                                    <template v-if="action.systemAttributed">{{ t('aiQueue.resolved.bySystem', { time: timeOnly(action.resolvedAt) }) }}</template>
+                                    <template v-else>{{ t('aiQueue.resolved.byReviewer', { reviewer: action.reviewerName ?? '—', time: timeOnly(action.resolvedAt) }) }}</template>
+                                    <span v-if="action.rejectionReason" class="text-ink-muted"> · “{{ action.rejectionReason }}”</span>
+                                </p>
+                            </div>
+                            <span class="inline-flex flex-none items-center rounded-full px-2.5 py-0.5 text-xs font-semibold" :class="resolvedStatusClass(action.status)">
+                                {{ t(`aiQueue.status.${action.status}`) }}
+                            </span>
+                        </div>
+                    </div>
+                </div>
             </Card>
         </div>
     </AppLayout>

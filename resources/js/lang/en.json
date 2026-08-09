@@ -2307,12 +2307,24 @@
         },
         "resolved": {
             "title": "Recently resolved",
-            "subtitle": "The latest approved and rejected actions (read-only).",
+            "subtitle": "Approved, rejected, and fence-refused actions (read-only) — search and filter the real record.",
             "tool": "Tool",
             "status": "Status",
             "reason": "Reason",
             "when": "When",
-            "empty": "No resolved actions yet."
+            "empty": "No resolved actions yet.",
+            "search": "Search resolved…",
+            "filterAll": "All {count}",
+            "filterApproved": "Approved {count}",
+            "filterRejected": "Rejected {count}",
+            "filterFenceRefused": "Fence-refused {count}",
+            "anyReviewer": "Any reviewer",
+            "dateFrom": "From date",
+            "dateTo": "To date",
+            "clear": "Clear filters",
+            "noneForFilters": "No resolved actions match these filters.",
+            "byReviewer": "Resolved by {reviewer} · {time}",
+            "bySystem": "Refused by the electric fence (system) · {time}"
         }
     },
     "kb": {

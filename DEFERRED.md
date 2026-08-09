@@ -215,10 +215,10 @@ partner can drop in later — never a homemade clinical/safety engine:
   (`FenceRefusalException` is a subclass of `AiCoreException`; the eval is untouched). The stat strip's fence count +
   the resolved `fence_refused` category now count real records. (A pre-draft clinical refusal still writes a
   `refused` ledger row + handoff and creates no action — a different, already-ledgered path, not double-counted.)
-- **Remaining Approval Queue parity parts** (`docs/wireframe-parity/APPROVAL-QUEUE-DIFF.md`; P1–P5 done): bulk-
-  approve (MUST exclude clinical/financial — a test to PROVE the exclusion); resolved search/filters/reviewer/
-  grouping (the `fence_refused` category now exists for the filter). Each a future per-part gate under D-149.
-  **Trigger:** re-issue the next APPROVAL part.
+- **Remaining Approval Queue parity part** (`docs/wireframe-parity/APPROVAL-QUEUE-DIFF.md`; P1–P6 done): bulk-
+  approve (low-risk only) — a batch endpoint + UI that **MUST exclude clinical/financial** (individual review only;
+  a test to PROVE the exclusion) and re-authorise + assert-pending per action. The last APPROVAL part; a future
+  per-part gate under D-149. **Trigger:** re-issue the bulk-approve part.
 - **The remaining wireframe pages.** Branches is decoded + QUEUED next (`resources/prototype/branches.wireframe.html`
   — a rich master-detail, largely correctly-more-real: bring the visual to parity without regressing the more-real
   functionality); subsequent app pages follow the same decode → audit → per-part-fix loop. **Trigger:** the

@@ -226,6 +226,22 @@ status `fence_refused`; resolved query + `presentResolved` include `fence_refuse
 unique `aiQueue.stats.*` + `flash.fence_refused` + `status.fence_refused`. Locked by
 `tests/Feature/Governance/ApprovalFenceRefusedTest.php` (4). No existing behaviour test modified. Remaining APPROVAL
 parts: bulk-approve (excludes clinical/financial), resolved search/filters/reviewer/grouping.
+**APPROVAL.P6 (the Resolved view: search + status/date/reviewer filters + grouping, over REAL data):** the resolved
+section of `AiApprovalQueueController::index` is now server-side searchable/filterable over the real resolved set
+(executed/rejected/P5 fence_refused). `allowedToolKeys($tools,$actor)` (tool keys whose permission the actor holds —
+the same per-tool gate approve enforces) `whereIn('tool_key', …)` **RBAC-scopes** both the list and the counts
+(fail-closed on an unregistered key); tenant-scoped by `BelongsToTenant`. `resolvedFilters()` reads real params
+(rstatus/rq/rreviewer/rfrom/rto, dates regex-guarded); `applyResolvedFilters()` targets REAL columns only — search
+matches `tool_key`/`agent`/`feature`/`why`/`rejection_reason` (not the nested payload), reviewer→`reviewed_by`,
+date→`COALESCE(executed_at,rejected_at,fence_refused_at)`. Real per-status counts via groupBy. `presentResolved`
+enriched with `toolName`, `reviewerName` (bulk-resolved), `systemAttributed` (fence_refused → the system, reviewerName
+null), reason. `resolvedReviewers` = distinct real human reviewers for the dropdown. Vue: search box (debounced) +
+status pills w/ real counts + reviewer select + date range, grouped-by-day (client-side), attribution "Resolved by
+{reviewer}" or "Refused by the electric fence (system)". i18n extends `aiQueue.resolved.*`. Locked by
+`tests/Feature/Governance/ApprovalResolvedViewTest.php` (4 — real badge/attribution/reason/counts; Fence-refused
+filter = system-attributed fence rows w/ fence reason; search matches real `why` + reviewer maps to `reviewed_by`;
+tenant + RBAC scoping). No existing behaviour test modified. Remaining APPROVAL part: bulk-approve (excludes
+clinical/financial).
 
 ## KB admin UI (CLINIC.W10)
 
