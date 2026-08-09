@@ -15,8 +15,9 @@ triage, symptom assessment, or dosing logic anywhere.
   output ref, approver, latency, outcome, visible label, error/metadata, occurred timestamp.
   DB triggers block UPDATE and DELETE.
 - `agent_actions` - tenant-owned approval queue. ULID id, tenant, related interaction, feature,
-  agent, tool key, autonomy level, status, proposer/reviewer, approve/reject/execute timestamps,
-  rejection reason, why/diff/input/proposed output/edited payload/result.
+  agent, tool key, autonomy level, status (`pending`/`executed`/`rejected`/`fence_refused`),
+  proposer/reviewer, approve/reject/execute/fence-refused timestamps, rejection reason (also holds
+  the fence's reason on a fence_refused row), why/diff/input/proposed output/edited payload/result.
 - `kb_articles` - tenant-owned active/inactive KB content for Front-Desk answers: title, body,
   tags, active flag, timestamps.
 - `kb_embeddings` - tenant-owned portable vector-as-JSON embeddings for KB articles, keyed by
@@ -207,6 +208,24 @@ a reviewer without it denied). No existing behaviour test modified; the eval sui
 edited demo.echo posted `result.message`='EDITED…', `human_edited`=true, `edited_payload` + ledger recorded; reject still
 works. Remaining APPROVAL parts: stat strip, fence-refused modelling, bulk-approve (excludes clinical/financial),
 resolved filters.
+**APPROVAL.P5 (model fence-refused as a countable outcome + the stat strip from REAL data — fence UNCHANGED):**
+The electric fence already refused a handed-off draft at approve time (`DraftReplyTool::execute` throws) but that
+refusal was not countable — the action stayed PENDING. P5 RECORDS it without changing the fence. New
+`Exceptions\FenceRefusalException` extends `AiCoreException` (existing catches still catch it); `DraftReplyTool::execute`
+throws IT (same condition/message/moment). `ApprovalQueue::approve()` catches it → `recordFenceRefusal()`: transitions
+to the new `AgentAction::STATUS_FENCE_REFUSED` (+ `fence_refused_at`; fence reason in `rejection_reason`), writes an
+append-only `fence_refused` `ai_interactions` row (metadata.reason), fires `AgentActionLifecycleChanged(…, 'fence_refused')`
+→ the generic glue audits `agent_action.fence_refused` (no glue change) → re-throws (nothing executes). Migration
+`2026_08_22_000001` adds only `fence_refused_at` (status is a plain string — the new value needs no schema change).
+**The fence's behavior/when-it-fires is UNCHANGED** — a non-handoff action still executes; the `tests/Evals/` fence
+suite (37/398) is untouched + green. **Stat strip** (`AiApprovalQueueController::index` → `stats`): pending +
+fenceRefused are real counts; approvedPct(30d) = executed ÷ resolved-in-window, avgReviewMinutes(30d) =
+avg(resolvedAt−createdAt) — both from real timestamps, and **null → an honest "—" when no resolved action in the
+window** (no denominator; never fabricated). Controller `approve()` catches `FenceRefusalException` first → redirect
+status `fence_refused`; resolved query + `presentResolved` include `fence_refused` (a `resolvedAt()` coalescer). i18n
+unique `aiQueue.stats.*` + `flash.fence_refused` + `status.fence_refused`. Locked by
+`tests/Feature/Governance/ApprovalFenceRefusedTest.php` (4). No existing behaviour test modified. Remaining APPROVAL
+parts: bulk-approve (excludes clinical/financial), resolved search/filters/reviewer/grouping.
 
 ## KB admin UI (CLINIC.W10)
 

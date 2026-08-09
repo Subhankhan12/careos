@@ -5,10 +5,12 @@ namespace App\Http\Controllers;
 use App\AiCore\Tools\DraftReplyTool;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Gate;
 use Inertia\Inertia;
 use Inertia\Response;
 use Modules\AiCore\Exceptions\AiCoreException;
+use Modules\AiCore\Exceptions\FenceRefusalException;
 use Modules\AiCore\Models\AgentAction;
 use Modules\AiCore\Services\ApprovalQueue;
 use Modules\AiCore\Services\AutonomyPolicy;
@@ -61,7 +63,7 @@ class AiApprovalQueueController
             ->all();
 
         $resolved = AgentAction::query()
-            ->whereIn('status', [AgentAction::STATUS_EXECUTED, AgentAction::STATUS_REJECTED])
+            ->whereIn('status', [AgentAction::STATUS_EXECUTED, AgentAction::STATUS_REJECTED, AgentAction::STATUS_FENCE_REFUSED])
             ->orderByDesc('id')
             ->limit(self::RESOLVED_LIMIT)
             ->get()
@@ -71,7 +73,65 @@ class AiApprovalQueueController
         return Inertia::render('Governance/ApprovalQueue', [
             'pending' => $pending,
             'resolved' => $resolved,
+            'stats' => $this->stats(),
         ]);
+    }
+
+    /**
+     * The governance stat strip — computed from REAL records only. Every value is derived from
+     * actual `agent_actions` rows and their timestamps; a metric with no real source (e.g. no
+     * resolved actions in the window, so no denominator) is returned as null so the UI can show
+     * an honest "—" rather than a fabricated or estimated number.
+     *
+     * @return array{pending: int, fenceRefused: int, approvedPct: int|null, avgReviewMinutes: float|null, windowDays: int}
+     */
+    private function stats(): array
+    {
+        $windowDays = 30;
+        $windowStart = Carbon::now()->subDays($windowDays);
+
+        $pending = AgentAction::query()->where('status', AgentAction::STATUS_PENDING)->count();
+
+        // "N refused by fence" — the real count of the fence_refused outcome recorded on approve.
+        $fenceRefused = AgentAction::query()->where('status', AgentAction::STATUS_FENCE_REFUSED)->count();
+
+        // Approved-% and avg review time are computed over actions RESOLVED in the window, keyed by
+        // their real resolved timestamp (executed_at / rejected_at / fence_refused_at). With no
+        // resolved action in the window there is no denominator — both are honestly absent (null).
+        $resolved = AgentAction::query()
+            ->whereIn('status', [AgentAction::STATUS_EXECUTED, AgentAction::STATUS_REJECTED, AgentAction::STATUS_FENCE_REFUSED])
+            ->get(['status', 'created_at', 'executed_at', 'rejected_at', 'fence_refused_at'])
+            ->filter(fn (AgentAction $a): bool => ($this->resolvedAt($a)?->gte($windowStart)) === true);
+
+        $totalResolved = $resolved->count();
+        $approvedPct = null;
+        $avgReviewMinutes = null;
+
+        if ($totalResolved > 0) {
+            $approved = $resolved->where('status', AgentAction::STATUS_EXECUTED)->count();
+            $approvedPct = (int) round($approved / $totalResolved * 100);
+
+            $seconds = $resolved->sum(function (AgentAction $a): int {
+                $resolvedAt = $this->resolvedAt($a);
+
+                return ($resolvedAt !== null && $a->created_at !== null) ? $a->created_at->diffInSeconds($resolvedAt) : 0;
+            });
+            $avgReviewMinutes = round($seconds / $totalResolved / 60, 1);
+        }
+
+        return [
+            'pending' => $pending,
+            'fenceRefused' => $fenceRefused,
+            'approvedPct' => $approvedPct,
+            'avgReviewMinutes' => $avgReviewMinutes,
+            'windowDays' => $windowDays,
+        ];
+    }
+
+    /** The real terminal timestamp of a resolved action, whichever outcome ended it. */
+    private function resolvedAt(AgentAction $action): ?Carbon
+    {
+        return $action->executed_at ?? $action->rejected_at ?? $action->fence_refused_at;
     }
 
     public function approve(Request $request, string $id): RedirectResponse
@@ -94,6 +154,11 @@ class AiApprovalQueueController
 
         try {
             app(ApprovalQueue::class)->approve($action, $actor, $editedPayload);
+        } catch (FenceRefusalException) {
+            // The electric fence refused the action. The service already RECORDED it as a terminal
+            // fence_refused outcome; surface that honestly (not as the reviewer's error). Must be
+            // caught before AiCoreException — FenceRefusalException is a subclass.
+            return redirect()->route('governance.approvals.index')->with('status', 'fence_refused');
         } catch (AiCoreException $e) {
             return back()->withErrors(['action' => $e->getMessage()]);
         }
@@ -231,8 +296,10 @@ class AiApprovalQueueController
             'toolKey' => $action->tool_key,
             'status' => $action->status,
             'reviewedBy' => $action->reviewed_by,
+            // For a fence_refused row this carries the fence's own reason (kept in rejection_reason,
+            // distinguished by the status) — a human reject carries the reviewer's reason.
             'rejectionReason' => $action->rejection_reason,
-            'resolvedAt' => ($action->executed_at ?? $action->rejected_at)?->toIso8601String(),
+            'resolvedAt' => $this->resolvedAt($action)?->toIso8601String(),
         ];
     }
 

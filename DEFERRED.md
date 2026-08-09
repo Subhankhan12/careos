@@ -209,17 +209,16 @@ partner can drop in later — never a homemade clinical/safety engine:
   provider wired). A real SMS transport for notification preferences is deferred (distinct from, but adjacent to,
   the older "SMS/WhatsApp reminder drivers" item). **Trigger:** a customer needs SMS notifications AND a chosen
   provider/contract.
-- **`fence-refused` as a countable `AgentAction` status.** Today `AgentAction` has exactly three statuses —
-  `pending`/`executed`/`rejected` (a clinically-refused agent ask writes a `refused` `ai_interactions` ledger row +
-  a handoff, and creates NO `agent_action`). The Approval Queue wireframe shows a "Fence-refused" resolved filter +
-  a stat count; those cannot be REAL until fence-refusals are modelled as a countable action status (or surfaced
-  from the ledger). **Needed BEFORE** the Approval Queue stat strip's fence count and the resolved "Fence-refused"
-  filter can ship honest (no faked count). **Trigger:** the Approval Queue stat-strip / resolved-filter parts.
-- **Remaining Approval Queue parity parts** (`docs/wireframe-parity/APPROVAL-QUEUE-DIFF.md`; P1–P3 done): edit-
-  before-sending (the `ApprovalQueue::approve` service already accepts `editedPayload` — the UI is unbuilt); the
-  governance stat strip (needs the fence-refused status above for a real fence count); bulk-approve (MUST exclude
-  clinical/financial — a test to PROVE the exclusion); resolved search/filters/reviewer/grouping. Each a future
-  per-part gate under D-149. **Trigger:** re-issue the next APPROVAL part.
+- **`fence-refused` as a countable `AgentAction` status — RESOLVED (APPROVAL.P5).** A fence refusal at approve
+  time (a handed-off draft throwing) is now recorded as a terminal `AgentAction::STATUS_FENCE_REFUSED` (append-only
+  `fence_refused` ledger row + audited event + the fence's reason), WITHOUT changing when the fence fires
+  (`FenceRefusalException` is a subclass of `AiCoreException`; the eval is untouched). The stat strip's fence count +
+  the resolved `fence_refused` category now count real records. (A pre-draft clinical refusal still writes a
+  `refused` ledger row + handoff and creates no action — a different, already-ledgered path, not double-counted.)
+- **Remaining Approval Queue parity parts** (`docs/wireframe-parity/APPROVAL-QUEUE-DIFF.md`; P1–P5 done): bulk-
+  approve (MUST exclude clinical/financial — a test to PROVE the exclusion); resolved search/filters/reviewer/
+  grouping (the `fence_refused` category now exists for the filter). Each a future per-part gate under D-149.
+  **Trigger:** re-issue the next APPROVAL part.
 - **The remaining wireframe pages.** Branches is decoded + QUEUED next (`resources/prototype/branches.wireframe.html`
   — a rich master-detail, largely correctly-more-real: bring the visual to parity without regressing the more-real
   functionality); subsequent app pages follow the same decode → audit → per-part-fix loop. **Trigger:** the

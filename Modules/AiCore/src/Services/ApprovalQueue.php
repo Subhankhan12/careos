@@ -7,6 +7,7 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Gate;
 use Modules\AiCore\Events\AgentActionLifecycleChanged;
 use Modules\AiCore\Exceptions\AiCoreException;
+use Modules\AiCore\Exceptions\FenceRefusalException;
 use Modules\AiCore\Models\AgentAction;
 use Modules\Platform\Models\User;
 
@@ -98,7 +99,17 @@ class ApprovalQueue
             metadata: $humanEdited ? ['human_edited' => true] : null,
         );
 
-        $result = $tool->execute($payload, $reviewer);
+        try {
+            $result = $tool->execute($payload, $reviewer);
+        } catch (FenceRefusalException $e) {
+            // The ELECTRIC FENCE refused the action (e.g. a handed-off draft with nothing to send).
+            // The fence fired exactly as it does today — we only RECORD the refusal as a terminal,
+            // countable outcome (append-only ledger row + audited status), with the fence's OWN
+            // reason, then re-throw so the caller surfaces it. Nothing was executed; no result.
+            $this->recordFenceRefusal($action, $reviewer, $prompt->hash(), $e->getMessage());
+
+            throw $e;
+        }
 
         if ($humanEdited) {
             // Provenance stamp: the human authored the final content THROUGH the gate. This sits
@@ -220,6 +231,38 @@ class ApprovalQueue
         event(new AgentActionLifecycleChanged($action, 'executed'));
 
         return $action;
+    }
+
+    /**
+     * Record an electric-fence refusal as a terminal, countable outcome. The fence already fired
+     * (the tool threw at execute); this only RECORDS it — a `fence_refused` status transition (the
+     * reason kept in `rejection_reason`, distinguished from a human reject by the status), an
+     * append-only `fence_refused` ledger row, and the audited lifecycle event. Nothing executed.
+     */
+    private function recordFenceRefusal(AgentAction $action, User $reviewer, string $promptHash, string $reason): void
+    {
+        $action->forceFill([
+            'status' => AgentAction::STATUS_FENCE_REFUSED,
+            'reviewed_by' => (string) $reviewer->getKey(),
+            'fence_refused_at' => Carbon::now(),
+            'rejection_reason' => $reason,
+        ])->save();
+
+        $this->recorder->record(
+            $action->feature,
+            $action->agent,
+            'internal',
+            'tool-runtime',
+            '1',
+            $promptHash,
+            'fence_refused',
+            toolCalls: [['tool' => $action->tool_key]],
+            outputRef: $action->id,
+            approverId: (string) $reviewer->getKey(),
+            metadata: ['reason' => $reason],
+        );
+
+        event(new AgentActionLifecycleChanged($action, 'fence_refused', ['reason' => $reason]));
     }
 
     private function authorize(User $actor, string $permission): void

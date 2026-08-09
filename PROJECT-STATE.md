@@ -3,7 +3,7 @@
 Short, factual snapshot of where the project stands. Updated at consolidations and after gates
 (per the MEMORY PROTOCOL in AGENTS.md).
 
-## STATUS: BUILD COMPLETE + AUDITED (3 audits, ZERO must-fix) · EIGHT VERTICALS · DEMOABLE HOSPITAL TENANT · CURRENT STAGE = DEPLOYMENT · WIREFRAME-PARITY PASS IN PROGRESS (Admin Settings done · Approval Queue → P4 · Branches queued)
+## STATUS: BUILD COMPLETE + AUDITED (3 audits, ZERO must-fix) · EIGHT VERTICALS · DEMOABLE HOSPITAL TENANT · CURRENT STAGE = DEPLOYMENT · WIREFRAME-PARITY PASS IN PROGRESS (Admin Settings done · Approval Queue → P5 · Branches queued)
 
 > **RECONCILED (this pass — eight verticals built + audited; at the DEPLOY stage; a page-by-page wireframe-parity
 > pass now in progress).** CareOS is a multi-tenant agentic healthcare-operations platform (EU-first). **Stack:**
@@ -11,8 +11,8 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
 > 10.4 @3306, prod+CI MySQL 8 + Redis 7 + Node 22; Horizon via Memurai locally. **Latest commit:** `aac95c8`
 > (APPROVAL.P3 — the Approval Queue approve-contract caption), after the Admin Settings parity chain (→ `e7cabf0`),
 > DemoHospitalSeeder (D-147), the full-system QA audit + re-audit, and A11Y.1. **Suite:** `composer check` green —
-> Pest **1009 passed** (13,948 assertions; +5 from APPROVAL.P4), PHPStan L5 `[OK]`, Pint clean; `composer test:smoke`
-> green; CI green on MySQL 8; the FIX.5 route-smoke guards against request-time 500s. (Latest commit: APPROVAL.P4.)
+> Pest **1013 passed** (+4 from APPROVAL.P5), PHPStan L5 `[OK]`, Pint clean; `composer test:smoke`
+> green; CI green on MySQL 8; the FIX.5 route-smoke guards against request-time 500s. (Latest commit: APPROVAL.P5.)
 >
 > **WIREFRAME-PARITY PASS (in progress) — the discipline:** each app page is matched to its decoded wireframe in
 > the gitignored `resources/prototype/` (decode the bundler-shell HTML → AUDIT/diff into `docs/wireframe-parity/*.md`
@@ -27,11 +27,13 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
 >   still-pending), reject-reason, suggest-only, and the AutonomyPolicy ceiling are all ENFORCED server-side (verified) —
 >   the parity work only SURFACES them. **P4 wired [Edit before sending] over the EXISTING `editedPayload` support**
 >   (additive, NOT a second path): an edited approve goes through the SAME re-authorise + re-ground + assert-pending gate
->   and is RECORDED as human-edited (result marker + append-only ledger metadata; `edited_payload` column distinguishes
->   it); canReview-gated; proven by 5 tests (incl. unauthorized/non-pending/clinical deny). REMAINING parts: the
->   governance stat strip, fence-refused modelling (no such AgentAction status today — see DEFERRED), bulk-approve (MUST
->   exclude clinical/financial — a test to prove exclusion), resolved search/filters/reviewer/grouping. Audit
->   `docs/wireframe-parity/APPROVAL-QUEUE-DIFF.md`.
+>   and is RECORDED as human-edited. **P5 modelled fence-refused as a countable outcome + the stat strip from REAL data:**
+>   the electric fence (a handed-off draft throwing on approve) is UNCHANGED — only the refusal is now RECORDED as a
+>   terminal `AgentAction::STATUS_FENCE_REFUSED` (append-only ledger + audit + reason; `FenceRefusalException` subclass,
+>   eval untouched). The stat strip (pending / approved-% / avg-review / N-refused-by-fence) is computed from real
+>   records; approved-%/avg-review show an honest "—" when no resolved action exists (no fabricated number). REMAINING
+>   parts: bulk-approve (MUST exclude clinical/financial — a test to prove exclusion), resolved search/filters/reviewer/
+>   grouping. Audit `docs/wireframe-parity/APPROVAL-QUEUE-DIFF.md`.
 > - **Branches — QUEUED next** (decoded to `resources/prototype/branches.wireframe.html`; a rich master-detail,
 >   largely correctly-more-real — bring the visual to parity WITHOUT regressing the more-real functionality).
 > See D-149 for the parity discipline; the per-page/per-part gate approach; reflect-only-RBAC; surface-don't-fabricate.

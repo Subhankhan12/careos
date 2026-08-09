@@ -34,6 +34,10 @@ interface PendingAction {
 const props = defineProps<{
     pending: PendingAction[];
     resolved: Array<{ id: string; agent: string; toolKey: string; status: string; reviewedBy: string | null; rejectionReason: string | null; resolvedAt: string | null }>;
+    // Governance stat strip — every value computed server-side from REAL records; approvedPct /
+    // avgReviewMinutes are null when there is no real source (no resolved actions in the window),
+    // rendered as an honest "—" rather than a fabricated number.
+    stats: { pending: number; fenceRefused: number; approvedPct: number | null; avgReviewMinutes: number | null; windowDays: number };
 }>();
 
 const flash = computed(() => (page.props.flash as { status?: string } | undefined)?.status);
@@ -118,6 +122,16 @@ function pretty(value: Record<string, unknown> | null): string {
 function dateTime(iso: string | null): string {
     return iso ? new Date(iso).toLocaleString() : '—';
 }
+// Honest render of a metric with no real source: show "—", never a fabricated value.
+function orDash(value: number | null): string {
+    return value === null ? '—' : String(value);
+}
+// Resolved outcome badge tint: executed = success, fence_refused = warning (the fence), else danger.
+function resolvedStatusClass(status: string): string {
+    if (status === 'executed') return 'bg-success-soft text-success';
+    if (status === 'fence_refused') return 'bg-warning-soft text-warning';
+    return 'bg-danger-soft text-danger';
+}
 </script>
 
 <template>
@@ -159,6 +173,31 @@ function dateTime(iso: string | null): string {
             <p v-if="flash === 'approved' || flash === 'rejected' || flash === 'approved_edited'" class="rounded-2xl border border-success/30 bg-success-soft p-4 text-sm text-success">
                 {{ t(`aiQueue.flash.${flash}`) }}
             </p>
+            <!-- A fence-refusal is not the reviewer's error — the electric fence refused it and it was recorded. -->
+            <p v-else-if="flash === 'fence_refused'" class="rounded-2xl border border-warning/30 bg-warning-soft p-4 text-sm text-warning">
+                {{ t('aiQueue.flash.fence_refused') }}
+            </p>
+
+            <!-- ── Governance stat strip — REAL data only (honest "—" where no source) ────────── -->
+            <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                <div class="glass-card p-4">
+                    <p class="text-xs font-semibold uppercase tracking-wide text-ink-muted">{{ t('aiQueue.stats.pending') }}</p>
+                    <p class="mt-1 text-2xl font-semibold text-ink">{{ stats.pending }}</p>
+                </div>
+                <div class="glass-card p-4">
+                    <p class="text-xs font-semibold uppercase tracking-wide text-ink-muted">{{ t('aiQueue.stats.approvedPct', { days: stats.windowDays }) }}</p>
+                    <p class="mt-1 text-2xl font-semibold text-ink">{{ stats.approvedPct === null ? '—' : stats.approvedPct + '%' }}</p>
+                </div>
+                <div class="glass-card p-4">
+                    <p class="text-xs font-semibold uppercase tracking-wide text-ink-muted">{{ t('aiQueue.stats.avgReview', { days: stats.windowDays }) }}</p>
+                    <p class="mt-1 text-2xl font-semibold text-ink">{{ stats.avgReviewMinutes === null ? '—' : t('aiQueue.stats.minutes', { value: stats.avgReviewMinutes }) }}</p>
+                </div>
+                <!-- Danger-tint on the fence count (per the wireframe) — the real fence_refused count. -->
+                <div class="glass-card border-danger/30 p-4">
+                    <p class="text-xs font-semibold uppercase tracking-wide text-danger">{{ t('aiQueue.stats.fenceRefused') }}</p>
+                    <p class="mt-1 text-2xl font-semibold text-danger">{{ stats.fenceRefused }}</p>
+                </div>
+            </div>
 
             <!-- ── PENDING VIEW ─────────────────────────────────────────────── -->
             <template v-if="view === 'pending'">
@@ -319,7 +358,7 @@ function dateTime(iso: string | null): string {
                             <td class="py-2 pr-4">
                                 <span
                                     class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold"
-                                    :class="action.status === 'executed' ? 'bg-success-soft text-success' : 'bg-danger-soft text-danger'"
+                                    :class="resolvedStatusClass(action.status)"
                                 >
                                     {{ t(`aiQueue.status.${action.status}`) }}
                                 </span>

@@ -170,10 +170,39 @@ Updated as APPROVAL.P1–… land. One commit per part.
 | 7 · Card anatomy + grounding presentation (What/Why, tool-permission chip, ceiling cap, sources) | **RESOLVED (P2)** | `APPROVAL.P2` |
 | 1 · Surface approve = re-authorise + re-ground (ceiling label in P2; the contract caption in P3) | **RESOLVED (P3)** | `APPROVAL.P2` + `APPROVAL.P3` |
 | 2 · Edit-before-sending | **RESOLVED (P4)** | `APPROVAL.P4` |
-| 3 · Governance stat strip | pending | — |
-| 4 · Fence-refused modelling | pending | — |
+| 4 · Fence-refused modelling | **RESOLVED (P5)** | `APPROVAL.P5` |
+| 3 · Governance stat strip | **RESOLVED (P5)** | `APPROVAL.P5` |
 | 5 · Bulk-approve (low-risk only) | pending | — |
 | 6 · Resolved search/filters/reviewer/grouping | pending | — |
+
+**P5 note — model fence-refused as a countable outcome + the stat strip from real data (no faked numbers):**
+resolves punch-list items 4 (fence-refused modelling) + 3 (stat strip).
+- **The fence is UNCHANGED — only the RECORDING is new.** A handed-off draft still throws on approve, at exactly
+  the same condition/moment (`DraftReplyTool::execute` — the handoff/empty-body check); it now throws a
+  `FenceRefusalException` (a **subclass of `AiCoreException`**, so every existing `catch (AiCoreException)` still
+  catches it — the eval + inbox/live suites are untouched and green). `ApprovalQueue::approve()` catches it and
+  **records** the refusal: a terminal `AgentAction::STATUS_FENCE_REFUSED` (+ `fence_refused_at`; the fence's own
+  reason kept in `rejection_reason`, distinguished from a human reject by the status), an **append-only
+  `fence_refused` `ai_interactions` row** (metadata.reason), and an audited `agent_action.fence_refused` lifecycle
+  event — then re-throws. Nothing executes. **No change to when/whether the fence fires** (proven: a non-handoff
+  action still executes; the eval that locks the pre-draft clinical refusal is unchanged).
+- **The stat strip — REAL data only.** `AiApprovalQueueController::index` now passes `stats`: **pending** = real
+  pending count; **fenceRefused** = real `fence_refused` count (danger-tint per the wireframe); **approvedPct
+  (30d)** = executed ÷ resolved-in-window (executed + rejected + fence_refused), from real timestamps;
+  **avgReviewMinutes (30d)** = avg(resolvedAt − createdAt) from real timestamps. **THE HONESTY RULE:** approvedPct
+  and avgReviewMinutes are computed only when there is a real denominator — with **no resolved action in the
+  window they are `null`, rendered as an honest "—"**, never 0 or an estimate. So: pending + fence count are always
+  real; approved-% + avg-review are real when resolved actions exist, honestly absent otherwise. The Resolved view
+  now includes the `fence_refused` category (a warning-tinted badge; P6's filters will use it).
+- **i18n** unique `aiQueue.stats.*` sub-block + `flash.fence_refused` + `status.fence_refused`. Migration adds only
+  `fence_refused_at` (the `status` column is a plain string — the new value needs no schema change). **No existing
+  behaviour test modified; the electric-fence eval unchanged + green.** 4 new tests
+  (`ApprovalFenceRefusedTest`): the refusal is recorded (status + fence_refused_at + reason + append-only ledger +
+  audit) and nothing executes; only the fence path records fence_refused (a clean action still executes — trigger
+  unchanged); the stat strip shows honest "—" when nothing is resolved; the fence count + approved-% + avg-review
+  are real when resolved records exist. Browser-verified: approving the seeded handoff draft → flash "the electric
+  fence refused this action…recorded as fence-refused", the fence tile increments to 1, it appears in Resolved as
+  Fence-refused; approved-%/avg-review show real values.
 
 **P4 note — edit-before-sending (over the EXISTING `editedPayload` support, purely additive — no second approve
 path):** the wireframe's **[Edit before sending]** action is now wired on each pending card, and it goes through the

@@ -5,7 +5,7 @@ namespace App\AiCore\Tools;
 use App\AiCore\Support\InboxDraftEngine;
 use InvalidArgumentException;
 use Modules\AiCore\Contracts\AiTool;
-use Modules\AiCore\Exceptions\AiCoreException;
+use Modules\AiCore\Exceptions\FenceRefusalException;
 use Modules\AiCore\Services\AutonomyPolicy;
 use Modules\AiCore\Services\ToolDefinition;
 use Modules\Comms\Models\Thread;
@@ -60,8 +60,12 @@ class DraftReplyTool implements AiTool
         // Re-ground the draft against current state before anything is posted.
         $draft = $this->preview($input);
 
+        // ELECTRIC FENCE: a handed-off (or empty) draft has nothing a human can send — the fence
+        // refuses it. Same condition, same moment as before; a FenceRefusalException lets the
+        // approval path RECORD this as a countable fence_refused outcome (APPROVAL.P5) without
+        // changing when the fence fires.
         if (($draft['handoff'] ?? true) === true || trim((string) ($draft['body'] ?? '')) === '') {
-            throw new AiCoreException('This draft handed off to a human; there is nothing to send.');
+            throw new FenceRefusalException('This draft handed off to a human; there is nothing to send.');
         }
 
         $thread = Thread::query()->whereKey($draft['thread_id'])->firstOrFail();

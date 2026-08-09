@@ -2258,7 +2258,15 @@
         "flash": {
             "approved": "Action approved and executed through the existing path.",
             "approved_edited": "Your edited action was approved and posted through the same gate — recorded as human-edited.",
-            "rejected": "Action rejected. Nothing was executed."
+            "rejected": "Action rejected. Nothing was executed.",
+            "fence_refused": "The electric fence refused this action — nothing was posted. It is recorded as fence-refused."
+        },
+        "stats": {
+            "pending": "Pending",
+            "approvedPct": "Approved · {days}d",
+            "avgReview": "Avg review · {days}d",
+            "minutes": "{value} min",
+            "fenceRefused": "Refused by fence"
         },
         "edit": {
             "action": "Edit before sending",
@@ -2294,7 +2302,8 @@
         },
         "status": {
             "executed": "Approved",
-            "rejected": "Rejected"
+            "rejected": "Rejected",
+            "fence_refused": "Fence-refused"
         },
         "resolved": {
             "title": "Recently resolved",

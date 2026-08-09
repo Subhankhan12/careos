@@ -23,6 +23,7 @@ use Modules\Platform\Concerns\BelongsToTenant;
  * @property Carbon|null $approved_at
  * @property Carbon|null $rejected_at
  * @property Carbon|null $executed_at
+ * @property Carbon|null $fence_refused_at
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  * @property string|null $rejection_reason
@@ -43,6 +44,13 @@ class AgentAction extends Model
 
     public const STATUS_REJECTED = 'rejected';
 
+    /**
+     * The electric fence refused this action when it was approved (e.g. a handed-off draft with
+     * nothing to send). A TERMINAL, recorded outcome — the fence fires exactly as before; this
+     * status only makes the refusal countable and listable. Distinct from a human REJECTED.
+     */
+    public const STATUS_FENCE_REFUSED = 'fence_refused';
+
     protected $keyType = 'string';
 
     public $incrementing = false;
@@ -59,6 +67,7 @@ class AgentAction extends Model
         'approved_at',
         'rejected_at',
         'executed_at',
+        'fence_refused_at',
         'rejection_reason',
         'why',
         'input_payload',
@@ -82,6 +91,7 @@ class AgentAction extends Model
             'approved_at' => 'datetime',
             'rejected_at' => 'datetime',
             'executed_at' => 'datetime',
+            'fence_refused_at' => 'datetime',
         ];
     }
 }
