@@ -172,6 +172,21 @@ no gate change) `permission` (the tool's real `ToolDefinition::permission` — t
 tool-permission chip, the `ceiling:` cap, What/Why, the ↳ sources line, and keeps the full inspectable payload. Locked by
 `tests/Feature/Governance/ApprovalCardAnatomyTest.php` (3). Remaining: stat strip, edit-before-sending, bulk-approve
 (excludes clinical), resolved filters, fence-refused modelling, the re-authorise/re-ground caption.
+**APPROVAL.P3 (approve-contract caption, presentational — RESOLVES the re-authorise/re-ground surfacing):** each pending
+card now shows, beside its approve/reject controls, the caption "On approve, the server re-authorises you against
+`<permission>` and re-grounds the draft / re-derives the action against current state before it posts / runs." It states
+ONLY what the real path already does — `ApprovalQueue::approve()` re-authorises the reviewer against the tool's own
+permission, asserts still-pending, then re-runs `tool->execute()` (which re-derives from live state via `preview()`; see
+`DraftReplyTool::execute` "Re-ground the draft…" + `FillFromWaitlistTool::execute` re-runs `preview()`). The `<permission>`
+is INTERPOLATED from the action's real tool permission (the P2 chip value — never hardcoded). The wording is ACCURATE
+per action via a real `reGroundsDraft` flag the controller reads from the action's OWN `proposed_output` shape
+(`body`/`lines`/`handoff` present → a draft → "re-grounds the draft…posts"; else → "re-derives the action…runs"), so it
+never claims a draft where there is none. NO gate/backend change (approve/reject/re-authorise/re-ground/reason-required
+untouched); the caption only renders when `canReview && permission`. Locked by
+`tests/Feature/Governance/ApprovalContractCaptionTest.php` (3 — the surfaced permission is the real re-authorise target;
+`reGroundsDraft` tracks the action's actual shape). Browser-verified: `comms.draft_reply`→comms.manage/draft-variant,
+`scheduler.fill_from_waitlist`→appointment.manage/action-variant. Remaining: stat strip, edit-before-sending, bulk-approve
+(excludes clinical/financial), resolved filters, fence-refused modelling.
 
 ## KB admin UI (CLINIC.W10)
 

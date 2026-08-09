@@ -168,12 +168,27 @@ Updated as APPROVAL.P1–… land. One commit per part.
 |---|---|---|
 | 8 · Visual/chrome (dashed cards, pill buttons, Pending/Resolved toggle, agent filter pills, eucardIn/focus) | **RESOLVED (P1)** | `APPROVAL.P1` |
 | 7 · Card anatomy + grounding presentation (What/Why, tool-permission chip, ceiling cap, sources) | **RESOLVED (P2)** | `APPROVAL.P2` |
-| 1 · Surface approve = re-authorise + re-ground (the ceiling label part landed in P2) | **partial (P2)** — ceiling shown; the re-authorise/re-ground caption still pending | `APPROVAL.P2` |
+| 1 · Surface approve = re-authorise + re-ground (ceiling label in P2; the contract caption in P3) | **RESOLVED (P3)** | `APPROVAL.P2` + `APPROVAL.P3` |
 | 2 · Edit-before-sending | pending | — |
 | 3 · Governance stat strip | pending | — |
 | 4 · Fence-refused modelling | pending | — |
 | 5 · Bulk-approve (low-risk only) | pending | — |
 | 6 · Resolved search/filters/reviewer/grouping | pending | — |
+
+**P3 note — surface the approve contract (presentational caption, no gate change):** each pending card now carries,
+beside its approve/reject controls, the caption **"On approve, the server re-authorises you against `<permission>`
+and re-grounds the draft / re-derives the action against current state before it posts / runs."** It states only
+what the real path already does — `ApprovalQueue::approve()` re-authorises the reviewer against the tool's own
+permission, asserts still-pending, then re-runs `tool->execute()` (which re-derives from live state via `preview()`)
+before anything takes effect (confirmed in P2/step-1). The `<permission>` is **interpolated from the action's real
+tool permission** (the same value the P2 chip shows and the service re-checks — never hardcoded). The wording is
+**accurate per action**: a draft-shaped action (`comms.draft_reply`, its `proposed_output` carries body/lines/handoff)
+reads *"re-grounds the draft … before it posts"*; a direct action (`scheduler.fill_from_waitlist`, no draft) reads
+*"re-derives the action … before it runs"* — driven by a real `reGroundsDraft` flag read from the action's own
+recorded output, so the caption never claims a draft where there is none. **No gate/backend change** — approve/
+reject/re-authorise/re-ground/reason-required are untouched; 3 new tests assert the surfaced permission is the real
+one and that `reGroundsDraft` tracks the action's actual shape. Browser-verified: the two seeded actions render the
+two variants with `comms.manage` / `appointment.manage`.
 
 **P2 note — card anatomy (surface real provenance, presentational only, no gate change):** the pending card now
 shows, over the action's EXISTING data:

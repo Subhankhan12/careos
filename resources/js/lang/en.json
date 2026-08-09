@@ -2270,7 +2270,9 @@
             "agent": "Agent: {agent}",
             "sources": "Sources",
             "noSources": "No linked sources on this action.",
-            "detailsToggle": "Payload"
+            "detailsToggle": "Payload",
+            "contractDraft": "On approve, the server re-authorises you against {permission} and re-grounds the draft against current state before it posts.",
+            "contractAction": "On approve, the server re-authorises you against {permission} and re-derives the action against current state before it runs."
         },
         "actions": {
             "approve": "Approve",

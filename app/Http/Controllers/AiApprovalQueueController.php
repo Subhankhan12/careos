@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\AiCore\Tools\DraftReplyTool;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
@@ -137,6 +138,11 @@ class AiApprovalQueueController
             // Real recorded grounding: the distinct `source` refs the tool put on its draft lines
             // (kb_article / admin_fact). Empty when the action carries none — never fabricated.
             'sources' => $this->sourcesFor($action->proposed_output),
+            // Does this action carry a DRAFT (its execute re-grounds a draft, then posts) or is it a
+            // direct action (its execute re-derives, then runs)? Drives the honest approve-contract
+            // caption so it never claims "re-grounds the draft" for an action with no draft. Read from
+            // the action's own proposed_output shape — not a hardcode.
+            'reGroundsDraft' => $this->reGroundsDraft($action->proposed_output),
             'proposedOutput' => $action->proposed_output,
             'diff' => $action->diff,
             'queuedAt' => $action->created_at?->toIso8601String(),
@@ -179,6 +185,28 @@ class AiApprovalQueueController
         }
 
         return $sources;
+    }
+
+    /**
+     * Whether this action's approve step re-grounds a DRAFT (vs. re-derives a direct action). True
+     * only when the recorded proposed_output is draft-shaped — it carries a body/lines/handoff, the
+     * signature a draft tool (e.g. {@see DraftReplyTool}) writes. This is read from
+     * the action's own recorded output, so the surfaced approve-contract caption stays accurate per
+     * action: a draft says "re-grounds the draft before it posts"; anything else says "re-derives the
+     * action before it runs". Both are true of the real approve path — {@see ApprovalQueue::approve()}
+     * re-authorises then re-runs the tool (which re-derives from live state) before it takes effect.
+     *
+     * @param  array<string, mixed>|null  $proposedOutput
+     */
+    private function reGroundsDraft(?array $proposedOutput): bool
+    {
+        if (! is_array($proposedOutput)) {
+            return false;
+        }
+
+        return array_key_exists('body', $proposedOutput)
+            || array_key_exists('lines', $proposedOutput)
+            || array_key_exists('handoff', $proposedOutput);
     }
 
     /**

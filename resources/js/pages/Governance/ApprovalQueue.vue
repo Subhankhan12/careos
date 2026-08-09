@@ -21,6 +21,7 @@ interface PendingAction {
     ceiling: string | null;
     why: string;
     sources: Array<{ type: string; ref: string }>;
+    reGroundsDraft: boolean;
     proposedOutput: Record<string, unknown> | null;
     diff: Record<string, unknown> | null;
     queuedAt: string | null;
@@ -201,7 +202,17 @@ function dateTime(iso: string | null): string {
 
                     <!-- Act-through-existing-path controls. Hidden when this reviewer lacks the tool's
                          permission — a UX hint; the server denies regardless (the cap binds server-side). -->
-                    <div v-if="action.canReview" class="mt-4 flex flex-wrap items-center gap-2">
+                    <!-- The approve contract, made visible: this states exactly what the server already
+                         does on approve (re-authorise against the tool's REAL permission, then re-run
+                         the tool — which re-derives from live state — before it takes effect). The
+                         permission is interpolated from the action; the wording adapts to whether the
+                         action carries a draft (honest per-action, never a hardcoded claim). -->
+                    <p v-if="action.canReview && action.permission" class="mt-4 flex items-start gap-1.5 text-xs text-ink-subtle">
+                        <svg class="mt-0.5 h-3.5 w-3.5 flex-none text-euca-600" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M10 1.5 3 4.3v4.4c0 4 2.7 7.7 7 9.3 4.3-1.6 7-5.3 7-9.3V4.3L10 1.5Zm3.03 6.34-3.5 4.5a.75.75 0 0 1-1.12.07l-2-2a.75.75 0 1 1 1.06-1.06l1.4 1.4 2.98-3.83a.75.75 0 1 1 1.18.92Z" clip-rule="evenodd" /></svg>
+                        <span>{{ t(action.reGroundsDraft ? 'aiQueue.card.contractDraft' : 'aiQueue.card.contractAction', { permission: action.permission }) }}</span>
+                    </p>
+
+                    <div v-if="action.canReview" class="mt-3 flex flex-wrap items-center gap-2">
                         <template v-if="rejectingId !== action.id">
                             <Button type="button" pill :block="false" @click="approve(action)">{{ t('aiQueue.actions.approve') }}</Button>
                             <Button type="button" variant="secondary" pill :block="false" @click="openReject(action.id)">{{ t('aiQueue.actions.reject') }}</Button>
