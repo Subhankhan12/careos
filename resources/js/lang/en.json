@@ -2268,6 +2268,16 @@
             "minutes": "{value} min",
             "fenceRefused": "Refused by fence"
         },
+        "bulk": {
+            "selectAll": "Select all low-risk ({count})",
+            "selectOne": "Select this action for bulk approve",
+            "note": "Low-risk actions only — clinical and financial drafts always need individual review.",
+            "individualOnly": "Individual review only",
+            "selected": "{count} selected",
+            "approveSelected": "Approve selected",
+            "clear": "Clear",
+            "summary": "Bulk approve: {approved} approved · {excluded} excluded (clinical/financial — individual review only) · {skipped} skipped."
+        },
         "edit": {
             "action": "Edit before sending",
             "title": "Edit the payload before it posts",

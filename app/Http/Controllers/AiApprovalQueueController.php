@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\AiCore\Tools\DraftReplyTool;
+use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -16,6 +17,7 @@ use Modules\AiCore\Exceptions\FenceRefusalException;
 use Modules\AiCore\Models\AgentAction;
 use Modules\AiCore\Services\ApprovalQueue;
 use Modules\AiCore\Services\AutonomyPolicy;
+use Modules\AiCore\Services\ToolDefinition;
 use Modules\AiCore\Services\ToolRegistry;
 use Modules\Platform\Models\User;
 
@@ -351,6 +353,80 @@ class AiApprovalQueueController
     }
 
     /**
+     * Bulk-approve LOW-RISK actions only. This is a LOOP over the real per-action approve gate — it
+     * introduces NO batch path that skips anything: each selected action goes through
+     * {@see ApprovalQueue::approve()} (re-authorise against ITS tool permission + re-ground +
+     * assert-pending), exactly as an individual approve.
+     *
+     * THE SAFETY GATE (server-enforced, not just a disabled checkbox): clinical AND financial actions
+     * are NEVER bulk-approved — they always need individual review. Risk is read from the tool's REAL
+     * {@see ToolDefinition::$category}; a clinical/financial (or unregistered) tool in the request is
+     * refused for bulk here, even if the client forged it into the id list. Per item, the fence still
+     * fires (a handed-off draft is recorded fence_refused, P5, never forced through) and per-item RBAC
+     * still binds (a tool the reviewer cannot review is skipped, not approved).
+     */
+    public function bulkApprove(Request $request, ToolRegistry $tools): RedirectResponse
+    {
+        Gate::authorize('ai.manage');
+        $actor = $request->user();
+        abort_unless($actor instanceof User, 403);
+
+        $data = $request->validate([
+            'ids' => ['required', 'array', 'min:1'],
+            'ids.*' => ['string'],
+        ]);
+
+        $approved = 0;
+        $excluded = 0; // clinical/financial — refused for bulk (individual review only)
+        $skipped = 0;  // missing/unregistered/unauthorized/non-pending/fence-refused
+
+        foreach (array_values(array_unique($data['ids'])) as $id) {
+            $action = AgentAction::query()->whereKey($id)->first();
+            if ($action === null) { // missing or cross-tenant → fail-closed
+                $skipped++;
+
+                continue;
+            }
+
+            // Risk class from the tool's REAL category. Unregistered tool → not bulk-approvable.
+            try {
+                $definition = $tools->get($action->tool_key)->definition();
+            } catch (AiCoreException) {
+                $skipped++;
+
+                continue;
+            }
+
+            // THE SAFETY GATE: clinical AND financial are excluded from bulk — enforced here on the
+            // server, so a forged id for such an action is refused for bulk (never approved this way).
+            if ($definition->isClinicalOrFinancial()) {
+                $excluded++;
+
+                continue;
+            }
+
+            try {
+                // The FULL per-action gate — re-authorise + re-ground + assert-pending. No shortcut.
+                app(ApprovalQueue::class)->approve($action, $actor);
+                $approved++;
+            } catch (FenceRefusalException) {
+                // The fence fired for this item — recorded fence_refused (P5), NOT forced through.
+                $skipped++;
+            } catch (AuthorizationException) {
+                // Per-item RBAC: the reviewer does not hold THIS tool's permission.
+                $skipped++;
+            } catch (AiCoreException) {
+                // Non-pending / already resolved, etc.
+                $skipped++;
+            }
+        }
+
+        return redirect()->route('governance.approvals.index')
+            ->with('status', 'bulk')
+            ->with('bulk', ['approved' => $approved, 'excluded' => $excluded, 'skipped' => $skipped]);
+    }
+
+    /**
      * @return array<string, mixed>
      */
     private function presentPending(AgentAction $action, ToolRegistry $tools, AutonomyPolicy $autonomy, User $actor): array
@@ -386,6 +462,11 @@ class AiApprovalQueueController
             'diff' => $action->diff,
             'queuedAt' => $action->created_at?->toIso8601String(),
             'canReview' => $canReview,
+            // Bulk-approve is LOW-RISK only: eligible iff the reviewer may review it AND the tool is
+            // neither clinical nor financial (those always need individual review). A UX hint only —
+            // the server enforces the same exclusion + per-item gate in bulkApprove().
+            'bulkEligible' => $canReview && $category !== null
+                && ! in_array($category, [ToolDefinition::CATEGORY_CLINICAL, ToolDefinition::CATEGORY_FINANCIAL], true),
             'approveUrl' => route('governance.approvals.approve', $action->id),
             'rejectUrl' => route('governance.approvals.reject', $action->id),
         ];

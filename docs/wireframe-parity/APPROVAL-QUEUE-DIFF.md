@@ -173,7 +173,33 @@ Updated as APPROVAL.P1–… land. One commit per part.
 | 4 · Fence-refused modelling | **RESOLVED (P5)** | `APPROVAL.P5` |
 | 3 · Governance stat strip | **RESOLVED (P5)** | `APPROVAL.P5` |
 | 6 · Resolved search/filters/reviewer/grouping | **RESOLVED (P6)** | `APPROVAL.P6` |
-| 5 · Bulk-approve (low-risk only) | pending | — |
+| 5 · Bulk-approve (low-risk only) | **RESOLVED (P7)** | `APPROVAL.P7` |
+
+> **✅ APPROVAL QUEUE WIREFRAME-PARITY COMPLETE** (P1 chrome → P2 anatomy → P3 approve-contract → P4 edit →
+> P5 fence-refused + stats → P6 resolved → P7 bulk). Every punch-list item RESOLVED. **Two pages done in the
+> wireframe-parity pass: Admin Settings + Approval Queue. Branches is next** (`resources/prototype/branches.wireframe.html`).
+
+**P7 note — bulk-approve (low-risk only; clinical + financial EXCLUDED server-side; per-item gate):** resolves
+punch-list item 5 — the LAST part; the Approval Queue page is now at full wireframe parity.
+- **A LOOP, not a batch shortcut.** `bulkApprove()` iterates the selected ids and calls the SAME
+  `ApprovalQueue::approve()` per item — each still re-authorises against ITS tool permission + re-grounds +
+  asserts-pending. Bulk lowers no per-action gate.
+- **THE SAFETY GATE (server-enforced).** Risk is read from the tool's REAL `ToolDefinition::category` (via
+  `isClinicalOrFinancial()`) — no invented risk field. Clinical AND financial actions are refused for bulk BEFORE
+  approve is called, so a **forged** bulk request that includes a clinical/financial id does NOT approve it (it
+  stays pending — individual review only), even for a reviewer who holds `note.write`/`billing.manage`. Proven by
+  the exclusion test. An unregistered tool key is fail-closed (skipped).
+- **Per item still real:** the fence fires per item (a handoff draft in a bulk is recorded `fence_refused`, P5, not
+  forced); per-item RBAC binds (an item the reviewer can't review is skipped, the rest approve). Results are
+  reported as a real summary flash (approved / excluded / skipped counts).
+- **UI:** only `bulkEligible` (low-risk + canReview) cards carry a checkbox; clinical/financial show an
+  "Individual review only" chip. A bulk bar (select-all-low-risk · "clinical/financial need individual review" ·
+  Approve selected · Clear). i18n unique `aiQueue.bulk.*`. A new `bulk` shared flash key carries the summary. **No
+  existing behaviour test modified; the electric-fence eval + all suites green.** 4 new tests
+  (`ApprovalBulkApproveTest`): low-risk bulk approves each through the full gate; **the exclusion proof** — a bulk
+  including a clinical AND a financial action refuses both server-side (they stay pending) while the low-risk item
+  approves; a fenced bulk item is recorded fence_refused (not forced); per-item RBAC skips an unauthorized item.
+  Browser-verified.
 
 **P6 note — the Resolved view: search + status/date/reviewer filters + grouping, over REAL data:** resolves
 punch-list item 6.

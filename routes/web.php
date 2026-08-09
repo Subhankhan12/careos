@@ -622,6 +622,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/governance', [GovernanceDashboardController::class, 'index'])->name('governance.dashboard');
     Route::post('/governance/verify-chain', [GovernanceDashboardController::class, 'verifyChain'])->name('governance.verify-chain');
     Route::get('/governance/approvals', [AiApprovalQueueController::class, 'index'])->name('governance.approvals.index');
+    Route::post('/governance/approvals/bulk-approve', [AiApprovalQueueController::class, 'bulkApprove'])->name('governance.approvals.bulk_approve');
     Route::post('/governance/approvals/{id}/approve', [AiApprovalQueueController::class, 'approve'])->name('governance.approvals.approve');
     Route::post('/governance/approvals/{id}/reject', [AiApprovalQueueController::class, 'reject'])->name('governance.approvals.reject');
 

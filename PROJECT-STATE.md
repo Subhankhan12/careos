@@ -3,7 +3,7 @@
 Short, factual snapshot of where the project stands. Updated at consolidations and after gates
 (per the MEMORY PROTOCOL in AGENTS.md).
 
-## STATUS: BUILD COMPLETE + AUDITED (3 audits, ZERO must-fix) · EIGHT VERTICALS · DEMOABLE HOSPITAL TENANT · CURRENT STAGE = DEPLOYMENT · WIREFRAME-PARITY PASS IN PROGRESS (Admin Settings done · Approval Queue → P6 · Branches queued)
+## STATUS: BUILD COMPLETE + AUDITED (3 audits, ZERO must-fix) · EIGHT VERTICALS · DEMOABLE HOSPITAL TENANT · CURRENT STAGE = DEPLOYMENT · WIREFRAME-PARITY PASS IN PROGRESS (Admin Settings done · Approval Queue COMPLETE (P1→P7) · Branches queued)
 
 > **RECONCILED (this pass — eight verticals built + audited; at the DEPLOY stage; a page-by-page wireframe-parity
 > pass now in progress).** CareOS is a multi-tenant agentic healthcare-operations platform (EU-first). **Stack:**
@@ -11,8 +11,8 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
 > 10.4 @3306, prod+CI MySQL 8 + Redis 7 + Node 22; Horizon via Memurai locally. **Latest commit:** `aac95c8`
 > (APPROVAL.P3 — the Approval Queue approve-contract caption), after the Admin Settings parity chain (→ `e7cabf0`),
 > DemoHospitalSeeder (D-147), the full-system QA audit + re-audit, and A11Y.1. **Suite:** `composer check` green —
-> Pest **1017 passed** (+4 from APPROVAL.P6), PHPStan L5 `[OK]`, Pint clean; `composer test:smoke`
-> green; CI green on MySQL 8; the FIX.5 route-smoke guards against request-time 500s. (Latest commit: APPROVAL.P6.)
+> Pest **1021 passed** (+4 from APPROVAL.P7), PHPStan L5 `[OK]`, Pint clean; `composer test:smoke`
+> green; CI green on MySQL 8; the FIX.5 route-smoke guards against request-time 500s. (Latest commit: APPROVAL.P7.)
 >
 > **WIREFRAME-PARITY PASS (in progress) — the discipline:** each app page is matched to its decoded wireframe in
 > the gitignored `resources/prototype/` (decode the bundler-shell HTML → AUDIT/diff into `docs/wireframe-parity/*.md`
@@ -22,8 +22,9 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
 > - **Admin Settings — COMPLETE** (SETTINGS.P1 glass → P2 Agents/AutonomyPolicy cap → P3 Scheduling/honest buffer →
 >   P4 Security/2FA-locked → P5 Notifications/email-prefs + SMS-seam + attention-flag-locked → P6 staff-invite +
 >   sub-nav, RBAC reflect-only). Latest `e7cabf0`; audit `docs/wireframe-parity/ADMIN-SETTINGS-DIFF.md`.
-> - **Approval Queue — IN PROGRESS** (P1 chrome `c9d0e31` → P2 card-anatomy/real-provenance `861eb3e` → P3
->   approve-contract-caption `aac95c8` → P4 edit-before-sending). The approve gate (re-authorise + re-ground +
+> - **Approval Queue — COMPLETE** (P1 chrome `c9d0e31` → P2 card-anatomy/real-provenance `861eb3e` → P3
+>   approve-contract-caption `aac95c8` → P4 edit-before-sending `19d39c4` → P5 fence-refused+stats `2b51150` → P6
+>   resolved view `4afdd3e` → P7 bulk-approve). **Full wireframe parity reached.** The approve gate (re-authorise + re-ground +
 >   still-pending), reject-reason, suggest-only, and the AutonomyPolicy ceiling are all ENFORCED server-side (verified) —
 >   the parity work only SURFACES them. **P4 wired [Edit before sending] over the EXISTING `editedPayload` support**
 >   (additive, NOT a second path): an edited approve goes through the SAME re-authorise + re-ground + assert-pending gate
@@ -34,9 +35,11 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
 >   records; approved-%/avg-review show an honest "—" when no resolved action exists (no fabricated number). **P6 built
 >   the Resolved view** — search + status/date/reviewer filters + grouping over the REAL resolved set (executed/rejected/
 >   fence_refused); every filter maps to a real column, counts are real, a fence refusal is system-attributed with the
->   fence reason, and the list + counts are tenant + RBAC scoped (a reviewer sees only tools they may review). REMAINING
->   part: bulk-approve (MUST exclude clinical/financial — a test to prove exclusion). Audit
->   `docs/wireframe-parity/APPROVAL-QUEUE-DIFF.md`.
+>   fence reason, and the list + counts are tenant + RBAC scoped (a reviewer sees only tools they may review). **P7
+>   built bulk-approve** — LOW-RISK only, a LOOP over the real per-action gate; clinical AND financial are EXCLUDED
+>   server-side (a forged bulk including one is refused for that item — a test proves it); the fence still fires per
+>   item (P5) and per-item RBAC binds. **Approval Queue parity is now COMPLETE (P1→P7); two pages done in the pass
+>   (Admin Settings + Approval Queue), Branches next.** Audit `docs/wireframe-parity/APPROVAL-QUEUE-DIFF.md`.
 > - **Branches — QUEUED next** (decoded to `resources/prototype/branches.wireframe.html`; a rich master-detail,
 >   largely correctly-more-real — bring the visual to parity WITHOUT regressing the more-real functionality).
 > See D-149 for the parity discipline; the per-page/per-part gate approach; reflect-only-RBAC; surface-don't-fabricate.

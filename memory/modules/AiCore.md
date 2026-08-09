@@ -240,8 +240,20 @@ status pills w/ real counts + reviewer select + date range, grouped-by-day (clie
 {reviewer}" or "Refused by the electric fence (system)". i18n extends `aiQueue.resolved.*`. Locked by
 `tests/Feature/Governance/ApprovalResolvedViewTest.php` (4 — real badge/attribution/reason/counts; Fence-refused
 filter = system-attributed fence rows w/ fence reason; search matches real `why` + reviewer maps to `reviewed_by`;
-tenant + RBAC scoping). No existing behaviour test modified. Remaining APPROVAL part: bulk-approve (excludes
-clinical/financial).
+tenant + RBAC scoping). No existing behaviour test modified.
+**APPROVAL.P7 (bulk-approve, LOW-RISK only; clinical+financial EXCLUDED server-side; per-item gate — APPROVAL QUEUE
+PARITY COMPLETE):** `AiApprovalQueueController::bulkApprove` (POST `governance.approvals.bulk_approve`, `ai.manage`)
+is a LOOP over the real `ApprovalQueue::approve()` — each selected item still re-authorises + re-grounds +
+asserts-pending. **THE SAFETY GATE (server-enforced):** risk = the tool's REAL `ToolDefinition::category`
+(`isClinicalOrFinancial()`); clinical + financial are refused for bulk BEFORE approve (a FORGED id for such an action
+is never bulk-approved — stays pending — even for a reviewer holding note.write/billing.manage). Per item the fence
+still fires (handoff → recorded fence_refused, P5, not forced) and per-item RBAC binds (unauthorized → skipped).
+Returns a `bulk`=[approved,excluded,skipped] summary flash (new shared `bulk` flash key in HandleInertiaRequests).
+`presentPending` gained `bulkEligible` (canReview && category∉{clinical,financial}) — a UX hint; the server
+re-enforces. Vue: per-card checkbox on eligible cards, "Individual review only" chip on clinical/financial, a
+bulk-action bar; i18n `aiQueue.bulk.*`. Locked by `tests/Feature/Governance/ApprovalBulkApproveTest.php` (4, incl.
+THE EXCLUSION PROOF — a bulk with a clinical AND financial action refuses both while the low-risk item approves).
+No existing behaviour test modified. **The Approval Queue page is now at FULL wireframe parity (P1→P7).**
 
 ## KB admin UI (CLINIC.W10)
 

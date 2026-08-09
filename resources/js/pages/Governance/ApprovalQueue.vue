@@ -27,6 +27,7 @@ interface PendingAction {
     diff: Record<string, unknown> | null;
     queuedAt: string | null;
     canReview: boolean;
+    bulkEligible: boolean;
     approveUrl: string;
     rejectUrl: string;
 }
@@ -59,6 +60,9 @@ const props = defineProps<{
 }>();
 
 const flash = computed(() => (page.props.flash as { status?: string } | undefined)?.status);
+const bulkFlash = computed(
+    () => (page.props.flash as { bulk?: { approved: number; excluded: number; skipped: number } } | undefined)?.bulk,
+);
 
 // ── Chrome (presentational, client-side over already-loaded data) ─────────────
 const view = ref<'pending' | 'resolved'>('pending');
@@ -91,6 +95,52 @@ function confirmReject(action: PendingAction): void {
             rejectingId.value = null;
         },
     });
+}
+
+// ── Bulk-approve — LOW-RISK only; a loop over the real per-action gate ──────────
+// Only bulkEligible (low-risk + canReview) actions are selectable; clinical/financial are excluded
+// (individual review only). [Approve selected] posts the ids to the server, which loops the FULL
+// per-action approve gate and re-enforces the clinical/financial exclusion server-side.
+const selectedIds = ref<Set<string>>(new Set());
+const bulkProcessing = ref(false);
+
+const eligiblePending = computed(() => filteredPending.value.filter((a) => a.bulkEligible));
+const selectedCount = computed(() => selectedIds.value.size);
+const allEligibleSelected = computed(
+    () => eligiblePending.value.length > 0 && eligiblePending.value.every((a) => selectedIds.value.has(a.id)),
+);
+
+function toggleSelect(id: string): void {
+    const next = new Set(selectedIds.value);
+    if (next.has(id)) {
+        next.delete(id);
+    } else {
+        next.add(id);
+    }
+    selectedIds.value = next;
+}
+function toggleSelectAll(): void {
+    selectedIds.value = allEligibleSelected.value ? new Set() : new Set(eligiblePending.value.map((a) => a.id));
+}
+function clearSelection(): void {
+    selectedIds.value = new Set();
+}
+function approveSelected(): void {
+    if (!selectedIds.value.size) {
+        return;
+    }
+    bulkProcessing.value = true;
+    router.post(
+        '/governance/approvals/bulk-approve',
+        { ids: Array.from(selectedIds.value) },
+        {
+            preserveScroll: true,
+            onSuccess: () => clearSelection(),
+            onFinish: () => {
+                bulkProcessing.value = false;
+            },
+        },
+    );
 }
 
 // ── Edit before sending — the SAME approve path, carrying an edited payload ─────
@@ -255,6 +305,10 @@ function clearResolvedFilters(): void {
             <p v-else-if="flash === 'fence_refused'" class="rounded-2xl border border-warning/30 bg-warning-soft p-4 text-sm text-warning">
                 {{ t('aiQueue.flash.fence_refused') }}
             </p>
+            <!-- Bulk-approve summary: real per-outcome counts (approved / excluded clinical+financial / skipped). -->
+            <p v-else-if="flash === 'bulk' && bulkFlash" class="rounded-2xl border border-euca-300 bg-euca-50/60 p-4 text-sm text-ink">
+                {{ t('aiQueue.bulk.summary', { approved: bulkFlash.approved, excluded: bulkFlash.excluded, skipped: bulkFlash.skipped }) }}
+            </p>
 
             <!-- ── Governance stat strip — REAL data only (honest "—" where no source) ────────── -->
             <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -301,6 +355,21 @@ function clearResolvedFilters(): void {
                     </button>
                 </div>
 
+                <!-- Bulk-action bar — LOW-RISK only. Clinical/financial are never selectable (individual
+                     review only); [Approve selected] loops the full per-action gate server-side. -->
+                <div v-if="eligiblePending.length" class="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-2xl border border-euca-200 bg-euca-50/50 p-3 text-sm">
+                    <label class="inline-flex items-center gap-2 font-medium text-ink">
+                        <input type="checkbox" :checked="allEligibleSelected" class="h-4 w-4 rounded border-line text-euca-600" @change="toggleSelectAll" />
+                        {{ t('aiQueue.bulk.selectAll', { count: eligiblePending.length }) }}
+                    </label>
+                    <span class="text-xs text-ink-subtle">{{ t('aiQueue.bulk.note') }}</span>
+                    <div v-if="selectedCount" class="ml-auto flex items-center gap-2">
+                        <span class="text-xs font-semibold text-euca-800">{{ t('aiQueue.bulk.selected', { count: selectedCount }) }}</span>
+                        <Button type="button" pill :block="false" :disabled="bulkProcessing" @click="approveSelected">{{ t('aiQueue.bulk.approveSelected') }}</Button>
+                        <Button type="button" variant="ghost" pill :block="false" @click="clearSelection">{{ t('aiQueue.bulk.clear') }}</Button>
+                    </div>
+                </div>
+
                 <p v-if="!pending.length" class="rounded-2xl border border-line bg-surface p-6 text-sm text-ink-muted">{{ t('aiQueue.empty') }}</p>
                 <p v-else-if="!filteredPending.length" class="rounded-2xl border border-line bg-surface p-6 text-sm text-ink-muted">{{ t('aiQueue.chrome.noneForFilter') }}</p>
 
@@ -313,7 +382,17 @@ function clearResolvedFilters(): void {
                     :style="{ '--euca-card-delay': (0.02 + index * 0.04) + 's' }"
                 >
                     <div class="flex flex-wrap items-start justify-between gap-3">
-                        <div class="min-w-0">
+                        <div class="flex min-w-0 items-start gap-3">
+                            <!-- Bulk-select: LOW-RISK only. Clinical/financial show an individual-review note instead. -->
+                            <input
+                                v-if="action.bulkEligible"
+                                type="checkbox"
+                                :checked="selectedIds.has(action.id)"
+                                :aria-label="t('aiQueue.bulk.selectOne')"
+                                class="mt-1 h-4 w-4 flex-none rounded border-line text-euca-600"
+                                @change="toggleSelect(action.id)"
+                            />
+                            <div class="min-w-0">
                             <div class="flex flex-wrap items-center gap-2">
                                 <span class="inline-flex items-center rounded-full bg-euca-100 px-2 py-0.5 text-[11px] font-medium text-euca-800">{{ agentLabel(action.agent) }}</span>
                                 <!-- Tool-permission chip: the tool_key + the REAL permission approve re-authorises against. -->
@@ -325,11 +404,14 @@ function clearResolvedFilters(): void {
                                 <!-- Autonomy: the PROPOSED level. Ceiling: the AutonomyPolicy CAP (distinct). -->
                                 <span class="inline-flex items-center rounded-full bg-euca-50 px-2.5 py-0.5 text-xs font-medium text-euca-700">{{ t('aiQueue.card.autonomy', { level: action.autonomyLevel }) }}</span>
                                 <span v-if="action.ceiling" class="inline-flex items-center rounded-full border border-euca-300 bg-euca-50 px-2.5 py-0.5 text-xs font-semibold text-euca-800">{{ t('aiQueue.card.ceiling', { level: action.ceiling }) }}</span>
+                                <!-- Clinical/financial can never be bulk-approved — individual review only (server-enforced). -->
+                                <span v-if="!action.bulkEligible && (action.category === 'clinical' || action.category === 'financial')" class="inline-flex items-center rounded-full border border-warning/40 bg-warning-soft px-2.5 py-0.5 text-xs font-semibold text-warning">{{ t('aiQueue.bulk.individualOnly') }}</span>
                             </div>
                             <p class="mt-1 text-xs text-ink-subtle">
                                 {{ t('aiQueue.card.agent', { agent: action.agent }) }} · <span class="font-mono">{{ action.feature }}</span>
                                 <span v-if="action.queuedAt"> · {{ t('aiQueue.card.queued', { time: dateTime(action.queuedAt) }) }}</span>
                             </p>
+                            </div>
                         </div>
                         <!-- Fence discipline: AI content is always badged, never presented as authoritative judgment. -->
                         <span class="inline-flex flex-none items-center rounded-full border border-warning/30 bg-warning-soft px-2.5 py-1 text-xs font-semibold text-warning">{{ t('aiQueue.badge') }}</span>
