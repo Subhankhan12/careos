@@ -231,11 +231,42 @@ Updated as BRANCH.P1–… land. One commit per part.
 | 4/5 · Soft-suspend (`accepts_online_bookings`) as a REAL state — chosen option (b): a distinct control alongside the hard deactivate guard | **RESOLVED (P1)** | `BRANCH.P1` |
 | 7 · Phone field (`Branch.phone`) | **RESOLVED (P1)** | `BRANCH.P1` |
 | 5 · Online-booking control wired to the REAL gate | **RESOLVED (P1)** — real, not a faked switch | `BRANCH.P1` |
-| 1 · Master-detail restructure | pending (P2+) | — |
-| 2 · Glass + eucardIn + pills + terracotta | pending (P2+) | — |
-| 3 · Create modal wizard | pending | — |
+| 1 · Master-detail restructure | **RESOLVED (P4)** | `BRANCH.P4` |
+| 2 · Glass + eucardIn + pills + terracotta | **RESOLVED (P4)** | `BRANCH.P4` |
+| 3 · Create modal wizard | **partial (P4)** — [+ Add branch] toggles a glass create panel; the 3-step modal wizard is the remaining polish (own gate if pulled forward) | `BRANCH.P4` |
 | 6 · "main"/default-branch flag (`is_primary`, exactly-one-per-tenant invariant) | **RESOLVED (P2)** | `BRANCH.P2` |
 | 8 · Practitioner resources read-only in the roster (type not editable via the facility select) | **RESOLVED (P3)** | `BRANCH.P3` |
+
+> **✅ BRANCHES WIREFRAME-PARITY effectively COMPLETE** (P1 soft-suspend+phone → P2 primary-flag → P3
+> practitioner-read-only → P4 master-detail + Eucalyptus Glow). Only optional polish remains: the create **3-step
+> modal wizard** (P4 ships a functional glass create panel over the same `store` endpoint). **Three pages done in
+> the wireframe-parity pass: Admin Settings + Approval Queue + Branches.**
+
+**P4 note — master-detail restructure + Eucalyptus Glow visual parity (PURELY presentational over P1–P3):**
+resolves punch-list items 1 + 2 (+ 3 partial).
+- **Layout:** the single-column stack is now the wireframe's **two-column master-detail** — a 300px **branch list**
+  (selectable rows: home icon + name, "N resources · Primary" meta, dotted **Active** + **Online booking on/off**
+  status pills) beside a **detail column** with the **4 stacked cards** for the selected branch (defaults to the
+  primary): **Profile** (name/code/phone/structured address/timezone + Primary badge/Set-as-primary + Save),
+  **Opening hours** (the W8b per-day editor), **Resources** (the W8c roster + add; practitioner type read-only per
+  P3), and a terracotta **Lifecycle** card.
+- **Honest suspend vs deactivate (distinct, not merged):** the Lifecycle card holds TWO separate controls — a SOFT
+  **Suspend/Turn-on online booking** (P1 `accepts_online_bookings`; copy: "stops new online bookings; existing
+  appointments kept; staff work the day-board") and the HARD **Deactivate** (copy: "takes the branch fully offline…
+  blocked while it has upcoming appointments", button disabled while `future_appointments > 0`). Neither is
+  relabelled; both wire to their real, unchanged endpoints.
+- **Visual:** reused the EXISTING Eucalyptus Glow utilities (verify-before-add per the Settings/Approval lesson) —
+  `.glass-card`, `.euca-card-in` (staggered `--euca-card-delay`), `.nav-pill-active`-style selected accent, pill
+  `Button`s, dotted status pills, `--color-danger #b4552d` terracotta for the Lifecycle card, `.settings-surface`
+  focus ring, euca-wash canvas from AppLayout.
+- **Create:** the header **[+ Add branch]** toggles a glass create panel over the existing `store` endpoint (the
+  full 3-step modal wizard is optional polish). **PURELY presentational** — no backend/guard/logic change; all P1–P3
+  features + W8b/W8c re-skinned, not altered. **Correctly-more-real KEPT** in the detail cards (structured
+  address/code/timezone, the validated per-day hours editor, full resource CRUD + guards). i18n adds
+  `branchesAdmin.create.addAction/cancel`, `profile.subtitle`, and a `danger.*` sub-block. **No existing behaviour
+  test modified**; all Branch/booking/fence suites green. Light tests: `tests/Feature/Platform/BranchMasterDetailTest.php`
+  (3 — the master-detail data contract with every action URL; profile save routes to the real endpoint; the
+  re-skinned soft-suspend + set-primary still route to the unchanged endpoints).
 
 **P3 note — practitioner-resource type read-only (correctness FIX, not a trim):** resolves punch-list item 8 (§6
 nuance).

@@ -3,7 +3,7 @@
 Short, factual snapshot of where the project stands. Updated at consolidations and after gates
 (per the MEMORY PROTOCOL in AGENTS.md).
 
-## STATUS: BUILD COMPLETE + AUDITED (3 audits, ZERO must-fix) · EIGHT VERTICALS · DEMOABLE HOSPITAL TENANT · CURRENT STAGE = DEPLOYMENT · WIREFRAME-PARITY PASS IN PROGRESS (Admin Settings done · Approval Queue COMPLETE (P1→P7) · Branches → P3 practitioner-type-fix; P4 = visual)
+## STATUS: BUILD COMPLETE + AUDITED (3 audits, ZERO must-fix) · EIGHT VERTICALS · DEMOABLE HOSPITAL TENANT · CURRENT STAGE = DEPLOYMENT · WIREFRAME-PARITY PASS (Admin Settings done · Approval Queue COMPLETE (P1→P7) · Branches COMPLETE (P1→P4; create-wizard = optional polish))
 
 > **RECONCILED (this pass — eight verticals built + audited; at the DEPLOY stage; a page-by-page wireframe-parity
 > pass now in progress).** CareOS is a multi-tenant agentic healthcare-operations platform (EU-first). **Stack:**
@@ -11,8 +11,8 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
 > 10.4 @3306, prod+CI MySQL 8 + Redis 7 + Node 22; Horizon via Memurai locally. **Latest commit:** `aac95c8`
 > (APPROVAL.P3 — the Approval Queue approve-contract caption), after the Admin Settings parity chain (→ `e7cabf0`),
 > DemoHospitalSeeder (D-147), the full-system QA audit + re-audit, and A11Y.1. **Suite:** `composer check` green —
-> Pest **1041 passed** (+6 from BRANCH.P3), PHPStan L5 `[OK]`, Pint clean; `composer test:smoke`
-> green; CI green on MySQL 8; the FIX.5 route-smoke guards against request-time 500s. (Latest commit: BRANCH.P3.)
+> Pest **1044 passed** (+3 from BRANCH.P4), PHPStan L5 `[OK]`, Pint clean; `composer test:smoke`
+> green; CI green on MySQL 8; the FIX.5 route-smoke guards against request-time 500s. (Latest commit: BRANCH.P4.)
 >
 > **WIREFRAME-PARITY PASS (in progress) — the discipline:** each app page is matched to its decoded wireframe in
 > the gitignored `resources/prototype/` (decode the bundler-shell HTML → AUDIT/diff into `docs/wireframe-parity/*.md`
@@ -51,8 +51,11 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
 >   deactivating the primary reassigns; never zero/two) — invariant-guarded, not cosmetic; the P1 hard guard stays
 >   unchanged. **BRANCH.P3** fixed the practitioner-resource correctness bug — a practitioner's type is now read-only
 >   (UI + server-enforced: a practitioner can't be retyped to room/chair/vehicle or vice-versa); a FIX, not a trim
->   (facility CRUD + practitioner name/status unchanged). Remaining Branches part: **P4 = the full visual**
->   (master-detail restructure + glass/eucardIn/terracotta + the create modal wizard).
+>   (facility CRUD + practitioner name/status unchanged). **BRANCH.P4** re-skinned the page to the wireframe's
+>   two-column master-detail (300px list | 4 glass detail cards) with Eucalyptus Glow (glass/eucardIn/terracotta/
+>   pills/status-dots, reused utilities) — PURELY presentational over the P1–P3 backend; honest suspend(soft)-vs-
+>   deactivate(hard) as distinct controls; correctly-more-real KEPT. **Branches parity COMPLETE (P1→P4);** only
+>   optional polish left (the create 3-step modal wizard — P4 ships a functional glass create panel).
 > See D-149 for the parity discipline; the per-page/per-part gate approach; reflect-only-RBAC; surface-don't-fabricate.
 >
 > **THE EIGHT VERTICALS (all built + green on the shared platform):**

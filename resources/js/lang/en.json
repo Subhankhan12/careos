@@ -2149,7 +2149,18 @@
         "create": {
             "title": "Add a branch",
             "subtitle": "A new active branch is immediately selectable for booking.",
-            "submit": "Create branch"
+            "submit": "Create branch",
+            "addAction": "Add branch",
+            "cancel": "Cancel"
+        },
+        "profile": {
+            "subtitle": "Branch profile & online booking."
+        },
+        "danger": {
+            "title": "Branch lifecycle",
+            "deactivateTitle": "Deactivate this branch",
+            "reactivateTitle": "Reactivate this branch",
+            "deactivateHelp": "Takes the branch fully offline — it drops from the day-board and all booking. Blocked while it still has upcoming appointments; reassign or cancel them first."
         },
         "list": {
             "title": "Your branches",

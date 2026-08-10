@@ -1,10 +1,9 @@
 <script setup lang="ts">
 import { Head, Link, router, useForm, usePage } from '@inertiajs/vue3';
-import { computed, reactive } from 'vue';
+import { computed, reactive, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import Button from '@/Components/Button.vue';
-import Card from '@/Components/Card.vue';
 import Input from '@/Components/Input.vue';
 
 const { t } = useI18n();
@@ -99,7 +98,13 @@ props.branches.forEach((branch) => {
 });
 
 function createBranch(): void {
-    createForm.post(props.storeUrl, { preserveScroll: true, onSuccess: () => createForm.reset() });
+    createForm.post(props.storeUrl, {
+        preserveScroll: true,
+        onSuccess: () => {
+            createForm.reset();
+            showCreate.value = false;
+        },
+    });
 }
 function saveDetails(branch: Branch): void {
     router.post(branch.updateUrl, details[branch.id], { preserveScroll: true });
@@ -138,17 +143,30 @@ function setResourceActive(resource: ResourceRow, active: boolean): void {
 function hoursInvalid(branchId: string): boolean {
     return hours[branchId].some((day) => !day.is_closed && (!day.open_time || !day.close_time || day.close_time <= day.open_time));
 }
+
+// ── Master-detail (presentational, over the already-loaded branches) ───────────
+// The left list selects a branch; the right column renders its 4 detail cards. Default to the
+// primary branch (else the first). All per-branch reactive state is keyed by id, so switching just
+// re-renders the same wired forms for the selected branch — no backend change.
+const selectedId = ref<string>(props.branches.find((b) => b.is_primary)?.id ?? props.branches[0]?.id ?? '');
+const selectedBranch = computed<Branch | undefined>(() => props.branches.find((b) => b.id === selectedId.value) ?? props.branches[0]);
+const showCreate = ref(false);
+const typeLabel = (type: string): string => t(`branchesAdmin.resources.type.${type}`);
 </script>
 
 <template>
     <AppLayout>
         <Head :title="t('branchesAdmin.title')" />
-        <div class="space-y-6">
-            <div>
-                <p class="text-xs font-semibold uppercase tracking-[0.14em] text-euca-700">{{ t('branchesAdmin.eyebrow') }}</p>
-                <h1 class="mt-1 text-2xl font-semibold tracking-tight text-ink">{{ t('branchesAdmin.title') }}</h1>
-                <p class="mt-1 text-sm text-ink-muted">{{ t('branchesAdmin.subtitle') }}</p>
-                <Link :href="settingsUrl" class="mt-2 inline-flex text-sm font-semibold text-euca-700 hover:text-euca-800">{{ t('branchesAdmin.backToSettings') }}</Link>
+        <div class="settings-surface space-y-6">
+            <!-- Header + Add branch -->
+            <div class="flex flex-wrap items-start justify-between gap-4">
+                <div>
+                    <p class="text-xs font-semibold uppercase tracking-[0.14em] text-euca-700">{{ t('branchesAdmin.eyebrow') }}</p>
+                    <h1 class="mt-1 text-2xl font-semibold tracking-tight text-ink">{{ t('branchesAdmin.title') }}</h1>
+                    <p class="mt-1 text-sm text-ink-muted">{{ t('branchesAdmin.subtitle') }}</p>
+                    <Link :href="settingsUrl" class="mt-2 inline-flex text-sm font-semibold text-euca-700 hover:text-euca-800">{{ t('branchesAdmin.backToSettings') }}</Link>
+                </div>
+                <Button type="button" pill :block="false" @click="showCreate = !showCreate">{{ t('branchesAdmin.create.addAction') }}</Button>
             </div>
 
             <p v-if="flash && ['created', 'updated', 'hoursSaved', 'deactivated', 'activated', 'onlineBookingsEnabled', 'onlineBookingsSuspended', 'primarySet', 'resourceCreated', 'resourceUpdated', 'resourceDeactivated', 'resourceActivated'].includes(flash)" class="rounded-2xl border border-success/30 bg-success-soft p-4 text-sm text-success">
@@ -161,9 +179,11 @@ function hoursInvalid(branchId: string): boolean {
                 {{ t('branchesAdmin.resources.blocked') }}
             </p>
 
-            <!-- Add a branch. -->
-            <Card :title="t('branchesAdmin.create.title')" :subtitle="t('branchesAdmin.create.subtitle')">
-                <form class="grid gap-4 sm:grid-cols-2" @submit.prevent="createBranch">
+            <!-- Add-a-branch panel (toggled by the header button; the full modal wizard is P5). -->
+            <div v-if="showCreate" class="glass-card euca-card-in p-5">
+                <p class="text-base font-semibold text-ink">{{ t('branchesAdmin.create.title') }}</p>
+                <p class="mt-0.5 text-sm text-ink-muted">{{ t('branchesAdmin.create.subtitle') }}</p>
+                <form class="mt-4 grid gap-4 sm:grid-cols-2" @submit.prevent="createBranch">
                     <Input id="c-name" v-model="createForm.name" :label="t('branchesAdmin.fields.name')" :error="createForm.errors.name" />
                     <Input id="c-code" v-model="createForm.code" :label="t('branchesAdmin.fields.code')" :error="createForm.errors.code === 'taken' ? t('branchesAdmin.errors.codeTaken') : createForm.errors.code" />
                     <Input id="c-addr1" v-model="createForm.address_line1" :label="t('branchesAdmin.fields.addressLine1')" :error="createForm.errors.address_line1" />
@@ -177,78 +197,90 @@ function hoursInvalid(branchId: string): boolean {
                             <option v-for="tz in timezones" :key="tz" :value="tz">{{ tz }}</option>
                         </select>
                     </label>
-                    <div class="sm:col-span-2">
-                        <Button type="submit" :block="false" :disabled="createForm.processing || !createForm.name || !createForm.code">{{ t('branchesAdmin.create.submit') }}</Button>
+                    <div class="flex items-center gap-2 sm:col-span-2">
+                        <Button type="submit" pill :block="false" :disabled="createForm.processing || !createForm.name || !createForm.code">{{ t('branchesAdmin.create.submit') }}</Button>
+                        <Button type="button" variant="ghost" pill :block="false" @click="showCreate = false">{{ t('branchesAdmin.create.cancel') }}</Button>
                     </div>
                 </form>
-            </Card>
+            </div>
 
-            <!-- Each branch: details, hours, status. -->
-            <Card v-for="branch in branches" :key="branch.id" :title="branch.name">
-                <div class="space-y-5">
-                    <!-- status row -->
-                    <div class="flex flex-wrap items-center gap-3 text-sm">
-                        <span class="rounded-full px-2.5 py-0.5 text-xs font-semibold" :class="branch.active ? 'bg-success-soft text-success' : 'bg-surface-2 text-ink-muted'">
-                            {{ branch.active ? t('branchesAdmin.status.active') : t('branchesAdmin.status.inactive') }}
-                        </span>
-                        <!-- Primary/default branch badge (exactly one per tenant) — or a set-primary action. -->
-                        <span v-if="branch.is_primary" class="rounded-full bg-euca-100 px-2.5 py-0.5 text-xs font-semibold text-euca-800">{{ t('branchesAdmin.primary.badge') }}</span>
-                        <Button v-else-if="branch.active" type="button" variant="secondary" :block="false" @click="setPrimary(branch)">{{ t('branchesAdmin.primary.setAction') }}</Button>
-                        <!-- Soft-suspend state (distinct from active): online booking on/off. -->
-                        <span class="rounded-full px-2.5 py-0.5 text-xs font-semibold" :class="branch.accepts_online_bookings ? 'bg-euca-50 text-euca-800' : 'bg-surface-2 text-ink-muted'">
-                            {{ branch.accepts_online_bookings ? t('branchesAdmin.onlineBookings.on') : t('branchesAdmin.onlineBookings.off') }}
-                        </span>
-                        <span class="text-ink-muted">{{ t('branchesAdmin.list.resources', { count: branch.active_resources }, branch.active_resources) }}</span>
-                        <span class="text-ink-muted">·</span>
-                        <span class="text-ink-muted">{{ t('branchesAdmin.list.appointments', { count: branch.future_appointments }, branch.future_appointments) }}</span>
-                        <span class="grow"></span>
-                        <Button v-if="branch.active" type="button" variant="danger" :block="false" :disabled="branch.future_appointments > 0" @click="setActive(branch, false)">{{ t('branchesAdmin.actions.deactivate') }}</Button>
-                        <Button v-else type="button" variant="secondary" :block="false" @click="setActive(branch, true)">{{ t('branchesAdmin.actions.activate') }}</Button>
+            <!-- ── MASTER-DETAIL: 300px branch list | detail column ─────────────────── -->
+            <div class="grid items-start gap-5 lg:grid-cols-[300px_1fr]">
+                <!-- LEFT: selectable branch list -->
+                <div class="glass-card euca-card-in space-y-2 p-3">
+                    <button
+                        v-for="branch in branches"
+                        :key="branch.id"
+                        type="button"
+                        class="w-full rounded-xl border border-transparent p-3 text-left transition hover:bg-euca-50/60"
+                        :class="branch.id === selectedId ? 'border-l-[3px] border-l-euca-600 bg-euca-50/80' : ''"
+                        @click="selectedId = branch.id"
+                    >
+                        <div class="flex items-center gap-2">
+                            <span class="inline-flex h-8 w-8 flex-none items-center justify-center rounded-lg bg-euca-100 text-euca-800">
+                                <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M3 21V8l9-5 9 5v13M9 21v-6h6v6" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" /></svg>
+                            </span>
+                            <span class="min-w-0 truncate font-semibold text-ink">{{ branch.name }}</span>
+                        </div>
+                        <p class="mt-1 text-xs text-ink-subtle">
+                            {{ t('branchesAdmin.list.resources', { count: branch.active_resources }, branch.active_resources) }}
+                            <span v-if="branch.is_primary"> · {{ t('branchesAdmin.primary.badge') }}</span>
+                        </p>
+                        <div class="mt-2 flex flex-wrap items-center gap-1.5">
+                            <span class="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium" :class="branch.active ? 'bg-success-soft text-success' : 'bg-surface-2 text-ink-muted'">
+                                <span class="h-1.5 w-1.5 rounded-full" :class="branch.active ? 'bg-success' : 'bg-ink-subtle'"></span>{{ branch.active ? t('branchesAdmin.status.active') : t('branchesAdmin.status.inactive') }}
+                            </span>
+                            <span class="inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium" :class="branch.accepts_online_bookings ? 'bg-euca-50 text-euca-800' : 'bg-surface-2 text-ink-muted'">
+                                {{ branch.accepts_online_bookings ? t('branchesAdmin.onlineBookings.on') : t('branchesAdmin.onlineBookings.off') }}
+                            </span>
+                        </div>
+                    </button>
+                </div>
+
+                <!-- RIGHT: the selected branch's detail (4 stacked cards) -->
+                <div v-if="selectedBranch" :key="selectedBranch.id" class="space-y-5">
+                    <!-- Card 1 — Branch profile + online booking -->
+                    <div class="glass-card euca-card-in p-6" :style="{ '--euca-card-delay': '0.02s' }">
+                        <div class="flex flex-wrap items-start justify-between gap-3">
+                            <div>
+                                <div class="flex flex-wrap items-center gap-2">
+                                    <h2 class="text-lg font-semibold text-ink">{{ selectedBranch.name }}</h2>
+                                    <span v-if="selectedBranch.is_primary" class="rounded-full bg-euca-100 px-2.5 py-0.5 text-xs font-semibold text-euca-800">{{ t('branchesAdmin.primary.badge') }}</span>
+                                    <Button v-else-if="selectedBranch.active" type="button" variant="secondary" pill :block="false" @click="setPrimary(selectedBranch)">{{ t('branchesAdmin.primary.setAction') }}</Button>
+                                </div>
+                                <p class="mt-0.5 text-sm text-ink-muted">{{ t('branchesAdmin.profile.subtitle') }}</p>
+                            </div>
+                            <Button type="button" pill :block="false" @click="saveDetails(selectedBranch)">{{ t('branchesAdmin.actions.save') }}</Button>
+                        </div>
+                        <div class="mt-4 grid gap-4 sm:grid-cols-2">
+                            <Input :id="`${selectedBranch.id}-name`" v-model="details[selectedBranch.id].name" :label="t('branchesAdmin.fields.name')" />
+                            <Input :id="`${selectedBranch.id}-code`" v-model="details[selectedBranch.id].code" :label="t('branchesAdmin.fields.code')" />
+                            <Input :id="`${selectedBranch.id}-phone`" v-model="details[selectedBranch.id].phone" :label="t('branchesAdmin.fields.phone')" />
+                            <Input :id="`${selectedBranch.id}-addr1`" v-model="details[selectedBranch.id].address_line1" :label="t('branchesAdmin.fields.addressLine1')" />
+                            <Input :id="`${selectedBranch.id}-city`" v-model="details[selectedBranch.id].city" :label="t('branchesAdmin.fields.city')" />
+                            <Input :id="`${selectedBranch.id}-postal`" v-model="details[selectedBranch.id].postal_code" :label="t('branchesAdmin.fields.postalCode')" />
+                            <Input :id="`${selectedBranch.id}-country`" v-model="details[selectedBranch.id].country" :label="t('branchesAdmin.fields.country')" />
+                            <label class="block">
+                                <span class="mb-1.5 block text-sm font-medium text-ink">{{ t('branchesAdmin.fields.timezone') }}</span>
+                                <select v-model="details[selectedBranch.id].timezone" class="block w-full rounded-md border border-line bg-surface px-3 py-2 text-sm text-ink">
+                                    <option v-for="tz in timezones" :key="tz" :value="tz">{{ tz }}</option>
+                                </select>
+                            </label>
+                        </div>
                     </div>
 
-                    <!-- Accept online bookings (soft-suspend) — always allowed; stops NEW online bookings,
-                         keeps existing appointments + the day-board. Distinct from deactivate. -->
-                    <div class="flex flex-wrap items-center gap-3 rounded-xl border border-line bg-surface-2/40 p-3 text-sm">
-                        <div class="min-w-0">
-                            <p class="font-medium text-ink">{{ t('branchesAdmin.onlineBookings.title') }}</p>
-                            <p class="text-xs text-ink-muted">{{ t('branchesAdmin.onlineBookings.help') }}</p>
+                    <!-- Card 2 — Opening hours (the W8b per-day editor, re-skinned) -->
+                    <div class="glass-card euca-card-in p-6" :style="{ '--euca-card-delay': '0.08s' }">
+                        <div class="flex flex-wrap items-center justify-between gap-3">
+                            <div>
+                                <h2 class="text-lg font-semibold text-ink">{{ t('branchesAdmin.hours.title') }}</h2>
+                                <p class="mt-0.5 text-sm text-ink-muted">{{ t('branchesAdmin.hours.subtitle') }}</p>
+                            </div>
+                            <Button type="button" pill :block="false" :disabled="hoursInvalid(selectedBranch.id)" @click="saveHours(selectedBranch)">{{ t('branchesAdmin.hours.save') }}</Button>
                         </div>
-                        <span class="grow"></span>
-                        <Button v-if="branch.accepts_online_bookings" type="button" variant="secondary" :block="false" @click="setOnlineBookings(branch, false)">{{ t('branchesAdmin.onlineBookings.suspend') }}</Button>
-                        <Button v-else type="button" :block="false" @click="setOnlineBookings(branch, true)">{{ t('branchesAdmin.onlineBookings.enable') }}</Button>
-                    </div>
-                    <p v-if="branch.active && branch.future_appointments > 0" class="text-xs text-ink-subtle">
-                        {{ t('branchesAdmin.errors.hasAppointments', { count: branch.future_appointments }, branch.future_appointments) }}
-                    </p>
-                    <p v-if="branch.active_resources === 0" class="text-xs text-ink-subtle">{{ t('branchesAdmin.list.noResources') }}</p>
-
-                    <!-- editable details -->
-                    <form class="grid gap-4 sm:grid-cols-2" @submit.prevent="saveDetails(branch)">
-                        <Input :id="`${branch.id}-name`" v-model="details[branch.id].name" :label="t('branchesAdmin.fields.name')" />
-                        <Input :id="`${branch.id}-code`" v-model="details[branch.id].code" :label="t('branchesAdmin.fields.code')" />
-                        <Input :id="`${branch.id}-addr1`" v-model="details[branch.id].address_line1" :label="t('branchesAdmin.fields.addressLine1')" />
-                        <Input :id="`${branch.id}-city`" v-model="details[branch.id].city" :label="t('branchesAdmin.fields.city')" />
-                        <Input :id="`${branch.id}-postal`" v-model="details[branch.id].postal_code" :label="t('branchesAdmin.fields.postalCode')" />
-                        <Input :id="`${branch.id}-country`" v-model="details[branch.id].country" :label="t('branchesAdmin.fields.country')" />
-                        <Input :id="`${branch.id}-phone`" v-model="details[branch.id].phone" :label="t('branchesAdmin.fields.phone')" />
-                        <label class="block">
-                            <span class="mb-1.5 block text-sm font-medium text-ink">{{ t('branchesAdmin.fields.timezone') }}</span>
-                            <select v-model="details[branch.id].timezone" class="block w-full rounded-md border border-line bg-surface px-3 py-2 text-sm text-ink">
-                                <option v-for="tz in timezones" :key="tz" :value="tz">{{ tz }}</option>
-                            </select>
-                        </label>
-                        <div class="sm:col-span-2">
-                            <Button type="submit" variant="secondary" :block="false">{{ t('branchesAdmin.actions.save') }}</Button>
-                        </div>
-                    </form>
-
-                    <!-- opening hours -->
-                    <div>
-                        <p class="text-sm font-semibold text-ink">{{ t('branchesAdmin.hours.title') }}</p>
-                        <p class="mt-0.5 text-xs text-ink-muted">{{ t('branchesAdmin.hours.subtitle') }}</p>
-                        <div class="mt-3 space-y-2">
-                            <div v-for="day in hours[branch.id]" :key="day.weekday" class="flex flex-wrap items-center gap-3 text-sm">
-                                <span class="w-24 font-medium text-ink">{{ t(`branchesAdmin.weekday.${day.weekday}`) }}</span>
+                        <div class="mt-3 space-y-1">
+                            <div v-for="day in hours[selectedBranch.id]" :key="day.weekday" class="flex flex-wrap items-center gap-3 border-b border-line/60 py-2 text-sm last:border-0">
+                                <span class="w-28 font-medium text-ink">{{ t(`branchesAdmin.weekday.${day.weekday}`) }}</span>
                                 <label class="inline-flex items-center gap-1.5 text-ink-muted">
                                     <input v-model="day.is_closed" type="checkbox" class="rounded border-line" />
                                     {{ t('branchesAdmin.hours.closed') }}
@@ -265,48 +297,78 @@ function hoursInvalid(branchId: string): boolean {
                                 </template>
                             </div>
                         </div>
-                        <Button type="button" variant="secondary" :block="false" :disabled="hoursInvalid(branch.id)" class="mt-3" @click="saveHours(branch)">{{ t('branchesAdmin.hours.save') }}</Button>
                     </div>
 
-                    <!-- bookable resources (rooms/chairs/vehicles) -->
-                    <div>
-                        <p class="text-sm font-semibold text-ink">{{ t('branchesAdmin.resources.title') }}</p>
-                        <p class="mt-0.5 text-xs text-ink-muted">{{ t('branchesAdmin.resources.subtitle') }}</p>
-                        <div class="mt-3 space-y-2">
-                            <p v-if="branch.resources.length === 0" class="text-xs text-ink-subtle">{{ t('branchesAdmin.resources.empty') }}</p>
-                            <div v-for="resource in branch.resources" :key="resource.id" class="flex flex-wrap items-center gap-2 text-sm">
-                                <span class="rounded-full px-2 py-0.5 text-xs font-semibold" :class="resource.active ? 'bg-success-soft text-success' : 'bg-surface-2 text-ink-muted'">
-                                    {{ resource.active ? t('branchesAdmin.status.active') : t('branchesAdmin.status.inactive') }}
+                    <!-- Card 3 — Resources (W8c CRUD; practitioner type read-only per P3, re-skinned) -->
+                    <div class="glass-card euca-card-in p-6" :style="{ '--euca-card-delay': '0.14s' }">
+                        <div class="flex flex-wrap items-center justify-between gap-3">
+                            <div>
+                                <h2 class="text-lg font-semibold text-ink">{{ t('branchesAdmin.resources.title') }}</h2>
+                                <p class="mt-0.5 text-sm text-ink-muted">{{ t('branchesAdmin.resources.subtitle') }}</p>
+                            </div>
+                        </div>
+                        <p v-if="selectedBranch.resources.length === 0" class="mt-3 text-sm text-ink-subtle">{{ t('branchesAdmin.resources.empty') }}</p>
+                        <div class="mt-3 space-y-1">
+                            <div v-for="resource in selectedBranch.resources" :key="resource.id" class="flex flex-wrap items-center gap-2 border-b border-line/60 py-2 text-sm last:border-0">
+                                <span class="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium" :class="resource.active ? 'bg-success-soft text-success' : 'bg-surface-2 text-ink-muted'">
+                                    <span class="h-1.5 w-1.5 rounded-full" :class="resource.active ? 'bg-success' : 'bg-ink-subtle'"></span>{{ resource.active ? t('branchesAdmin.status.active') : t('branchesAdmin.status.inactive') }}
                                 </span>
                                 <input v-model="resourceEdits[resource.id].name" class="w-40 rounded-md border border-line bg-surface px-2 py-1 text-sm text-ink" :aria-label="t('branchesAdmin.resources.name')" />
-                                <!-- A practitioner is person-backed: its type is what it IS — shown read-only, never a
-                                     room/chair/vehicle dropdown. Facility resources keep the editable type select. -->
-                                <span v-if="resource.type === 'practitioner'" class="rounded-full bg-euca-50 px-2.5 py-1 text-xs font-medium text-euca-800">{{ t('branchesAdmin.resources.type.practitioner') }}</span>
+                                <!-- Practitioner: person-backed, type read-only (P3). Facility: editable select. -->
+                                <span v-if="resource.type === 'practitioner'" class="rounded-full bg-euca-50 px-2.5 py-1 text-xs font-medium text-euca-800">{{ typeLabel(resource.type) }}</span>
                                 <select v-else v-model="resourceEdits[resource.id].type" class="rounded-md border border-line bg-surface px-2 py-1 text-sm text-ink" :aria-label="t('branchesAdmin.resources.type.label')">
-                                    <option v-for="rt in resourceTypes" :key="rt" :value="rt">{{ t(`branchesAdmin.resources.type.${rt}`) }}</option>
+                                    <option v-for="rt in resourceTypes" :key="rt" :value="rt">{{ typeLabel(rt) }}</option>
                                 </select>
-                                <Button type="button" variant="secondary" :block="false" @click="saveResource(resource)">{{ t('branchesAdmin.actions.save') }}</Button>
-                                <Button v-if="resource.active" type="button" variant="danger" :block="false" :disabled="resource.future_appointments > 0" @click="setResourceActive(resource, false)">{{ t('branchesAdmin.actions.deactivate') }}</Button>
-                                <Button v-else type="button" variant="secondary" :block="false" @click="setResourceActive(resource, true)">{{ t('branchesAdmin.actions.activate') }}</Button>
+                                <Button type="button" variant="secondary" pill :block="false" @click="saveResource(resource)">{{ t('branchesAdmin.actions.save') }}</Button>
+                                <Button v-if="resource.active" type="button" variant="danger" pill :block="false" :disabled="resource.future_appointments > 0" @click="setResourceActive(resource, false)">{{ t('branchesAdmin.actions.deactivate') }}</Button>
+                                <Button v-else type="button" variant="secondary" pill :block="false" @click="setResourceActive(resource, true)">{{ t('branchesAdmin.actions.activate') }}</Button>
                                 <span v-if="resource.active && resource.future_appointments > 0" class="text-xs text-ink-subtle">{{ t('branchesAdmin.resources.hasAppointments', { count: resource.future_appointments }, resource.future_appointments) }}</span>
                             </div>
                         </div>
-                        <div class="mt-3 flex flex-wrap items-end gap-2">
+                        <div class="mt-4 flex flex-wrap items-end gap-2">
                             <label class="block">
                                 <span class="mb-1 block text-xs font-medium text-ink-muted">{{ t('branchesAdmin.resources.name') }}</span>
-                                <input v-model="newResource[branch.id].name" class="w-40 rounded-md border border-line bg-surface px-2 py-1 text-sm text-ink" />
+                                <input v-model="newResource[selectedBranch.id].name" class="w-40 rounded-md border border-line bg-surface px-2 py-1 text-sm text-ink" />
                             </label>
                             <label class="block">
                                 <span class="mb-1 block text-xs font-medium text-ink-muted">{{ t('branchesAdmin.resources.type.label') }}</span>
-                                <select v-model="newResource[branch.id].type" class="rounded-md border border-line bg-surface px-2 py-1 text-sm text-ink">
-                                    <option v-for="rt in resourceTypes" :key="rt" :value="rt">{{ t(`branchesAdmin.resources.type.${rt}`) }}</option>
+                                <select v-model="newResource[selectedBranch.id].type" class="rounded-md border border-line bg-surface px-2 py-1 text-sm text-ink">
+                                    <option v-for="rt in resourceTypes" :key="rt" :value="rt">{{ typeLabel(rt) }}</option>
                                 </select>
                             </label>
-                            <Button type="button" variant="secondary" :block="false" :disabled="!newResource[branch.id].name" @click="createResource(branch)">{{ t('branchesAdmin.resources.add') }}</Button>
+                            <Button type="button" variant="secondary" pill :block="false" :disabled="!newResource[selectedBranch.id].name" @click="createResource(selectedBranch)">{{ t('branchesAdmin.resources.add') }}</Button>
+                        </div>
+                    </div>
+
+                    <!-- Card 4 — Lifecycle (terracotta): soft-suspend vs hard-deactivate, DISTINCT actions -->
+                    <div class="euca-card-in rounded-2xl border border-danger/25 bg-danger-soft/40 p-6" :style="{ '--euca-card-delay': '0.2s' }">
+                        <h2 class="text-lg font-semibold text-ink">{{ t('branchesAdmin.danger.title') }}</h2>
+                        <!-- Soft suspend (P1): stops NEW online bookings, keeps existing + the day-board. -->
+                        <div class="mt-3 flex flex-wrap items-center gap-3 border-b border-danger/15 pb-4">
+                            <div class="min-w-0">
+                                <p class="font-medium text-ink">{{ t('branchesAdmin.onlineBookings.title') }}</p>
+                                <p class="text-xs text-ink-muted">{{ t('branchesAdmin.onlineBookings.help') }}</p>
+                            </div>
+                            <span class="grow"></span>
+                            <Button v-if="selectedBranch.accepts_online_bookings" type="button" variant="secondary" pill :block="false" @click="setOnlineBookings(selectedBranch, false)">{{ t('branchesAdmin.onlineBookings.suspend') }}</Button>
+                            <Button v-else type="button" pill :block="false" @click="setOnlineBookings(selectedBranch, true)">{{ t('branchesAdmin.onlineBookings.enable') }}</Button>
+                        </div>
+                        <!-- Hard deactivate (W8b/P1): takes the branch offline entirely; BLOCKED while future appts. -->
+                        <div class="mt-4 flex flex-wrap items-center gap-3">
+                            <div class="min-w-0">
+                                <p class="font-medium text-ink">{{ selectedBranch.active ? t('branchesAdmin.danger.deactivateTitle') : t('branchesAdmin.danger.reactivateTitle') }}</p>
+                                <p class="text-xs text-ink-muted">{{ t('branchesAdmin.danger.deactivateHelp') }}</p>
+                                <p v-if="selectedBranch.active && selectedBranch.future_appointments > 0" class="mt-1 text-xs text-danger">
+                                    {{ t('branchesAdmin.errors.hasAppointments', { count: selectedBranch.future_appointments }, selectedBranch.future_appointments) }}
+                                </p>
+                            </div>
+                            <span class="grow"></span>
+                            <Button v-if="selectedBranch.active" type="button" variant="danger" pill :block="false" :disabled="selectedBranch.future_appointments > 0" @click="setActive(selectedBranch, false)">{{ t('branchesAdmin.actions.deactivate') }}</Button>
+                            <Button v-else type="button" variant="secondary" pill :block="false" @click="setActive(selectedBranch, true)">{{ t('branchesAdmin.actions.activate') }}</Button>
                         </div>
                     </div>
                 </div>
-            </Card>
+            </div>
         </div>
     </AppLayout>
 </template>

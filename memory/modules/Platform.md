@@ -203,6 +203,18 @@ running shows up as an absence rather than as nothing at all.
   The implicit "first branch" default (billing `Branch::firstOrFail`) is NOT rewired (follow-up). Minimal "Primary"
   badge + "Set as primary" UI (full visual P4). Locked by `tests/Feature/Platform/BranchPrimaryTest.php` (8).
 
+- **BRANCH.P4 (wireframe-parity) — master-detail restructure + Eucalyptus Glow, PURELY presentational.**
+  `Admin/Branches.vue` re-skinned from a single-column stack to the wireframe's two-column master-detail (300px
+  branch list | 4 stacked glass detail cards for the selected branch: Profile, Opening hours, Resources, terracotta
+  Lifecycle). Honest suspend(soft: P1 accepts_online_bookings)-vs-deactivate(hard: W8b/P1) as DISTINCT controls in
+  the Lifecycle card, neither mislabelled/merged. Reused existing Eucalyptus Glow utilities (`.glass-card`,
+  `.euca-card-in`/`eucardIn`, `.settings-surface`, `--color-danger #b4552d` terracotta) — no new CSS. Header
+  [+ Add branch] toggles a glass create panel over the existing `store` (the 3-step modal wizard is optional
+  polish). NO backend/guard change — all P1–P3 + W8b/W8c re-skinned only; correctly-more-real (structured
+  address/code/timezone, hours editor, resource CRUD + guards) KEPT. Locked by
+  `tests/Feature/Platform/BranchMasterDetailTest.php` (3, props/behaviour not markup). **Branches parity COMPLETE
+  (P1→P4).**
+
 - Bookable-resource CRUD (CLINIC.W8c) closes the W8b "no resource backend" gap: rooms/chairs/vehicles are created
   under a branch on the same `/admin/branches` admin screen. The `Resource` model + guard are SCHEDULING (see
   [[Scheduling]] / [[D-096]]) — noted here because it is administered from the Platform branch-admin surface and its
