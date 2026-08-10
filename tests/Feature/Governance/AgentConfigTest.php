@@ -1,13 +1,24 @@
 <?php
 
+use App\Services\AgentMetricsService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Route;
 use Inertia\Testing\AssertableInertia as Assert;
+use Modules\AiCore\Exceptions\AiInteractionImmutableException;
+use Modules\AiCore\Exceptions\FenceRefusalException;
 use Modules\AiCore\Models\Agent;
+use Modules\AiCore\Models\AgentAction;
+use Modules\AiCore\Models\AiInteraction;
 use Modules\AiCore\Services\AgentResolver;
+use Modules\AiCore\Services\ApprovalQueue;
 use Modules\AiCore\Services\AutonomyPolicy;
 use Modules\AiCore\Services\ToolRegistry;
+use Modules\Comms\Services\ThreadService;
+use Modules\Patients\Models\ConsentTemplate;
+use Modules\Patients\Models\PortalAccount;
+use Modules\Patients\Services\ConsentService;
+use Modules\Patients\Services\PatientService;
 use Modules\Platform\Models\Role;
 use Modules\Platform\Models\RoleAssignment;
 use Modules\Platform\Models\Tenant;
@@ -424,4 +435,170 @@ test('the P3 permission mirror reflects the real updated whitelist (read-only)',
 
             return $exercised === ['comms.manage']; // note.write dropped with its only tool
         }));
+});
+
+/*
+ * AGENT.P5 — per-agent hero metrics + the action-ledger tab, computed ONLY from real records (the
+ * append-only ai_interactions ledger + the ApprovalQueue outcomes incl. the P5 fence_refused). THE
+ * HONESTY RULE: every metric is a real count, or honestly absent (null -> "-"); no fabricated
+ * number, no invented ledger row. These tests ADD coverage; no existing behaviour test is modified.
+ */
+
+/** Propose a REAL comms.draft_reply whose draft hands off (non-groundable) - the genuine fence path. */
+function acProposeHandoffDraft(Tenant $tenant, User $actor): AgentAction
+{
+    acCtx()->set($tenant);
+
+    $patient = app(PatientService::class)->create([
+        'first_name' => 'Fence', 'last_name' => 'Probe', 'date_of_birth' => '1990-01-01', 'sex' => 'female',
+    ]);
+    ConsentTemplate::query()->firstOrCreate(
+        ['key' => 'portal', 'version' => 1],
+        ['title' => 'Portal Access', 'body' => 'Portal access consent', 'scope_keys' => ['portal.access'], 'is_active' => true],
+    );
+    app(ConsentService::class)->grant($patient, 'portal', 'Fence Probe', $actor);
+    PortalAccount::query()->create([
+        'patient_id' => $patient->id, 'email' => 'fence.'.$patient->id.'@portal.test',
+        'password' => bcrypt('secret-portal-pass'), 'status' => PortalAccount::STATUS_ACTIVE, 'activated_at' => now(),
+    ]);
+
+    $thread = app(ThreadService::class)->openPatientThread($patient, 'Question', $actor);
+    app(ThreadService::class)->postPatientMessage($thread, $patient, 'Vielen Dank fuer Ihre Hilfe!');
+
+    return app(ApprovalQueue::class)->propose(
+        'comms.draft_reply', ['thread_id' => $thread->id], $actor, 'comms.draft_reply', 'inbox',
+        'A non-groundable patient message; the draft hands off.', AutonomyPolicy::SUGGEST,
+    );
+}
+
+/** Seed real inbox activity: one executed (approved as-is), one rejected, one fence_refused - all real paths. */
+function acSeedInboxActivity(Tenant $tenant, User $actor): void
+{
+    $queue = app(ApprovalQueue::class);
+
+    // Approved as-is: a demo.echo action (agent 'inbox') proposed then approved -> executed, no edit.
+    $ok = $queue->propose('demo.echo', ['message' => 'hi'], $actor, 'demo.echo', 'inbox', 'A clean echo.', AutonomyPolicy::APPROVE);
+    $queue->approve($ok, $actor);
+
+    // Rejected: a second demo.echo proposed then rejected.
+    $no = $queue->propose('demo.echo', ['message' => 'no'], $actor, 'demo.echo', 'inbox', 'A rejected echo.', AutonomyPolicy::APPROVE);
+    $queue->reject($no, $actor, 'Not needed.');
+
+    // Fence refused: a handed-off draft; approving fires (and records) the fence.
+    $fence = acProposeHandoffDraft($tenant, $actor);
+    try {
+        $queue->approve($fence, $actor);
+    } catch (FenceRefusalException) {
+        // Expected - recorded as fence_refused before re-throw.
+    }
+}
+
+// -- The hero metrics are REAL counts from the ledger / approval queue --------------------------------
+
+test('the hero metrics are real counts from the ledger and approval queue', function () {
+    $tenant = acTenant();
+    $admin = acUser($tenant, 'org_admin');
+    acSeedInboxActivity($tenant, $admin);
+
+    $inbox = acAgent($tenant, 'inbox');
+    $metrics = app(AgentMetricsService::class)->hero($inbox);
+
+    // drafts today = 3 proposed (2 echo + 1 handoff draft); fence_refused (7d) = 1 real refusal.
+    expect($metrics['draftsToday'])->toBe(3)
+        ->and($metrics['fenceRefused7d'])->toBe(1)
+        // approved-as-is = 1 executed-without-edit / 3 resolved (executed+rejected+fence) = 33%.
+        ->and($metrics['approvedAsIsPct'])->toBe(33);
+
+    // Cross-check against the raw records - the metric is not fabricated.
+    expect(AiInteraction::query()->whereIn('agent', ['inbox', 'inbox-agent', 'front-desk-agent'])->where('outcome', 'proposed')->count())->toBe(3)
+        ->and(AgentAction::query()->where('agent', 'inbox')->where('status', AgentAction::STATUS_FENCE_REFUSED)->count())->toBe(1);
+});
+
+test('approved-as-is is honestly absent (null) for an agent with no resolved actions - never a fabricated 0', function () {
+    $tenant = acTenant();
+    $admin = acUser($tenant, 'org_admin');
+
+    // scheduler has no actions at all -> approvedAsIsPct is null (renders "-"), drafts/fence are 0.
+    $metrics = app(AgentMetricsService::class)->hero(acAgent($tenant, 'scheduler'));
+    expect($metrics['approvedAsIsPct'])->toBeNull()
+        ->and($metrics['draftsToday'])->toBe(0)
+        ->and($metrics['fenceRefused7d'])->toBe(0);
+});
+
+test('the hero metrics ride to the page per agent', function () {
+    $tenant = acTenant();
+    $admin = acUser($tenant, 'org_admin');
+    acSeedInboxActivity($tenant, $admin);
+
+    $this->actingAs($admin)
+        ->get('/governance/agents')
+        ->assertInertia(fn (Assert $page) => $page->where('agents', function ($agents) {
+            $inbox = collect($agents)->firstWhere('key', 'inbox');
+            $scheduler = collect($agents)->firstWhere('key', 'scheduler');
+
+            return $inbox['metrics']['fenceRefused7d'] === 1
+                && $inbox['metrics']['draftsToday'] === 3
+                && $inbox['metrics']['approvedAsIsPct'] === 33
+                && $scheduler['metrics']['approvedAsIsPct'] === null; // honest "-", not a fake 0
+        }));
+});
+
+// -- The action-ledger tab lists the agent's REAL actions with real outcomes --------------------------
+
+test('the action ledger lists real interactions incl. the fence_refused (system-attributed, with reason)', function () {
+    $tenant = acTenant();
+    $admin = acUser($tenant, 'org_admin');
+    acSeedInboxActivity($tenant, $admin);
+
+    $this->actingAs($admin)
+        ->get('/governance/agents')
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('ledger')
+            ->where('ledger', function ($ledger) {
+                $rows = collect($ledger);
+                $fence = $rows->firstWhere('outcome', 'fence_refused');
+
+                return $rows->isNotEmpty()
+                    // Every row carries a real outcome string (no invented status).
+                    && $rows->every(fn ($r) => in_array($r['outcome'], ['proposed', 'approved', 'executed', 'rejected', 'fence_refused'], true))
+                    // The fence row is present, system-attributed, and carries the fence's real reason.
+                    && $fence !== null
+                    && $fence['system'] === true
+                    && is_string($fence['reason']) && $fence['reason'] !== ''
+                    && $fence['agentLabel'] === 'Front-desk (inbox)';
+            }));
+});
+
+// -- The ledger view is READ-ONLY: the ledger is append-only/immutable, no edit path -----------------
+
+test('the ledger is a read-only view of an append-only, immutable table', function () {
+    $tenant = acTenant();
+    $admin = acUser($tenant, 'org_admin');
+    acSeedInboxActivity($tenant, $admin);
+
+    // No edit/delete route exists for the ledger anywhere under governance.agents.
+    $names = collect(Route::getRoutes()->getRoutes())
+        ->map(fn ($r) => (string) $r->getName())
+        ->filter(fn ($n) => str_starts_with($n, 'governance.agents') && preg_match('/ledger|interaction|delete|edit/i', $n));
+    expect($names)->toBeEmpty();
+
+    // The underlying ledger row is immutable - UPDATE and DELETE both throw (ORM guard + DB triggers).
+    $row = AiInteraction::query()->firstOrFail();
+    expect(fn () => $row->update(['outcome' => 'tampered']))->toThrow(AiInteractionImmutableException::class);
+    expect(fn () => $row->delete())->toThrow(AiInteractionImmutableException::class);
+});
+
+// -- Metrics are tenant-scoped ------------------------------------------------------------------------
+
+test('per-agent metrics are tenant-scoped - another tenants activity does not leak', function () {
+    $alpha = acTenant('alpha');
+    $alphaAdmin = acUser($alpha, 'org_admin');
+    acSeedInboxActivity($alpha, $alphaAdmin);
+
+    $beta = acTenant('beta'); // sets context to beta; beta has NO activity
+    $betaMetrics = app(AgentMetricsService::class)->hero(acAgent($beta, 'inbox'));
+
+    expect($betaMetrics['draftsToday'])->toBe(0)
+        ->and($betaMetrics['fenceRefused7d'])->toBe(0)
+        ->and($betaMetrics['approvedAsIsPct'])->toBeNull(); // beta saw none of alpha's actions
 });

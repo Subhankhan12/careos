@@ -33,7 +33,19 @@ type Agent = {
     tools: ToolRow[];
     permissions: { exercised: ExercisedPermission[]; withheld: WithheldPermission[] };
     whitelist: { enabledCount: number; candidateCount: number; tools: WhitelistTool[] };
+    metrics: { draftsToday: number; approvedAsIsPct: number | null; fenceRefused7d: number };
     configureUrl: string;
+};
+type LedgerRow = {
+    id: string;
+    agent: string;
+    agentLabel: string;
+    feature: string;
+    tool: string;
+    outcome: string;
+    reason: string | null;
+    occurredAt: string | null;
+    system: boolean;
 };
 
 const props = defineProps<{
@@ -42,6 +54,7 @@ const props = defineProps<{
     governanceUrl: string;
     fenceInvariants: string[];
     rolesUrl: string;
+    ledger: LedgerRow[];
 }>();
 
 const flash = computed(() => (page.props.flash as { status?: string } | undefined)?.status);
@@ -53,8 +66,27 @@ props.agents.forEach((agent) => {
     draft[agent.id] = { level: agent.level, status: agent.status };
 });
 
-// ── Tabs (Agents · Action ledger). The ledger tab content is P5 — the shell exists here. ──────
+// ── Tabs (Agents · Action ledger). ────────────────────────────────────────────────────────────
 const tab = ref<'agents' | 'ledger'>('agents');
+
+// ── Action-ledger tab (P5) — a read-only VIEW of the append-only ai_interactions ledger, with a
+// client-side agent filter (the ApprovalQueue.vue pattern). Real rows only; nothing editable here.
+const ledgerAgentFilter = ref<string>('all');
+const ledgerAgents = computed<string[]>(() => Array.from(new Set(props.ledger.map((r) => r.agentLabel))).sort());
+const filteredLedger = computed<LedgerRow[]>(() =>
+    ledgerAgentFilter.value === 'all' ? props.ledger : props.ledger.filter((r) => r.agentLabel === ledgerAgentFilter.value),
+);
+function formatWhen(iso: string | null): string {
+    if (!iso) return '—';
+    const d = new Date(iso);
+    return Number.isNaN(d.getTime()) ? '—' : d.toLocaleString();
+}
+// Real outcomes carry their own tint; a fence refusal is danger, executed is success, the rest neutral.
+function outcomeClass(outcome: string): string {
+    if (outcome === 'fence_refused' || outcome === 'rejected') return 'bg-danger-soft text-danger';
+    if (outcome === 'executed' || outcome === 'approved') return 'bg-success-soft text-success';
+    return 'bg-surface-2 text-ink-muted';
+}
 
 // ── Master-detail (over the already-loaded agents) ──────────────────────────────
 const selectedId = ref<string>(props.agents[0]?.id ?? '');
@@ -125,15 +157,62 @@ const categoryLabel = (category: string): string => t(`agents.categories.${categ
                 {{ t('agentConfig.flash.saved') }}
             </p>
 
-            <!-- Tabs: Agents · Action ledger (the ledger content is P5; the shell exists) -->
+            <!-- Tabs: Agents · Action ledger -->
             <div class="flex items-center gap-1 rounded-full bg-euca-50/80 p-1 text-sm font-medium" role="tablist">
                 <button type="button" role="tab" :aria-selected="tab === 'agents'" class="rounded-full px-4 py-1.5 transition" :class="tab === 'agents' ? 'nav-pill-active text-ink' : 'text-ink-muted hover:text-ink'" @click="tab = 'agents'">{{ t('agentConfig.tabs.agents') }}</button>
                 <button type="button" role="tab" :aria-selected="tab === 'ledger'" class="rounded-full px-4 py-1.5 transition" :class="tab === 'ledger' ? 'nav-pill-active text-ink' : 'text-ink-muted hover:text-ink'" @click="tab = 'ledger'">{{ t('agentConfig.tabs.ledger') }}</button>
             </div>
 
-            <!-- Action ledger tab — the activity feed lands in P5. Honest placeholder, no faked data. -->
-            <div v-if="tab === 'ledger'" class="glass-card euca-card-in p-6 text-sm text-ink-muted">
-                {{ t('agentConfig.ledger.placeholder') }}
+            <!-- ACTION LEDGER tab (P5) — a READ-ONLY view of the append-only ai_interactions ledger.
+                 Real rows only; the table is immutable (no edit/delete control anywhere here). -->
+            <div v-if="tab === 'ledger'" class="glass-card euca-card-in p-6">
+                <div class="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                        <h2 class="text-base font-semibold text-ink">{{ t('agentConfig.ledger.title') }}</h2>
+                        <p class="mt-0.5 text-sm text-ink-muted">{{ t('agentConfig.ledger.subtitle') }}</p>
+                    </div>
+                    <span class="inline-flex flex-none items-center gap-1 rounded-full bg-surface-2 px-2.5 py-1 text-[11px] font-medium text-ink-muted">
+                        <svg class="h-3 w-3" viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2" stroke="currentColor" stroke-width="1.7" /><path d="M8 11V8a4 4 0 0 1 8 0v3" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" /></svg>
+                        {{ t('agentConfig.ledger.appendOnly') }}
+                    </span>
+                </div>
+
+                <!-- Agent filter pills (client-side, over the loaded real rows) -->
+                <div v-if="ledgerAgents.length > 1" class="mt-4 flex flex-wrap gap-1.5">
+                    <button type="button" class="rounded-full px-3 py-1 text-xs font-medium transition" :class="ledgerAgentFilter === 'all' ? 'nav-pill-active text-ink' : 'bg-surface-2 text-ink-muted hover:text-ink'" @click="ledgerAgentFilter = 'all'">{{ t('agentConfig.ledger.allAgents') }}</button>
+                    <button v-for="a in ledgerAgents" :key="a" type="button" class="rounded-full px-3 py-1 text-xs font-medium transition" :class="ledgerAgentFilter === a ? 'nav-pill-active text-ink' : 'bg-surface-2 text-ink-muted hover:text-ink'" @click="ledgerAgentFilter = a">{{ a }}</button>
+                </div>
+
+                <p v-if="filteredLedger.length === 0" class="mt-4 text-sm text-ink-subtle">{{ t('agentConfig.ledger.empty') }}</p>
+
+                <div v-else class="mt-4 overflow-x-auto">
+                    <table class="w-full min-w-[640px] text-left text-sm">
+                        <thead>
+                            <tr class="border-b border-line text-xs uppercase tracking-wide text-ink-subtle">
+                                <th class="py-2 pr-3 font-medium">{{ t('agentConfig.ledger.col.when') }}</th>
+                                <th class="py-2 pr-3 font-medium">{{ t('agentConfig.ledger.col.agent') }}</th>
+                                <th class="py-2 pr-3 font-medium">{{ t('agentConfig.ledger.col.tool') }}</th>
+                                <th class="py-2 pr-3 font-medium">{{ t('agentConfig.ledger.col.outcome') }}</th>
+                                <th class="py-2 font-medium">{{ t('agentConfig.ledger.col.detail') }}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr v-for="row in filteredLedger" :key="row.id" class="border-b border-line/50 align-top">
+                                <td class="whitespace-nowrap py-2 pr-3 text-ink-muted">{{ formatWhen(row.occurredAt) }}</td>
+                                <td class="py-2 pr-3">
+                                    <span class="font-medium text-ink">{{ row.agentLabel }}</span>
+                                    <span v-if="row.system" class="ml-1.5 inline-flex items-center rounded-full bg-surface-2 px-1.5 py-0.5 text-[10px] font-medium text-ink-subtle">{{ t('agentConfig.ledger.system') }}</span>
+                                </td>
+                                <td class="py-2 pr-3 font-mono text-[11px] text-ink-subtle">{{ row.tool }}</td>
+                                <td class="py-2 pr-3">
+                                    <span class="inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium" :class="outcomeClass(row.outcome)">{{ t(`agentConfig.ledger.outcomes.${row.outcome}`, row.outcome) }}</span>
+                                </td>
+                                <td class="py-2 text-xs text-ink-muted">{{ row.reason || '—' }}</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <p class="mt-4 text-xs text-ink-subtle">{{ t('agentConfig.ledger.footnote') }}</p>
             </div>
 
             <p v-else-if="agents.length === 0" class="glass-card euca-card-in p-6 text-sm text-ink-muted">{{ t('agentConfig.empty') }}</p>
@@ -181,6 +260,7 @@ const categoryLabel = (category: string): string => t(`agents.categories.${categ
                                 {{ selected.status === 'active' ? t('agentConfig.status.active') : t('agentConfig.status.paused') }}
                             </span>
                         </div>
+                        <!-- Configuration -->
                         <div class="mt-5 flex flex-wrap items-center gap-x-8 gap-y-3">
                             <div>
                                 <p class="text-[11px] uppercase tracking-wide text-euca-200/70">{{ t('agentConfig.hero.ceilingLabel') }}</p>
@@ -193,6 +273,23 @@ const categoryLabel = (category: string): string => t(`agents.categories.${categ
                             <div>
                                 <p class="text-[11px] uppercase tracking-wide text-euca-200/70">{{ t('agentConfig.hero.toolsLabel') }}</p>
                                 <p class="mt-0.5 text-lg font-semibold text-white">{{ selected.tools.length }}</p>
+                            </div>
+                        </div>
+
+                        <!-- Live metrics — REAL counts from the ledger / approval queue (or honest "—"). -->
+                        <div class="mt-5 grid grid-cols-3 gap-3 border-t border-white/10 pt-5">
+                            <div class="rounded-2xl bg-white/5 px-4 py-3">
+                                <p class="text-2xl font-semibold text-white">{{ selected.metrics.draftsToday }}</p>
+                                <p class="mt-0.5 text-[11px] uppercase tracking-wide text-euca-200/70">{{ t('agentConfig.hero.draftsToday') }}</p>
+                            </div>
+                            <div class="rounded-2xl bg-white/5 px-4 py-3">
+                                <p class="text-2xl font-semibold text-white">{{ selected.metrics.approvedAsIsPct === null ? t('agentConfig.hero.notTracked') : selected.metrics.approvedAsIsPct + '%' }}</p>
+                                <p class="mt-0.5 text-[11px] uppercase tracking-wide text-euca-200/70">{{ t('agentConfig.hero.approvedAsIs') }}</p>
+                            </div>
+                            <!-- Fence-refused: danger-tinted per the wireframe. -->
+                            <div class="rounded-2xl px-4 py-3" :class="selected.metrics.fenceRefused7d > 0 ? 'bg-danger/25 ring-1 ring-danger/40' : 'bg-white/5'">
+                                <p class="text-2xl font-semibold" :class="selected.metrics.fenceRefused7d > 0 ? 'text-amber-200' : 'text-white'">{{ selected.metrics.fenceRefused7d }}</p>
+                                <p class="mt-0.5 text-[11px] uppercase tracking-wide text-euca-200/70">{{ t('agentConfig.hero.fenceRefused') }}</p>
                             </div>
                         </div>
                         <p class="mt-4 text-xs text-euca-200/70">{{ t('agentConfig.hero.metricsNote') }}</p>

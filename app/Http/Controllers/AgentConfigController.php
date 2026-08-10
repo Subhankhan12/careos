@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Services\AgentConfigService;
+use App\Services\AgentMetricsService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
@@ -38,8 +39,10 @@ use Modules\Platform\Services\RbacProvisioner;
  * code-enforced invariants, no disable path here). The tool WHITELIST is editable (AGENT.P4):
  * enabling/disabling changes WHICH tools the agent may call (narrowing the callable set, clamped to
  * the agent's candidate remit), never a tool's ceiling/permission — the resolver still caps each
- * tool at runtime (P1). This gate chain builds the list + shell + ladder + the two read-only panels
- * + the whitelist — no metrics/ledger (P5), no limits (P6).
+ * tool at runtime (P1). The per-agent hero metrics + the action-ledger tab (AGENT.P5) are computed
+ * ONLY from real records ({@see AgentMetricsService}) — every number is a real count or honestly
+ * absent ("—"), never fabricated. This gate chain builds the list + shell + ladder + the two
+ * read-only panels + the whitelist + the metrics/ledger — no limits (P6).
  */
 class AgentConfigController
 {
@@ -68,7 +71,10 @@ class AgentConfigController
         'reground_at_approve',  // approve re-authorises the tool permission + re-executes from live state
     ];
 
-    public function __construct(private readonly AutonomyPolicy $autonomy) {}
+    public function __construct(
+        private readonly AutonomyPolicy $autonomy,
+        private readonly AgentMetricsService $metrics,
+    ) {}
 
     public function index(Request $request, AgentResolver $resolver, ToolRegistry $tools): Response
     {
@@ -88,6 +94,9 @@ class AgentConfigController
             // mirror links to (permissions are changed THERE, by changing the role — not here).
             'fenceInvariants' => self::FENCE_INVARIANTS,
             'rolesUrl' => route('admin.roles.index'),
+            // The action-ledger tab (AGENT.P5) — a read-only VIEW of the append-only ai_interactions
+            // ledger, tenant-scoped, newest first. Real rows only.
+            'ledger' => $this->metrics->ledger(),
         ]);
     }
 
@@ -205,6 +214,7 @@ class AgentConfigController
             'tools' => $this->tools($agent, $tools),
             'permissions' => $this->permissionMirror($agent, $tools),
             'whitelist' => $this->toolWhitelist($agent, $resolver, $tools),
+            'metrics' => $this->metrics->hero($agent),
             'configureUrl' => route('governance.agents.configure', ['agent' => $agent->id]),
         ];
     }

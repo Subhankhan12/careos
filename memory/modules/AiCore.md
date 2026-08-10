@@ -354,6 +354,25 @@ forged locked/unregistered key is dropped server-side. The P3 mirror's `exercise
 each load, so it reflects the real whitelist (still read-only). i18n `agentConfig.whitelist.*`. Locked by
 `tests/Feature/Governance/AgentConfigTest.php` (18 total; +5 P4).
 
+## Per-agent metrics + the action-ledger (AGENT.P5 — real data only, no faked numbers)
+
+The per-agent hero metrics + the action-ledger tab are computed ONLY from real records
+(`App\Services\AgentMetricsService`). **Attribution:** the `agent` column on `ai_interactions`/`agent_actions` is a
+free-form string with NO FK to `Agent::key` — the codebase writes it two ways (bare key from seeders/direct
+ApprovalQueue calls, e.g. 'inbox'; the code-class const from production agents, e.g. `InboxAgent::AGENT`=
+'inbox-agent'; there is no scheduler agent class). `AgentRegistry::LEDGER_ALIASES` (+ `ledgerNames`/`displayName`) is
+the single source of truth mapping each canonical agent → its ledger string(s), so metrics are a real
+`WHERE agent IN (...)`. **Hero metrics** (each a real count or honest "—"): draftsToday = `ai_interactions`
+outcome='proposed' today; fenceRefused7d = `agent_actions` status=fence_refused in 7d (danger-tinted);
+approvedAsIsPct = executed-without-edit (`edited_payload IS NULL`) / total resolved — **null → "—" when nothing is
+resolved** (never a fabricated 0/100). **Action-ledger tab** = the newest-first rows of the append-only
+`ai_interactions` (tenant-scoped), each with agent(canonical label)/tool/outcome/detail; a fence_refused row is
+system-attributed with the fence's own reason. A **read-only VIEW of an immutable table** (no edit/delete route;
+model + DB triggers block UPDATE/DELETE). A real fence_refused is seeded through the real path in `DemoClinicSeeder`
+(propose a non-groundable draft → approve → the fence fires + records fence_refused). i18n `agentConfig.hero.*` +
+`agentConfig.ledger.*`. Locked by `tests/Feature/Governance/AgentConfigTest.php` (24 total; +6 P5). One demo-fixture
+thread count in `DemoClinicSeederTest` (patient threads 3→4) was updated for the added fence thread.
+
 ## Open items
 
 - Richer production-grade vector retrieval is still unbuilt (KB admin UI now exists, W10 above; approval-queue UI, W9).

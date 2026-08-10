@@ -182,8 +182,9 @@ test('demo clinic seeder produces a non-trivial, tenant-scoped clinic', function
     // events, never from the planned window.
     expect(TimesheetLine::query()->whereNull('started_at')->count())->toBe(0);
 
-    // Comms: patient threads, one flagged clinical, an internal thread, deliveries.
-    expect(Thread::query()->where('type', Thread::TYPE_PATIENT)->count())->toBe(3)
+    // Comms: patient threads (incl. the non-groundable "Vielen Dank" thread that seeds a real
+    // fence_refused via the inbox agent, AGENT.P5), one flagged clinical, an internal thread, deliveries.
+    expect(Thread::query()->where('type', Thread::TYPE_PATIENT)->count())->toBe(4)
         ->and(Thread::query()->whereNotNull('assigned_to')->count())->toBe(1)
         ->and(Thread::query()->where('type', Thread::TYPE_INTERNAL)->count())->toBe(1)
         ->and(Thread::query()->whereNotNull('clinician_attention_at')->count())->toBe(1)

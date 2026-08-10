@@ -896,7 +896,32 @@
             "ledger": "Action ledger"
         },
         "ledger": {
-            "placeholder": "The per-agent action ledger — every draft, approval and fence outcome — lands with a later step. Nothing is shown here yet rather than show placeholder numbers."
+            "title": "Action ledger",
+            "subtitle": "Every recorded agent interaction, newest first — drafts, approvals, rejections and fence refusals.",
+            "appendOnly": "Append-only",
+            "allAgents": "All agents",
+            "empty": "No agent interactions have been recorded yet.",
+            "system": "system",
+            "footnote": "A read-only view of the append-only interaction ledger. Rows cannot be edited or deleted — the table is immutable in the ORM and by database triggers.",
+            "col": {
+                "when": "When",
+                "agent": "Agent",
+                "tool": "Tool",
+                "outcome": "Outcome",
+                "detail": "Detail"
+            },
+            "outcomes": {
+                "proposed": "Proposed",
+                "approved": "Approved",
+                "executed": "Executed",
+                "rejected": "Rejected",
+                "fence_refused": "Fence refused",
+                "refused": "Refused",
+                "off": "Off",
+                "disabled": "Disabled",
+                "budget_blocked": "Budget blocked",
+                "escalated": "Escalated"
+            }
         },
         "empty": "No governed agents are registered for this tenant.",
         "status": {
@@ -908,7 +933,11 @@
             "ceilingLabel": "Effective ceiling",
             "configuredLabel": "Configured",
             "toolsLabel": "Tools",
-            "metricsNote": "Live activity metrics arrive with the action ledger. This panel shows configuration and the ceiling the runtime enforces — no placeholder numbers."
+            "draftsToday": "Drafts today",
+            "approvedAsIs": "Approved as-is",
+            "fenceRefused": "Fence refused · 7d",
+            "notTracked": "—",
+            "metricsNote": "Every metric is a real count from the interaction ledger and the approval queue. A metric with no data yet shows —, never a placeholder number."
         },
         "pipeline": {
             "title": "How this agent acts",

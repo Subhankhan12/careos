@@ -198,7 +198,7 @@ Updated as AGENT.P1–… land. One commit per part.
 | 1 · The modelling decision (agent entity vs. view) | **RESOLVED (P1)** — chose a real `Agent` entity built as a GOVERNED CONTAINER (option b), with the capped resolver so it only narrows | `AGENT.P1` |
 | (foundation) · Agent entity + capped effective-level resolver | **RESOLVED (P1)** | `AGENT.P1` |
 | 2 · Agent-shaped presentation over the cap | **RESOLVED (P2)** — agent list + per-agent detail shell + the autonomy ladder, over the P1 resolver | `AGENT.P2` |
-| 3 · Hero metrics + fence-refused + action-ledger tab | **shell RESOLVED (P2)** — dark hero (config + ceiling, honest no-fake-numbers note) + the ledger TAB shell; live metrics/feed are P5 | `AGENT.P2` |
+| 3 · Hero metrics + fence-refused + action-ledger tab | **RESOLVED (P2 shell + P5 real data)** — per-agent hero metrics (drafts today / approved-as-is % / fence-refused 7d) + the action-ledger tab, ALL computed from the real ai_interactions ledger + ApprovalQueue outcomes; honest "—" where no source; read-only view of the immutable ledger | `AGENT.P2` / `AGENT.P5` |
 | 4 · Tool enable/disable + per-agent whitelist (capped) | **RESOLVED (P1 backend + P4 UI)** — the whitelist store + narrowing resolver (P1) + the editable "N of M enabled" panel: remit tools toggle, out-of-remit LOCKED, forged enable dropped, whitelisting never grants past ceiling (P4) | `AGENT.P1` / `AGENT.P4` |
 | 7 · Permission-ceiling mirror (read-only RBAC reflection) | **RESOLVED (P3)** — per-agent exercised/withheld permissions, role-derived, reflect-only (no edit path); links to Roles | `AGENT.P3` |
 | 8 · Electric-fence vault ("not configurable") | **RESOLVED (P3)** — 6 code-enforced, eval-locked invariants displayed toggle-free (no disable path) | `AGENT.P3` |
@@ -303,3 +303,25 @@ Updated as AGENT.P1–… land. One commit per part.
 - **The P3 mirror reflects the real updated whitelist** (browser-verified: disabling comms.classify_document dropped
   `note.write` from the mirror's exercised set) — still read-only. Locked by `tests/Feature/Governance/AgentConfigTest.php`
   (+5 P4 tests). No existing behaviour changed; fence eval + P1/P2/P3 + AutonomyPolicy + ApprovalQueue stay green.
+
+**P5 note — per-agent hero metrics + the action-ledger tab (REAL data only; no faked numbers):**
+- **Attribution** — the `agent` column on `ai_interactions`/`agent_actions` is a free-form string with NO FK to
+  `Agent::key`; the codebase writes it two ways (bare key from seeders/direct ApprovalQueue calls, e.g. `'inbox'`;
+  the code-class const from production agents, e.g. `InboxAgent::AGENT = 'inbox-agent'`). New
+  `AgentRegistry::LEDGER_ALIASES` is the single source of truth mapping each canonical agent → the ledger string(s)
+  that belong to it, so metrics are a real `WHERE agent IN (...)`, never a guessed join.
+- **The hero metrics** (`App\Services\AgentMetricsService::hero`) — each a REAL count or honestly absent:
+  `draftsToday` = `ai_interactions` outcome `proposed` today; `fenceRefused7d` = `agent_actions` status
+  `fence_refused` in 7d (danger-tinted); `approvedAsIsPct` = executed-without-edit (`edited_payload IS NULL`) / total
+  resolved — **null → "—" when nothing is resolved yet** (never a fabricated 0/100).
+- **The action-ledger tab** (`AgentMetricsService::ledger`) — the P2 tab shell now shows the real, newest-first rows
+  of the append-only `ai_interactions` ledger (tenant-scoped): agent (canonical label via the alias map), tool,
+  outcome, and — for a `fence_refused` row — the fence's own reason + a system tag. A **read-only VIEW of an
+  immutable table** (no edit/delete route; the model + DB triggers block UPDATE/DELETE); client-side agent filter.
+- **THE HONESTY RULE (proven)** — every metric + row is a real record. Browser-verified on the demo tenant:
+  inbox = 2 drafts / 0% approved-as-is / 1 fence-refused; scheduler = 1 draft / **"—"** approved-as-is / 0 fence;
+  billing = honest zeros. The ledger listed the real `fence_refused` row (system-attributed, real reason). The
+  fence_refused was **seeded through the real path** (DemoClinicSeeder proposes a non-groundable draft then approves
+  it → the fence fires and is recorded) — not hand-inserted. Locked by `tests/Feature/Governance/AgentConfigTest.php`
+  (+6 P5 tests). No governance guarantee weakened; one demo-fixture thread count in `DemoClinicSeederTest` (3→4) was
+  updated to reflect the added fence thread (a fixture reconciliation, not a behaviour change).

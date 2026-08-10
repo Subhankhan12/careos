@@ -12,6 +12,7 @@ use Database\Factories\VitalFactory;
 use Illuminate\Database\Seeder;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Str;
+use Modules\AiCore\Exceptions\FenceRefusalException;
 use Modules\AiCore\Models\KbArticle;
 use Modules\AiCore\Services\ApprovalQueue;
 use Modules\AiCore\Services\AutonomyPolicy;
@@ -159,6 +160,9 @@ class DemoClinicSeeder extends Seeder
 
     /** The unanswered patient thread the inbox agent has drafted a reply for. */
     private ?Thread $draftThread = null;
+
+    /** A non-groundable patient thread whose draft hands off — approving it fires (and records) the fence. */
+    private ?Thread $fenceThread = null;
 
     private CarbonImmutable $periodStart;
 
@@ -1624,6 +1628,13 @@ class DemoClinicSeeder extends Seeder
         $threads->postPatientMessage($this->draftThread, $nadia, 'Guten Tag, ich benötige eine Bestätigung meines nächsten Termins für meine Versicherung. Können Sie mir diese zusenden?');
         $threads->assign($this->draftThread, $reception, $reception);
 
+        // A polite, non-groundable message: the inbox agent can ground nothing, so its draft hands
+        // off — and approving that draft fires the ELECTRIC FENCE, which is RECORDED as a real
+        // fence_refused outcome (in seedAiCore below, through the genuine approve path — no faked row).
+        $this->fenceThread = $threads->openPatientThread($nadia, 'Vielen Dank', $reception);
+        $threads->addPatientParticipant($this->fenceThread, $nadia, $reception);
+        $threads->postPatientMessage($this->fenceThread, $nadia, 'Vielen Dank für Ihre Hilfe!');
+
         // A clinical question: flagged for a clinician, never answered by the
         // front desk and never drafted by the agent (D-065).
         $clinical = $threads->openPatientThread($erika, 'Frage zu meinen Medikamenten', $reception);
@@ -1706,6 +1717,26 @@ class DemoClinicSeeder extends Seeder
             'Eine Patientenanfrage im Posteingang ist unbeantwortet; ein Entwurf liegt zur Prüfung bereit.',
             AutonomyPolicy::SUGGEST,
         );
+
+        // A real fence refusal: propose a draft for the non-groundable thread, then approve it. The
+        // draft hands off (nothing to send), the electric fence fires on execute, and the refusal is
+        // RECORDED as a terminal fence_refused outcome — a real record, not a hand-inserted row.
+        $fenceAction = $queue->propose(
+            'comms.draft_reply',
+            ['thread_id' => $this->fenceThread?->id],
+            $this->users['reception'],
+            'comms.draft_reply',
+            'inbox',
+            'Eine Dankesnachricht ohne Rückfrage; der Entwurf wird an einen Menschen übergeben.',
+            AutonomyPolicy::SUGGEST,
+        );
+
+        try {
+            $queue->approve($fenceAction, $this->users['reception']);
+        } catch (FenceRefusalException) {
+            // Expected: the fence refused the handed-off draft; ApprovalQueue already recorded the
+            // fence_refused status + ledger row before re-throwing. Nothing was sent.
+        }
     }
 
     private function seedKbArticles(): void

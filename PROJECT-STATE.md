@@ -3,7 +3,7 @@
 Short, factual snapshot of where the project stands. Updated at consolidations and after gates
 (per the MEMORY PROTOCOL in AGENTS.md).
 
-## STATUS: BUILD COMPLETE + AUDITED (3 audits, ZERO must-fix) · EIGHT VERTICALS · DEMOABLE HOSPITAL TENANT · CURRENT STAGE = DEPLOYMENT · WIREFRAME-PARITY PASS (3 PAGES DONE: Admin Settings · Approval Queue P1→P7 · Branches P1→P5 · Agent&Tool Config → AGENT.P4 tool-whitelist)
+## STATUS: BUILD COMPLETE + AUDITED (3 audits, ZERO must-fix) · EIGHT VERTICALS · DEMOABLE HOSPITAL TENANT · CURRENT STAGE = DEPLOYMENT · WIREFRAME-PARITY PASS (3 PAGES DONE: Admin Settings · Approval Queue P1→P7 · Branches P1→P5 · Agent&Tool Config → AGENT.P5 metrics+ledger)
 
 > **RECONCILED (this pass — eight verticals built + audited; at the DEPLOY stage; a page-by-page wireframe-parity
 > pass now in progress).** CareOS is a multi-tenant agentic healthcare-operations platform (EU-first). **Stack:**
@@ -11,8 +11,8 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
 > 10.4 @3306, prod+CI MySQL 8 + Redis 7 + Node 22; Horizon via Memurai locally. **Latest commit:** `aac95c8`
 > (APPROVAL.P3 — the Approval Queue approve-contract caption), after the Admin Settings parity chain (→ `e7cabf0`),
 > DemoHospitalSeeder (D-147), the full-system QA audit + re-audit, and A11Y.1. **Suite:** `composer check` green —
-> Pest **1074 passed** (+5 from AGENT.P4), PHPStan L5 `[OK]`, Pint clean; `composer test:smoke`
-> green; CI green on MySQL 8; the FIX.5 route-smoke guards against request-time 500s. (Latest commit: AGENT.P4.)
+> Pest **1080 passed** (+6 from AGENT.P5), PHPStan L5 `[OK]`, Pint clean; `composer test:smoke`
+> green; CI green on MySQL 8; the FIX.5 route-smoke guards against request-time 500s. (Latest commit: AGENT.P5.)
 >
 > **WIREFRAME-PARITY PASS (in progress) — the discipline:** each app page is matched to its decoded wireframe in
 > the gitignored `resources/prototype/` (decode the bundler-shell HTML → AUDIT/diff into `docs/wireframe-parity/*.md`
@@ -75,8 +75,12 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
 >   code-enforced, eval-locked invariants displayed toggle-free — no disable path; each cited to enforcing code +
 >   a `tests/Evals/` case). **AGENT.P4** made the tool whitelist EDITABLE ("N of M enabled"): remit tools toggle,
 >   out-of-remit tools LOCKED, a forged enable of a locked/unregistered tool dropped server-side; whitelisting
->   narrows the callable set but never grants past a tool's ceiling (resolver caps at runtime, P1). Remaining: P5
->   hero metrics + fence-refused + action-ledger data; P6 rate/timing limits (backend gap); the new-agent wizard.
+>   narrows the callable set but never grants past a tool's ceiling (resolver caps at runtime, P1). **AGENT.P5**
+>   filled the per-agent hero metrics + the action-ledger tab from REAL records only (the ai_interactions ledger +
+>   ApprovalQueue outcomes): drafts today / approved-as-is % (honest "—" when nothing resolved) / fence-refused 7d,
+>   and a read-only view of the immutable ledger (fence_refused system-attributed w/ reason); attribution via a new
+>   AgentRegistry alias map; a real fence_refused seeded through the real path. Remaining: P6 rate/timing limits
+>   (backend gap); the new-agent wizard.
 > See D-149 for the parity discipline; the per-page/per-part gate approach; reflect-only-RBAC; surface-don't-fabricate.
 >
 > **THE EIGHT VERTICALS (all built + green on the shared platform):**
