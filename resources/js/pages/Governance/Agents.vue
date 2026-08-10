@@ -10,6 +10,8 @@ const page = usePage();
 
 type Level = { value: string; allowed: boolean };
 type ToolRow = { key: string; name: string; category: string };
+type ExercisedPermission = { permission: string; label: string; category: string; tools: string[] };
+type WithheldPermission = { permission: string; label: string };
 type Agent = {
     id: string;
     key: string;
@@ -19,6 +21,7 @@ type Agent = {
     ceiling: string;
     levels: Level[];
     tools: ToolRow[];
+    permissions: { exercised: ExercisedPermission[]; withheld: WithheldPermission[] };
     configureUrl: string;
 };
 
@@ -26,6 +29,8 @@ const props = defineProps<{
     agents: Agent[];
     levelOrder: string[];
     governanceUrl: string;
+    fenceInvariants: string[];
+    rolesUrl: string;
 }>();
 
 const flash = computed(() => (page.props.flash as { status?: string } | undefined)?.status);
@@ -210,6 +215,75 @@ const dirty = (agent: Agent): boolean =>
                             </li>
                         </ul>
                         <p class="mt-3 text-xs text-ink-subtle">{{ t('agentConfig.ladder.forgedNote') }}</p>
+                    </div>
+
+                    <!-- PERMISSION-CEILING MIRROR — READ-ONLY reflection of the real RBAC + tool
+                         permissions. No edit control exists here: permissions change on the Roles
+                         surface (change the role → change the ceiling). -->
+                    <div class="glass-card euca-card-in p-6" :style="{ '--euca-card-delay': '0.18s' }">
+                        <div class="flex flex-wrap items-start justify-between gap-3">
+                            <div>
+                                <h3 class="text-base font-semibold text-ink">{{ t('agentConfig.mirror.title') }}</h3>
+                                <p class="mt-0.5 text-sm text-ink-muted">{{ t('agentConfig.mirror.subtitle') }}</p>
+                            </div>
+                            <span class="inline-flex flex-none items-center gap-1 rounded-full bg-surface-2 px-2.5 py-1 text-[11px] font-medium text-ink-muted">
+                                <svg class="h-3 w-3" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 3l7 3v5c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6l7-3Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" /></svg>
+                                {{ t('agentConfig.mirror.readOnly') }}
+                            </span>
+                        </div>
+
+                        <!-- Exercised (assistive) — the agent's real tool permissions -->
+                        <p class="mt-4 text-xs font-semibold uppercase tracking-wide text-euca-700">{{ t('agentConfig.mirror.exercisedHeading') }}</p>
+                        <ul class="mt-2 space-y-1.5">
+                            <li v-for="perm in selected.permissions.exercised" :key="perm.permission" class="flex flex-wrap items-center gap-2 rounded-xl border border-euca-100 bg-euca-50/40 px-3 py-2">
+                                <svg class="h-4 w-4 flex-none text-euca-700" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 12l5 5L19 7" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" /></svg>
+                                <span class="font-medium text-ink">{{ perm.label }}</span>
+                                <span class="font-mono text-[11px] text-ink-subtle">{{ perm.permission }}</span>
+                                <span class="text-xs text-ink-muted">· {{ perm.tools.join(', ') }}</span>
+                            </li>
+                        </ul>
+
+                        <!-- Withheld — human-only, never an agent capability -->
+                        <p class="mt-4 text-xs font-semibold uppercase tracking-wide text-ink-subtle">{{ t('agentConfig.mirror.withheldHeading') }}</p>
+                        <ul class="mt-2 space-y-1.5">
+                            <li v-for="perm in selected.permissions.withheld" :key="perm.permission" class="flex flex-wrap items-center gap-2 rounded-xl border border-line px-3 py-2 opacity-80">
+                                <svg class="h-4 w-4 flex-none text-ink-subtle" viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2" stroke="currentColor" stroke-width="1.7" /><path d="M8 11V8a4 4 0 0 1 8 0v3" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" /></svg>
+                                <span class="font-medium text-ink-muted">{{ perm.label }}</span>
+                                <span class="font-mono text-[11px] text-ink-subtle">{{ perm.permission }}</span>
+                                <span class="text-xs text-ink-subtle">· {{ t('agentConfig.mirror.humanOnly') }}</span>
+                            </li>
+                        </ul>
+
+                        <p class="mt-4 text-xs text-ink-subtle">
+                            {{ t('agentConfig.mirror.caption') }}
+                            <Link :href="rolesUrl" class="font-semibold text-euca-700 hover:text-euca-800">{{ t('agentConfig.mirror.rolesLink') }}</Link>
+                        </p>
+                    </div>
+
+                    <!-- FENCE VAULT — "electric fence · not configurable". A TOGGLE-FREE statement of
+                         the code-enforced invariants. There is NO control here to disable any of them. -->
+                    <div class="euca-card-in overflow-hidden rounded-3xl border border-white/5 bg-slate-900 p-6 text-slate-200" :style="{ '--euca-card-delay': '0.24s' }">
+                        <div class="flex flex-wrap items-center justify-between gap-2">
+                            <div class="flex items-center gap-2">
+                                <svg class="h-5 w-5 flex-none text-amber-300" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 3l7 3v5c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6l7-3Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" /><path d="M12 8v4M12 15h.01" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" /></svg>
+                                <h3 class="text-base font-semibold text-white">{{ t('agentConfig.fence.title') }}</h3>
+                            </div>
+                            <span class="inline-flex items-center gap-1 rounded-full bg-white/10 px-2.5 py-1 text-[11px] font-medium text-slate-300">
+                                <svg class="h-3 w-3" viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2" stroke="currentColor" stroke-width="1.7" /><path d="M8 11V8a4 4 0 0 1 8 0v3" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" /></svg>
+                                {{ t('agentConfig.fence.notConfigurable') }}
+                            </span>
+                        </div>
+                        <p class="mt-1 text-sm text-slate-400">{{ t('agentConfig.fence.subtitle') }}</p>
+                        <ul class="mt-4 space-y-2">
+                            <li v-for="inv in fenceInvariants" :key="inv" class="flex items-start gap-3 rounded-2xl bg-white/5 px-4 py-3">
+                                <svg class="mt-0.5 h-4 w-4 flex-none text-amber-300" viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2" stroke="currentColor" stroke-width="1.7" /><path d="M8 11V8a4 4 0 0 1 8 0v3" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" /></svg>
+                                <span class="min-w-0">
+                                    <span class="block font-medium text-white">{{ t(`agentConfig.fence.invariants.${inv}.title`) }}</span>
+                                    <span class="mt-0.5 block text-xs text-slate-400">{{ t(`agentConfig.fence.invariants.${inv}.detail`) }}</span>
+                                </span>
+                            </li>
+                        </ul>
+                        <p class="mt-4 text-xs text-slate-500">{{ t('agentConfig.fence.footnote') }}</p>
                     </div>
 
                     <!-- Status: active / paused. Paused → the agent is off (P1 resolver). -->

@@ -322,6 +322,23 @@ call time. `AgentConfigService` (P1) is UNCHANGED, so no P1 test is modified. Ne
 per-tool SETTINGS.P2 card + AutonomyPolicy + role ceiling + fence are all unchanged. Locked by
 `tests/Feature/Governance/AgentConfigTest.php` (8). See `docs/wireframe-parity/AGENT-TOOL-CONFIG-DIFF.md` §9.
 
+## Two reflect-only / toggle-free governance panels (AGENT.P3 — real gates surfaced)
+
+The per-agent detail also carries two READ-ONLY panels — DISPLAY of real gates, no editable control:
+**(1) the permission-ceiling MIRROR** (`AgentConfigController::permissionMirror`): per agent, `exercised` = the
+distinct real `permission` of each whitelisted tool (the exact `Gate::allows($tool->permission)` targets
+`ApprovalQueue::approve` re-authorises — role-derived) + `withheld` = sensitive human-only permissions
+(note.sign/patient.edit/medication.prescribe/allergy.override) each verified NOT carried by any registered tool
+(denied is derived, never fabricated). Caption "change the role to change the ceiling" links `/admin/roles`. NO
+write path here — the only `governance.agents.*` routes are index+configure, and configure IGNORES any forged
+permission/tool_keys body. **(2) the electric-fence VAULT** (`AgentConfigController::FENCE_INVARIANTS`, 6 keys):
+displays the code-enforced, eval-locked invariants TOGGLE-FREE (labelled ledger / human-approves-send /
+clinical-never-autonomous / consent+tenant-scoped / append-only ledger / re-authorise+re-ground-at-approve) — each
+cited to enforcing code + a `tests/Evals/` case in the DIFF doc §9; no route/action disables any. i18n `agentConfig.mirror.*`
++ `agentConfig.fence.*`. Locked by `tests/Feature/Governance/AgentConfigTest.php` (13 total; +5 P3: mirror reflects
+real exercised perms, withheld is real+human-only, no-permission-edit + no-fence-disable route, configure ignores
+forged fields, vault lists enforced invariants).
+
 ## Open items
 
 - Richer production-grade vector retrieval is still unbuilt (KB admin UI now exists, W10 above; approval-queue UI, W9).

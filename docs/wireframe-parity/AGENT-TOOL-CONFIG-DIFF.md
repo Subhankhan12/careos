@@ -200,6 +200,8 @@ Updated as AGENT.P1–… land. One commit per part.
 | 2 · Agent-shaped presentation over the cap | **RESOLVED (P2)** — agent list + per-agent detail shell + the autonomy ladder, over the P1 resolver | `AGENT.P2` |
 | 3 · Hero metrics + fence-refused + action-ledger tab | **shell RESOLVED (P2)** — dark hero (config + ceiling, honest no-fake-numbers note) + the ledger TAB shell; live metrics/feed are P5 | `AGENT.P2` |
 | 4 · Tool enable/disable + per-agent whitelist (capped) | **backend RESOLVED (P1)** — the whitelist store + narrowing resolver; the edit UI is P4 | `AGENT.P1` |
+| 7 · Permission-ceiling mirror (read-only RBAC reflection) | **RESOLVED (P3)** — per-agent exercised/withheld permissions, role-derived, reflect-only (no edit path); links to Roles | `AGENT.P3` |
+| 8 · Electric-fence vault ("not configurable") | **RESOLVED (P3)** — 6 code-enforced, eval-locked invariants displayed toggle-free (no disable path) | `AGENT.P3` |
 | 5 · Rate & timing limits | pending (backend gap; escalation always-on) | — |
 | 6 · New-agent wizard | pending (entity now exists) | — |
 
@@ -247,3 +249,37 @@ Updated as AGENT.P1–… land. One commit per part.
 - **PURELY additive over P1** — no whitelist edit (P4), no metrics/ledger data (P5), no rate/timing limits (P6). The
   per-tool SETTINGS.P2 card is unaffected; the fence/AutonomyPolicy/role ceiling are not weakened. Locked by
   `tests/Feature/Governance/AgentConfigTest.php` (8) + P1's `AgentEntityTest` still green.
+
+**P3 note — the two REFLECT-ONLY / TOGGLE-FREE panels (real gates surfaced, nothing weakened):**
+- **The permission-ceiling MIRROR** (`AgentConfigController::permissionMirror`): a READ-ONLY reflection of the real
+  RBAC + tool permissions, per agent. Two groups, both derived from LIVE data (never fabricated): `exercised` = the
+  distinct real `permission` of each whitelisted tool (the EXACT `Gate::allows($tool->permission)` targets that
+  `ApprovalQueue::approve` re-authorises at approve — so the ceiling is role-derived); `withheld` = the sensitive
+  HUMAN-ONLY permissions (note.sign / patient.edit / medication.prescribe / allergy.override) — each included ONLY
+  after verifying **no registered tool carries it** (so "denied" is derived from the registry, not invented). NO
+  write path on this page; caption "inherited from the role — change the role to change the ceiling" links to the
+  real Roles surface (`/admin/roles`). Structurally reflect-only: the only `governance.agents.*` routes are `index`
+  (GET) + `configure` (POST autonomy_level/status) — the configure endpoint IGNORES any forged permission/tool_keys
+  body, so the mirror cannot be edited here.
+- **The electric-fence VAULT** (`AgentConfigController::FENCE_INVARIANTS`): 6 CODE-ENFORCED, eval-locked invariants
+  shown TOGGLE-FREE (the card has zero interactive controls — browser-verified). Each is genuinely enforced + locked
+  by the eval harness (`tests/Evals/`, 37 cases):
+  1. **AI output is labelled** — `AiInteractionRecorder::LABEL = 'AI draft — requires human review'` forced on every
+     row (`AiInteractionRecorder.php:12,:54`) + DB default; `DraftReplyTool` posts `aiAssisted:true`. Eval:
+     `CrossCuttingAgentEvalTest.php:87`.
+  2. **Human approves before send** — `DraftReplyTool::execute` throws without a human sender (`:54-57`); posts as
+     the human; ceiling `suggest`; approve re-authorises + executes (`ApprovalQueue.php:78-103`). No auto-send tool.
+     Eval/feature: `ClinicalAgentsTest.php:281-293`.
+  3. **Clinical never autonomous** — `AutonomyPolicy::cap` clamps clinical/financial ≤ approve (`AutonomyPolicy.php:65-67`);
+     clinical tools ceiling `suggest`; interpretive/diagnostic requests refused (`ClinicalSummaryAgent`/`InboxAgent`).
+     Eval: `CrossCuttingAgentEvalTest.php:53-77`, `InboxAgentEvalTest.php:87-110`.
+  4. **Consent/tenant-scoped** — `TenantScope` fail-closed (throws when unscoped, `TenantScope.php:21-39`) +
+     `BelongsToTenant`; messaging blocked without consent (`ClinicalAgentsTest.php:281-283`).
+  5. **Append-only ledger** — model guards + DB triggers (SIGNAL 45000) on `ai_interactions`
+     (`AiInteraction.php:64-73` + migration `:40-47`) and `audit_events` (`AuditEvent.php:52-58` + migration
+     `:18-25`); hash-chain `verifyChain` (`AuditService.php:121-136`).
+  6. **Re-authorise + re-ground at approve** — `ApprovalQueue::approve` re-checks the tool permission (`:81`,
+     `authorize :268-273`) and re-executes/re-grounds from live state (`:103`; `DraftReplyTool::preview`); an edit is
+     not a bypass. Eval/feature: `ApprovalFenceRefusedTest.php:100-131`.
+  There is NO route/action to disable any invariant (structurally confirmed — no `permission|fence|invariant` route
+  under `governance.agents`). Locked by `tests/Feature/Governance/AgentConfigTest.php` (+5 P3 tests).

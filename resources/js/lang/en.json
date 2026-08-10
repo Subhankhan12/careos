@@ -934,6 +934,48 @@
             "help": "A paused agent takes no action at all — every tool call resolves to off until it is resumed.",
             "pause": "Pause agent",
             "resume": "Resume agent"
+        },
+        "mirror": {
+            "title": "Permission ceiling",
+            "subtitle": "The real RBAC permissions this agent can and cannot exercise. It reflects the roles — it does not set them.",
+            "readOnly": "Read-only",
+            "exercisedHeading": "Exercised — assistive (draft / propose)",
+            "withheldHeading": "Never — a human acts",
+            "humanOnly": "human only",
+            "caption": "Inherited from the role, and re-checked against the operator's role when an action is approved. To change the ceiling, change the role:",
+            "rolesLink": "Roles & access →"
+        },
+        "fence": {
+            "title": "Electric fence",
+            "notConfigurable": "Not configurable",
+            "subtitle": "Enforced in code and locked by the evaluation harness. There is no switch here — these cannot be turned off.",
+            "footnote": "These invariants are asserted by the agent evaluation suite; this card displays them, it cannot change them.",
+            "invariants": {
+                "ai_labelled": {
+                    "title": "AI output is labelled",
+                    "detail": "Every interaction is recorded as \"AI draft — requires human review\"; the label is forced, not caller-set."
+                },
+                "human_approves_send": {
+                    "title": "A human approves before anything is sent",
+                    "detail": "Agents draft only; sending requires a human sender at approve time. No tool sends autonomously."
+                },
+                "clinical_reviewed": {
+                    "title": "Clinical work is never autonomous",
+                    "detail": "Clinical and financial actions can never exceed \"approve\"; diagnosis, triage and dosing requests are refused, never drafted."
+                },
+                "consent_scoped": {
+                    "title": "Access is consent- and tenant-scoped",
+                    "detail": "Every record is tenant-scoped fail-closed; messaging is blocked until the patient's consent is on file."
+                },
+                "immutable_ledger": {
+                    "title": "The ledger is append-only",
+                    "detail": "The audit and interaction logs block UPDATE and DELETE in the ORM and by database triggers; the hash-chain is verifiable."
+                },
+                "reground_at_approve": {
+                    "title": "Approval re-authorises and re-grounds",
+                    "detail": "Approving re-checks the tool permission and re-derives the draft from live state before it acts — an edit is not a bypass."
+                }
+            }
         }
     },
     "schedulingSettings": {

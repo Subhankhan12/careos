@@ -2,13 +2,16 @@
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Route;
 use Inertia\Testing\AssertableInertia as Assert;
 use Modules\AiCore\Models\Agent;
 use Modules\AiCore\Services\AutonomyPolicy;
+use Modules\AiCore\Services\ToolRegistry;
 use Modules\Platform\Models\Role;
 use Modules\Platform\Models\RoleAssignment;
 use Modules\Platform\Models\Tenant;
 use Modules\Platform\Models\User;
+use Modules\Platform\Services\RbacProvisioner;
 use Modules\Platform\Services\TenantContext;
 
 uses(RefreshDatabase::class);
@@ -185,4 +188,120 @@ test('the per-tool SETTINGS.P2 agents card still works unchanged', function () {
         ->get('/admin/agents')
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page->component('Admin/Agents')->has('tools', 10));
+});
+
+/*
+ * AGENT.P3 — the two REFLECT-ONLY / TOGGLE-FREE governance panels: the per-agent permission-ceiling
+ * MIRROR (role-derived, read-only) and the electric-fence VAULT (code-enforced invariants). Both are
+ * DISPLAY of real gates — no permission-edit path, no fence-disable path exists on this page.
+ */
+
+// ── The permission mirror renders the agent's REAL permission states ────────────────────────────
+
+test('the permission mirror reflects the agents REAL exercised permissions (the approve re-authorize targets)', function () {
+    $tenant = acTenant();
+    $admin = acUser($tenant, 'org_admin');
+
+    // inbox whitelists comms.draft_reply (comms.manage) + comms.classify_document (note.write).
+    $this->actingAs($admin)
+        ->get('/governance/agents')
+        ->assertInertia(fn (Assert $page) => $page->where('agents', function ($agents) {
+            $inbox = collect($agents)->firstWhere('key', 'inbox');
+            $exercised = collect($inbox['permissions']['exercised'])->pluck('permission')->sort()->values()->all();
+
+            // The exercised permissions are EXACTLY the real permissions of the agent's whitelisted
+            // tools — nothing fabricated. These are the same permissions Gate-checked at approve.
+            $registry = app(ToolRegistry::class);
+            $expected = collect(['comms.draft_reply', 'comms.classify_document'])
+                ->map(fn ($k) => $registry->get($k)->definition()->permission)->unique()->sort()->values()->all();
+
+            return $exercised === $expected
+                // Each exercised permission is a REAL RBAC permission (labelled from the catalog).
+                && collect($inbox['permissions']['exercised'])->every(
+                    fn ($p) => array_key_exists($p['permission'], RbacProvisioner::PERMISSIONS)
+                );
+        }));
+});
+
+test('the permission mirror withheld list is REAL and human-only — no registered tool exercises it', function () {
+    $tenant = acTenant();
+    $admin = acUser($tenant, 'org_admin');
+
+    // The set of permissions ANY registered tool exercises.
+    acCtx()->set($tenant);
+    $toolPermissions = collect(app(ToolRegistry::class)->all())
+        ->map(fn ($t) => $t->definition()->permission)->unique()->values()->all();
+
+    $this->actingAs($admin)
+        ->get('/governance/agents')
+        ->assertInertia(fn (Assert $page) => $page->where('agents', function ($agents) use ($toolPermissions) {
+            $inbox = collect($agents)->firstWhere('key', 'inbox');
+            $withheld = collect($inbox['permissions']['withheld']);
+
+            return $withheld->isNotEmpty()
+                // Every withheld row is a REAL RBAC permission…
+                && $withheld->every(fn ($p) => array_key_exists($p['permission'], RbacProvisioner::PERMISSIONS))
+                // …and NO registered tool exercises it (so the denial is derived, not fabricated)…
+                && $withheld->every(fn ($p) => ! in_array($p['permission'], $toolPermissions, true))
+                // …and it includes the canonical human-only clinical/record actions.
+                && $withheld->pluck('permission')->contains('note.sign')
+                && $withheld->pluck('permission')->contains('patient.edit');
+        }));
+});
+
+// ── REFLECT-ONLY: no permission-edit path + no fence-disable path from this page ─────────────────
+
+test('the page exposes NO permission-edit and NO fence-disable route — only index + configure', function () {
+    // Structural proof: the ONLY routes under governance.agents are the read (index) and the
+    // level/status write (configure). There is no permission-edit or fence-toggle route.
+    $names = collect(Route::getRoutes()->getRoutes())
+        ->map(fn ($r) => $r->getName())
+        ->filter(fn ($n) => is_string($n) && str_starts_with($n, 'governance.agents'))
+        ->sort()->values()->all();
+
+    expect($names)->toBe(['governance.agents.configure', 'governance.agents.index']);
+
+    // And there is no permission/fence route name anywhere in this area.
+    $forbidden = collect(Route::getRoutes()->getRoutes())
+        ->map(fn ($r) => (string) $r->getName())
+        ->filter(fn ($n) => str_starts_with($n, 'governance.agents') && preg_match('/permission|fence|invariant/i', $n));
+    expect($forbidden)->toBeEmpty();
+});
+
+test('the configure endpoint IGNORES forged permission/fence fields — the mirror cannot be edited here', function () {
+    $tenant = acTenant();
+    $admin = acUser($tenant, 'org_admin');
+    $inbox = acAgent($tenant, 'inbox');
+    $before = $inbox->tool_keys;
+
+    // Forge a body trying to grant a withheld permission, edit the whitelist, and disable the fence.
+    $this->actingAs($admin)
+        ->post("/governance/agents/{$inbox->id}/configure", [
+            'autonomy_level' => AutonomyPolicy::SUGGEST,
+            'permissions' => ['note.sign' => 'allow', 'patient.edit' => 'allow'],
+            'tool_keys' => ['note.sign', 'clinical.summarize_since_last_visit'],
+            'fence' => ['clinical_reviewed' => false],
+            'fenceDisabled' => true,
+        ])
+        ->assertRedirect('/governance/agents');
+
+    // Nothing but level/status is writable: the whitelist (and thus the mirror) is unchanged.
+    expect(acAgent($tenant, 'inbox')->tool_keys)->toBe($before);
+});
+
+// ── The fence vault lists only enforced invariants (representative) ──────────────────────────────
+
+test('the fence vault surfaces the code-enforced invariants (toggle-free)', function () {
+    $tenant = acTenant();
+    $admin = acUser($tenant, 'org_admin');
+
+    $this->actingAs($admin)
+        ->get('/governance/agents')
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('fenceInvariants')
+            ->has('rolesUrl')
+            ->where('fenceInvariants', fn ($inv) => collect($inv)->contains('human_approves_send')
+                && collect($inv)->contains('clinical_reviewed')
+                && collect($inv)->contains('immutable_ledger')
+                && collect($inv)->contains('reground_at_approve')));
 });
