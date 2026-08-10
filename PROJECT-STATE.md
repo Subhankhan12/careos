@@ -3,7 +3,7 @@
 Short, factual snapshot of where the project stands. Updated at consolidations and after gates
 (per the MEMORY PROTOCOL in AGENTS.md).
 
-## STATUS: BUILD COMPLETE + AUDITED (3 audits, ZERO must-fix) · EIGHT VERTICALS · DEMOABLE HOSPITAL TENANT · CURRENT STAGE = DEPLOYMENT · WIREFRAME-PARITY PASS (3 PAGES DONE: Admin Settings · Approval Queue P1→P7 · Branches P1→P5 · Agent&Tool Config → AGENT.P1 backend)
+## STATUS: BUILD COMPLETE + AUDITED (3 audits, ZERO must-fix) · EIGHT VERTICALS · DEMOABLE HOSPITAL TENANT · CURRENT STAGE = DEPLOYMENT · WIREFRAME-PARITY PASS (3 PAGES DONE: Admin Settings · Approval Queue P1→P7 · Branches P1→P5 · Agent&Tool Config → AGENT.P2 list+ladder)
 
 > **RECONCILED (this pass — eight verticals built + audited; at the DEPLOY stage; a page-by-page wireframe-parity
 > pass now in progress).** CareOS is a multi-tenant agentic healthcare-operations platform (EU-first). **Stack:**
@@ -11,8 +11,8 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
 > 10.4 @3306, prod+CI MySQL 8 + Redis 7 + Node 22; Horizon via Memurai locally. **Latest commit:** `aac95c8`
 > (APPROVAL.P3 — the Approval Queue approve-contract caption), after the Admin Settings parity chain (→ `e7cabf0`),
 > DemoHospitalSeeder (D-147), the full-system QA audit + re-audit, and A11Y.1. **Suite:** `composer check` green —
-> Pest **1056 passed** (+7 from AGENT.P1), PHPStan L5 `[OK]`, Pint clean; `composer test:smoke`
-> green; CI green on MySQL 8; the FIX.5 route-smoke guards against request-time 500s. (Latest commit: AGENT.P1.)
+> Pest **1064 passed** (+8 from AGENT.P2), PHPStan L5 `[OK]`, Pint clean; `composer test:smoke`
+> green; CI green on MySQL 8; the FIX.5 route-smoke guards against request-time 500s. (Latest commit: AGENT.P2.)
 >
 > **WIREFRAME-PARITY PASS (in progress) — the discipline:** each app page is matched to its decoded wireframe in
 > the gitignored `resources/prototype/` (decode the bundler-shell HTML → AUDIT/diff into `docs/wireframe-parity/*.md`
@@ -65,9 +65,13 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
 >   tenant) + the **capped effective-level resolver**: an agent's effective autonomy = MIN(configured, tool ceiling,
 >   role ceiling) — a GOVERNED CONTAINER that can only NARROW, clamp-on-write AND clamp-at-runtime (a forged higher
 >   config / whitelisted out-of-ceiling tool never raises it). The per-tool AutonomyPolicy cap + role ceiling + fence
->   are unweakened (the agent sits UNDER them). Remaining: P2+ the agent-shaped surfaces over this foundation
->   (master-detail, autonomy ladder, whitelist UI, read-only ceiling panel, fence vault, metrics/ledger); rate/timing
->   limits (backend gap); the new-agent wizard.
+>   are unweakened (the agent sits UNDER them). **AGENT.P2** built the UI over that foundation: the per-agent page
+>   (`/governance/agents`, admin.manage) — an agent LIST + per-agent DETAIL shell (dark hero + the real-flow pipeline)
+>   + **the AUTONOMY LADDER** offering only levels ≤ the agent's effective ceiling (`AgentResolver::agentCeiling` =
+>   MIN of the tool ceilings it touches; higher rungs LOCKED), writing through `AgentConfigService` with the ceiling
+>   clamp in the P2 controller — a forged higher level is clamped server-side (proven) + resolver-capped at runtime.
+>   Remaining: P4 per-agent whitelist edit UI (capped); P5 hero metrics + fence-refused + action-ledger data; P6
+>   rate/timing limits (backend gap); the new-agent wizard.
 > See D-149 for the parity discipline; the per-page/per-part gate approach; reflect-only-RBAC; surface-don't-fabricate.
 >
 > **THE EIGHT VERTICALS (all built + green on the shared platform):**

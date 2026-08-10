@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\AgentAutonomyController;
+use App\Http\Controllers\AgentConfigController;
 use App\Http\Controllers\AiApprovalQueueController;
 use App\Http\Controllers\AppLandingController;
 use App\Http\Controllers\BranchController;
@@ -625,6 +626,14 @@ Route::middleware('auth')->group(function () {
     Route::post('/governance/approvals/bulk-approve', [AiApprovalQueueController::class, 'bulkApprove'])->name('governance.approvals.bulk_approve');
     Route::post('/governance/approvals/{id}/approve', [AiApprovalQueueController::class, 'approve'])->name('governance.approvals.approve');
     Route::post('/governance/approvals/{id}/reject', [AiApprovalQueueController::class, 'reject'])->name('governance.approvals.reject');
+
+    // Per-agent governance (AGENT.P2) — the agent list + detail shell + the autonomy ladder, over
+    // the AGENT.P1 capped resolver. admin.manage-gated; tenant-scoped (agents resolve by string id
+    // → cross-tenant = 404, FIX.1). The ladder writes through AgentConfigService (clamp-on-write);
+    // a level above the agent's effective ceiling is clamped server-side and the resolver caps
+    // again at call time. No whitelist edit (P4) / metrics (P5) / limits (P6) here.
+    Route::get('/governance/agents', [AgentConfigController::class, 'index'])->name('governance.agents.index');
+    Route::post('/governance/agents/{agent}/configure', [AgentConfigController::class, 'configure'])->name('governance.agents.configure');
 
     // KB admin (CLINIC.W10) — CRUD over the front-desk agent's grounding source. ai.manage-gated
     // (same governance area). This curates CONTENT only: the agent's grounding/fence is unchanged

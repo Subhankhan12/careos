@@ -2,6 +2,7 @@
 
 namespace Modules\AiCore\Services;
 
+use Modules\AiCore\Exceptions\AiCoreException;
 use Modules\AiCore\Models\Agent;
 use Modules\Platform\Models\Tenant;
 use Modules\Platform\Services\TenantContext;
@@ -27,7 +28,38 @@ class AgentResolver
     public function __construct(
         private readonly AutonomyPolicy $autonomy,
         private readonly TenantContext $context,
+        private readonly ToolRegistry $tools,
     ) {}
+
+    /**
+     * The agent's effective CEILING — the highest level it could ever operate at, across the tools it
+     * touches (AGENT.P2, the per-agent ladder cap). It is the MIN of the tool ceilings the agent
+     * whitelists ({@see AutonomyPolicy::effectiveCeiling} — per-tool + clinical/financial hard-cap),
+     * further narrowed by the supplied role ceiling. A single per-agent level must not exceed ANY of
+     * its tools' ceilings, so the most-restrictive tool sets the cap.
+     *
+     * The ladder offers only levels ≤ this ceiling; higher rungs are locked. An agent that whitelists
+     * no registered tool has no reachable capability, so its ceiling is OFF.
+     */
+    public function agentCeiling(Agent $agent, string $roleCeiling = AutonomyPolicy::AUTO): string
+    {
+        $keys = $agent->tool_keys ?? [];
+        $ceiling = $this->rank($roleCeiling);
+        $found = false;
+
+        foreach ($keys as $key) {
+            try {
+                $definition = $this->tools->get($key)->definition();
+            } catch (AiCoreException) {
+                continue; // an unregistered/forged key contributes no capability
+            }
+
+            $found = true;
+            $ceiling = min($ceiling, $this->rank($this->autonomy->effectiveCeiling($definition)));
+        }
+
+        return $found ? $this->level($ceiling) : AutonomyPolicy::OFF;
+    }
 
     /**
      * The effective (capped) autonomy level for this agent calling this tool. Returns OFF when the

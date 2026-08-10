@@ -301,6 +301,27 @@ is one of the min() terms and unchanged. NO UI (P2+ builds the surfaces; RBAC ad
 job — no route yet). Locked by `tests/Feature/AiCore/AgentEntityTest.php` (7). See
 `docs/wireframe-parity/AGENT-TOOL-CONFIG-DIFF.md` §6/§9.
 
+## Per-agent governance surface + the autonomy ladder (AGENT.P2 — presentation over the P1 cap)
+
+The per-agent page (`/governance/agents`, `App\Http\Controllers\AgentConfigController`,
+`resources/js/Pages/Governance/Agents.vue`, **admin.manage**-gated, tenant-scoped) is the agent LIST + per-agent
+DETAIL shell + **the AUTONOMY LADDER**, over the P1 resolver. Agents resolve **by string id** (never route-model
+binding of a tenant-scoped model — FIX.1) → cross-tenant/missing = 404. The detail shell is a dark hero (identity +
+status + **effective ceiling** + configured level + tool count; live metrics deferred to P5, honest no-fake-numbers
+note) + a presentational flow pipeline naming the REAL runtime path (message → grounded draft → checked-vs-ceiling →
+fence → human). Tabs: Agents · Action ledger (the ledger data is P5; the tab SHELL exists).
+**THE LADDER** offers only levels ≤ the agent's **effective ceiling** — new
+`AgentResolver::agentCeiling(Agent, roleCeiling=AUTO)` = **MIN of the tool ceilings the agent whitelists**
+(`AutonomyPolicy::effectiveCeiling` per tool; forged/unregistered key contributes nothing; no-tools → OFF). Per-agent
+ceilings: inbox/recall/clinical_summary → suggest; scheduler/dispatch/billing → approve. Higher rungs render LOCKED.
+**THE CAP (proven):** a level change writes through `AgentConfigService::configure` (P1 clamp-on-write + audit), but
+the ceiling clamp lives in the **P2 controller** (`clampToCeiling` = min-rank) — a forged `POST autonomy_level=auto`
+above the ceiling is clamped server-side (browser-verified: inbox auto → suggest), and the resolver caps again at
+call time. `AgentConfigService` (P1) is UNCHANGED, so no P1 test is modified. New i18n block `agentConfig.*` (reuses
+`agents.levels.*`). PURELY additive: no whitelist edit (P4), no metrics/ledger data (P5), no limits (P6); the
+per-tool SETTINGS.P2 card + AutonomyPolicy + role ceiling + fence are all unchanged. Locked by
+`tests/Feature/Governance/AgentConfigTest.php` (8). See `docs/wireframe-parity/AGENT-TOOL-CONFIG-DIFF.md` §9.
+
 ## Open items
 
 - Richer production-grade vector retrieval is still unbuilt (KB admin UI now exists, W10 above; approval-queue UI, W9).

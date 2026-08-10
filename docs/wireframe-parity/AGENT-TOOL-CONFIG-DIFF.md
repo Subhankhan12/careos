@@ -197,9 +197,9 @@ Updated as AGENT.P1–… land. One commit per part.
 |---|---|---|
 | 1 · The modelling decision (agent entity vs. view) | **RESOLVED (P1)** — chose a real `Agent` entity built as a GOVERNED CONTAINER (option b), with the capped resolver so it only narrows | `AGENT.P1` |
 | (foundation) · Agent entity + capped effective-level resolver | **RESOLVED (P1)** | `AGENT.P1` |
-| 2 · Agent-shaped presentation over the cap | pending (P2+ — UI) | — |
-| 3 · Hero metrics + fence-refused + action-ledger tab | pending | — |
-| 4 · Tool enable/disable + per-agent whitelist (capped) | **backend RESOLVED (P1)** — the whitelist store + narrowing resolver; the edit UI is P2+ | `AGENT.P1` |
+| 2 · Agent-shaped presentation over the cap | **RESOLVED (P2)** — agent list + per-agent detail shell + the autonomy ladder, over the P1 resolver | `AGENT.P2` |
+| 3 · Hero metrics + fence-refused + action-ledger tab | **shell RESOLVED (P2)** — dark hero (config + ceiling, honest no-fake-numbers note) + the ledger TAB shell; live metrics/feed are P5 | `AGENT.P2` |
+| 4 · Tool enable/disable + per-agent whitelist (capped) | **backend RESOLVED (P1)** — the whitelist store + narrowing resolver; the edit UI is P4 | `AGENT.P1` |
 | 5 · Rate & timing limits | pending (backend gap; escalation always-on) | — |
 | 6 · New-agent wizard | pending (entity now exists) | — |
 
@@ -223,3 +223,27 @@ Updated as AGENT.P1–… land. One commit per part.
   SETTINGS.P2 cap is unchanged and is one of the min() terms; the electric-fence eval + AgentAutonomyTest +
   ApprovalQueue suites stay green. **NO UI this gate** (P2+ builds the surfaces; RBAC admin.manage is applied by the
   P2 config controller — no route yet). Locked by `tests/Feature/AiCore/AgentEntityTest.php` (7).
+
+**P2 note — the agent list + per-agent detail shell + the AUTONOMY LADDER (presentational, over the P1 resolver):**
+- **The page** (`/governance/agents`, `AgentConfigController`, `Governance/Agents.vue`, `admin.manage`,
+  tenant-scoped, agents resolved by string id → cross-tenant = 404): a LEFT agent list (the tenant's real `Agent`
+  rows — name/key, status chip, configured-level pill) → selects into a per-agent DETAIL shell. Tabs
+  (Agents · Action ledger — the ledger content is P5; the tab shell exists with an honest "no placeholder numbers"
+  note).
+- **The detail shell:** a dark hero (agent identity + status + effective ceiling + configured level + tool count;
+  live activity metrics deferred to P5 with an honest note — no faked numbers) + a presentational **flow pipeline**
+  describing the REAL runtime path (message → grounded draft → checked-vs-ceiling → the electric fence → human
+  review; no new logic).
+- **THE AUTONOMY LADDER (the governance control):** renders the real `off/suggest/approve/auto` rungs but offers
+  ONLY levels ≤ the agent's **effective ceiling** — `AgentResolver::agentCeiling()` = **MIN of the tool ceilings the
+  agent touches** (per the P1 resolver; the runtime further narrows by the role ceiling + fence). Higher rungs
+  render LOCKED with the reason. Selecting a level + a status active/paused toggle writes through
+  `AgentConfigService::configure` (P1 clamp-on-write + audit `agent.configured`).
+- **THE CAP (proven):** the ladder cannot set an agent above its effective ceiling — the UI offers only ≤-ceiling
+  rungs AND `AgentConfigController::configure` **CLAMPS a forged higher level to the ceiling server-side** before
+  persisting; the resolver caps again at call time (P1). Browser-verified: a forged `POST autonomy_level=auto` to
+  the inbox agent (ceiling suggest) persisted as `suggest`, not `auto`. `AgentConfigService` (P1) itself is
+  UNCHANGED — the ceiling clamp lives in the P2 controller, so no P1 behaviour test is modified.
+- **PURELY additive over P1** — no whitelist edit (P4), no metrics/ledger data (P5), no rate/timing limits (P6). The
+  per-tool SETTINGS.P2 card is unaffected; the fence/AutonomyPolicy/role ceiling are not weakened. Locked by
+  `tests/Feature/Governance/AgentConfigTest.php` (8) + P1's `AgentEntityTest` still green.

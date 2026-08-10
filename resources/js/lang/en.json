@@ -883,6 +883,59 @@
             "auto": "The agent acts without human approval."
         }
     },
+    "agentConfig": {
+        "eyebrow": "Governance",
+        "title": "Agents",
+        "subtitle": "Each agent is a governed container, never a source of authority. Its level can only lower what the tool and role ceilings already allow — the server enforces the cap.",
+        "backToGovernance": "← Back to governance",
+        "flash": {
+            "saved": "Agent updated."
+        },
+        "tabs": {
+            "agents": "Agents",
+            "ledger": "Action ledger"
+        },
+        "ledger": {
+            "placeholder": "The per-agent action ledger — every draft, approval and fence outcome — lands with a later step. Nothing is shown here yet rather than show placeholder numbers."
+        },
+        "empty": "No governed agents are registered for this tenant.",
+        "status": {
+            "active": "Active",
+            "paused": "Paused"
+        },
+        "hero": {
+            "eyebrow": "Governed agent",
+            "ceilingLabel": "Effective ceiling",
+            "configuredLabel": "Configured",
+            "toolsLabel": "Tools",
+            "metricsNote": "Live activity metrics arrive with the action ledger. This panel shows configuration and the ceiling the runtime enforces — no placeholder numbers."
+        },
+        "pipeline": {
+            "title": "How this agent acts",
+            "subtitle": "Every run follows the same governed path — the ceiling is checked before anything leaves the agent, and the fence is never crossed.",
+            "steps": {
+                "message": { "label": "Message", "hint": "An inbound task arrives." },
+                "draft": { "label": "Grounded draft", "hint": "Composed from real records only." },
+                "checked": { "label": "Checked vs ceiling", "hint": "min(config, tool, role)." },
+                "fence": { "label": "Electric fence", "hint": "No diagnosis, triage or dosing." },
+                "review": { "label": "Human review", "hint": "A person decides / approves." }
+            }
+        },
+        "ladder": {
+            "title": "Autonomy",
+            "subtitle": "Choose how far this agent may act. Only levels at or below its effective ceiling are selectable; higher rungs are locked and enforced in code.",
+            "lockedBadge": "Locked",
+            "locked": "Unavailable — capped at {level} for the tools this agent touches (enforced server-side).",
+            "forgedNote": "The ceiling is enforced on the server: a request for a higher level is clamped to the ceiling on save, and the runtime caps it again at call time.",
+            "save": "Save changes"
+        },
+        "pauseToggle": {
+            "title": "Agent status",
+            "help": "A paused agent takes no action at all — every tool call resolves to off until it is resumed.",
+            "pause": "Pause agent",
+            "resume": "Resume agent"
+        }
+    },
     "schedulingSettings": {
         "eyebrow": "Administration",
         "title": "Scheduling",
