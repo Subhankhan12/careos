@@ -191,6 +191,18 @@ running shows up as an absence rather than as nothing at all.
   existing page (status pill + toggle + phone input; full master-detail visual is P2+). Locked by
   `tests/Feature/Scheduling/BranchOnlineBookingTest.php` (6). See `docs/wireframe-parity/BRANCHES-DIFF.md` §5.1 (option b).
 
+- **BRANCH.P2 (wireframe-parity) — `is_primary` default-branch flag + exactly-one-primary invariant.** Additive
+  migration `2026_08_24_000001` (is_primary bool default false) + backfill (every existing tenant → exactly one
+  primary: earliest active branch, else earliest). **INVARIANT: exactly one primary per tenant, ALWAYS** — seeded by
+  the `Branch::booted` `creating` hook (first branch is primary; covers direct `Branch::create` used by demo
+  seeders). `BranchService::setPrimary` = atomic swap (never zero/two); `setActive(false)` on the primary reassigns
+  to the earliest other active branch (or the sole branch keeps it — never zero); `ensurePrimary()` = idempotent
+  backfill mirror. NO un-set (the flag only moves). `POST /admin/branches/{branch}/primary`
+  (`BranchController::setPrimary`, admin.manage, target must be ACTIVE), audited `branch.primary_set` (derived in the
+  `Branch::updated` hook). **The P1 hard deactivate guard is UNCHANGED** (runs first; reassign only after it passes).
+  The implicit "first branch" default (billing `Branch::firstOrFail`) is NOT rewired (follow-up). Minimal "Primary"
+  badge + "Set as primary" UI (full visual P4). Locked by `tests/Feature/Platform/BranchPrimaryTest.php` (8).
+
 - Bookable-resource CRUD (CLINIC.W8c) closes the W8b "no resource backend" gap: rooms/chairs/vehicles are created
   under a branch on the same `/admin/branches` admin screen. The `Resource` model + guard are SCHEDULING (see
   [[Scheduling]] / [[D-096]]) — noted here because it is administered from the Platform branch-admin surface and its

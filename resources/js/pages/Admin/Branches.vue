@@ -34,6 +34,7 @@ type Branch = {
     phone: string | null;
     active: boolean;
     accepts_online_bookings: boolean;
+    is_primary: boolean;
     active_resources: number;
     future_appointments: number;
     hours: DayHours[];
@@ -42,6 +43,7 @@ type Branch = {
     updateUrl: string;
     hoursUrl: string;
     onlineBookingsUrl: string;
+    setPrimaryUrl: string;
     deactivateUrl: string;
     activateUrl: string;
 };
@@ -113,6 +115,10 @@ function setActive(branch: Branch, active: boolean): void {
 function setOnlineBookings(branch: Branch, accepts: boolean): void {
     router.post(branch.onlineBookingsUrl, { accepts_online_bookings: accepts }, { preserveScroll: true });
 }
+// Set this branch as the tenant's primary (default). Atomic server-side — exactly one primary always.
+function setPrimary(branch: Branch): void {
+    router.post(branch.setPrimaryUrl, {}, { preserveScroll: true });
+}
 function createResource(branch: Branch): void {
     router.post(branch.resourceStoreUrl, newResource[branch.id], {
         preserveScroll: true,
@@ -145,7 +151,7 @@ function hoursInvalid(branchId: string): boolean {
                 <Link :href="settingsUrl" class="mt-2 inline-flex text-sm font-semibold text-euca-700 hover:text-euca-800">{{ t('branchesAdmin.backToSettings') }}</Link>
             </div>
 
-            <p v-if="flash && ['created', 'updated', 'hoursSaved', 'deactivated', 'activated', 'onlineBookingsEnabled', 'onlineBookingsSuspended', 'resourceCreated', 'resourceUpdated', 'resourceDeactivated', 'resourceActivated'].includes(flash)" class="rounded-2xl border border-success/30 bg-success-soft p-4 text-sm text-success">
+            <p v-if="flash && ['created', 'updated', 'hoursSaved', 'deactivated', 'activated', 'onlineBookingsEnabled', 'onlineBookingsSuspended', 'primarySet', 'resourceCreated', 'resourceUpdated', 'resourceDeactivated', 'resourceActivated'].includes(flash)" class="rounded-2xl border border-success/30 bg-success-soft p-4 text-sm text-success">
                 {{ t(`branchesAdmin.flash.${flash}`) }}
             </p>
             <p v-if="errors.branch === 'has_appointments'" class="rounded-2xl border border-danger/30 bg-danger-soft p-4 text-sm text-danger">
@@ -185,6 +191,9 @@ function hoursInvalid(branchId: string): boolean {
                         <span class="rounded-full px-2.5 py-0.5 text-xs font-semibold" :class="branch.active ? 'bg-success-soft text-success' : 'bg-surface-2 text-ink-muted'">
                             {{ branch.active ? t('branchesAdmin.status.active') : t('branchesAdmin.status.inactive') }}
                         </span>
+                        <!-- Primary/default branch badge (exactly one per tenant) — or a set-primary action. -->
+                        <span v-if="branch.is_primary" class="rounded-full bg-euca-100 px-2.5 py-0.5 text-xs font-semibold text-euca-800">{{ t('branchesAdmin.primary.badge') }}</span>
+                        <Button v-else-if="branch.active" type="button" variant="secondary" :block="false" @click="setPrimary(branch)">{{ t('branchesAdmin.primary.setAction') }}</Button>
                         <!-- Soft-suspend state (distinct from active): online booking on/off. -->
                         <span class="rounded-full px-2.5 py-0.5 text-xs font-semibold" :class="branch.accepts_online_bookings ? 'bg-euca-50 text-euca-800' : 'bg-surface-2 text-ink-muted'">
                             {{ branch.accepts_online_bookings ? t('branchesAdmin.onlineBookings.on') : t('branchesAdmin.onlineBookings.off') }}

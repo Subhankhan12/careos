@@ -2102,6 +2102,7 @@
             "activated": "Branch reactivated.",
             "onlineBookingsEnabled": "Online bookings turned on for this branch.",
             "onlineBookingsSuspended": "Online bookings suspended — new online bookings are stopped; existing appointments are kept.",
+            "primarySet": "Primary branch updated.",
             "resourceCreated": "Resource added.",
             "resourceUpdated": "Resource updated.",
             "resourceDeactivated": "Resource deactivated.",
@@ -2122,6 +2123,11 @@
             "country": "Country (2-letter)",
             "timezone": "Timezone",
             "phone": "Phone"
+        },
+        "primary": {
+            "badge": "Primary",
+            "setAction": "Set as primary",
+            "help": "Every tenant has exactly one primary (default) branch."
         },
         "onlineBookings": {
             "title": "Accept online bookings",

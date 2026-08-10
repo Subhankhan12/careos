@@ -209,6 +209,8 @@ class AppServiceProvider extends ServiceProvider
                 $action = $m->active ? 'branch.activated' : 'branch.deactivated';
             } elseif ($m->wasChanged('accepts_online_bookings')) {
                 $action = $m->accepts_online_bookings ? 'branch.online_bookings_enabled' : 'branch.online_bookings_suspended';
+            } elseif ($m->wasChanged('is_primary') && $m->is_primary) {
+                $action = 'branch.primary_set';
             } else {
                 $action = 'branch.updated';
             }

@@ -26,6 +26,7 @@ use Modules\Platform\Concerns\BelongsToTenant;
  * @property string $timezone
  * @property bool $active
  * @property bool $accepts_online_bookings
+ * @property bool $is_primary
  * @property string|null $phone
  */
 class Branch extends Model
@@ -47,6 +48,7 @@ class Branch extends Model
         'timezone',
         'active',
         'accepts_online_bookings',
+        'is_primary',
         'phone',
     ];
 
@@ -54,6 +56,7 @@ class Branch extends Model
         'timezone' => 'UTC',
         'active' => true,
         'accepts_online_bookings' => true,
+        'is_primary' => false,
     ];
 
     /**
@@ -64,7 +67,22 @@ class Branch extends Model
         return [
             'active' => 'boolean',
             'accepts_online_bookings' => 'boolean',
+            'is_primary' => 'boolean',
         ];
+    }
+
+    protected static function booted(): void
+    {
+        // The FIRST branch a tenant ever gets is its PRIMARY (default) branch — the
+        // exactly-one-primary invariant (BRANCH.P2) is seeded here so EVERY creation path
+        // (service, factory, demo seeders that call Branch::create directly) leaves a tenant
+        // with exactly one primary. Later branches default non-primary; move the flag with
+        // BranchService::setPrimary. The query is tenant-scoped (BelongsToTenant).
+        static::creating(function (Branch $branch): void {
+            if (! $branch->is_primary && ! static::query()->exists()) {
+                $branch->is_primary = true;
+            }
+        });
     }
 
     /**

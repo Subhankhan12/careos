@@ -63,6 +63,8 @@ class BranchController
                 'active' => $branch->active,
                 // Soft-suspend state (BRANCH.P1): distinct from `active`. false = online bookings off.
                 'accepts_online_bookings' => $branch->accepts_online_bookings,
+                // The tenant's PRIMARY/default branch (BRANCH.P2) — exactly one per tenant, always.
+                'is_primary' => $branch->is_primary,
                 'active_resources' => $branches->activeResourceCount($branch->id),
                 'future_appointments' => $branches->futureAppointmentCount($branch->id),
                 'hours' => $this->hoursFor($hoursByBranch->get($branch->id)),
@@ -71,6 +73,7 @@ class BranchController
                 'updateUrl' => route('admin.branches.update', $branch->id),
                 'hoursUrl' => route('admin.branches.hours', $branch->id),
                 'onlineBookingsUrl' => route('admin.branches.online_bookings', $branch->id),
+                'setPrimaryUrl' => route('admin.branches.primary', $branch->id),
                 'deactivateUrl' => route('admin.branches.deactivate', $branch->id),
                 'activateUrl' => route('admin.branches.activate', $branch->id),
             ])->all(),
@@ -165,6 +168,29 @@ class BranchController
 
         return redirect()->route('admin.branches.index')
             ->with('status', $data['accepts_online_bookings'] ? 'onlineBookingsEnabled' : 'onlineBookingsSuspended');
+    }
+
+    /**
+     * Set the tenant's PRIMARY (default) branch (BRANCH.P2). Atomic — the current primary is cleared
+     * and this one set in one transaction, so EXACTLY ONE primary always remains (never zero, never
+     * two). The target must be ACTIVE (an inactive branch can't be the default). There is no un-set
+     * action — the flag is only ever moved. admin.manage-gated, tenant-scoped, audited
+     * (branch.primary_set).
+     */
+    public function setPrimary(Request $request, string $branch, BranchService $branches): RedirectResponse
+    {
+        Gate::authorize('admin.manage');
+        abort_unless($request->user() instanceof User, 403);
+
+        $model = Branch::query()->whereKey($branch)->firstOrFail();
+
+        if (! $model->active) {
+            return back()->withErrors(['branch' => 'inactive_primary']);
+        }
+
+        $branches->setPrimary($model);
+
+        return redirect()->route('admin.branches.index')->with('status', 'primarySet');
     }
 
     public function deactivate(Request $request, string $branch, BranchService $branches): RedirectResponse

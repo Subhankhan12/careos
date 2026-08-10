@@ -234,8 +234,30 @@ Updated as BRANCH.P1–… land. One commit per part.
 | 1 · Master-detail restructure | pending (P2+) | — |
 | 2 · Glass + eucardIn + pills + terracotta | pending (P2+) | — |
 | 3 · Create modal wizard | pending | — |
-| 6 · "main"/default-branch flag | pending (decision) | — |
+| 6 · "main"/default-branch flag (`is_primary`, exactly-one-per-tenant invariant) | **RESOLVED (P2)** | `BRANCH.P2` |
 | 8 · Practitioner resources read-only in the roster | pending | — |
+
+**P2 note — `is_primary` default-branch flag + exactly-one-primary invariant + the "main" badge:** resolves
+punch-list item 6 — a REAL, invariant-guarded state, NOT a cosmetic label.
+- **Study:** no per-tenant default existed; the implicit default was "first branch" (`Branch::query()->firstOrFail()`
+  used by some billing charge-attribution paths, and `StaffProfile.primary_branch_id` is a distinct PER-STAFF
+  concept). `is_primary` formalizes the tenant default; the billing paths are **not** rewired (existing behaviour
+  unchanged) — a documented follow-up could later point them at `is_primary`.
+- **Migration** (additive, default false) + **backfill**: every existing tenant gets exactly one primary — the
+  earliest-created ACTIVE branch (else earliest overall), aligning with the implicit "first branch" default.
+- **THE INVARIANT — exactly one primary per tenant, ALWAYS.** Seeded by the `Branch` `creating` hook (the tenant's
+  FIRST branch is primary — covers every path incl. the demo seeders' direct `Branch::create`). `setPrimary` is an
+  **atomic** swap (clear current + set target in one transaction — never zero, never two). Deactivating the primary
+  **reassigns** it to the earliest other active branch (atomic) before deactivating; the SOLE branch **keeps**
+  primary even when deactivated (still exactly one, never zero). There is **no un-set** action — the flag is only
+  ever moved. `ensurePrimary()` is the idempotent runtime mirror of the backfill (safety net + tested).
+- **Interaction with deactivate — the P1 hard guard is UNCHANGED.** `BranchController::deactivate` runs the P1
+  hard guard first (blocked while future appointments exist); only after it passes does the reassign happen in
+  `BranchService::setActive`. Set-primary requires the target be ACTIVE (an inactive branch can't be the default).
+- **UI:** a "Primary" badge on the primary branch + a "Set as primary" button on active non-primary branches
+  (minimal; full visual is P4). i18n unique `branchesAdmin.primary.*` + a `primarySet` flash. admin.manage-gated,
+  tenant-scoped, audited (`branch.primary_set`). **No existing behaviour test modified**; Branches/booking/fence
+  suites green. Locked by `tests/Feature/Platform/BranchPrimaryTest.php` (8 tests). Correctly-more-real un-regressed.
 
 **P1 note — per-branch `accepts_online_bookings` (soft-suspend) + `phone`; slot-finder-gated; hard deactivate
 guard unchanged (option (b) from §5.1):** the suspend-vs-deactivate reconciliation resolved by adding the SOFT
