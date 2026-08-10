@@ -3,7 +3,7 @@
 Short, factual snapshot of where the project stands. Updated at consolidations and after gates
 (per the MEMORY PROTOCOL in AGENTS.md).
 
-## STATUS: BUILD COMPLETE + AUDITED (3 audits, ZERO must-fix) · EIGHT VERTICALS · DEMOABLE HOSPITAL TENANT · CURRENT STAGE = DEPLOYMENT · WIREFRAME-PARITY PASS (Admin Settings done · Approval Queue COMPLETE (P1→P7) · Branches COMPLETE (P1→P4; create-wizard = optional polish))
+## STATUS: BUILD COMPLETE + AUDITED (3 audits, ZERO must-fix) · EIGHT VERTICALS · DEMOABLE HOSPITAL TENANT · CURRENT STAGE = DEPLOYMENT · WIREFRAME-PARITY PASS (THREE PAGES DONE: Admin Settings · Approval Queue (P1→P7) · Branches (P1→P5))
 
 > **RECONCILED (this pass — eight verticals built + audited; at the DEPLOY stage; a page-by-page wireframe-parity
 > pass now in progress).** CareOS is a multi-tenant agentic healthcare-operations platform (EU-first). **Stack:**
@@ -11,8 +11,8 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
 > 10.4 @3306, prod+CI MySQL 8 + Redis 7 + Node 22; Horizon via Memurai locally. **Latest commit:** `aac95c8`
 > (APPROVAL.P3 — the Approval Queue approve-contract caption), after the Admin Settings parity chain (→ `e7cabf0`),
 > DemoHospitalSeeder (D-147), the full-system QA audit + re-audit, and A11Y.1. **Suite:** `composer check` green —
-> Pest **1044 passed** (+3 from BRANCH.P4), PHPStan L5 `[OK]`, Pint clean; `composer test:smoke`
-> green; CI green on MySQL 8; the FIX.5 route-smoke guards against request-time 500s. (Latest commit: BRANCH.P4.)
+> Pest **1049 passed** (+5 from BRANCH.P5), PHPStan L5 `[OK]`, Pint clean; `composer test:smoke`
+> green; CI green on MySQL 8; the FIX.5 route-smoke guards against request-time 500s. (Latest commit: BRANCH.P5.)
 >
 > **WIREFRAME-PARITY PASS (in progress) — the discipline:** each app page is matched to its decoded wireframe in
 > the gitignored `resources/prototype/` (decode the bundler-shell HTML → AUDIT/diff into `docs/wireframe-parity/*.md`
@@ -54,8 +54,11 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
 >   (facility CRUD + practitioner name/status unchanged). **BRANCH.P4** re-skinned the page to the wireframe's
 >   two-column master-detail (300px list | 4 glass detail cards) with Eucalyptus Glow (glass/eucardIn/terracotta/
 >   pills/status-dots, reused utilities) — PURELY presentational over the P1–P3 backend; honest suspend(soft)-vs-
->   deactivate(hard) as distinct controls; correctly-more-real KEPT. **Branches parity COMPLETE (P1→P4);** only
->   optional polish left (the create 3-step modal wizard — P4 ships a functional glass create panel).
+>   deactivate(hard) as distinct controls; correctly-more-real KEPT. **BRANCH.P5** added the create-branch 3-step
+>   wizard (Identity → Address → Review) — PURELY UX over the EXISTING store endpoint; unique-Code + all validation
+>   unchanged/authoritative (a duplicate/missing field still refused server-side, surfaced in the wizard); P2
+>   primary invariant intact. **Branches parity COMPLETE (P1→P5). THREE wireframe-parity pages done: Admin Settings
+>   + Approval Queue + Branches.**
 > See D-149 for the parity discipline; the per-page/per-part gate approach; reflect-only-RBAC; surface-don't-fabricate.
 >
 > **THE EIGHT VERTICALS (all built + green on the shared platform):**

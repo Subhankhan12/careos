@@ -215,6 +215,17 @@ running shows up as an absence rather than as nothing at all.
   `tests/Feature/Platform/BranchMasterDetailTest.php` (3, props/behaviour not markup). **Branches parity COMPLETE
   (P1→P4).**
 
+- **BRANCH.P5 (wireframe-parity) — create-branch 3-step wizard, PURELY UX over the EXISTING store.** `Admin/Branches.vue`
+  replaced P4's flat create panel with a stepped flow (Step 1 Identity: name/Code/phone · Step 2 Address:
+  address/city/postal/country/timezone · Step 3 Review → Create) over the SAME `admin.branches.store` route. Per-step
+  client validation gates Continue; the final submit posts the SAME payload; the server's unique-Code + required
+  validation are UNCHANGED + authoritative (onError jumps to the step with the first error; code-taken surfaces on
+  step 1). The P2 primary invariant on create is intact (non-primary unless first). NO backend/validation/route
+  change; correctly-more-real (structured address/Code/timezone) collected; hours/resources/online-booking are set
+  after creation (honest — `store` doesn't take them). Locked by `tests/Feature/Platform/BranchCreateWizardTest.php`
+  (5). **Branches wireframe-parity COMPLETE (P1→P5); three parity pages done: Admin Settings + Approval Queue +
+  Branches.**
+
 - Bookable-resource CRUD (CLINIC.W8c) closes the W8b "no resource backend" gap: rooms/chairs/vehicles are created
   under a branch on the same `/admin/branches` admin screen. The `Resource` model + guard are SCHEDULING (see
   [[Scheduling]] / [[D-096]]) — noted here because it is administered from the Platform branch-admin surface and its

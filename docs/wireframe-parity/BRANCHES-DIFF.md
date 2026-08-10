@@ -233,14 +233,32 @@ Updated as BRANCH.P1–… land. One commit per part.
 | 5 · Online-booking control wired to the REAL gate | **RESOLVED (P1)** — real, not a faked switch | `BRANCH.P1` |
 | 1 · Master-detail restructure | **RESOLVED (P4)** | `BRANCH.P4` |
 | 2 · Glass + eucardIn + pills + terracotta | **RESOLVED (P4)** | `BRANCH.P4` |
-| 3 · Create modal wizard | **partial (P4)** — [+ Add branch] toggles a glass create panel; the 3-step modal wizard is the remaining polish (own gate if pulled forward) | `BRANCH.P4` |
+| 3 · Create 3-step wizard | **RESOLVED (P5)** | `BRANCH.P5` |
 | 6 · "main"/default-branch flag (`is_primary`, exactly-one-per-tenant invariant) | **RESOLVED (P2)** | `BRANCH.P2` |
 | 8 · Practitioner resources read-only in the roster (type not editable via the facility select) | **RESOLVED (P3)** | `BRANCH.P3` |
 
-> **✅ BRANCHES WIREFRAME-PARITY effectively COMPLETE** (P1 soft-suspend+phone → P2 primary-flag → P3
-> practitioner-read-only → P4 master-detail + Eucalyptus Glow). Only optional polish remains: the create **3-step
-> modal wizard** (P4 ships a functional glass create panel over the same `store` endpoint). **Three pages done in
-> the wireframe-parity pass: Admin Settings + Approval Queue + Branches.**
+> **✅ BRANCHES WIREFRAME-PARITY COMPLETE** (P1 soft-suspend+phone → P2 primary-flag → P3 practitioner-read-only →
+> P4 master-detail + Eucalyptus Glow → P5 create 3-step wizard). Every punch-list item RESOLVED. **THREE pages done
+> in the wireframe-parity pass: Admin Settings + Approval Queue + Branches.**
+
+**P5 note — create-branch 3-step wizard (UX over the EXISTING store; unique-Code + validation unchanged):**
+resolves punch-list item 3 — the last part; the Branches page is now at full wireframe parity.
+- **The wizard** replaces P4's flat glass create panel with a stepped flow over the SAME `admin.branches.store`
+  route: **Step 1 Identity** (name / **Code** / phone), **Step 2 Address** (address line 1 / city / postal / country
+  / timezone), **Step 3 Review** (read-only summary → Create). Per-step client validation gates Next
+  (name+code on step 1, timezone on step 2); Back/Continue navigate; the final submit posts the SAME payload.
+- **Server validation UNCHANGED + authoritative:** the unique-Code rule (`code='taken'`) and the required
+  fields (name/code/timezone) still refuse bad input server-side; the wizard surfaces them and jumps back to the
+  step holding the first error (name/code → step 1, timezone → step 2). No client-side skip of a server rule.
+- **P2 primary invariant intact:** a wizard-created branch is non-primary unless it's the tenant's first (the
+  `Branch` creating hook — unchanged). **Correctly-more-real kept:** the wizard collects the structured
+  address/**Code**/timezone the wireframe omits (the review step notes hours/resources/online-booking are set after
+  creation — honest, since `store` doesn't take them and `accepts_online_bookings` defaults on). **PURELY UX** — no
+  backend/validation/route change. i18n extends `branchesAdmin.create.*` (steps/next/back/hints/review). Reused P4
+  glass/eucardIn/pill utilities. **No existing behaviour test modified**; all suites green. Light tests:
+  `tests/Feature/Platform/BranchCreateWizardTest.php` (5 — the submit creates via the existing endpoint with all
+  fields persisted; duplicate Code refused; required omission refused; a second branch is non-primary; RBAC +
+  tenant-scoped).
 
 **P4 note — master-detail restructure + Eucalyptus Glow visual parity (PURELY presentational over P1–P3):**
 resolves punch-list items 1 + 2 (+ 3 partial).

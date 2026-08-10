@@ -2151,7 +2151,15 @@
             "subtitle": "A new active branch is immediately selectable for booking.",
             "submit": "Create branch",
             "addAction": "Add branch",
-            "cancel": "Cancel"
+            "cancel": "Cancel",
+            "step1": "Identity",
+            "step2": "Address",
+            "step3": "Review",
+            "next": "Continue",
+            "back": "Back",
+            "codeHint": "The branch code must be unique across your locations.",
+            "reviewSubtitle": "Confirm the details for the new branch.",
+            "reviewNote": "Opening hours, resources and the online-booking toggle are set on the branch after it's created."
         },
         "profile": {
             "subtitle": "Branch profile & online booking."

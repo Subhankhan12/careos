@@ -97,12 +97,51 @@ props.branches.forEach((branch) => {
     });
 });
 
+// ── Create-branch 3-step wizard (P5) — PURELY a UX flow over the EXISTING store endpoint. ──────
+// Step 1 identity (name/code/phone), step 2 address/timezone, step 3 review → submit the SAME
+// payload to the SAME validated endpoint. The unique-Code rule + all required validation stay
+// server-authoritative; the wizard just surfaces them (a taken code / missing field jumps back).
+const createStep = ref<1 | 2 | 3>(1);
+function openCreate(): void {
+    showCreate.value = true;
+    createStep.value = 1;
+    createForm.reset();
+    createForm.clearErrors();
+}
+const step1Valid = computed(() => createForm.name.trim() !== '' && createForm.code.trim() !== '');
+const step2Valid = computed(() => createForm.timezone.trim() !== '');
+function nextStep(): void {
+    if (createStep.value === 1 && !step1Valid.value) {
+        return;
+    }
+    if (createStep.value === 2 && !step2Valid.value) {
+        return;
+    }
+    if (createStep.value < 3) {
+        createStep.value = (createStep.value + 1) as 1 | 2 | 3;
+    }
+}
+function prevStep(): void {
+    if (createStep.value > 1) {
+        createStep.value = (createStep.value - 1) as 1 | 2 | 3;
+    }
+}
 function createBranch(): void {
     createForm.post(props.storeUrl, {
         preserveScroll: true,
         onSuccess: () => {
             createForm.reset();
             showCreate.value = false;
+            createStep.value = 1;
+        },
+        onError: (errs) => {
+            // Server validation is authoritative — jump to the step holding the first error so the
+            // reviewer can fix it (a taken/blank Code → step 1; a timezone error → step 2).
+            if (errs.name || errs.code) {
+                createStep.value = 1;
+            } else if (errs.timezone) {
+                createStep.value = 2;
+            }
         },
     });
 }
@@ -166,7 +205,7 @@ const typeLabel = (type: string): string => t(`branchesAdmin.resources.type.${ty
                     <p class="mt-1 text-sm text-ink-muted">{{ t('branchesAdmin.subtitle') }}</p>
                     <Link :href="settingsUrl" class="mt-2 inline-flex text-sm font-semibold text-euca-700 hover:text-euca-800">{{ t('branchesAdmin.backToSettings') }}</Link>
                 </div>
-                <Button type="button" pill :block="false" @click="showCreate = !showCreate">{{ t('branchesAdmin.create.addAction') }}</Button>
+                <Button type="button" pill :block="false" @click="openCreate">{{ t('branchesAdmin.create.addAction') }}</Button>
             </div>
 
             <p v-if="flash && ['created', 'updated', 'hoursSaved', 'deactivated', 'activated', 'onlineBookingsEnabled', 'onlineBookingsSuspended', 'primarySet', 'resourceCreated', 'resourceUpdated', 'resourceDeactivated', 'resourceActivated'].includes(flash)" class="rounded-2xl border border-success/30 bg-success-soft p-4 text-sm text-success">
@@ -179,29 +218,68 @@ const typeLabel = (type: string): string => t(`branchesAdmin.resources.type.${ty
                 {{ t('branchesAdmin.resources.blocked') }}
             </p>
 
-            <!-- Add-a-branch panel (toggled by the header button; the full modal wizard is P5). -->
-            <div v-if="showCreate" class="glass-card euca-card-in p-5">
-                <p class="text-base font-semibold text-ink">{{ t('branchesAdmin.create.title') }}</p>
-                <p class="mt-0.5 text-sm text-ink-muted">{{ t('branchesAdmin.create.subtitle') }}</p>
-                <form class="mt-4 grid gap-4 sm:grid-cols-2" @submit.prevent="createBranch">
+            <!-- Add-a-branch 3-step WIZARD (P5) — a stepped UX over the EXISTING store endpoint.
+                 Same payload, same server validation (unique Code + required fields authoritative). -->
+            <div v-if="showCreate" class="glass-card euca-card-in p-6">
+                <div class="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                        <p class="text-base font-semibold text-ink">{{ t('branchesAdmin.create.title') }}</p>
+                        <p class="mt-0.5 text-sm text-ink-muted">{{ t('branchesAdmin.create.subtitle') }}</p>
+                    </div>
+                    <!-- Step indicator -->
+                    <div class="flex items-center gap-2 text-xs font-medium">
+                        <span v-for="s in 3" :key="s" class="inline-flex items-center gap-1.5">
+                            <span class="inline-flex h-6 w-6 items-center justify-center rounded-full" :class="createStep >= s ? 'bg-euca-600 text-white' : 'bg-euca-50 text-euca-700'">{{ s }}</span>
+                            <span :class="createStep === s ? 'text-ink' : 'text-ink-subtle'">{{ t(`branchesAdmin.create.step${s}`) }}</span>
+                            <span v-if="s < 3" class="text-ink-subtle">›</span>
+                        </span>
+                    </div>
+                </div>
+
+                <!-- Step 1 · Identity -->
+                <div v-if="createStep === 1" class="mt-5 grid gap-4 sm:grid-cols-2">
                     <Input id="c-name" v-model="createForm.name" :label="t('branchesAdmin.fields.name')" :error="createForm.errors.name" />
                     <Input id="c-code" v-model="createForm.code" :label="t('branchesAdmin.fields.code')" :error="createForm.errors.code === 'taken' ? t('branchesAdmin.errors.codeTaken') : createForm.errors.code" />
+                    <Input id="c-phone" v-model="createForm.phone" :label="t('branchesAdmin.fields.phone')" :error="createForm.errors.phone" />
+                    <p class="text-xs text-ink-subtle sm:col-span-2">{{ t('branchesAdmin.create.codeHint') }}</p>
+                </div>
+
+                <!-- Step 2 · Address & timezone -->
+                <div v-else-if="createStep === 2" class="mt-5 grid gap-4 sm:grid-cols-2">
                     <Input id="c-addr1" v-model="createForm.address_line1" :label="t('branchesAdmin.fields.addressLine1')" :error="createForm.errors.address_line1" />
                     <Input id="c-city" v-model="createForm.city" :label="t('branchesAdmin.fields.city')" :error="createForm.errors.city" />
                     <Input id="c-postal" v-model="createForm.postal_code" :label="t('branchesAdmin.fields.postalCode')" :error="createForm.errors.postal_code" />
                     <Input id="c-country" v-model="createForm.country" :label="t('branchesAdmin.fields.country')" :error="createForm.errors.country" />
-                    <Input id="c-phone" v-model="createForm.phone" :label="t('branchesAdmin.fields.phone')" :error="createForm.errors.phone" />
                     <label class="block">
                         <span class="mb-1.5 block text-sm font-medium text-ink">{{ t('branchesAdmin.fields.timezone') }}</span>
                         <select v-model="createForm.timezone" class="block w-full rounded-md border border-line bg-surface px-3 py-2 text-sm text-ink">
                             <option v-for="tz in timezones" :key="tz" :value="tz">{{ tz }}</option>
                         </select>
+                        <span v-if="createForm.errors.timezone" class="mt-1 block text-xs text-danger">{{ createForm.errors.timezone }}</span>
                     </label>
-                    <div class="flex items-center gap-2 sm:col-span-2">
-                        <Button type="submit" pill :block="false" :disabled="createForm.processing || !createForm.name || !createForm.code">{{ t('branchesAdmin.create.submit') }}</Button>
-                        <Button type="button" variant="ghost" pill :block="false" @click="showCreate = false">{{ t('branchesAdmin.create.cancel') }}</Button>
-                    </div>
-                </form>
+                </div>
+
+                <!-- Step 3 · Review -->
+                <div v-else class="mt-5 space-y-3">
+                    <p class="text-sm text-ink-muted">{{ t('branchesAdmin.create.reviewSubtitle') }}</p>
+                    <dl class="grid gap-x-6 gap-y-2 rounded-xl border border-line bg-surface-2/40 p-4 text-sm sm:grid-cols-2">
+                        <div><dt class="text-xs text-ink-subtle">{{ t('branchesAdmin.fields.name') }}</dt><dd class="text-ink">{{ createForm.name || '—' }}</dd></div>
+                        <div><dt class="text-xs text-ink-subtle">{{ t('branchesAdmin.fields.code') }}</dt><dd class="font-mono text-ink">{{ createForm.code || '—' }}</dd></div>
+                        <div><dt class="text-xs text-ink-subtle">{{ t('branchesAdmin.fields.phone') }}</dt><dd class="text-ink">{{ createForm.phone || '—' }}</dd></div>
+                        <div><dt class="text-xs text-ink-subtle">{{ t('branchesAdmin.fields.timezone') }}</dt><dd class="text-ink">{{ createForm.timezone }}</dd></div>
+                        <div class="sm:col-span-2"><dt class="text-xs text-ink-subtle">{{ t('branchesAdmin.fields.addressLine1') }}</dt><dd class="text-ink">{{ [createForm.address_line1, createForm.postal_code, createForm.city, createForm.country].filter(Boolean).join(' · ') || '—' }}</dd></div>
+                    </dl>
+                    <p class="text-xs text-ink-subtle">{{ t('branchesAdmin.create.reviewNote') }}</p>
+                </div>
+
+                <!-- Wizard controls -->
+                <div class="mt-5 flex flex-wrap items-center gap-2">
+                    <Button v-if="createStep > 1" type="button" variant="secondary" pill :block="false" @click="prevStep">{{ t('branchesAdmin.create.back') }}</Button>
+                    <span class="grow"></span>
+                    <Button type="button" variant="ghost" pill :block="false" @click="showCreate = false">{{ t('branchesAdmin.create.cancel') }}</Button>
+                    <Button v-if="createStep < 3" type="button" pill :block="false" :disabled="(createStep === 1 && !step1Valid) || (createStep === 2 && !step2Valid)" @click="nextStep">{{ t('branchesAdmin.create.next') }}</Button>
+                    <Button v-else type="button" pill :block="false" :disabled="createForm.processing || !step1Valid || !step2Valid" @click="createBranch">{{ t('branchesAdmin.create.submit') }}</Button>
+                </div>
             </div>
 
             <!-- ── MASTER-DETAIL: 300px branch list | detail column ─────────────────── -->
