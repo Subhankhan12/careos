@@ -339,6 +339,21 @@ cited to enforcing code + a `tests/Evals/` case in the DIFF doc §9; no route/ac
 real exercised perms, withheld is real+human-only, no-permission-edit + no-fence-disable route, configure ignores
 forged fields, vault lists enforced invariants).
 
+## Editable tool whitelist (AGENT.P4 — narrows the callable set, never grants past ceiling)
+
+The per-agent detail also carries an EDITABLE tool whitelist ("tools it may call · N of M enabled",
+`AgentConfigController::toolWhitelist`): the agent's CANDIDATE remit tools (`AgentRegistry::AGENTS[key]['tools']`,
+registered + ceiling above OFF) toggle enabled/disabled; every other governed tool (minus `demo.*`) renders LOCKED
+("outside this agent's remit"). Toggling posts `tool_keys` to `configure`, which INTERSECTS the request with the
+candidate set (`candidateToolKeys` — a forged enable of a locked/out-of-remit/unregistered key is DROPPED) then
+writes through `AgentConfigService::configure` (P1 clamp + audit). **`AgentConfigService` (P1) is UNCHANGED — the
+remit clamp lives in the P4 controller** (so P1's out-of-remit-key test still passes; AutonomyPolicy injected via a
+controller constructor for effectiveCeiling). THE CAP: whitelisting changes the callable SET, never the AUTHORITY —
+disabling → resolver OFF (P1); a whitelisted tool is still MIN-capped at runtime (whitelisting never widens); a
+forged locked/unregistered key is dropped server-side. The P3 mirror's `exercised` set recomputes from `tool_keys`
+each load, so it reflects the real whitelist (still read-only). i18n `agentConfig.whitelist.*`. Locked by
+`tests/Feature/Governance/AgentConfigTest.php` (18 total; +5 P4).
+
 ## Open items
 
 - Richer production-grade vector retrieval is still unbuilt (KB admin UI now exists, W10 above; approval-queue UI, W9).

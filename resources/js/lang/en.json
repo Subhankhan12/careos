@@ -935,6 +935,15 @@
             "pause": "Pause agent",
             "resume": "Resume agent"
         },
+        "whitelist": {
+            "title": "Tools it may call",
+            "count": "{n} of {m} enabled",
+            "save": "Save tools",
+            "lockedBadge": "Locked",
+            "lockedReason": "Outside this agent's remit — it cannot be enabled here.",
+            "ceilingNote": "Capped at {level} — enabling never raises a tool past its ceiling.",
+            "forgedNote": "Enabling changes which tools the agent may call, never a tool's ceiling. A request to enable a locked or unknown tool is dropped on the server, and each tool is still capped at run time."
+        },
         "mirror": {
             "title": "Permission ceiling",
             "subtitle": "The real RBAC permissions this agent can and cannot exercise. It reflects the roles — it does not set them.",

@@ -5,6 +5,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Route;
 use Inertia\Testing\AssertableInertia as Assert;
 use Modules\AiCore\Models\Agent;
+use Modules\AiCore\Services\AgentResolver;
 use Modules\AiCore\Services\AutonomyPolicy;
 use Modules\AiCore\Services\ToolRegistry;
 use Modules\Platform\Models\Role;
@@ -274,18 +275,18 @@ test('the configure endpoint IGNORES forged permission/fence fields — the mirr
     $inbox = acAgent($tenant, 'inbox');
     $before = $inbox->tool_keys;
 
-    // Forge a body trying to grant a withheld permission, edit the whitelist, and disable the fence.
+    // Forge a body trying to grant a withheld permission and disable the fence. (tool_keys is a real
+    // P4 field with its own clamp — the point HERE is that permission/fence fields are ignored.)
     $this->actingAs($admin)
         ->post("/governance/agents/{$inbox->id}/configure", [
             'autonomy_level' => AutonomyPolicy::SUGGEST,
             'permissions' => ['note.sign' => 'allow', 'patient.edit' => 'allow'],
-            'tool_keys' => ['note.sign', 'clinical.summarize_since_last_visit'],
             'fence' => ['clinical_reviewed' => false],
             'fenceDisabled' => true,
         ])
         ->assertRedirect('/governance/agents');
 
-    // Nothing but level/status is writable: the whitelist (and thus the mirror) is unchanged.
+    // The forged permission/fence fields grant nothing: the whitelist (and thus the mirror) is unchanged.
     expect(acAgent($tenant, 'inbox')->tool_keys)->toBe($before);
 });
 
@@ -304,4 +305,123 @@ test('the fence vault surfaces the code-enforced invariants (toggle-free)', func
                 && collect($inv)->contains('clinical_reviewed')
                 && collect($inv)->contains('immutable_ledger')
                 && collect($inv)->contains('reground_at_approve')));
+});
+
+/*
+ * AGENT.P4 — the EDITABLE tool whitelist. Enabling/disabling changes WHICH tools the agent may call
+ * (narrowing the callable set) via AgentConfigService (P1 clamp). Whitelisting NEVER grants a tool
+ * past its ceiling (the resolver caps per-tool at runtime, P1). Out-of-remit tools are LOCKED; a
+ * forged enable of a locked/unregistered tool is dropped server-side.
+ */
+
+// ── The whitelist panel renders "N of M" + remit tools toggle-able, out-of-remit LOCKED ─────────
+
+test('the whitelist lists the agents remit tools as toggle-able and other tools as locked', function () {
+    $tenant = acTenant();
+    $admin = acUser($tenant, 'org_admin');
+
+    $this->actingAs($admin)
+        ->get('/governance/agents')
+        ->assertInertia(fn (Assert $page) => $page->where('agents', function ($agents) {
+            $inbox = collect($agents)->firstWhere('key', 'inbox');
+            $wl = $inbox['whitelist'];
+            $byKey = collect($wl['tools'])->keyBy('key');
+
+            // inbox remit = comms.draft_reply + comms.classify_document (both enabled, unlocked).
+            return $wl['candidateCount'] === 2 && $wl['enabledCount'] === 2
+                && $byKey['comms.draft_reply']['locked'] === false && $byKey['comms.draft_reply']['enabled'] === true
+                && $byKey['comms.classify_document']['locked'] === false
+                // a tool outside inbox's remit is LOCKED (can't be enabled here)…
+                && $byKey['billing.preflight_invoice']['locked'] === true
+                && $byKey['billing.preflight_invoice']['enabled'] === false
+                // …and the reserved demo tool is never listed.
+                && ! $byKey->has('demo.echo');
+        }));
+});
+
+// ── Enabling/disabling writes the whitelist via configure (real remit keys only, audited) ────────
+
+test('disabling a tool removes it from the whitelist and it becomes non-callable (OFF, P1)', function () {
+    $tenant = acTenant();
+    $admin = acUser($tenant, 'org_admin');
+    $inbox = acAgent($tenant, 'inbox');
+
+    // Disable comms.classify_document — keep only comms.draft_reply.
+    $this->actingAs($admin)
+        ->post("/governance/agents/{$inbox->id}/configure", ['tool_keys' => ['comms.draft_reply']])
+        ->assertRedirect('/governance/agents');
+
+    $updated = acAgent($tenant, 'inbox');
+    expect($updated->tool_keys)->toBe(['comms.draft_reply'])
+        // the removed tool is no longer callable (narrowed) — the P1 resolver returns OFF.
+        ->and($updated->mayCall('comms.classify_document'))->toBeFalse()
+        ->and(app(AgentResolver::class)->effectiveLevel($updated, app(ToolRegistry::class)->get('comms.classify_document')->definition()))->toBe(AutonomyPolicy::OFF);
+
+    // Audited (agent.configured), tenant-scoped.
+    $audited = DB::selectOne('SELECT COUNT(*) c FROM audit_events WHERE tenant_id <=> ? AND action = ?', [$tenant->id, 'agent.configured'])->c;
+    expect((int) $audited)->toBe(1);
+});
+
+// ── THE CAP: a forged tool_keys with a locked/unregistered key is DROPPED; a whitelisted tool is
+//    STILL capped at runtime (effective = MIN, P1 — never widened by whitelisting) ────────────────
+
+test('THE CAP: a forged tool_keys with a locked or unregistered key is dropped server-side', function () {
+    $tenant = acTenant();
+    $admin = acUser($tenant, 'org_admin');
+    $inbox = acAgent($tenant, 'inbox');
+
+    // Try to force in: a real-but-out-of-remit tool (billing), an unregistered key, plus a legit one.
+    $this->actingAs($admin)
+        ->post("/governance/agents/{$inbox->id}/configure", ['tool_keys' => [
+            'comms.draft_reply',            // legit remit tool → kept
+            'billing.preflight_invoice',    // real, but OUTSIDE inbox's remit → dropped (locked)
+            'not.a.real.tool',              // unregistered → dropped
+        ]])
+        ->assertRedirect('/governance/agents');
+
+    $updated = acAgent($tenant, 'inbox');
+    // Only the legit remit tool survives — the forged locked + unregistered keys are gone.
+    expect($updated->tool_keys)->toBe(['comms.draft_reply'])
+        ->and($updated->mayCall('billing.preflight_invoice'))->toBeFalse();
+});
+
+test('THE CAP: whitelisting a tool never widens it — effective autonomy stays MIN(config, ceiling, role)', function () {
+    $tenant = acTenant();
+    $admin = acUser($tenant, 'org_admin');
+    $scheduler = acAgent($tenant, 'scheduler'); // remit = scheduler.suggest_slots (ceiling approve) + fill_from_waitlist
+
+    // Force the agent's config to AUTO, keep the tool whitelisted.
+    $scheduler->update(['autonomy_level' => AutonomyPolicy::AUTO]);
+    $this->actingAs($admin)
+        ->post("/governance/agents/{$scheduler->id}/configure", ['tool_keys' => ['scheduler.suggest_slots', 'scheduler.fill_from_waitlist']])
+        ->assertRedirect('/governance/agents');
+
+    $updated = acAgent($tenant, 'scheduler');
+    // Whitelisted + configured AUTO, but the tool ceiling is approve → effective is still APPROVE, not AUTO.
+    expect($updated->mayCall('scheduler.suggest_slots'))->toBeTrue()
+        ->and(app(AgentResolver::class)->effectiveLevel($updated, app(ToolRegistry::class)->get('scheduler.suggest_slots')->definition(), AutonomyPolicy::AUTO))
+        ->toBe(AutonomyPolicy::APPROVE); // capped by the tool ceiling — whitelisting did not widen it
+});
+
+// ── The P3 permission mirror reflects the real updated whitelist (still read-only) ───────────────
+
+test('the P3 permission mirror reflects the real updated whitelist (read-only)', function () {
+    $tenant = acTenant();
+    $admin = acUser($tenant, 'org_admin');
+    $inbox = acAgent($tenant, 'inbox');
+
+    // Disable comms.classify_document (note.write) — leave only comms.draft_reply (comms.manage).
+    $this->actingAs($admin)
+        ->post("/governance/agents/{$inbox->id}/configure", ['tool_keys' => ['comms.draft_reply']])
+        ->assertRedirect('/governance/agents');
+
+    // The mirror's exercised set now reflects the narrowed whitelist: only comms.manage remains.
+    $this->actingAs($admin)
+        ->get('/governance/agents')
+        ->assertInertia(fn (Assert $page) => $page->where('agents', function ($agents) {
+            $inbox = collect($agents)->firstWhere('key', 'inbox');
+            $exercised = collect($inbox['permissions']['exercised'])->pluck('permission')->sort()->values()->all();
+
+            return $exercised === ['comms.manage']; // note.write dropped with its only tool
+        }));
 });

@@ -10,6 +10,7 @@ use Inertia\Inertia;
 use Inertia\Response;
 use Modules\AiCore\Exceptions\AiCoreException;
 use Modules\AiCore\Models\Agent;
+use Modules\AiCore\Services\AgentRegistry;
 use Modules\AiCore\Services\AgentResolver;
 use Modules\AiCore\Services\AutonomyPolicy;
 use Modules\AiCore\Services\ToolRegistry;
@@ -34,8 +35,11 @@ use Modules\Platform\Services\RbacProvisioner;
  * Gated on `admin.manage`; tenant-scoped; the change is audited (`agent.configured`, P1). It also
  * surfaces two REFLECT-ONLY / TOGGLE-FREE panels (AGENT.P3): the per-agent permission-ceiling MIRROR
  * (role-derived, read-only — no permission-edit path here) and the electric-fence VAULT (the
- * code-enforced invariants, no disable path here). This gate builds the list + shell + ladder +
- * the two read-only panels — no whitelist edit (P4), no metrics/ledger (P5), no limits (P6).
+ * code-enforced invariants, no disable path here). The tool WHITELIST is editable (AGENT.P4):
+ * enabling/disabling changes WHICH tools the agent may call (narrowing the callable set, clamped to
+ * the agent's candidate remit), never a tool's ceiling/permission — the resolver still caps each
+ * tool at runtime (P1). This gate chain builds the list + shell + ladder + the two read-only panels
+ * + the whitelist — no metrics/ledger (P5), no limits (P6).
  */
 class AgentConfigController
 {
@@ -46,6 +50,9 @@ class AgentConfigController
      * "denied" list can never be fabricated — it is derived from the real registry.
      */
     private const HUMAN_ONLY = ['note.sign', 'patient.edit', 'medication.prescribe', 'allergy.override'];
+
+    /** The reserved demo/echo tool is always registered but is not a production agent tool. */
+    private const HIDDEN_PREFIX = 'demo.';
 
     /**
      * The electric-fence invariants — CODE-ENFORCED, toggle-free. Keys only; the descriptor text is
@@ -60,6 +67,8 @@ class AgentConfigController
         'immutable_ledger',     // append-only hash-chained audit_events (DB triggers) + ai_interactions
         'reground_at_approve',  // approve re-authorises the tool permission + re-executes from live state
     ];
+
+    public function __construct(private readonly AutonomyPolicy $autonomy) {}
 
     public function index(Request $request, AgentResolver $resolver, ToolRegistry $tools): Response
     {
@@ -82,7 +91,7 @@ class AgentConfigController
         ]);
     }
 
-    public function configure(Request $request, string $agent, AgentResolver $resolver, AgentConfigService $service): RedirectResponse
+    public function configure(Request $request, string $agent, AgentResolver $resolver, AgentConfigService $service, ToolRegistry $tools): RedirectResponse
     {
         Gate::authorize('admin.manage');
         abort_unless($request->user() instanceof User, 403);
@@ -95,6 +104,8 @@ class AgentConfigController
             // Any valid enum is accepted; the CEILING clamp below is what enforces the cap, not this.
             'autonomy_level' => ['sometimes', 'string', 'in:'.implode(',', array_keys(AutonomyPolicy::LEVELS))],
             'status' => ['sometimes', 'string', 'in:'.Agent::STATUS_ACTIVE.','.Agent::STATUS_PAUSED],
+            'tool_keys' => ['sometimes', 'array'],
+            'tool_keys.*' => ['string'],
         ]);
 
         $payload = [];
@@ -110,6 +121,15 @@ class AgentConfigController
             $payload['status'] = $data['status'];
         }
 
+        if (array_key_exists('tool_keys', $data)) {
+            // WHITELIST CLAMP (AGENT.P4): the whitelist may only reference the agent's CANDIDATE
+            // (enable-able) tools — its registered, callable remit. A forged enable of a locked /
+            // out-of-remit / unregistered key is DROPPED here (never grants a capability). This only
+            // narrows the callable SET; the resolver still caps each tool's autonomy at runtime (P1).
+            $candidate = $this->candidateToolKeys($model, $resolver, $tools);
+            $payload['tool_keys'] = array_values(array_intersect(array_values($data['tool_keys']), $candidate));
+        }
+
         $service->configure($model, $payload);
 
         return redirect()->route('governance.agents.index')->with('status', 'saved');
@@ -122,6 +142,38 @@ class AgentConfigController
         $ceilingRank = AutonomyPolicy::LEVELS[$ceiling] ?? AutonomyPolicy::LEVELS[AutonomyPolicy::OFF];
 
         return min($requestedRank, $ceilingRank) === $requestedRank ? $requested : $ceiling;
+    }
+
+    /**
+     * The agent's CANDIDATE (enable-able) tool keys — its canonical remit ({@see AgentRegistry}),
+     * restricted to tools that are registered AND callable (effective ceiling above OFF). The
+     * whitelist may only ever reference these: enabling anything else (out-of-remit, unregistered,
+     * or a non-callable/locked tool) is refused. Whitelisting one of these still does NOT grant it
+     * past its ceiling — the resolver caps each tool's autonomy at runtime (P1).
+     *
+     * @return list<string>
+     */
+    private function candidateToolKeys(Agent $agent, AgentResolver $resolver, ToolRegistry $tools): array
+    {
+        $remit = AgentRegistry::AGENTS[$agent->key]['tools'] ?? [];
+        $out = [];
+
+        foreach ($remit as $key) {
+            try {
+                $definition = $tools->get($key)->definition();
+            } catch (AiCoreException) {
+                continue; // an unregistered remit key is not enable-able
+            }
+
+            // A tool whose effective ceiling is OFF is non-callable — it stays LOCKED, never enable-able.
+            if ($this->autonomy->effectiveCeiling($definition) === AutonomyPolicy::OFF) {
+                continue;
+            }
+
+            $out[] = $key;
+        }
+
+        return $out;
     }
 
     /**
@@ -152,7 +204,55 @@ class AgentConfigController
             ),
             'tools' => $this->tools($agent, $tools),
             'permissions' => $this->permissionMirror($agent, $tools),
+            'whitelist' => $this->toolWhitelist($agent, $resolver, $tools),
             'configureUrl' => route('governance.agents.configure', ['agent' => $agent->id]),
+        ];
+    }
+
+    /**
+     * The EDITABLE tool whitelist (AGENT.P4) — "tools it may call · N of M enabled". The agent's
+     * candidate remit tools are toggle-able (enabled = in the whitelist); every OTHER governed tool
+     * is shown LOCKED (outside this agent's remit — it can never be enabled here). Toggling writes
+     * `tool_keys` through {@see AgentConfigService} (clamped to the candidate set in configure());
+     * it changes only WHICH tools the agent may call — never a tool's ceiling/permission (P1).
+     *
+     * @return array<string, mixed>
+     */
+    private function toolWhitelist(Agent $agent, AgentResolver $resolver, ToolRegistry $tools): array
+    {
+        $candidate = $this->candidateToolKeys($agent, $resolver, $tools);
+        $enabled = array_values(array_intersect($agent->tool_keys ?? [], $candidate));
+
+        $rows = [];
+
+        foreach ($tools->all() as $key => $tool) {
+            if (str_starts_with((string) $key, self::HIDDEN_PREFIX)) {
+                continue; // the reserved demo/echo tool is not a production agent tool
+            }
+
+            $definition = $tool->definition();
+            $inRemit = in_array($key, $candidate, true);
+
+            $rows[] = [
+                'key' => $definition->key,
+                'name' => $definition->name,
+                'category' => $definition->category,
+                'permission' => $definition->permission,
+                'permissionLabel' => RbacProvisioner::PERMISSIONS[$definition->permission] ?? $definition->permission,
+                'ceiling' => $this->autonomy->effectiveCeiling($definition),
+                'enabled' => in_array($key, $enabled, true),
+                // Locked = not this agent's remit: it can never be enabled here (a forged enable is dropped).
+                'locked' => ! $inRemit,
+            ];
+        }
+
+        // Remit tools first (the toggle-able set), then the locked ones; stable name order within each.
+        usort($rows, fn (array $a, array $b): int => [$a['locked'] ? 1 : 0, $a['name']] <=> [$b['locked'] ? 1 : 0, $b['name']]);
+
+        return [
+            'enabledCount' => count($enabled),
+            'candidateCount' => count($candidate),
+            'tools' => $rows,
         ];
     }
 

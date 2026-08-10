@@ -199,7 +199,7 @@ Updated as AGENT.P1–… land. One commit per part.
 | (foundation) · Agent entity + capped effective-level resolver | **RESOLVED (P1)** | `AGENT.P1` |
 | 2 · Agent-shaped presentation over the cap | **RESOLVED (P2)** — agent list + per-agent detail shell + the autonomy ladder, over the P1 resolver | `AGENT.P2` |
 | 3 · Hero metrics + fence-refused + action-ledger tab | **shell RESOLVED (P2)** — dark hero (config + ceiling, honest no-fake-numbers note) + the ledger TAB shell; live metrics/feed are P5 | `AGENT.P2` |
-| 4 · Tool enable/disable + per-agent whitelist (capped) | **backend RESOLVED (P1)** — the whitelist store + narrowing resolver; the edit UI is P4 | `AGENT.P1` |
+| 4 · Tool enable/disable + per-agent whitelist (capped) | **RESOLVED (P1 backend + P4 UI)** — the whitelist store + narrowing resolver (P1) + the editable "N of M enabled" panel: remit tools toggle, out-of-remit LOCKED, forged enable dropped, whitelisting never grants past ceiling (P4) | `AGENT.P1` / `AGENT.P4` |
 | 7 · Permission-ceiling mirror (read-only RBAC reflection) | **RESOLVED (P3)** — per-agent exercised/withheld permissions, role-derived, reflect-only (no edit path); links to Roles | `AGENT.P3` |
 | 8 · Electric-fence vault ("not configurable") | **RESOLVED (P3)** — 6 code-enforced, eval-locked invariants displayed toggle-free (no disable path) | `AGENT.P3` |
 | 5 · Rate & timing limits | pending (backend gap; escalation always-on) | — |
@@ -283,3 +283,23 @@ Updated as AGENT.P1–… land. One commit per part.
      not a bypass. Eval/feature: `ApprovalFenceRefusedTest.php:100-131`.
   There is NO route/action to disable any invariant (structurally confirmed — no `permission|fence|invariant` route
   under `governance.agents`). Locked by `tests/Feature/Governance/AgentConfigTest.php` (+5 P3 tests).
+
+**P4 note — the EDITABLE tool whitelist (narrows the callable set; whitelisting never grants past the ceiling):**
+- **The panel** (`AgentConfigController::toolWhitelist`, rendered "tools it may call · N of M enabled"): the agent's
+  CANDIDATE remit tools (`AgentRegistry::AGENTS[key]['tools']`, registered + ceiling above OFF) are toggle-able
+  (enabled = in `tool_keys`); every OTHER governed tool (minus `demo.*`) renders **LOCKED** ("outside this agent's
+  remit"). Toggling posts `tool_keys` to the existing `configure` endpoint.
+- **The write path** (`configure` extended to validate `tool_keys` array): the requested keys are intersected with
+  the agent's candidate set (`candidateToolKeys`) — a forged enable of a locked (out-of-remit), unregistered, or
+  non-callable tool is **DROPPED here** — then written through `AgentConfigService::configure` (P1 clamp: real
+  registered keys only + audit `agent.configured`). `AgentConfigService` (P1) is UNCHANGED — the remit clamp lives
+  in the P4 controller, so P1's test (which stores a real out-of-remit key via the service directly) still passes.
+- **THE CAP (proven):** whitelisting changes the CALLABLE SET, never the AUTHORITY. Disabling a tool → the resolver
+  returns OFF for it (narrowed, P1). A forged `tool_keys` including a locked/unregistered key is dropped server-side
+  (browser-verified: a POST of `[comms.draft_reply, billing.preflight_invoice(out-of-remit), not.a.real.tool]` to the
+  inbox agent persisted as `[comms.draft_reply]` only). A whitelisted tool is STILL capped at runtime — effective =
+  MIN(config, ceiling, role) (browser/test-verified: scheduler configured AUTO + whitelisted → effective APPROVE,
+  not AUTO). Enabling never raises a tool past its ceiling.
+- **The P3 mirror reflects the real updated whitelist** (browser-verified: disabling comms.classify_document dropped
+  `note.write` from the mirror's exercised set) — still read-only. Locked by `tests/Feature/Governance/AgentConfigTest.php`
+  (+5 P4 tests). No existing behaviour changed; fence eval + P1/P2/P3 + AutonomyPolicy + ApprovalQueue stay green.

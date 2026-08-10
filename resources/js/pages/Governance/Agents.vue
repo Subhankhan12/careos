@@ -12,6 +12,16 @@ type Level = { value: string; allowed: boolean };
 type ToolRow = { key: string; name: string; category: string };
 type ExercisedPermission = { permission: string; label: string; category: string; tools: string[] };
 type WithheldPermission = { permission: string; label: string };
+type WhitelistTool = {
+    key: string;
+    name: string;
+    category: string;
+    permission: string;
+    permissionLabel: string;
+    ceiling: string;
+    enabled: boolean;
+    locked: boolean;
+};
 type Agent = {
     id: string;
     key: string;
@@ -22,6 +32,7 @@ type Agent = {
     levels: Level[];
     tools: ToolRow[];
     permissions: { exercised: ExercisedPermission[]; withheld: WithheldPermission[] };
+    whitelist: { enabledCount: number; candidateCount: number; tools: WhitelistTool[] };
     configureUrl: string;
 };
 
@@ -68,6 +79,34 @@ function save(agent: Agent): void {
 
 const dirty = (agent: Agent): boolean =>
     draft[agent.id].level !== agent.level || draft[agent.id].status !== agent.status;
+
+// ── Tool whitelist (P4) — per-agent enabled map over the REMIT (unlocked) tools. Toggling changes
+// WHICH tools the agent may call; the server clamps to the candidate set + the resolver caps each
+// tool's autonomy at runtime (P1). Locked (out-of-remit) tools cannot be toggled.
+const whitelistDraft = reactive<Record<string, Record<string, boolean>>>({});
+props.agents.forEach((agent) => {
+    whitelistDraft[agent.id] = {};
+    agent.whitelist.tools.forEach((tool) => {
+        if (!tool.locked) whitelistDraft[agent.id][tool.key] = tool.enabled;
+    });
+});
+
+function toggleTool(agent: Agent, tool: WhitelistTool): void {
+    if (tool.locked) return;
+    whitelistDraft[agent.id][tool.key] = !whitelistDraft[agent.id][tool.key];
+}
+
+function saveWhitelist(agent: Agent): void {
+    const keys = Object.entries(whitelistDraft[agent.id]).filter(([, on]) => on).map(([key]) => key);
+    router.post(agent.configureUrl, { tool_keys: keys }, { preserveScroll: true });
+}
+
+const enabledNow = (agent: Agent): number => Object.values(whitelistDraft[agent.id]).filter(Boolean).length;
+
+const whitelistDirty = (agent: Agent): boolean =>
+    agent.whitelist.tools.some((tool) => !tool.locked && whitelistDraft[agent.id][tool.key] !== tool.enabled);
+
+const categoryLabel = (category: string): string => t(`agents.categories.${category}`, category);
 </script>
 
 <template>
@@ -215,6 +254,57 @@ const dirty = (agent: Agent): boolean =>
                             </li>
                         </ul>
                         <p class="mt-3 text-xs text-ink-subtle">{{ t('agentConfig.ladder.forgedNote') }}</p>
+                    </div>
+
+                    <!-- TOOL WHITELIST (P4) — enable/disable WHICH tools the agent may call. Remit
+                         tools toggle; out-of-remit tools render LOCKED. Enabling never grants past a
+                         tool's ceiling — the resolver caps each tool at runtime (P1). -->
+                    <div class="glass-card euca-card-in p-6" :style="{ '--euca-card-delay': '0.16s' }">
+                        <div class="flex flex-wrap items-start justify-between gap-3">
+                            <div>
+                                <h3 class="text-base font-semibold text-ink">{{ t('agentConfig.whitelist.title') }}</h3>
+                                <p class="mt-0.5 text-sm text-ink-muted">
+                                    {{ t('agentConfig.whitelist.count', { n: enabledNow(selected), m: selected.whitelist.candidateCount }) }}
+                                </p>
+                            </div>
+                            <Button type="button" pill :block="false" :disabled="!whitelistDirty(selected)" @click="saveWhitelist(selected)">{{ t('agentConfig.whitelist.save') }}</Button>
+                        </div>
+
+                        <ul class="mt-4 space-y-2">
+                            <li v-for="tool in selected.whitelist.tools" :key="tool.key">
+                                <button
+                                    type="button"
+                                    :disabled="tool.locked"
+                                    :aria-pressed="!tool.locked && whitelistDraft[selected.id][tool.key]"
+                                    class="flex w-full items-start gap-3 rounded-2xl border p-3 text-left transition"
+                                    :class="[
+                                        tool.locked ? 'cursor-not-allowed border-line bg-surface-2/40 opacity-60'
+                                            : whitelistDraft[selected.id][tool.key] ? 'border-euca-400 bg-euca-50/60 hover:border-euca-400' : 'border-line hover:border-euca-300',
+                                    ]"
+                                    @click="toggleTool(selected, tool)"
+                                >
+                                    <!-- Toggle indicator (or lock for out-of-remit tools) -->
+                                    <span v-if="tool.locked" class="mt-0.5 inline-flex h-5 w-5 flex-none items-center justify-center text-ink-subtle">
+                                        <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2" stroke="currentColor" stroke-width="1.7" /><path d="M8 11V8a4 4 0 0 1 8 0v3" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" /></svg>
+                                    </span>
+                                    <span v-else class="mt-0.5 inline-flex h-5 w-9 flex-none items-center rounded-full p-0.5 transition" :class="whitelistDraft[selected.id][tool.key] ? 'bg-euca-600' : 'bg-surface-2'">
+                                        <span class="h-4 w-4 rounded-full bg-white shadow transition" :class="whitelistDraft[selected.id][tool.key] ? 'translate-x-4' : ''"></span>
+                                    </span>
+
+                                    <span class="min-w-0 grow">
+                                        <span class="flex flex-wrap items-center gap-2">
+                                            <span class="font-medium text-ink">{{ tool.name }}</span>
+                                            <span class="rounded-full bg-euca-100 px-2 py-0.5 text-[11px] font-medium text-euca-800">{{ categoryLabel(tool.category) }}</span>
+                                            <span v-if="tool.locked" class="inline-flex items-center gap-1 rounded-full bg-surface-2 px-2 py-0.5 text-[11px] font-medium text-ink-muted">{{ t('agentConfig.whitelist.lockedBadge') }}</span>
+                                        </span>
+                                        <span class="mt-0.5 block font-mono text-[11px] text-ink-subtle">{{ tool.key }} · {{ tool.permission }}</span>
+                                        <span v-if="tool.locked" class="mt-0.5 block text-xs text-ink-subtle">{{ t('agentConfig.whitelist.lockedReason') }}</span>
+                                        <span v-else class="mt-0.5 block text-xs text-ink-muted">{{ t('agentConfig.whitelist.ceilingNote', { level: t(`agents.levels.${tool.ceiling}`) }) }}</span>
+                                    </span>
+                                </button>
+                            </li>
+                        </ul>
+                        <p class="mt-3 text-xs text-ink-subtle">{{ t('agentConfig.whitelist.forgedNote') }}</p>
                     </div>
 
                     <!-- PERMISSION-CEILING MIRROR — READ-ONLY reflection of the real RBAC + tool
