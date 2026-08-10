@@ -964,6 +964,36 @@
             "pause": "Pause agent",
             "resume": "Resume agent"
         },
+        "limits": {
+            "title": "Rate & timing limits",
+            "subtitle": "Real limits the runtime reads. A limit can only stop the agent and hand the work to a human — it never widens autonomy.",
+            "save": "Save limits",
+            "noLimit": "No limit",
+            "off": "Off",
+            "to": "to",
+            "maxDrafts": "Max drafts per hour",
+            "maxDraftsHint": "Once the agent has drafted this many in a rolling hour, it stops until the window clears. Blank = no cap.",
+            "quietHours": "Quiet hours",
+            "quietHoursHint": "The agent does not act during this window; the work waits for a human.",
+            "escalation": {
+                "title": "Escalate uncertainty to a human",
+                "alwaysOn": "Always on",
+                "help": "The safety hand-off: when the agent is uncertain — a clinical question, a non-groundable draft — it stops and flags a human. This is enforced in code and cannot be turned off.",
+                "thresholdLabel": "Confidence threshold",
+                "thresholdPlanned": "planned — the runtime has no confidence score yet, so no adjustable threshold is shown rather than a control that changes nothing. The mandatory hand-off above stays on regardless."
+            }
+        },
+        "create": {
+            "addAction": "New agent",
+            "title": "New agent",
+            "subtitle": "Create a governed agent of a real kind. It is capped from birth — its autonomy can never exceed the ceiling of the tools it touches.",
+            "kind": "Kind",
+            "name": "Name",
+            "cappedNote": "The new agent starts at Suggest and is whitelisted to its kind's real tools. The server caps it to the same ceilings as every other agent — it cannot be created above any ceiling.",
+            "submit": "Create agent",
+            "cancel": "Cancel",
+            "flash": "Agent created."
+        },
         "whitelist": {
             "title": "Tools it may call",
             "count": "{n} of {m} enabled",

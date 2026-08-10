@@ -30,7 +30,7 @@ class AgentMetricsService
      */
     public function hero(Agent $agent): array
     {
-        $names = AgentRegistry::ledgerNames($agent->key);
+        $names = AgentRegistry::ledgerNames($agent->kind());
 
         $draftsToday = AiInteraction::query()
             ->whereIn('agent', $names)

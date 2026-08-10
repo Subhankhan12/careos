@@ -2,6 +2,7 @@
 
 namespace Modules\AiCore\Services;
 
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Gate;
 use Modules\AiCore\Exceptions\AiCoreException;
 use Modules\AiCore\Models\Agent;
@@ -107,6 +108,16 @@ class AgentRuntime
             ];
         }
 
+        // AGENT.P6 rate/timing limits — CONSULTED here (only on the Agent-entity path). A limit can
+        // only STOP the agent, never widen it: an agent in its quiet-hours window, or over its
+        // drafts/hour cap, does not act — the work is deferred to a human (the escalation floor).
+        if ($agentEntity !== null) {
+            $limited = $this->limitOutcome($agentEntity, $feature, $agent, $toolKey, $prompt);
+            if ($limited !== null) {
+                return $limited;
+            }
+        }
+
         if ($level === AutonomyPolicy::AUTO) {
             return [
                 'status' => 'executed',
@@ -121,6 +132,60 @@ class AgentRuntime
             'label' => AiInteractionRecorder::LABEL,
             'human_handoff' => true,
             'action' => $this->approvalQueue->propose($toolKey, $input, $actor, $feature, $agent, $why, $level),
+        ];
+    }
+
+    /**
+     * Consult the agent's rate/timing limits. Returns a terminal outcome (the agent does NOT act,
+     * the work is handed to a human) when a limit is hit, or null when the agent may proceed. Each
+     * hit is recorded to the append-only ledger, so it is countable + listable.
+     *
+     * @return array{status: string, label: string, human_handoff: bool}|null
+     */
+    private function limitOutcome(Agent $agentEntity, string $feature, string $agent, string $toolKey, PromptVersion $prompt): ?array
+    {
+        // Quiet hours: the agent does not act during its configured window — deferred to a human.
+        if ($agentEntity->isQuietHour((int) Carbon::now()->format('G'))) {
+            return $this->recordLimit($feature, $agent, $toolKey, $prompt, 'quiet_hours', 'Outside the agent\'s active hours; deferred to a human.');
+        }
+
+        // Drafts/hour cap: the agent stops drafting once it hits the cap in the rolling hour window.
+        $cap = $agentEntity->max_drafts_per_hour;
+        if ($cap !== null) {
+            $recent = AgentAction::query()
+                ->whereIn('agent', AgentRegistry::ledgerNames($agentEntity->kind()))
+                ->where('created_at', '>=', Carbon::now()->subHour())
+                ->count();
+
+            if ($recent >= $cap) {
+                return $this->recordLimit($feature, $agent, $toolKey, $prompt, 'rate_limited', 'Hourly draft cap reached; deferred to a human.');
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * @return array{status: string, label: string, human_handoff: bool}
+     */
+    private function recordLimit(string $feature, string $agent, string $toolKey, PromptVersion $prompt, string $outcome, string $reason): array
+    {
+        $this->recorder->record(
+            $feature,
+            $agent,
+            'internal',
+            'tool-runtime',
+            '1',
+            $prompt->hash(),
+            $outcome,
+            toolCalls: [['tool' => $toolKey]],
+            errorMessage: $reason,
+        );
+
+        return [
+            'status' => $outcome,
+            'label' => AiInteractionRecorder::LABEL,
+            'human_handoff' => true,
         ];
     }
 }

@@ -633,6 +633,7 @@ Route::middleware('auth')->group(function () {
     // a level above the agent's effective ceiling is clamped server-side and the resolver caps
     // again at call time. No whitelist edit (P4) / metrics (P5) / limits (P6) here.
     Route::get('/governance/agents', [AgentConfigController::class, 'index'])->name('governance.agents.index');
+    Route::post('/governance/agents', [AgentConfigController::class, 'store'])->name('governance.agents.store');
     Route::post('/governance/agents/{agent}/configure', [AgentConfigController::class, 'configure'])->name('governance.agents.configure');
 
     // KB admin (CLINIC.W10) — CRUD over the front-desk agent's grounding source. ai.manage-gated

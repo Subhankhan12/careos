@@ -202,8 +202,15 @@ Updated as AGENT.P1–… land. One commit per part.
 | 4 · Tool enable/disable + per-agent whitelist (capped) | **RESOLVED (P1 backend + P4 UI)** — the whitelist store + narrowing resolver (P1) + the editable "N of M enabled" panel: remit tools toggle, out-of-remit LOCKED, forged enable dropped, whitelisting never grants past ceiling (P4) | `AGENT.P1` / `AGENT.P4` |
 | 7 · Permission-ceiling mirror (read-only RBAC reflection) | **RESOLVED (P3)** — per-agent exercised/withheld permissions, role-derived, reflect-only (no edit path); links to Roles | `AGENT.P3` |
 | 8 · Electric-fence vault ("not configurable") | **RESOLVED (P3)** — 6 code-enforced, eval-locked invariants displayed toggle-free (no disable path) | `AGENT.P3` |
-| 5 · Rate & timing limits | pending (backend gap; escalation always-on) | — |
-| 6 · New-agent wizard | pending (entity now exists) | — |
+| 5 · Rate & timing limits | **RESOLVED (P6)** — max drafts/hour + quiet hours are REAL settings the AgentRuntime CONSULTS (a hit stops drafting / defers to a human); the escalate-below-confidence threshold is honestly DEFERRED (no confidence signal — rendered read-only "planned", not a phantom control) | `AGENT.P6` |
+| (5b) · "Escalate uncertainty — always on" | **RESOLVED (P6)** — maps to the REAL clinician-attention hand-off; locked-on, NO disable path (the floor is un-removable) | `AGENT.P6` |
+| 6 · New-agent wizard | **RESOLVED (P6)** — creates a P1 governed container of a REAL kind, capped from birth (effective = MIN from creation; a forged create above a ceiling is clamped; kind constrained to real code-class capabilities) | `AGENT.P6` |
+
+**ALL PUNCH-LIST ITEMS RESOLVED — the Agent & Tool Config page reaches wireframe parity (P1 → P6).** The chain:
+P1 entity + capped resolver → P2 list + ladder → P3 permission mirror + fence vault → P4 tool whitelist →
+P5 metrics + action ledger → P6 rate/timing limits + always-on escalation + new-agent wizard. FOUR pages of the
+wireframe-parity pass are now complete (Admin Settings · Approval Queue · Branches · Agent & Tool Config). Next:
+Allergy Alert (the safe, record-not-compute part).
 
 **P1 note — the Agent entity + the capped effective-level resolver (the safety foundation, NO UI):**
 - **Entity** (`Modules\AiCore\Models\Agent`, `agents` table, `BelongsToTenant`): per-tenant, maps to a real
@@ -325,3 +332,25 @@ Updated as AGENT.P1–… land. One commit per part.
   it → the fence fires and is recorded) — not hand-inserted. Locked by `tests/Feature/Governance/AgentConfigTest.php`
   (+6 P5 tests). No governance guarantee weakened; one demo-fixture thread count in `DemoClinicSeederTest` (3→4) was
   updated to reflect the added fence thread (a fixture reconciliation, not a behaviour change).
+
+**P6 note — rate/timing limits (runtime-read) + always-on escalation (no disable) + new-agent wizard (capped from birth):**
+- **The limits are REAL settings the runtime reads** (`AgentRuntime::runTool`, on the Agent-entity path): `max_drafts_per_hour`
+  (the runtime counts the agent-kind's drafts in the rolling hour via `AgentRegistry::ledgerNames` and STOPS drafting
+  at the cap → `rate_limited`) and `quiet_hours_start`/`quiet_hours_end` (a real hour-of-day window → `quiet_hours`).
+  A limit can only STOP the agent (defer to a human), never widen it. Stored per-agent (nullable), validated to
+  bounds + audited (`AgentConfigService`). Browser + test verified the runtime genuinely consumes each.
+- **The escalate-below-confidence threshold is honestly DEFERRED** — the codebase has NO confidence/uncertainty
+  signal, so wiring a numeric threshold would be a phantom control (the SETTINGS.P3 discipline). It renders read-only
+  "planned", not an editable knob; nothing is persisted that the runtime ignores.
+- **"Escalate uncertainty — always on"** maps to the REAL clinician-attention hand-off (documented in
+  `NotificationSettingsController`: "there is no path to suppress them"). It renders LOCKED-ON with no toggle; there
+  is NO route/action to disable it (structurally confirmed — no `escalat|disable|confidence` route under
+  `governance.agents`; the configure endpoint ignores any forged disable field), so the floor is un-removable.
+- **The new-agent wizard** (`AgentConfigController::store`, admin.manage, tenant-scoped, audited `agent.created`):
+  creates a P1 governed container of a REAL kind (a new `kind` column separate from the unique `key`; the kind must
+  be an `AgentRegistry::AGENTS` key — you cannot create a non-existent capability). It is **capped from birth** —
+  whitelisted to the kind's real remit, and a requested autonomy is clamped to the new agent's effective ceiling
+  (the resolver caps it at runtime too). Browser + test verified: a forged `autonomy_level=auto` on a billing-kind
+  agent was created at `approve` (never above the ceiling); effective = MIN. Locked by
+  `tests/Feature/Governance/AgentConfigTest.php` (+7 P6 tests). No existing behaviour weakened; the `kind` column
+  backfills = `key` so P1–P5 (seeded agents, kind === key) are unchanged.

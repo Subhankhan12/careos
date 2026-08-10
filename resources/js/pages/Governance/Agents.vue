@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Head, Link, router, usePage } from '@inertiajs/vue3';
+import { Head, Link, router, useForm, usePage } from '@inertiajs/vue3';
 import { computed, reactive, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import AppLayout from '@/Layouts/AppLayout.vue';
@@ -34,6 +34,7 @@ type Agent = {
     permissions: { exercised: ExercisedPermission[]; withheld: WithheldPermission[] };
     whitelist: { enabledCount: number; candidateCount: number; tools: WhitelistTool[] };
     metrics: { draftsToday: number; approvedAsIsPct: number | null; fenceRefused7d: number };
+    limits: { maxDraftsPerHour: number | null; quietHoursStart: number | null; quietHoursEnd: number | null };
     configureUrl: string;
 };
 type LedgerRow = {
@@ -55,6 +56,9 @@ const props = defineProps<{
     fenceInvariants: string[];
     rolesUrl: string;
     ledger: LedgerRow[];
+    escalation: { alwaysOn: boolean; confidenceThresholdWired: boolean };
+    agentKinds: { kind: string; name: string }[];
+    createUrl: string;
 }>();
 
 const flash = computed(() => (page.props.flash as { status?: string } | undefined)?.status);
@@ -139,6 +143,50 @@ const whitelistDirty = (agent: Agent): boolean =>
     agent.whitelist.tools.some((tool) => !tool.locked && whitelistDraft[agent.id][tool.key] !== tool.enabled);
 
 const categoryLabel = (category: string): string => t(`agents.categories.${category}`, category);
+
+// ── Rate/timing limits (P6) — per-agent draft, keyed by id. Empty string = no limit (cleared). ──
+const HOURS = Array.from({ length: 24 }, (_, i) => i);
+type LimitDraft = { maxDraftsPerHour: number | ''; quietHoursStart: number | ''; quietHoursEnd: number | '' };
+const limitDraft = reactive<Record<string, LimitDraft>>({});
+props.agents.forEach((agent) => {
+    limitDraft[agent.id] = {
+        maxDraftsPerHour: agent.limits.maxDraftsPerHour ?? '',
+        quietHoursStart: agent.limits.quietHoursStart ?? '',
+        quietHoursEnd: agent.limits.quietHoursEnd ?? '',
+    };
+});
+function saveLimits(agent: Agent): void {
+    const d = limitDraft[agent.id];
+    router.post(agent.configureUrl, {
+        max_drafts_per_hour: d.maxDraftsPerHour === '' ? null : d.maxDraftsPerHour,
+        quiet_hours_start: d.quietHoursStart === '' ? null : d.quietHoursStart,
+        quiet_hours_end: d.quietHoursEnd === '' ? null : d.quietHoursEnd,
+    }, { preserveScroll: true });
+}
+const limitsDirty = (agent: Agent): boolean => {
+    const d = limitDraft[agent.id];
+    return (d.maxDraftsPerHour === '' ? null : d.maxDraftsPerHour) !== agent.limits.maxDraftsPerHour
+        || (d.quietHoursStart === '' ? null : d.quietHoursStart) !== agent.limits.quietHoursStart
+        || (d.quietHoursEnd === '' ? null : d.quietHoursEnd) !== agent.limits.quietHoursEnd;
+};
+const hourLabel = (h: number): string => String(h).padStart(2, '0') + ':00';
+
+// ── New-agent wizard (P6) — create a governed container of a REAL kind, capped from birth. ──
+const showCreate = ref(false);
+const createForm = useForm<{ kind: string; name: string; autonomy_level: string }>({
+    kind: props.agentKinds[0]?.kind ?? '',
+    name: '',
+    autonomy_level: 'suggest',
+});
+function submitCreate(): void {
+    createForm.post(props.createUrl, {
+        preserveScroll: true,
+        onSuccess: () => {
+            showCreate.value = false;
+            createForm.reset();
+        },
+    });
+}
 </script>
 
 <template>
@@ -146,16 +194,48 @@ const categoryLabel = (category: string): string => t(`agents.categories.${categ
         <Head :title="t('agentConfig.title')" />
         <div class="settings-surface space-y-6">
             <!-- Header -->
-            <div>
-                <p class="text-xs font-semibold uppercase tracking-[0.14em] text-euca-700">{{ t('agentConfig.eyebrow') }}</p>
-                <h1 class="mt-1 text-2xl font-semibold tracking-tight text-ink">{{ t('agentConfig.title') }}</h1>
-                <p class="mt-1 text-sm text-ink-muted">{{ t('agentConfig.subtitle') }}</p>
-                <Link :href="governanceUrl" class="mt-2 inline-flex text-sm font-semibold text-euca-700 hover:text-euca-800">{{ t('agentConfig.backToGovernance') }}</Link>
+            <div class="flex flex-wrap items-start justify-between gap-4">
+                <div>
+                    <p class="text-xs font-semibold uppercase tracking-[0.14em] text-euca-700">{{ t('agentConfig.eyebrow') }}</p>
+                    <h1 class="mt-1 text-2xl font-semibold tracking-tight text-ink">{{ t('agentConfig.title') }}</h1>
+                    <p class="mt-1 text-sm text-ink-muted">{{ t('agentConfig.subtitle') }}</p>
+                    <Link :href="governanceUrl" class="mt-2 inline-flex text-sm font-semibold text-euca-700 hover:text-euca-800">{{ t('agentConfig.backToGovernance') }}</Link>
+                </div>
+                <Button type="button" pill :block="false" @click="showCreate = true">{{ t('agentConfig.create.addAction') }}</Button>
             </div>
 
-            <p v-if="flash === 'saved'" class="rounded-2xl border border-success/30 bg-success-soft p-4 text-sm text-success">
-                {{ t('agentConfig.flash.saved') }}
+            <p v-if="flash === 'saved' || flash === 'created'" class="rounded-2xl border border-success/30 bg-success-soft p-4 text-sm text-success">
+                {{ flash === 'created' ? t('agentConfig.create.flash') : t('agentConfig.flash.saved') }}
             </p>
+
+            <!-- NEW-AGENT wizard (P6) — create a governed container of a REAL kind, capped from birth. -->
+            <div v-if="showCreate" class="glass-card euca-card-in p-6">
+                <div class="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                        <h2 class="text-base font-semibold text-ink">{{ t('agentConfig.create.title') }}</h2>
+                        <p class="mt-0.5 text-sm text-ink-muted">{{ t('agentConfig.create.subtitle') }}</p>
+                    </div>
+                </div>
+                <div class="mt-4 grid gap-4 sm:grid-cols-2">
+                    <label class="block">
+                        <span class="mb-1.5 block text-sm font-medium text-ink">{{ t('agentConfig.create.kind') }}</span>
+                        <select v-model="createForm.kind" class="block w-full rounded-md border border-line bg-surface px-3 py-2 text-sm text-ink">
+                            <option v-for="k in agentKinds" :key="k.kind" :value="k.kind">{{ k.name }}</option>
+                        </select>
+                        <span v-if="createForm.errors.kind" class="mt-1 block text-xs text-danger">{{ createForm.errors.kind }}</span>
+                    </label>
+                    <label class="block">
+                        <span class="mb-1.5 block text-sm font-medium text-ink">{{ t('agentConfig.create.name') }}</span>
+                        <input v-model="createForm.name" type="text" class="block w-full rounded-md border border-line bg-surface px-3 py-2 text-sm text-ink" />
+                        <span v-if="createForm.errors.name" class="mt-1 block text-xs text-danger">{{ createForm.errors.name }}</span>
+                    </label>
+                </div>
+                <p class="mt-3 text-xs text-ink-subtle">{{ t('agentConfig.create.cappedNote') }}</p>
+                <div class="mt-4 flex flex-wrap items-center gap-2">
+                    <Button type="button" pill :block="false" :disabled="createForm.processing || createForm.name.trim() === ''" @click="submitCreate">{{ t('agentConfig.create.submit') }}</Button>
+                    <Button type="button" variant="ghost" pill :block="false" @click="showCreate = false">{{ t('agentConfig.create.cancel') }}</Button>
+                </div>
+            </div>
 
             <!-- Tabs: Agents · Action ledger -->
             <div class="flex items-center gap-1 rounded-full bg-euca-50/80 p-1 text-sm font-medium" role="tablist">
@@ -402,6 +482,63 @@ const categoryLabel = (category: string): string => t(`agents.categories.${categ
                             </li>
                         </ul>
                         <p class="mt-3 text-xs text-ink-subtle">{{ t('agentConfig.whitelist.forgedNote') }}</p>
+                    </div>
+
+                    <!-- RATE & TIMING LIMITS (P6) — real settings the AgentRuntime reads; a limit can
+                         only STOP the agent (defer to a human), never widen it. -->
+                    <div class="glass-card euca-card-in p-6" :style="{ '--euca-card-delay': '0.17s' }">
+                        <div class="flex flex-wrap items-start justify-between gap-3">
+                            <div>
+                                <h3 class="text-base font-semibold text-ink">{{ t('agentConfig.limits.title') }}</h3>
+                                <p class="mt-0.5 text-sm text-ink-muted">{{ t('agentConfig.limits.subtitle') }}</p>
+                            </div>
+                            <Button type="button" pill :block="false" :disabled="!limitsDirty(selected)" @click="saveLimits(selected)">{{ t('agentConfig.limits.save') }}</Button>
+                        </div>
+
+                        <div class="mt-4 grid gap-4 sm:grid-cols-2">
+                            <!-- Max drafts / hour -->
+                            <label class="block">
+                                <span class="mb-1 block text-sm font-medium text-ink">{{ t('agentConfig.limits.maxDrafts') }}</span>
+                                <input v-model="limitDraft[selected.id].maxDraftsPerHour" type="number" min="1" max="1000" :placeholder="t('agentConfig.limits.noLimit')" class="block w-full rounded-md border border-line bg-surface px-3 py-2 text-sm text-ink" />
+                                <span class="mt-1 block text-xs text-ink-subtle">{{ t('agentConfig.limits.maxDraftsHint') }}</span>
+                            </label>
+                            <!-- Quiet hours -->
+                            <div>
+                                <span class="mb-1 block text-sm font-medium text-ink">{{ t('agentConfig.limits.quietHours') }}</span>
+                                <div class="flex items-center gap-2">
+                                    <select v-model="limitDraft[selected.id].quietHoursStart" class="rounded-md border border-line bg-surface px-2 py-2 text-sm text-ink">
+                                        <option value="">{{ t('agentConfig.limits.off') }}</option>
+                                        <option v-for="h in HOURS" :key="'s' + h" :value="h">{{ hourLabel(h) }}</option>
+                                    </select>
+                                    <span class="text-sm text-ink-muted">{{ t('agentConfig.limits.to') }}</span>
+                                    <select v-model="limitDraft[selected.id].quietHoursEnd" class="rounded-md border border-line bg-surface px-2 py-2 text-sm text-ink">
+                                        <option value="">{{ t('agentConfig.limits.off') }}</option>
+                                        <option v-for="h in HOURS" :key="'e' + h" :value="h">{{ hourLabel(h) }}</option>
+                                    </select>
+                                </div>
+                                <span class="mt-1 block text-xs text-ink-subtle">{{ t('agentConfig.limits.quietHoursHint') }}</span>
+                            </div>
+                        </div>
+
+                        <!-- Escalate uncertainty — ALWAYS ON (the real clinician-attention hand-off). Locked. -->
+                        <div class="mt-5 flex items-start gap-3 rounded-2xl border border-euca-200 bg-euca-50/60 p-4">
+                            <svg class="mt-0.5 h-5 w-5 flex-none text-euca-700" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 3l7 3v5c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6l7-3Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" /><path d="M9.5 12l1.8 1.8L15 10" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" /></svg>
+                            <div class="min-w-0 grow">
+                                <div class="flex flex-wrap items-center gap-2">
+                                    <p class="font-medium text-ink">{{ t('agentConfig.limits.escalation.title') }}</p>
+                                    <span class="inline-flex items-center gap-1 rounded-full bg-euca-100 px-2 py-0.5 text-[11px] font-medium text-euca-800">
+                                        <svg class="h-3 w-3" viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2" stroke="currentColor" stroke-width="1.7" /><path d="M8 11V8a4 4 0 0 1 8 0v3" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" /></svg>
+                                        {{ t('agentConfig.limits.escalation.alwaysOn') }}
+                                    </span>
+                                </div>
+                                <p class="mt-0.5 text-xs text-ink-muted">{{ t('agentConfig.limits.escalation.help') }}</p>
+                                <!-- Confidence threshold: honestly DEFERRED (the runtime has no confidence signal yet). -->
+                                <p class="mt-2 text-xs text-ink-subtle">
+                                    <span class="font-medium">{{ t('agentConfig.limits.escalation.thresholdLabel') }}:</span>
+                                    {{ t('agentConfig.limits.escalation.thresholdPlanned') }}
+                                </p>
+                            </div>
+                        </div>
                     </div>
 
                     <!-- PERMISSION-CEILING MIRROR — READ-ONLY reflection of the real RBAC + tool

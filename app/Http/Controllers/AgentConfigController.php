@@ -7,6 +7,7 @@ use App\Services\AgentMetricsService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Inertia\Response;
 use Modules\AiCore\Exceptions\AiCoreException;
@@ -15,6 +16,7 @@ use Modules\AiCore\Services\AgentRegistry;
 use Modules\AiCore\Services\AgentResolver;
 use Modules\AiCore\Services\AutonomyPolicy;
 use Modules\AiCore\Services\ToolRegistry;
+use Modules\Audit\Services\AuditService;
 use Modules\Platform\Models\User;
 use Modules\Platform\Services\RbacProvisioner;
 
@@ -41,8 +43,10 @@ use Modules\Platform\Services\RbacProvisioner;
  * the agent's candidate remit), never a tool's ceiling/permission — the resolver still caps each
  * tool at runtime (P1). The per-agent hero metrics + the action-ledger tab (AGENT.P5) are computed
  * ONLY from real records ({@see AgentMetricsService}) — every number is a real count or honestly
- * absent ("—"), never fabricated. This gate chain builds the list + shell + ladder + the two
- * read-only panels + the whitelist + the metrics/ledger — no limits (P6).
+ * absent ("—"), never fabricated. AGENT.P6 adds the rate/timing LIMITS the {@see AgentRuntime}
+ * actually reads (max drafts/hour, quiet hours), the ALWAYS-ON uncertainty escalation (the real
+ * clinician-attention hand-off — no disable path), and the new-agent wizard (a P1 governed container
+ * capped from birth). This completes the Agent & Tool Config surface.
  */
 class AgentConfigController
 {
@@ -74,6 +78,7 @@ class AgentConfigController
     public function __construct(
         private readonly AutonomyPolicy $autonomy,
         private readonly AgentMetricsService $metrics,
+        private readonly AuditService $auditService,
     ) {}
 
     public function index(Request $request, AgentResolver $resolver, ToolRegistry $tools): Response
@@ -97,7 +102,66 @@ class AgentConfigController
             // The action-ledger tab (AGENT.P5) — a read-only VIEW of the append-only ai_interactions
             // ledger, tenant-scoped, newest first. Real rows only.
             'ledger' => $this->metrics->ledger(),
+            // The always-on uncertainty escalation (the real clinician-attention hand-off — locked-on,
+            // no disable path) + the confidence threshold, which is honestly DEFERRED (the runtime has
+            // no confidence signal yet), rendered read-only "planned" rather than as a phantom control.
+            'escalation' => [
+                'alwaysOn' => true,
+                'confidenceThresholdWired' => false,
+            ],
+            // The real agent KINDS the new-agent wizard may create (you cannot create an agent for a
+            // capability that has no code-class agent behind it).
+            'agentKinds' => $this->agentKinds(),
+            'createUrl' => route('governance.agents.store'),
         ]);
+    }
+
+    public function store(Request $request, AgentResolver $resolver, ToolRegistry $tools, AgentConfigService $service): RedirectResponse
+    {
+        Gate::authorize('admin.manage');
+        abort_unless($request->user() instanceof User, 403);
+
+        $data = $request->validate([
+            // The KIND must be a real canonical agent — you cannot create a non-existent capability.
+            'kind' => ['required', 'string', 'in:'.implode(',', array_keys(AgentRegistry::AGENTS))],
+            'name' => ['required', 'string', 'max:120'],
+            // Any valid enum is accepted; it is CLAMPED to the new agent's ceiling below (capped from birth).
+            'autonomy_level' => ['sometimes', 'string', 'in:'.implode(',', array_keys(AutonomyPolicy::LEVELS))],
+        ]);
+
+        $kind = $data['kind'];
+        // The whitelist is the kind's real remit (registered, callable tools) — never a forged capability.
+        $remit = array_values(array_filter(
+            AgentRegistry::AGENTS[$kind]['tools'],
+            function (string $key) use ($tools): bool {
+                try {
+                    return $this->autonomy->effectiveCeiling($tools->get($key)->definition()) !== AutonomyPolicy::OFF;
+                } catch (AiCoreException) {
+                    return false;
+                }
+            },
+        ));
+
+        $agent = (new Agent)->forceFill([
+            'tenant_id' => $request->user()->tenant_id,
+            'key' => $this->uniqueKey($data['name'], $kind),
+            'kind' => $kind,
+            'name' => $data['name'],
+            'autonomy_level' => AutonomyPolicy::SUGGEST,
+            'status' => Agent::STATUS_ACTIVE,
+            'tool_keys' => $remit,
+        ]);
+        $agent->save();
+
+        // Capped from birth: a requested level is clamped to the new agent's effective ceiling (the
+        // resolver caps it at runtime too). It can never be created above any ceiling.
+        if (array_key_exists('autonomy_level', $data)) {
+            $service->configure($agent, ['autonomy_level' => $this->clampToCeiling($data['autonomy_level'], $resolver->agentCeiling($agent))]);
+        }
+
+        $this->audit($agent, 'agent.created');
+
+        return redirect()->route('governance.agents.index')->with('status', 'created');
     }
 
     public function configure(Request $request, string $agent, AgentResolver $resolver, AgentConfigService $service, ToolRegistry $tools): RedirectResponse
@@ -115,9 +179,21 @@ class AgentConfigController
             'status' => ['sometimes', 'string', 'in:'.Agent::STATUS_ACTIVE.','.Agent::STATUS_PAUSED],
             'tool_keys' => ['sometimes', 'array'],
             'tool_keys.*' => ['string'],
+            // AGENT.P6 rate/timing limits — the service clamps to bounds (nullable = clear the limit).
+            'max_drafts_per_hour' => ['sometimes', 'nullable', 'integer'],
+            'quiet_hours_start' => ['sometimes', 'nullable', 'integer'],
+            'quiet_hours_end' => ['sometimes', 'nullable', 'integer'],
         ]);
 
         $payload = [];
+
+        // The limits pass straight to the service, which validates the bounds + clears on null. There
+        // is deliberately NO key here to disable the uncertainty escalation — it is not suppressible.
+        foreach (['max_drafts_per_hour', 'quiet_hours_start', 'quiet_hours_end'] as $limit) {
+            if (array_key_exists($limit, $data)) {
+                $payload[$limit] = $data[$limit];
+            }
+        }
 
         if (array_key_exists('autonomy_level', $data)) {
             // CLAMP-ON-WRITE: the stored level can never exceed the agent's effective ceiling. A
@@ -154,6 +230,46 @@ class AgentConfigController
     }
 
     /**
+     * The real canonical agent KINDS the wizard may create — each maps to a code-class agent behind a
+     * real capability. You cannot create an agent for a kind that does not exist.
+     *
+     * @return list<array{kind: string, name: string}>
+     */
+    private function agentKinds(): array
+    {
+        $out = [];
+        foreach (AgentRegistry::AGENTS as $kind => $spec) {
+            $out[] = ['kind' => $kind, 'name' => $spec['name']];
+        }
+
+        return $out;
+    }
+
+    /** A per-tenant unique key from the name (falls back to the kind); appends a numeric suffix if taken. */
+    private function uniqueKey(string $name, string $kind): string
+    {
+        $base = Str::slug($name) ?: $kind;
+        $key = $base;
+        $n = 1;
+        while (Agent::query()->where('key', $key)->exists()) {
+            $key = $base.'-'.(++$n);
+        }
+
+        return $key;
+    }
+
+    /** Record an agent lifecycle event to the audit log (tenant-scoped, append-only). */
+    private function audit(Agent $agent, string $action): void
+    {
+        $this->auditService->record([
+            'action' => $action,
+            'resource_type' => 'agent',
+            'resource_id' => $agent->id,
+            'context' => ['key' => $agent->key, 'kind' => $agent->kind()],
+        ]);
+    }
+
+    /**
      * The agent's CANDIDATE (enable-able) tool keys — its canonical remit ({@see AgentRegistry}),
      * restricted to tools that are registered AND callable (effective ceiling above OFF). The
      * whitelist may only ever reference these: enabling anything else (out-of-remit, unregistered,
@@ -164,7 +280,7 @@ class AgentConfigController
      */
     private function candidateToolKeys(Agent $agent, AgentResolver $resolver, ToolRegistry $tools): array
     {
-        $remit = AgentRegistry::AGENTS[$agent->key]['tools'] ?? [];
+        $remit = AgentRegistry::AGENTS[$agent->kind()]['tools'] ?? [];
         $out = [];
 
         foreach ($remit as $key) {
@@ -215,6 +331,12 @@ class AgentConfigController
             'permissions' => $this->permissionMirror($agent, $tools),
             'whitelist' => $this->toolWhitelist($agent, $resolver, $tools),
             'metrics' => $this->metrics->hero($agent),
+            // AGENT.P6 — the rate/timing limits the runtime reads, plus the escalation floor.
+            'limits' => [
+                'maxDraftsPerHour' => $agent->max_drafts_per_hour,
+                'quietHoursStart' => $agent->quiet_hours_start,
+                'quietHoursEnd' => $agent->quiet_hours_end,
+            ],
             'configureUrl' => route('governance.agents.configure', ['agent' => $agent->id]),
         ];
     }

@@ -2,6 +2,7 @@
 
 use App\Services\AgentMetricsService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Route;
 use Inertia\Testing\AssertableInertia as Assert;
@@ -11,6 +12,7 @@ use Modules\AiCore\Models\Agent;
 use Modules\AiCore\Models\AgentAction;
 use Modules\AiCore\Models\AiInteraction;
 use Modules\AiCore\Services\AgentResolver;
+use Modules\AiCore\Services\AgentRuntime;
 use Modules\AiCore\Services\ApprovalQueue;
 use Modules\AiCore\Services\AutonomyPolicy;
 use Modules\AiCore\Services\ToolRegistry;
@@ -263,20 +265,20 @@ test('the permission mirror withheld list is REAL and human-only — no register
 
 // ── REFLECT-ONLY: no permission-edit path + no fence-disable path from this page ─────────────────
 
-test('the page exposes NO permission-edit and NO fence-disable route — only index + configure', function () {
-    // Structural proof: the ONLY routes under governance.agents are the read (index) and the
-    // level/status write (configure). There is no permission-edit or fence-toggle route.
+test('the page exposes NO permission-edit and NO fence-disable route — only index + configure + create', function () {
+    // Structural proof: the ONLY routes under governance.agents are the read (index), the create
+    // (store, P6) and the level/status/limit write (configure). No permission-edit or fence-toggle route.
     $names = collect(Route::getRoutes()->getRoutes())
         ->map(fn ($r) => $r->getName())
         ->filter(fn ($n) => is_string($n) && str_starts_with($n, 'governance.agents'))
         ->sort()->values()->all();
 
-    expect($names)->toBe(['governance.agents.configure', 'governance.agents.index']);
+    expect($names)->toBe(['governance.agents.configure', 'governance.agents.index', 'governance.agents.store']);
 
-    // And there is no permission/fence route name anywhere in this area.
+    // And there is no permission/fence/escalation route name anywhere in this area.
     $forbidden = collect(Route::getRoutes()->getRoutes())
         ->map(fn ($r) => (string) $r->getName())
-        ->filter(fn ($n) => str_starts_with($n, 'governance.agents') && preg_match('/permission|fence|invariant/i', $n));
+        ->filter(fn ($n) => str_starts_with($n, 'governance.agents') && preg_match('/permission|fence|invariant|escalat/i', $n));
     expect($forbidden)->toBeEmpty();
 });
 
@@ -601,4 +603,177 @@ test('per-agent metrics are tenant-scoped - another tenants activity does not le
     expect($betaMetrics['draftsToday'])->toBe(0)
         ->and($betaMetrics['fenceRefused7d'])->toBe(0)
         ->and($betaMetrics['approvedAsIsPct'])->toBeNull(); // beta saw none of alpha's actions
+});
+
+/*
+ * AGENT.P6 — rate/timing limits the runtime READS + the always-on uncertainty escalation (no disable
+ * path) + the new-agent wizard (a P1 governed container capped from birth). Limits can only STOP the
+ * agent, never widen it; the escalation floor is un-removable; a new agent cannot be created above any
+ * ceiling. These tests ADD coverage; no existing behaviour test is modified.
+ */
+
+/** An agent whose whitelist includes demo.echo (so it is callable) — for exercising the runtime limits. */
+function acProbeAgent(Tenant $tenant): Agent
+{
+    $inbox = acAgent($tenant, 'inbox');
+    $inbox->update(['tool_keys' => ['demo.echo', 'comms.draft_reply']]);
+
+    return $inbox->refresh();
+}
+
+// -- Quiet hours: the runtime DEFERS an action inside the window -------------------------------------
+
+test('the runtime honours quiet hours — an action inside the window is deferred to a human', function () {
+    Carbon::setTestNow('2026-08-10 23:30:00'); // 23:00 hour
+    $tenant = acTenant();
+    $admin = acUser($tenant, 'org_admin');
+    $agent = acProbeAgent($tenant);
+    $agent->update(['quiet_hours_start' => 22, 'quiet_hours_end' => 6]); // overnight window covering 23:00
+
+    $result = app(AgentRuntime::class)
+        ->runTool('demo.echo', ['message' => 'hi'], $admin, 'demo.echo', 'inbox', 'why', $agent);
+
+    expect($result['status'])->toBe('quiet_hours')
+        ->and($result['human_handoff'])->toBeTrue();
+
+    // Outside the window, the same agent proceeds (a genuine read, not a phantom control).
+    Carbon::setTestNow('2026-08-10 12:00:00');
+    $ok = app(AgentRuntime::class)
+        ->runTool('demo.echo', ['message' => 'hi'], $admin, 'demo.echo', 'inbox', 'why', $agent->refresh());
+    expect($ok['status'])->not->toBe('quiet_hours');
+    Carbon::setTestNow();
+});
+
+// -- Max drafts / hour: the runtime STOPS drafting once the cap is hit -------------------------------
+
+test('the runtime honours the drafts-per-hour cap — a hit stops drafting', function () {
+    Carbon::setTestNow('2026-08-10 12:00:00');
+    $tenant = acTenant();
+    $admin = acUser($tenant, 'org_admin');
+    $agent = acProbeAgent($tenant);
+    $agent->update(['max_drafts_per_hour' => 1]);
+
+    $queue = app(ApprovalQueue::class);
+    // One real draft this hour (attributed to the inbox kind) — reaching the cap of 1.
+    $queue->propose('demo.echo', ['message' => 'a'], $admin, 'demo.echo', 'inbox', 'first', AutonomyPolicy::APPROVE);
+
+    $result = app(AgentRuntime::class)
+        ->runTool('demo.echo', ['message' => 'b'], $admin, 'demo.echo', 'inbox', 'why', $agent->refresh());
+
+    expect($result['status'])->toBe('rate_limited')
+        ->and($result['human_handoff'])->toBeTrue();
+    Carbon::setTestNow();
+});
+
+// -- Limits are validated settings (bounds), audited; the runtime path is what consumes them ---------
+
+test('limits persist through configure with validated bounds and are audited', function () {
+    $tenant = acTenant();
+    $admin = acUser($tenant, 'org_admin');
+    $inbox = acAgent($tenant, 'inbox');
+
+    $this->actingAs($admin)
+        ->post("/governance/agents/{$inbox->id}/configure", [
+            'max_drafts_per_hour' => 5000, // clamped to 1000
+            'quiet_hours_start' => 22,
+            'quiet_hours_end' => 6,
+        ])
+        ->assertRedirect('/governance/agents');
+
+    $updated = acAgent($tenant, 'inbox');
+    expect($updated->max_drafts_per_hour)->toBe(1000) // clamped into bounds
+        ->and($updated->quiet_hours_start)->toBe(22)
+        ->and($updated->quiet_hours_end)->toBe(6);
+
+    $audited = DB::selectOne('SELECT COUNT(*) c FROM audit_events WHERE tenant_id <=> ? AND action = ?', [$tenant->id, 'agent.configured'])->c;
+    expect((int) $audited)->toBeGreaterThan(0);
+
+    // Clearing a limit (null) is honoured.
+    $this->actingAs($admin)->post("/governance/agents/{$inbox->id}/configure", ['max_drafts_per_hour' => null])->assertRedirect('/governance/agents');
+    expect(acAgent($tenant, 'inbox')->max_drafts_per_hour)->toBeNull();
+});
+
+// -- The uncertainty escalation is ALWAYS-ON with NO disable path ------------------------------------
+
+test('the uncertainty escalation is always-on and exposes no disable path', function () {
+    $tenant = acTenant();
+    $admin = acUser($tenant, 'org_admin');
+
+    // The page exposes it as always-on; the confidence threshold is honestly deferred (not wired).
+    $this->actingAs($admin)
+        ->get('/governance/agents')
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('escalation.alwaysOn', true)
+            ->where('escalation.confidenceThresholdWired', false));
+
+    // No route under governance.agents disables/suppresses the escalation.
+    $names = collect(Route::getRoutes()->getRoutes())
+        ->map(fn ($r) => (string) $r->getName())
+        ->filter(fn ($n) => str_starts_with($n, 'governance.agents') && preg_match('/escalat|disable|suppress|confidence|threshold/i', $n));
+    expect($names)->toBeEmpty();
+
+    // A forged body trying to disable the escalation / set a confidence threshold is IGNORED — the
+    // agent has no such attribute and nothing is persisted (the floor is un-removable).
+    $inbox = acAgent($tenant, 'inbox');
+    $this->actingAs($admin)->post("/governance/agents/{$inbox->id}/configure", [
+        'escalate_uncertainty' => false,
+        'disable_escalation' => true,
+        'confidence_threshold' => 0,
+    ])->assertRedirect('/governance/agents');
+
+    $fresh = acAgent($tenant, 'inbox');
+    expect($fresh->getAttributes())->not->toHaveKey('confidence_threshold')
+        ->and($fresh->getAttributes())->not->toHaveKey('escalate_uncertainty');
+});
+
+// -- The new-agent wizard: a governed container, CAPPED FROM BIRTH -----------------------------------
+
+test('creating an agent produces a governed container capped from birth (forged autonomy clamped)', function () {
+    $tenant = acTenant();
+    $admin = acUser($tenant, 'org_admin');
+
+    // Forge a create above the ceiling: kind billing (ceiling approve) requested at AUTO.
+    $this->actingAs($admin)
+        ->post('/governance/agents', ['kind' => 'billing', 'name' => 'Night biller', 'autonomy_level' => AutonomyPolicy::AUTO])
+        ->assertRedirect('/governance/agents');
+
+    acCtx()->set($tenant);
+    $created = Agent::query()->where('name', 'Night biller')->firstOrFail();
+
+    expect($created->kind)->toBe('billing')
+        ->and($created->status)->toBe(Agent::STATUS_ACTIVE)
+        // Capped from birth: AUTO was clamped to billing's ceiling (approve) — never created above it.
+        ->and($created->autonomy_level)->toBe(AutonomyPolicy::APPROVE)
+        // Whitelisted to the kind's REAL remit (never a forged capability).
+        ->and($created->tool_keys)->toBe(['billing.suggest_charge_codes', 'billing.preflight_invoice'])
+        // The resolver caps it immediately — effective for a billing tool is MIN, not AUTO.
+        ->and(app(AgentResolver::class)->effectiveLevel($created, app(ToolRegistry::class)->get('billing.preflight_invoice')->definition(), AutonomyPolicy::AUTO))->toBe(AutonomyPolicy::APPROVE);
+
+    // Audited agent.created, tenant-scoped.
+    $audited = DB::selectOne('SELECT COUNT(*) c FROM audit_events WHERE tenant_id <=> ? AND action = ?', [$tenant->id, 'agent.created'])->c;
+    expect((int) $audited)->toBe(1);
+});
+
+test('a new agent cannot be created for a non-existent kind (422)', function () {
+    $tenant = acTenant();
+    $admin = acUser($tenant, 'org_admin');
+
+    $this->actingAs($admin)
+        ->post('/governance/agents', ['kind' => 'skynet', 'name' => 'Rogue'])
+        ->assertSessionHasErrors('kind');
+
+    acCtx()->set($tenant);
+    expect(Agent::query()->where('name', 'Rogue')->exists())->toBeFalse();
+});
+
+test('creating an agent is gated on admin.manage and tenant-scoped', function () {
+    $tenant = acTenant();
+    $reception = acUser($tenant, 'reception'); // no admin.manage
+
+    $this->actingAs($reception)
+        ->post('/governance/agents', ['kind' => 'inbox', 'name' => 'Nope'])
+        ->assertForbidden();
+
+    acCtx()->set($tenant);
+    expect(Agent::query()->where('name', 'Nope')->exists())->toBeFalse();
 });

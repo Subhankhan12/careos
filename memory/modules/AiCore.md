@@ -373,6 +373,25 @@ model + DB triggers block UPDATE/DELETE). A real fence_refused is seeded through
 `agentConfig.ledger.*`. Locked by `tests/Feature/Governance/AgentConfigTest.php` (24 total; +6 P5). One demo-fixture
 thread count in `DemoClinicSeederTest` (patient threads 3→4) was updated for the added fence thread.
 
+## Rate/timing limits + always-on escalation + new-agent wizard (AGENT.P6 — parity COMPLETE)
+
+The Agent & Tool Config page is now wireframe-parity COMPLETE (P1→P6). **Limits** (`agents` gains
+`max_drafts_per_hour`, `quiet_hours_start`, `quiet_hours_end` — additive migration `2026_08_26_000001`) are REAL
+settings `AgentRuntime::runTool` CONSULTS on the Agent-entity path (after the OFF check): quiet hours
+(`Agent::isQuietHour`, overnight-aware) → `quiet_hours`; drafts/hour cap (counts the agent-kind's AgentActions in
+the rolling hour) → `rate_limited`. A limit only STOPS the agent (defers to a human), never widens it; stored via
+`AgentConfigService::configure` (validated bounds, nullable clears, audited). The **escalate-below-confidence
+threshold is honestly DEFERRED** (no confidence signal in the codebase → read-only "planned", not a phantom). The
+**always-on uncertainty escalation** = the real clinician-attention hand-off (no suppression key, per
+`NotificationSettingsController`); LOCKED-ON, NO disable route/field — the floor is un-removable. **New-agent
+wizard** (`AgentConfigController::store`, admin.manage): a new `kind` column (the canonical capability; distinct
+from the unique `key`; backfilled `kind=key` so P1–P5 seeded agents are unchanged; `Agent::kind()` falls back to
+key) creates a governed container of a REAL kind (kind ∈ `AgentRegistry::AGENTS` — no non-existent capability),
+whitelisted to the kind's remit, autonomy CLAMPED to the new agent's ceiling — **capped from birth** (resolver caps
+at runtime too), audited `agent.created`. `candidateToolKeys` + metrics attribution now key off `kind()`. i18n
+`agentConfig.limits.*` + `agentConfig.create.*`. Locked by `tests/Feature/Governance/AgentConfigTest.php` (31 total;
++7 P6).
+
 ## Open items
 
 - Richer production-grade vector retrieval is still unbuilt (KB admin UI now exists, W10 above; approval-queue UI, W9).

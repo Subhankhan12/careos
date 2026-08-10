@@ -60,6 +60,12 @@ class AgentConfigService
             }
         }
 
+        // AGENT.P6 rate/timing limits — real settings the AgentRuntime reads. Validated bounds; a
+        // value out of range or a null (clear) is normalised. These can only STOP the agent.
+        $this->applyLimit($agent, $data, $changes, 'max_drafts_per_hour', 1, 1000);
+        $this->applyLimit($agent, $data, $changes, 'quiet_hours_start', 0, 23);
+        $this->applyLimit($agent, $data, $changes, 'quiet_hours_end', 0, 23);
+
         if ($changes !== []) {
             $agent->save();
             $this->audit->record([
@@ -71,5 +77,34 @@ class AgentConfigService
         }
 
         return $agent;
+    }
+
+    /**
+     * Apply one integer limit if present: null clears it; a value is clamped into [min, max]; anything
+     * non-numeric is ignored. Records the change for the audit trail.
+     *
+     * @param  array<string, mixed>  $data
+     * @param  array<string, array{0: mixed, 1: mixed}>  $changes
+     */
+    private function applyLimit(Agent $agent, array $data, array &$changes, string $field, int $min, int $max): void
+    {
+        if (! array_key_exists($field, $data)) {
+            return;
+        }
+
+        $value = $data[$field];
+
+        if ($value === null || $value === '') {
+            $new = null;
+        } elseif (is_numeric($value)) {
+            $new = max($min, min($max, (int) $value)); // clamp into bounds
+        } else {
+            return; // non-numeric junk — ignore rather than trust the client
+        }
+
+        if ($agent->{$field} !== $new) {
+            $changes[$field] = [$agent->{$field}, $new];
+            $agent->{$field} = $new;
+        }
     }
 }

@@ -105,6 +105,7 @@ class AgentResolver
                 (new Agent)->forceFill([
                     'tenant_id' => $tenant->getKey(),
                     'key' => $key,
+                    'kind' => $key, // a canonical agent IS its kind
                     'name' => $spec['name'],
                     'autonomy_level' => AutonomyPolicy::SUGGEST,
                     'status' => Agent::STATUS_ACTIVE,
