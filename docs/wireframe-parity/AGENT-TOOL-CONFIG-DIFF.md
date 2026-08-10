@@ -186,3 +186,40 @@ critical items called out.**
 (role-derived), the fence vault toggle-free, escalation always-on. Where the wireframe implies a control that would
 weaken a cap if built naively, it stays **capped/read-only**; where it needs new state (agent entity, limits,
 whitelist), that's a flagged decision / separate gate — never a faked or cap-weakening control.
+
+---
+
+## 9. Parity progress (RESOLVED status per punch-list)
+
+Updated as AGENT.P1–… land. One commit per part.
+
+| Punch-list item | Status | Commit |
+|---|---|---|
+| 1 · The modelling decision (agent entity vs. view) | **RESOLVED (P1)** — chose a real `Agent` entity built as a GOVERNED CONTAINER (option b), with the capped resolver so it only narrows | `AGENT.P1` |
+| (foundation) · Agent entity + capped effective-level resolver | **RESOLVED (P1)** | `AGENT.P1` |
+| 2 · Agent-shaped presentation over the cap | pending (P2+ — UI) | — |
+| 3 · Hero metrics + fence-refused + action-ledger tab | pending | — |
+| 4 · Tool enable/disable + per-agent whitelist (capped) | **backend RESOLVED (P1)** — the whitelist store + narrowing resolver; the edit UI is P2+ | `AGENT.P1` |
+| 5 · Rate & timing limits | pending (backend gap; escalation always-on) | — |
+| 6 · New-agent wizard | pending (entity now exists) | — |
+
+**P1 note — the Agent entity + the capped effective-level resolver (the safety foundation, NO UI):**
+- **Entity** (`Modules\AiCore\Models\Agent`, `agents` table, `BelongsToTenant`): per-tenant, maps to a real
+  code-class agent (`key`), with a CONFIGURED `autonomy_level`, a `status` (active/paused), and a `tool_keys`
+  whitelist. Additive migration + **backfill for existing tenants**; **new tenants seeded via a `Tenant::created`
+  hook** (app-layer, alongside the RBAC provisioner) — the 6 canonical agents (`AgentRegistry`: inbox / scheduler /
+  recall / clinical_summary / dispatch / billing) covering all 10 real governed tools.
+- **THE CAPPED RESOLVER** (`AgentResolver::effectiveLevel`): an agent's effective autonomy for a tool =
+  **MIN(configured, tool ceiling [`AutonomyPolicy::effectiveCeiling`], role ceiling)**. Config can only NARROW; it
+  never raises past the tool ceiling or the role RBAC ceiling. A paused agent or a non-whitelisted tool → OFF
+  (not callable). Wired into `AgentRuntime` (optional `?Agent` param — additive; null = the existing per-tool path,
+  unchanged): with an entity, the runtime acts on the capped level; the role ceiling is OFF when the acting user
+  lacks the tool's permission.
+- **CLAMP-ON-WRITE + CLAMP-AT-RUNTIME (defense in depth):** `AgentConfigService::configure` (app-layer, audited
+  `agent.configured`) clamps on write (valid enum, valid status, whitelist restricted to REAL tool keys); the
+  resolver clamps at call time regardless — a **forged** stored `auto` or a whitelisted out-of-ceiling tool still
+  resolves to the capped level (proven).
+- **The agent sits UNDER `AutonomyPolicy` + the role ceiling + the fence — none weakened.** The per-tool
+  SETTINGS.P2 cap is unchanged and is one of the min() terms; the electric-fence eval + AgentAutonomyTest +
+  ApprovalQueue suites stay green. **NO UI this gate** (P2+ builds the surfaces; RBAC admin.manage is applied by the
+  P2 config controller — no route yet). Locked by `tests/Feature/AiCore/AgentEntityTest.php` (7).

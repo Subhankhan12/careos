@@ -2,7 +2,9 @@
 
 namespace Modules\AiCore\Services;
 
+use Illuminate\Support\Facades\Gate;
 use Modules\AiCore\Exceptions\AiCoreException;
+use Modules\AiCore\Models\Agent;
 use Modules\AiCore\Models\AgentAction;
 use Modules\Platform\Models\User;
 
@@ -16,13 +18,18 @@ class AgentRuntime
         private readonly PromptRegistry $prompts,
         private readonly AiInteractionRecorder $recorder,
         private readonly BudgetGate $budgetGate,
+        private readonly AgentResolver $agentResolver,
     ) {}
 
     /**
      * @param  array<string, mixed>  $input
+     * @param  Agent|null  $agentEntity  when given, the effective autonomy is the CAPPED resolver
+     *                                   result MIN(agent configured, tool ceiling, role ceiling) — the agent can only narrow, never
+     *                                   raise past the AutonomyPolicy cap or the role RBAC ceiling. When null (every existing
+     *                                   caller), behaviour is unchanged: the per-tool AutonomyPolicy level applies.
      * @return array{status: string, label: string, human_handoff: bool, action?: AgentAction}
      */
-    public function runTool(string $toolKey, array $input, User $actor, string $feature = 'demo.echo', string $agent = 'demo-agent', string $why = 'Demo no-op tool'): array
+    public function runTool(string $toolKey, array $input, User $actor, string $feature = 'demo.echo', string $agent = 'demo-agent', string $why = 'Demo no-op tool', ?Agent $agentEntity = null): array
     {
         $tool = $this->tools->get($toolKey);
         $prompt = $this->prompts->get($feature);
@@ -68,7 +75,18 @@ class AgentRuntime
             ];
         }
 
-        $level = $this->autonomy->levelFor($tool->definition());
+        // The effective autonomy. With an Agent entity, it is the CAPPED resolver result
+        // MIN(agent configured, tool ceiling, role ceiling) — the agent only narrows. The role
+        // ceiling is OFF when the acting user lacks the tool's permission (the RBAC ceiling caps the
+        // agent to not-callable). Without an entity, the existing per-tool AutonomyPolicy level applies.
+        if ($agentEntity !== null) {
+            $roleCeiling = Gate::forUser($actor)->allows($tool->definition()->permission)
+                ? AutonomyPolicy::AUTO
+                : AutonomyPolicy::OFF;
+            $level = $this->agentResolver->effectiveLevel($agentEntity, $tool->definition(), $roleCeiling);
+        } else {
+            $level = $this->autonomy->levelFor($tool->definition());
+        }
 
         if ($level === AutonomyPolicy::OFF) {
             $this->recorder->record(

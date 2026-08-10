@@ -22,6 +22,7 @@ use Illuminate\Support\Facades\Event;
 use Illuminate\Support\ServiceProvider;
 use Modules\AiCore\Events\AgentActionLifecycleChanged;
 use Modules\AiCore\Events\AiInteractionRecorded;
+use Modules\AiCore\Services\AgentResolver;
 use Modules\AiCore\Services\ToolRegistry;
 use Modules\Audit\Contracts\AuditContext;
 use Modules\Audit\Services\AuditService;
@@ -937,6 +938,13 @@ class AppServiceProvider extends ServiceProvider
                     ...$event->context,
                 ],
             ]);
+        });
+
+        // Seed the canonical governed agents for every newly created tenant (AGENT.P1). App layer
+        // because it wires AiCore's Agent onto Platform's Tenant (Platform must not depend on AiCore);
+        // the Platform RBAC provisioner runs from its own Tenant::created hook alongside this one.
+        Tenant::created(function (Tenant $tenant): void {
+            $this->app->make(AgentResolver::class)->ensureForTenant($tenant);
         });
 
         // Tenant status changes (platform-level; audited against the tenant itself).

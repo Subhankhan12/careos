@@ -280,6 +280,27 @@ UI offers levels ≤ the ceiling AND `set()` clamps a forged higher level server
 `tests/Feature/Admin/AgentAutonomyTest.php` (8 tests, incl. the clamp-above-ceiling fence). The eval suite was
 UNCHANGED. See the DIFF doc `docs/wireframe-parity/ADMIN-SETTINGS-DIFF.md` and [[Platform]].
 
+## Agent entity + capped resolver (AGENT.P1 — the safety foundation, NO UI)
+
+The **Agent** is now a real per-tenant entity (`Modules\AiCore\Models\Agent`, `agents` table, BelongsToTenant) — a
+GOVERNED CONTAINER, never a source of authority. It maps to a code-class agent (`key`) and holds a CONFIGURED
+`autonomy_level`, a `status` (active/paused), and a `tool_keys` whitelist. `AgentRegistry::AGENTS` = the 6 canonical
+agents (inbox/scheduler/recall/clinical_summary/dispatch/billing) covering all 10 real governed tools. Additive
+migration `2026_08_25_000001` **backfills existing tenants**; **new tenants seeded via a `Tenant::created` hook**
+(app-layer `AppServiceProvider`, beside the Platform RBAC provisioner — Platform must not depend on AiCore;
+`AgentResolver::ensureForTenant($tenant)` runs in `TenantContext::system()` with explicit tenant_id).
+**THE CAPPED RESOLVER** `AgentResolver::effectiveLevel(Agent, ToolDefinition, roleCeiling=AUTO)` = **MIN(configured,
+tool ceiling [`AutonomyPolicy::effectiveCeiling`], role ceiling)**; paused/non-whitelisted → OFF. Config can only
+NARROW — never raises past the tool ceiling or role RBAC ceiling. Wired into `AgentRuntime` (additive optional
+`?Agent $agentEntity`; null = the existing per-tool `levelFor` path, unchanged); the role ceiling = OFF when the
+acting user lacks the tool's `permission`. **Clamp-on-write** (`App\Services\AgentConfigService::configure`,
+app-layer, audited `agent.configured`; valid enum/status; whitelist = real tool keys only) **+ clamp-at-runtime**
+(the resolver mins regardless — a forged stored `auto` or a whitelisted out-of-ceiling tool still resolves capped).
+The agent sits UNDER `AutonomyPolicy` + the role ceiling + the fence — none weakened; the SETTINGS.P2 per-tool cap
+is one of the min() terms and unchanged. NO UI (P2+ builds the surfaces; RBAC admin.manage is the P2 controller's
+job — no route yet). Locked by `tests/Feature/AiCore/AgentEntityTest.php` (7). See
+`docs/wireframe-parity/AGENT-TOOL-CONFIG-DIFF.md` §6/§9.
+
 ## Open items
 
 - Richer production-grade vector retrieval is still unbuilt (KB admin UI now exists, W10 above; approval-queue UI, W9).
