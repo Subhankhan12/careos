@@ -2189,7 +2189,8 @@
                 "label": "Type",
                 "room": "Room",
                 "chair": "Chair",
-                "vehicle": "Vehicle"
+                "vehicle": "Vehicle",
+                "practitioner": "Practitioner"
             }
         }
     },

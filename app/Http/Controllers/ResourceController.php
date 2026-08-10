@@ -58,6 +58,20 @@ class ResourceController
         abort_unless($request->user() instanceof User, 403);
 
         $model = Resource::query()->whereKey($resource)->firstOrFail();
+
+        // A PRACTITIONER resource is person-backed (a StaffProfile) — its TYPE is what it IS and is
+        // NOT editable here: a practitioner can never become a room/chair/vehicle (and the admin
+        // type select only offers facility types, which can't represent a practitioner). Only the
+        // name is editable; any submitted `type` is IGNORED so a forged retype has no effect. The
+        // reverse (a facility → practitioner) is blocked by validateResource's facility-only `in:` rule.
+        if ($model->type === Resource::TYPE_PRACTITIONER) {
+            $data = $request->validate(['name' => ['required', 'string', 'max:160']]);
+            $resources->update($model, ['name' => $data['name']]); // type left unchanged
+
+            return redirect()->route('admin.branches.index')->with('status', 'resourceUpdated');
+        }
+
+        // Facility resource (room/chair/vehicle): name + type editable within facility types only.
         $data = $this->validateResource($request);
 
         $resources->update($model, [

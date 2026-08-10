@@ -279,7 +279,10 @@ function hoursInvalid(branchId: string): boolean {
                                     {{ resource.active ? t('branchesAdmin.status.active') : t('branchesAdmin.status.inactive') }}
                                 </span>
                                 <input v-model="resourceEdits[resource.id].name" class="w-40 rounded-md border border-line bg-surface px-2 py-1 text-sm text-ink" :aria-label="t('branchesAdmin.resources.name')" />
-                                <select v-model="resourceEdits[resource.id].type" class="rounded-md border border-line bg-surface px-2 py-1 text-sm text-ink" :aria-label="t('branchesAdmin.resources.type.label')">
+                                <!-- A practitioner is person-backed: its type is what it IS — shown read-only, never a
+                                     room/chair/vehicle dropdown. Facility resources keep the editable type select. -->
+                                <span v-if="resource.type === 'practitioner'" class="rounded-full bg-euca-50 px-2.5 py-1 text-xs font-medium text-euca-800">{{ t('branchesAdmin.resources.type.practitioner') }}</span>
+                                <select v-else v-model="resourceEdits[resource.id].type" class="rounded-md border border-line bg-surface px-2 py-1 text-sm text-ink" :aria-label="t('branchesAdmin.resources.type.label')">
                                     <option v-for="rt in resourceTypes" :key="rt" :value="rt">{{ t(`branchesAdmin.resources.type.${rt}`) }}</option>
                                 </select>
                                 <Button type="button" variant="secondary" :block="false" @click="saveResource(resource)">{{ t('branchesAdmin.actions.save') }}</Button>

@@ -234,6 +234,16 @@ Local `composer check` is green: 205 tests / 1013 assertions. Local `cmd /c npm 
   resource is immediately day-board-selectable but only OFFERED AS SLOTS once its `ResourceAvailability` windows are
   set (existing mechanism, unchanged) — a resource-availability screen is the flagged follow-up. See [[D-096]].
 
+- **BRANCH.P3 (wireframe-parity correctness FIX) — practitioner-resource type is read-only.** A `practitioner`
+  Resource is person-backed (`staff_profile_id` → StaffProfile; model invariant: only practitioners may link a
+  staff profile); the admin type select offers facility types only (room/chair/vehicle), which can't represent a
+  practitioner. `ResourceController::update` now branches: a **practitioner** update validates the NAME only and
+  IGNORES any submitted `type` (stays practitioner — a forged retype has no effect); a **facility** keeps name+type
+  editable within the facility-only `in:` rule (so a facility can't become a practitioner → 422). UI shows a
+  read-only "Practitioner" label for practitioner rows, the editable select for facility rows. A FIX (stop an
+  invalid edit), NOT a trim — facility CRUD + practitioner name/status (activate/deactivate, still guarded)
+  unchanged. Locked by `tests/Feature/Scheduling/BranchPractitionerResourceTest.php` (6).
+
 ## Open items
 
 - Later gates add realtime day-board refresh and UI surfaces for agent proposals.

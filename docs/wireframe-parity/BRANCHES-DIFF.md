@@ -235,7 +235,25 @@ Updated as BRANCH.P1–… land. One commit per part.
 | 2 · Glass + eucardIn + pills + terracotta | pending (P2+) | — |
 | 3 · Create modal wizard | pending | — |
 | 6 · "main"/default-branch flag (`is_primary`, exactly-one-per-tenant invariant) | **RESOLVED (P2)** | `BRANCH.P2` |
-| 8 · Practitioner resources read-only in the roster | pending | — |
+| 8 · Practitioner resources read-only in the roster (type not editable via the facility select) | **RESOLVED (P3)** | `BRANCH.P3` |
+
+**P3 note — practitioner-resource type read-only (correctness FIX, not a trim):** resolves punch-list item 8 (§6
+nuance).
+- **The model:** a `practitioner` resource is PERSON-BACKED (`type=practitioner` + a `staff_profile_id` →
+  `StaffProfile`; the model invariant lets ONLY a practitioner link a staff profile). Facility resources
+  (room/chair/vehicle) are free-standing. The admin type select offers facility types only, which **cannot
+  represent a practitioner** — so editing a practitioner's type via it was the bug.
+- **The FIX:** `ResourceController::update` now branches — for a **practitioner** it validates/updates the NAME
+  only and **ignores any submitted `type`** (the practitioner stays a practitioner; a forged `type=room` has no
+  effect); for a **facility** it keeps name+type editable within the facility-only `in:room,chair,vehicle` rule (so
+  a facility can't become a practitioner either — 422). UI: practitioner rows render a read-only "Practitioner"
+  label instead of the dropdown; facility rows keep the editable select.
+- **A FIX, not a trim:** no capability removed — practitioner name/status (activate/deactivate, guarded) stay
+  editable; facility-resource CRUD is unchanged. Only the invalid type-edit is stopped. i18n adds
+  `resources.type.practitioner`. admin.manage-gated + tenant-scoped. **No existing behaviour test modified**;
+  W8c ResourceCrud + P1/P2 + fence suites green. Locked by
+  `tests/Feature/Scheduling/BranchPractitionerResourceTest.php` (6). Correctly-more-real (practitioner rows in the
+  roster) un-regressed — kept, just shown with their true non-editable type.
 
 **P2 note — `is_primary` default-branch flag + exactly-one-primary invariant + the "main" badge:** resolves
 punch-list item 6 — a REAL, invariant-guarded state, NOT a cosmetic label.
