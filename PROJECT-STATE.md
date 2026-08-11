@@ -3,7 +3,7 @@
 Short, factual snapshot of where the project stands. Updated at consolidations and after gates
 (per the MEMORY PROTOCOL in AGENTS.md).
 
-## STATUS: BUILD COMPLETE + AUDITED (3 audits, ZERO must-fix) · EIGHT VERTICALS · DEMOABLE HOSPITAL TENANT · CURRENT STAGE = DEPLOYMENT · WIREFRAME-PARITY PASS (4 PAGES DONE: Admin Settings · Approval Queue P1→P7 · Branches P1→P5 · Agent&Tool Config P1→P6 COMPLETE)
+## STATUS: BUILD COMPLETE + AUDITED (3 audits, ZERO must-fix) · EIGHT VERTICALS · DEMOABLE HOSPITAL TENANT · CURRENT STAGE = DEPLOYMENT · WIREFRAME-PARITY PASS (4 PAGES DONE: Admin Settings · Approval Queue P1→P7 · Branches P1→P5 · Agent&Tool Config P1→P6 COMPLETE · Allergy Alert safe-part [ALLERGY.P1])
 
 > **RECONCILED (this pass — eight verticals built + audited; at the DEPLOY stage; a page-by-page wireframe-parity
 > pass now in progress).** CareOS is a multi-tenant agentic healthcare-operations platform (EU-first). **Stack:**
@@ -11,8 +11,8 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
 > 10.4 @3306, prod+CI MySQL 8 + Redis 7 + Node 22; Horizon via Memurai locally. **Latest commit:** `aac95c8`
 > (APPROVAL.P3 — the Approval Queue approve-contract caption), after the Admin Settings parity chain (→ `e7cabf0`),
 > DemoHospitalSeeder (D-147), the full-system QA audit + re-audit, and A11Y.1. **Suite:** `composer check` green —
-> Pest **1087 passed** (+7 from AGENT.P6), PHPStan L5 `[OK]`, Pint clean; `composer test:smoke`
-> green; CI green on MySQL 8; the FIX.5 route-smoke guards against request-time 500s. (Latest commit: AGENT.P6.)
+> Pest **1093 passed** (+6 from ALLERGY.P1), PHPStan L5 `[OK]`, Pint clean; `composer test:smoke`
+> green; CI green on MySQL 8; the FIX.5 route-smoke guards against request-time 500s. (Latest commit: ALLERGY.P1.)
 >
 > **WIREFRAME-PARITY PASS (in progress) — the discipline:** each app page is matched to its decoded wireframe in
 > the gitignored `resources/prototype/` (decode the bundler-shell HTML → AUDIT/diff into `docs/wireframe-parity/*.md`

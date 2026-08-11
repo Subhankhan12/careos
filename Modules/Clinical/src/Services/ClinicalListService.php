@@ -76,6 +76,7 @@ class ClinicalListService
             'substance' => $substance,
             'substance_key' => AllergyGuard::normalize($data['substance_key'] ?? $substance),
             'reaction' => $data['reaction'] ?? null,
+            'source' => $data['source'] ?? null, // a RECORDED fact (where/how documented) — never computed
             'severity' => $data['severity'] ?? Allergy::SEVERITY_UNKNOWN,
             'status' => $data['status'] ?? Allergy::STATUS_ACTIVE,
             'recorded_by' => $recorder->id,

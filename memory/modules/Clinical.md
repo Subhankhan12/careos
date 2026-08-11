@@ -262,7 +262,25 @@ architecture tests. Local `composer check` is green: 222 tests / 1202 assertions
   chart Vitals tab + P.13 trend both use it. Storage NEVER changes; convert only at render, still raw with no
   interpretation (electric fence holds). M-3 / FIX.4, see [[D-092]].
 
+## Allergy record-display + the medication-safety seam shell (ALLERGY.P1)
+
+The allergy wireframe's SAFE parts. A recorded `source` field (additive migration `2026_08_27_000001`, nullable)
+joins the existing recorded facts (`substance`/`reaction`/`severity` [recorded enum]/`verified_at`) on
+`Models\Allergy`; `ClinicalChartController` surfaces `source`/`recorded_at`/`verified_at`; the new
+`resources/js/Components/AllergyRecordPanel.vue` (on the chart, beside `AllergyBanner`) renders a per-allergy
+RECORD card — recorded severity shown as a FACT, not a computed grade (record-not-judge). It also renders a
+DISPLAY-ONLY region wired to the `MedicationSafetyProvider` seam: the controller reports
+`medicationSafety.providerConfigured` (`false` today — the bound provider is `NullMedicationSafetyProvider`) +
+`advisories: []`, so the region shows the honest "no automated checking configured" state (zero controls — cannot
+block/compute/suggest). **THE FENCE (permanent non-goal):** computed drug-allergy cross-reactivity / drug-class
+match / contraindication / auto-block / therapeutic substitution is a certified-partner MEDICAL-DEVICE function,
+NEVER built homemade. The only allergy block is the pre-existing deterministic exact-match `AllergyGuard`
+(unchanged; a Penicillin allergy does NOT trip for Amoxicillin — no cross-reactivity). Locked by
+`tests/Feature/Clinical/AllergyAlertDisplayTest.php` (6). See `docs/wireframe-parity/ALLERGY-ALERT-DIFF.md`.
+
 ## Open items
 
 - Next phase: Phase E - Nursing wedge (home care, dispatch, offline-first nurse PWA).
 - Real HL7/FHIR lab connectivity is deferred (partner-driven; see DEFERRED.md).
+- Computed drug-allergy safety (cross-reactivity / class-match / contraindication / substitution) is a
+  certified-partner medical-device NON-GOAL — the `MedicationSafetyProvider` seam awaits a licensed partner.

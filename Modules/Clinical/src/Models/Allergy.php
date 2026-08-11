@@ -19,6 +19,7 @@ use Modules\Platform\Exceptions\CrossTenantReferenceException;
  * @property string $substance
  * @property string $substance_key
  * @property string|null $reaction
+ * @property string|null $source
  * @property string $severity
  * @property string $status
  * @property string $recorded_by
@@ -50,6 +51,7 @@ class Allergy extends Model
         'substance',
         'substance_key',
         'reaction',
+        'source',
         'severity',
         'status',
         'recorded_by',

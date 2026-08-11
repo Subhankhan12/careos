@@ -1046,6 +1046,30 @@
             }
         }
     },
+    "allergyAlert": {
+        "title": "Recorded allergies",
+        "subtitle": "Documented by a clinician. These are recorded facts — CareOS surfaces them, it does not compute drug-allergy conflicts.",
+        "severity": {
+            "mild": "Mild",
+            "moderate": "Moderate",
+            "severe": "Severe",
+            "unknown": "Severity not recorded"
+        },
+        "fields": {
+            "source": "Source",
+            "recorded": "Recorded",
+            "verification": "Verification"
+        },
+        "confirmed": "Confirmed {date}",
+        "unconfirmed": "Not yet confirmed",
+        "seam": {
+            "title": "Automated medication-safety checking",
+            "notConfigured": "No automated medication-safety checking is configured. Recorded allergies are shown above; drug-allergy interaction, cross-reactivity and contraindication checking is a certified-partner function and is not performed here.",
+            "configuredNoFindings": "A medication-safety partner is connected. It runs advisory checks at prescribing time; there is nothing to show on this record view.",
+            "provenance": "From {source}",
+            "footnote": "When a licensed partner is connected, its findings appear here as advisory notes for the prescriber — they are never automatic and never block a prescription."
+        }
+    },
     "schedulingSettings": {
         "eyebrow": "Administration",
         "title": "Scheduling",

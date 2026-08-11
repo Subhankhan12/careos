@@ -866,6 +866,7 @@ class DemoClinicSeeder extends Seeder
         $lists->recordAllergy($this->patients[0], $doctor, $actor, [
             'substance' => 'Penicillin',
             'reaction' => 'Anaphylaxis requiring adrenaline and admission.',
+            'source' => 'A&E discharge summary, confirmed by the patient.',
             'severity' => 'severe',
             'verified_at' => now()->subYears(2),
         ]);

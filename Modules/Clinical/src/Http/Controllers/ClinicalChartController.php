@@ -26,11 +26,13 @@ use Modules\Clinical\Services\OrderService;
 use Modules\Clinical\Services\VitalsHistoryService;
 use Modules\Patients\Models\Patient;
 use Modules\People\Models\StaffProfile;
+use Modules\Pharmacy\Contracts\MedicationSafetyProvider;
+use Modules\Pharmacy\Services\NullMedicationSafetyProvider;
 use Modules\Platform\Models\User;
 
 class ClinicalChartController
 {
-    public function __invoke(Request $request, string $patient, ClinicalNoteService $notes, OrderService $orders, VitalsHistoryService $vitalsHistory): Response
+    public function __invoke(Request $request, string $patient, ClinicalNoteService $notes, OrderService $orders, VitalsHistoryService $vitalsHistory, MedicationSafetyProvider $medicationSafety): Response
     {
         Gate::authorize('patient.view');
 
@@ -91,11 +93,25 @@ class ClinicalChartController
                     'id' => $allergy->id,
                     'substance' => $allergy->substance,
                     'reaction' => $allergy->reaction,
+                    // A RECORDED provenance fact (where/how documented) — displayed, never computed.
+                    'source' => $allergy->source,
+                    // The clinician-RECORDED severity — surfaced as a fact, NOT a computed grade.
                     'severity' => $allergy->severity,
                     'status' => $allergy->status,
+                    'recorded_at' => $allergy->recorded_at->toDateTimeString(),
                     'verified_at' => $allergy->verified_at?->toDateTimeString(),
                 ])
                 ->all(),
+            // ALLERGY.P1 — the display-only MedicationSafetyProvider seam. Automated drug-allergy
+            // checking (cross-reactivity / class-match / contraindication / substitution) is a
+            // CERTIFIED-PARTNER medical-device function CareOS never computes homemade. Today the seam
+            // is the null-object, so no partner is configured and there is nothing advisory to show —
+            // the region renders the honest "not configured" state. This computes NOTHING and blocks
+            // NOTHING; a real partner's findings would be advisory + human-owned.
+            'medicationSafety' => [
+                'providerConfigured' => ! $medicationSafety instanceof NullMedicationSafetyProvider,
+                'advisories' => [], // the seam returns SafetyResult::none() — CareOS asserts nothing
+            ],
             'vitals' => Vital::query()
                 ->where('patient_id', $record->id)
                 ->orderByDesc('recorded_at')

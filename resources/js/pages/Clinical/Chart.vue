@@ -4,6 +4,7 @@ import { computed, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import AllergyBanner from '@/Components/AllergyBanner.vue';
+import AllergyRecordPanel from '@/Components/AllergyRecordPanel.vue';
 import Tabs from '@/Components/Tabs.vue';
 import Timeline from '@/Components/Timeline.vue';
 import VersionHistory from '@/Components/VersionHistory.vue';
@@ -34,7 +35,8 @@ const props = defineProps<{
         versions: Array<{ id: string; version: number; status: string; author_name: string; created_at: string | null; signed_at: string | null; amendment_reason: string | null; edit_url: string }>;
     }>;
     problems: Array<{ id: string; description: string; code: string | null; status: string; recorded_at: string; resolved_at: string | null }>;
-    allergies: Array<{ id: string; substance: string; reaction: string | null; severity: string; status: string; verified_at: string | null }>;
+    allergies: Array<{ id: string; substance: string; reaction: string | null; source: string | null; severity: string; status: string; recorded_at: string; verified_at: string | null }>;
+    medicationSafety: { providerConfigured: boolean; advisories: Array<{ code: string; message: string; source: string }> };
     vitals: Array<{ id: string; recorded_at: string; systolic: number | null; diastolic: number | null; heart_rate: number | null; temperature_c: string | null; spo2: number | null; weight_g: number | null; height_mm: number | null; extra: Record<string, unknown> | null }>;
     vitalsHistory: Record<string, Array<{ recorded_at: string; value: number | string; source: string }>>;
     medications: Array<{ id: string; name: string; dose_text: string | null; route: string | null; frequency_text: string | null; status: string; started_on: string; ended_on: string | null }>;
@@ -206,6 +208,10 @@ function transitionOrder(orderId: string, status: string): void {
             </div>
 
             <AllergyBanner :allergies="allergies" />
+
+            <!-- ALLERGY.P1 — the recorded-allergy record cards + the display-only MedicationSafetyProvider
+                 seam region (record-not-compute; the seam is the null-object today, so nothing is checked). -->
+            <AllergyRecordPanel :allergies="allergies" :medication-safety="medicationSafety" />
 
             <!-- AI summary draft — badged, dashed, source-linked, human-insert only. -->
             <div v-if="aiSummary" class="rounded-2xl border border-dashed border-euca-400 bg-euca-50/50 p-5">
