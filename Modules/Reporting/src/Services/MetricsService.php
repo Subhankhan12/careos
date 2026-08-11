@@ -8,8 +8,10 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Gate;
 use Modules\Billing\Models\Invoice;
+use Modules\Billing\Models\InvoiceAdjustment;
 use Modules\Billing\Models\InvoiceBalance;
 use Modules\Billing\Models\Payment;
+use Modules\Billing\Models\PaymentAllocation;
 use Modules\Clinical\Models\ClinicalNote;
 use Modules\Clinical\Models\Encounter;
 use Modules\Clinical\Models\Order;
@@ -252,6 +254,164 @@ class MetricsService
         return (int) InvoiceBalance::query()
             ->whereIn('invoice_id', $this->issuedInvoiceIdsQuery())
             ->sum('open_balance_minor');
+    }
+
+    /**
+     * FINANCIAL — the AR ROLL-FORWARD for a period, a RECONCILE-TO-THE-UNIT bridge in integer minor
+     * units (BILLAR.P2): OPENING + CHARGES − COLLECTIONS − CONTRACTUAL ADJUSTMENTS − WRITE-OFFS = CLOSING.
+     *
+     * Every term is an engine aggregate over the append-only ledger + the reconciled `invoice_balances`
+     * projection — the PAGE will only DISPLAY these six figures (P6), never compute them. The five
+     * period terms are the EXHAUSTIVE set of AR movements:
+     *   - `charges_minor`   = new issued invoices in the period, NET of credit-note cancellations
+     *     (a credit note fully cancels an unpaid issued invoice — folding it here keeps the bridge
+     *     exhaustive so the tie holds even when a credit note is issued in the period).
+     *   - `collections_minor` = net payment allocations applied in the period (reversals net out) — the
+     *     movement that actually reduces an invoice's open balance (not gross cash received).
+     *   - `adjustments_minor` / `write_offs_minor` = the P1 {@see InvoiceAdjustment} movements in the period.
+     * OPENING is the outstanding AR derived from the append-only ledger as of the day BEFORE `from`;
+     * CLOSING is the reconciled `invoice_balances` projection (outstanding as of now/`to`), computed
+     * INDEPENDENTLY of the bridge. This is the current-period management view (the wireframe's "as of
+     * today"), so `to` is expected to be the present.
+     *
+     * THE TIE-OUT: `bridge_closing_minor` (opening ± the period movements) MUST equal `closing_minor`
+     * (the independent reconciled outstanding), exactly — `ties` is true and `discrepancy_minor` is 0.
+     * A non-tie is SURFACED (never papered over): it means an unmodeled movement changed AR, or the
+     * projection drifted from the ledger — a reconcile failure to expose, not hide.
+     *
+     * @return array{from: string, to: string, opening_minor: int, charges_minor: int, collections_minor: int, adjustments_minor: int, write_offs_minor: int, closing_minor: int, bridge_closing_minor: int, discrepancy_minor: int, ties: bool}
+     */
+    public function arRollForward(User $actor, CarbonInterface|string $from, CarbonInterface|string $to): array
+    {
+        $this->authorizeFinancial($actor);
+
+        [$fromDate, $toDate] = $this->dateBounds($from, $to);
+        $dayBeforeFrom = Carbon::parse($fromDate)->subDay()->toDateString();
+
+        $opening = $this->outstandingAsOfMinor($dayBeforeFrom);
+
+        // charges billed, NET of credit-note cancellations in the period (both series=INV totals):
+        // new invoices ADD to AR; a credit note fully cancels an unpaid issued invoice, removing its total.
+        $grossCharges = (int) Invoice::query()
+            ->where('series', Invoice::SERIES_INVOICE)
+            ->whereIn('status', $this->frozenStatuses())
+            ->whereBetween('issue_date', [$fromDate, $toDate])
+            ->sum('total_minor');
+
+        $creditedInPeriod = (int) Invoice::query()
+            ->where('series', Invoice::SERIES_INVOICE)
+            ->whereIn('id', $this->cancelledByCreditNoteInPeriodIds($fromDate, $toDate))
+            ->sum('total_minor');
+
+        $charges = $grossCharges - $creditedInPeriod;
+
+        // collections = net allocations applied in the period (reversals net out) — what reduces AR.
+        $collections = (int) PaymentAllocation::query()
+            ->whereBetween('allocated_at', $this->dateTimeBounds($from, $to))
+            ->sum('amount_minor');
+
+        $adjustments = (int) InvoiceAdjustment::query()
+            ->where('type', InvoiceAdjustment::TYPE_CONTRACTUAL)
+            ->whereBetween('adjusted_at', $this->dateTimeBounds($from, $to))
+            ->sum('amount_minor');
+
+        $writeOffs = (int) InvoiceAdjustment::query()
+            ->where('type', InvoiceAdjustment::TYPE_WRITE_OFF)
+            ->whereBetween('adjusted_at', $this->dateTimeBounds($from, $to))
+            ->sum('amount_minor');
+
+        // Closing computed INDEPENDENTLY of the bridge: the reconciled `invoice_balances` projection
+        // (outstanding as of now/`to`). Comparing the movement-built bridge to the stored projection is
+        // the reconcile — a projection drift or an unmodeled movement surfaces as a non-zero discrepancy.
+        $closing = $this->outstandingBalanceMinor($actor);
+
+        $bridgeClosing = $opening + $charges - $collections - $adjustments - $writeOffs;
+        $discrepancy = $bridgeClosing - $closing;
+
+        return [
+            'from' => $fromDate,
+            'to' => $toDate,
+            'opening_minor' => $opening,
+            'charges_minor' => $charges,
+            'collections_minor' => $collections,
+            'adjustments_minor' => $adjustments,
+            'write_offs_minor' => $writeOffs,
+            'closing_minor' => $closing,
+            'bridge_closing_minor' => $bridgeClosing,
+            'discrepancy_minor' => $discrepancy,
+            'ties' => $discrepancy === 0,
+        ];
+    }
+
+    /**
+     * FINANCIAL — outstanding AR derived from the append-only ledger AS OF a date (integer minor units):
+     * the sum, over issued (series=INV) invoices existing by that date, of `total − allocations(≤date) −
+     * adjustments(≤date)`, with an invoice fully cancelled by a credit note issued by that date counting
+     * as 0. This is the historical analogue of the {@see outstandingBalanceMinor()} projection; at "today"
+     * the two agree (the I2 reconcile invariant), so the roll-forward's closing ties to the unit.
+     */
+    private function outstandingAsOfMinor(CarbonInterface|string $asOf): int
+    {
+        $asOfDate = Carbon::parse($asOf instanceof CarbonInterface ? $asOf->toDateString() : $asOf)->toDateString();
+        $asOfDateTime = Carbon::parse($asOfDate)->endOfDay()->toDateTimeString();
+
+        $cancelledIds = $this->cancelledByCreditNoteInPeriodIds('1900-01-01', $asOfDate);
+
+        $total = 0;
+
+        $invoices = Invoice::query()
+            ->where('series', Invoice::SERIES_INVOICE)
+            ->whereIn('status', $this->frozenStatuses())
+            ->whereDate('issue_date', '<=', $asOfDate)
+            ->get(['id', 'total_minor']);
+
+        foreach ($invoices as $invoice) {
+            if (in_array($invoice->id, $cancelledIds, true)) {
+                continue; // fully cancelled by a credit note by this date → 0 outstanding
+            }
+
+            $allocated = (int) PaymentAllocation::query()
+                ->where('invoice_id', $invoice->id)
+                ->where('allocated_at', '<=', $asOfDateTime)
+                ->sum('amount_minor');
+
+            $adjusted = (int) InvoiceAdjustment::query()
+                ->where('invoice_id', $invoice->id)
+                ->where('adjusted_at', '<=', $asOfDateTime)
+                ->sum('amount_minor');
+
+            $total += (int) $invoice->total_minor - $allocated - $adjusted;
+        }
+
+        return $total;
+    }
+
+    /**
+     * Ids of invoices FULLY cancelled by a credit note whose `issue_date` falls in [from, to]. The
+     * cancellation is recorded on the `invoice_balances` projection (status CANCELLED_BY_CREDIT_NOTE —
+     * a full credit sets open to 0; the frozen `invoices.status` stays ISSUED), so a partial credit note
+     * (which does NOT cancel or reduce the invoice balance) is correctly excluded.
+     *
+     * @return list<string>
+     */
+    private function cancelledByCreditNoteInPeriodIds(string $from, string $to): array
+    {
+        $sourceIds = Invoice::query()
+            ->where('series', Invoice::SERIES_CREDIT_NOTE)
+            ->whereNotNull('credit_note_for_invoice_id')
+            ->whereBetween('issue_date', [$from, $to])
+            ->pluck('credit_note_for_invoice_id')
+            ->all();
+
+        if ($sourceIds === []) {
+            return [];
+        }
+
+        return InvoiceBalance::query()
+            ->whereIn('invoice_id', $sourceIds)
+            ->where('status', Invoice::STATUS_CANCELLED_BY_CREDIT_NOTE)
+            ->pluck('invoice_id')
+            ->all();
     }
 
     /**

@@ -109,6 +109,15 @@ populations so reporting keeps reconciling with the billing source of truth) —
    period: opening balance (period-start outstanding) + charges billed − collections − contractual adjustments −
    write-offs = closing (period-end outstanding). **Blocked on gap #6** (adjustments + write-offs must be modeled
    as distinct ledger movements first). This is a reconcile-to-the-unit statement — see §5.
+   **→ RESOLVED (BILLAR.P2):** `MetricsService::arRollForward($actor, from, to)` computes the six figures in
+   integer minor units (billing.view, tenant-scoped): OPENING = outstanding-AR-as-of the day before `from`
+   (ledger-derived); CHARGES = new issued invoices in the period **net of credit-note cancellations** (so the
+   bridge is exhaustive — credit notes fully cancel an unpaid issued invoice); COLLECTIONS = net allocations in
+   the period; ADJUSTMENTS/WRITE-OFFS = the P1 movements in the period; CLOSING = the reconciled `invoice_balances`
+   projection (outstanding as of now), computed **independently** of the bridge. THE TIE-OUT: `bridge_closing`
+   (opening ± movements) === `closing`, δ=0; a non-tie is **surfaced** (`ties`/`discrepancy_minor`), never hidden.
+   NO page-side math; NO visual grid this gate (P6 displays it). Locked by
+   `tests/Feature/Billing/ArRollForwardTest.php` (7).
 2. **DSO** (Med) — days-sales-outstanding metric.
 3. **Net collection rate** (Med) — collected / collectible; requires a modeled "collectible" (net of contractual
    adjustments), else the denominator is undefined.
@@ -207,5 +216,5 @@ report.
 | Gate | Item | Status |
 |---|---|---|
 | **BILLAR.P1** | Write-offs + contractual adjustments as operator-gated, reconciling, append-only ledger movements (`InvoiceAdjustment` + `AdjustmentService`; I2/I6 extended, tie-out δ=0, count still 6) | **RESOLVED** — the money-integrity foundation. No reporting UI this gate. |
-| BILLAR.P2 (next) | AR roll-forward reconciliation (opening → charges − collections − adjustments − write-offs → closing), tying out in the engine — now unblocked by P1 | pending |
+| **BILLAR.P2** | AR roll-forward reconciliation (`MetricsService::arRollForward`): opening + charges − collections − adjustments − write-offs = closing, computed IN THE ENGINE, tying out δ=0 vs. the reconciled projection; credit notes fold into charges (net) so the bridge is exhaustive; a non-tie is SURFACED. No visual grid this gate (P6 displays it). | **RESOLVED** |
 | BILLAR.P3+ | DSO · net collection rate · by-payer dimension+aggregate · charged-vs-collected series · management-report grid (visual) · account-level overdue rollup + AR Account Detail | pending |

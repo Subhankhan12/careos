@@ -281,6 +281,24 @@ projection, write-offs/adjustments flow into them automatically (no reporting ch
 (the roll-forward that consumes these is BILLAR.P2). Locked by `tests/Feature/Billing/WriteOffAdjustmentTest.php`
 (7). See `docs/wireframe-parity/BILLING-AR-DIFF.md`.
 
+## AR roll-forward (BILLAR.P2 — engine-computed reconcile-to-the-unit bridge)
+
+`MetricsService::arRollForward($actor, $from, $to)` (billing.view, tenant-scoped, integer minor units) produces the
+AR roll-forward as a **reconcile-to-the-unit bridge**: **opening + charges − collections − adjustments − write-offs
+= closing**. Terms: OPENING = `outstandingAsOfMinor(from−1)` (AR derived from the append-only ledger as-of a date:
+Σ over issued INV of `total − allocations(≤D) − adjustments(≤D)`, an invoice fully cancelled by a credit note by D
+counting 0); CHARGES = new issued invoices in the period **net of credit-note cancellations** (the fold that makes
+the bridge exhaustive — a full credit note cancels an unpaid issued invoice, its cancellation recorded on the
+`invoice_balances` projection status CANCELLED_BY_CREDIT_NOTE, NOT the frozen `invoices.status` which stays ISSUED);
+COLLECTIONS = net `PaymentAllocation`s in the period (what reduces AR — not gross cash); ADJUSTMENTS/WRITE-OFFS =
+the P1 `InvoiceAdjustment` movements in the period; CLOSING = the reconciled `outstandingBalanceMinor()` projection
+(outstanding as of now/`to`), computed **independently** of the bridge (current-period management view, "as of
+today"). THE TIE-OUT: `bridge_closing_minor` (opening ± movements) === `closing_minor`, δ=0 (`ties`,
+`discrepancy_minor`); a non-tie is **surfaced, never hidden** — it means an unmodeled movement changed AR or the
+projection drifted. The five terms are the EXHAUSTIVE set of AR movements (charges [incl. credit notes], payments,
+P1 adjustments, P1 write-offs) — which is why P1 had to model write-offs/adjustments first. NO page-side money math;
+NO visual grid this gate (P6 displays the six figures). Locked by `tests/Feature/Billing/ArRollForwardTest.php` (7).
+
 ## Open items
 
 - FIX.1 (D-090): the W6/W7 detail/write controllers used implicit route-model binding, which 500'd in the
