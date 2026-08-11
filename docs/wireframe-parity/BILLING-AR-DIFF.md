@@ -118,6 +118,13 @@ populations so reporting keeps reconciling with the billing source of truth) —
 6. **Write-offs / contractual adjustments** (Med, blocker for #1) — model them as distinct, **operator-gated**
    ledger movements (today the only balance-down paths are payment allocation + credit note; the credit note is
    the de-facto operator-gated write-off). Read-only on this report — see §5.
+   **→ RESOLVED (BILLAR.P1):** `InvoiceAdjustment` (type `write_off` | `contractual`) is now a first-class,
+   **append-only** ledger movement (integer minor units, signed; a correction is a reversal row) written only
+   through the **operator-gated** `AdjustmentService` (`billing.manage`; the agent has no path). It **reduces the
+   open balance** (`PaymentService::openBalance` = total − net allocations − net adjustments) and **reconciles to
+   the unit** — the ReconciliationEngine's **I2** (balance derivation) and **I6** (no-orphan) were **extended to
+   include it, invariant count unchanged at 6, tie-out not weakened** (δ=0). Locked by
+   `tests/Feature/Billing/WriteOffAdjustmentTest.php` (7). This unblocks the roll-forward (#1/gate BILLAR.P2).
 7. **Account-level overdue rollup + named dunning stages + the AR Account Detail drill** (Med) — the wireframe's
    top-overdue is per-ACCOUNT with named stages (Reminder → 1./2. Mahnung → Betreibung) drilling into an **AR
    Account Detail** page (a separate wireframe, not yet built). The live dunning worklist is per-invoice with
@@ -192,3 +199,13 @@ page-side money math. Flag any PR that computes these in the Vue.
 **Money-fence (must-hold):** every figure above is engine-computed + displayed; **no page-side money math**. The
 roll-forward must **tie out in the engine**; write-offs/adjustments stay **operator-gated + read-only** on this
 report.
+
+---
+
+## Parity progress (per gate)
+
+| Gate | Item | Status |
+|---|---|---|
+| **BILLAR.P1** | Write-offs + contractual adjustments as operator-gated, reconciling, append-only ledger movements (`InvoiceAdjustment` + `AdjustmentService`; I2/I6 extended, tie-out δ=0, count still 6) | **RESOLVED** — the money-integrity foundation. No reporting UI this gate. |
+| BILLAR.P2 (next) | AR roll-forward reconciliation (opening → charges − collections − adjustments − write-offs → closing), tying out in the engine — now unblocked by P1 | pending |
+| BILLAR.P3+ | DSO · net collection rate · by-payer dimension+aggregate · charged-vs-collected series · management-report grid (visual) · account-level overdue rollup + AR Account Detail | pending |

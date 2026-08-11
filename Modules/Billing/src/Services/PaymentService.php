@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\Gate;
 use InvalidArgumentException;
 use Modules\Audit\Services\AuditService;
 use Modules\Billing\Models\Invoice;
+use Modules\Billing\Models\InvoiceAdjustment;
 use Modules\Billing\Models\InvoiceBalance;
 use Modules\Billing\Models\Payment;
 use Modules\Billing\Models\PaymentAllocation;
@@ -272,16 +273,29 @@ class PaymentService
     }
 
     /**
-     * Open balance of an invoice: its economic total minus net allocations
-     * applied to it (reversals net out). Derived, exact, never drifting.
+     * Open balance of an invoice: its economic total minus net allocations applied to it AND minus
+     * net ledger adjustments (write-offs + contractual adjustments), reversals netting out in both.
+     * Derived, exact, never drifting: balance = total − net allocations − net adjustments (BILLAR.P1).
      */
     public function openBalance(Invoice $invoice): int
     {
-        $netAllocated = (int) PaymentAllocation::query()
+        return $invoice->total_minor - $this->netAllocatedMinor($invoice) - $this->netAdjustedMinor($invoice);
+    }
+
+    /** Net payment applied to an invoice (allocations minus reversals). */
+    private function netAllocatedMinor(Invoice $invoice): int
+    {
+        return (int) PaymentAllocation::query()
             ->where('invoice_id', $invoice->id)
             ->sum('amount_minor');
+    }
 
-        return $invoice->total_minor - $netAllocated;
+    /** Net ledger adjustment reducing an invoice's balance (write-offs + contractual, reversals net out). */
+    private function netAdjustedMinor(Invoice $invoice): int
+    {
+        return (int) InvoiceAdjustment::query()
+            ->where('invoice_id', $invoice->id)
+            ->sum('amount_minor');
     }
 
     /**
@@ -295,13 +309,21 @@ class PaymentService
         return [$lockedPayment, $balance];
     }
 
-    private function refreshInvoiceBalance(Invoice $invoice, InvoiceBalance $balance): void
+    /**
+     * Refresh the mutable `invoice_balances` projection to the derived open balance. The stored
+     * balance reflects ALL movements (payments + write-offs + adjustments); the PAID/PARTIALLY_PAID
+     * status stays PAYMENT-driven (a write-off reduces what is owed without labelling it "paid"), so
+     * for a payment-only invoice this is identical to before BILLAR.P1. Public so the operator-gated
+     * {@see AdjustmentService} can refresh the projection under the same locked-balance transaction.
+     */
+    public function refreshInvoiceBalance(Invoice $invoice, InvoiceBalance $balance): void
     {
-        $open = $this->openBalance($invoice);
+        $open = $this->openBalance($invoice); // total − allocations − adjustments
+        $paymentOpen = $invoice->total_minor - $this->netAllocatedMinor($invoice); // status from payments only
 
         $status = match (true) {
-            $open <= 0 => Invoice::STATUS_PAID,
-            $open >= $invoice->total_minor => Invoice::STATUS_ISSUED,
+            $paymentOpen <= 0 => Invoice::STATUS_PAID,
+            $paymentOpen >= $invoice->total_minor => Invoice::STATUS_ISSUED,
             default => Invoice::STATUS_PARTIALLY_PAID,
         };
 

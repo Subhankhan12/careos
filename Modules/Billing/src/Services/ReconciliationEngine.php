@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\Gate;
 use Modules\Audit\Services\AuditService;
 use Modules\Billing\Models\Charge;
 use Modules\Billing\Models\Invoice;
+use Modules\Billing\Models\InvoiceAdjustment;
 use Modules\Billing\Models\InvoiceBalance;
 use Modules\Billing\Models\InvoiceLine;
 use Modules\Billing\Models\Payment;
@@ -143,8 +144,10 @@ class ReconciliationEngine
 
     /**
      * I2 — For every issued invoice, the projection equals the derivation:
-     * invoice_balances.open_balance_minor == total_minor − net allocations
-     * (0 if cancelled by credit note), and 0 <= open <= total.
+     * invoice_balances.open_balance_minor == total_minor − net allocations − net adjustments
+     * (write-offs + contractual adjustments, reversals netting out; 0 if cancelled by credit note),
+     * and 0 <= open <= total. The write-off/adjustment terms are modelled ledger movements
+     * (BILLAR.P1), so the invariant still ties out to the unit with them.
      */
     private function checkI2(string $start, string $end): array
     {
@@ -156,10 +159,11 @@ class ReconciliationEngine
             $balance = InvoiceBalance::query()->where('invoice_id', $invoice->id)->first();
             $projection = $balance !== null ? (int) $balance->open_balance_minor : 0;
             $netAllocated = (int) PaymentAllocation::query()->where('invoice_id', $invoice->id)->sum('amount_minor');
+            $netAdjusted = (int) InvoiceAdjustment::query()->where('invoice_id', $invoice->id)->sum('amount_minor');
 
             $derived = $balance !== null && $balance->status === Invoice::STATUS_CANCELLED_BY_CREDIT_NOTE
                 ? 0
-                : (int) $invoice->total_minor - $netAllocated;
+                : (int) $invoice->total_minor - $netAllocated - $netAdjusted;
 
             $expected += $derived;
             $actual += $projection;
@@ -180,7 +184,7 @@ class ReconciliationEngine
             }
         }
 
-        return $this->invariant('I2', 'invoice_balances projection equals derived open balance and is within [0, total]', $expected, $actual, $rows);
+        return $this->invariant('I2', 'invoice_balances projection equals derived open balance (total − allocations − adjustments) and is within [0, total]', $expected, $actual, $rows);
     }
 
     /**
@@ -430,7 +434,44 @@ class ReconciliationEngine
             }
         }
 
-        return $this->invariant('I6', 'no orphan money: allocations, reversals, and refunds reference real same-tenant rows', 0, $orphanMinor, $rows);
+        // BILLAR.P1 — write-off / contractual-adjustment movements: no orphans; a reversal references a
+        // real, non-reversal, not-already-reversed adjustment (same discipline as allocations).
+        $adjustments = InvoiceAdjustment::query()->whereIn('invoice_id', $invoiceIds)->get();
+        foreach ($adjustments as $adjustment) {
+            if (! Invoice::query()->whereKey($adjustment->invoice_id)->exists()) {
+                $orphanMinor += abs((int) $adjustment->amount_minor);
+                $rows[] = [
+                    'type' => 'adjustment',
+                    'id' => $adjustment->id,
+                    'reason' => 'missing_invoice',
+                    'amount_minor' => (int) $adjustment->amount_minor,
+                    'delta_minor' => abs((int) $adjustment->amount_minor),
+                ];
+
+                continue;
+            }
+
+            if ($adjustment->reverses_adjustment_id !== null) {
+                $target = InvoiceAdjustment::query()->whereKey($adjustment->reverses_adjustment_id)->first();
+                $reverserCount = InvoiceAdjustment::query()
+                    ->where('reverses_adjustment_id', $adjustment->reverses_adjustment_id)
+                    ->count();
+
+                if ($target === null || $target->reverses_adjustment_id !== null || $reverserCount > 1) {
+                    $orphanMinor += abs((int) $adjustment->amount_minor);
+                    $rows[] = [
+                        'type' => 'adjustment_reversal',
+                        'id' => $adjustment->id,
+                        'reason' => $target === null ? 'missing_target' : ($target->reverses_adjustment_id !== null ? 'target_is_reversal' : 'target_double_reversed'),
+                        'reverses_adjustment_id' => $adjustment->reverses_adjustment_id,
+                        'amount_minor' => (int) $adjustment->amount_minor,
+                        'delta_minor' => abs((int) $adjustment->amount_minor),
+                    ];
+                }
+            }
+        }
+
+        return $this->invariant('I6', 'no orphan money: allocations, reversals, refunds, and adjustments reference real same-tenant rows', 0, $orphanMinor, $rows);
     }
 
     /**

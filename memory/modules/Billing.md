@@ -261,6 +261,26 @@ P0F.G4 added invoices, gapless numbering, issued-document immutability, and cred
 - Adversarial 5-dimension review → verify workflow: 0 confirmed defects. With W7 the Eucalyptus Glow
   **CLINIC delivery is complete** (W1→W7). See [[Reporting]] for the dashboard.
 
+## Write-offs + contractual adjustments (BILLAR.P1 — reconciling ledger movements)
+
+`InvoiceAdjustment` (`invoice_adjustments`, migration `2026_08_28_000001`) models a **write-off** (bad debt) or a
+**contractual** adjustment (insurer-agreed rate) as a first-class, **append-only** ledger movement against an
+invoice — signed integer minor units exactly like `payment_allocations` (a movement is POSITIVE and reduces the
+open balance; a correction is a REVERSAL row = the exact negative; never a mutation). ORM guard + DB triggers
+(no update/delete) + a non-zero CHECK. Written ONLY through the **operator-gated** `AdjustmentService`
+(`writeOff` / `contractualAdjustment` / `reverse`, all `billing.manage` — the billing agent has no path, so it
+never writes one; reason required; over-adjustment guard forbids reducing below zero, concurrency-safe FOR UPDATE;
+audited `billing.written_off` / `billing.adjusted` / `billing.adjustment_reversed`). The **canonical open balance**
+is now `PaymentService::openBalance` = `total − net allocations − net adjustments`, refreshed into the
+`invoice_balances` projection (status stays PAYMENT-driven — a write-off reduces what is owed without labelling it
+"paid"; identical to before for payment-only invoices). The **ReconciliationEngine** ties out WITH them:
+**I2** derivation subtracts net adjustments; **I6** gains orphan-adjustment + reversal-integrity checks — the
+invariant **count is unchanged (6)** and the tie-out is **not weakened** (δ=0; the existing SimulatedMonth/
+Reconciliation suites pass untouched). Because aging/outstanding read the reconciled `invoice_balances`
+projection, write-offs/adjustments flow into them automatically (no reporting change). NO reporting UI this gate
+(the roll-forward that consumes these is BILLAR.P2). Locked by `tests/Feature/Billing/WriteOffAdjustmentTest.php`
+(7). See `docs/wireframe-parity/BILLING-AR-DIFF.md`.
+
 ## Open items
 
 - FIX.1 (D-090): the W6/W7 detail/write controllers used implicit route-model binding, which 500'd in the
