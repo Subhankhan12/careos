@@ -119,8 +119,16 @@ populations so reporting keeps reconciling with the billing source of truth) —
    NO page-side math; NO visual grid this gate (P6 displays it). Locked by
    `tests/Feature/Billing/ArRollForwardTest.php` (7).
 2. **DSO** (Med) — days-sales-outstanding metric.
+   **→ RESOLVED (BILLAR.P3):** `MetricsService::daysSalesOutstanding` = (AR outstanding ÷ credit sales in period)
+   × days-in-period, from real engine figures (reconciled projection + P2 charges); float rounded to 1 decimal;
+   a zero-sales period returns `dso: null` ("—", no divide-by-zero). Locked by `DsoCollectionRateTest`.
 3. **Net collection rate** (Med) — collected / collectible; requires a modeled "collectible" (net of contractual
    adjustments), else the denominator is undefined.
+   **→ RESOLVED (BILLAR.P3):** `MetricsService::netCollectionRate` = collections ÷ collectible, where
+   **collectible = charges billed − contractual adjustments** (honestly DERIVED from real figures — the P1
+   contractual adjustments; write-offs are NOT subtracted, per the standard definition). Collections = the P2
+   net-allocations figure. Rate rounded to 4 decimals; a zero-collectible period returns `rate: null` ("—").
+   Locked by `DsoCollectionRateTest`.
 4. **By-payer split** (Med) — a payer/insurer **dimension** (extend `payer_type` beyond self_pay/private_insurance
    to accident SUVA/UVG + social/municipal, and/or an insurer entity) + a `groupBy(payer)` aggregate.
 5. **Charged-vs-collected time series** (Low) — a period-bucketed (weekly) charged + collected series.
@@ -217,4 +225,5 @@ report.
 |---|---|---|
 | **BILLAR.P1** | Write-offs + contractual adjustments as operator-gated, reconciling, append-only ledger movements (`InvoiceAdjustment` + `AdjustmentService`; I2/I6 extended, tie-out δ=0, count still 6) | **RESOLVED** — the money-integrity foundation. No reporting UI this gate. |
 | **BILLAR.P2** | AR roll-forward reconciliation (`MetricsService::arRollForward`): opening + charges − collections − adjustments − write-offs = closing, computed IN THE ENGINE, tying out δ=0 vs. the reconciled projection; credit notes fold into charges (net) so the bridge is exhaustive; a non-tie is SURFACED. No visual grid this gate (P6 displays it). | **RESOLVED** |
-| BILLAR.P3+ | DSO · net collection rate · by-payer dimension+aggregate · charged-vs-collected series · management-report grid (visual) · account-level overdue rollup + AR Account Detail | pending |
+| **BILLAR.P3** | DSO + net collection rate (+ honest collectible = charges − contractual adjustments) as engine methods; real figures, stated definitions, zero/edge → honest null ("—"); no page math | **RESOLVED** |
+| BILLAR.P4+ | by-payer dimension+aggregate · charged-vs-collected series · management-report grid (visual, P6 displays DSO/rate/roll-forward) · account-level overdue rollup + AR Account Detail | pending |

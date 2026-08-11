@@ -289,36 +289,10 @@ class MetricsService
         $dayBeforeFrom = Carbon::parse($fromDate)->subDay()->toDateString();
 
         $opening = $this->outstandingAsOfMinor($dayBeforeFrom);
-
-        // charges billed, NET of credit-note cancellations in the period (both series=INV totals):
-        // new invoices ADD to AR; a credit note fully cancels an unpaid issued invoice, removing its total.
-        $grossCharges = (int) Invoice::query()
-            ->where('series', Invoice::SERIES_INVOICE)
-            ->whereIn('status', $this->frozenStatuses())
-            ->whereBetween('issue_date', [$fromDate, $toDate])
-            ->sum('total_minor');
-
-        $creditedInPeriod = (int) Invoice::query()
-            ->where('series', Invoice::SERIES_INVOICE)
-            ->whereIn('id', $this->cancelledByCreditNoteInPeriodIds($fromDate, $toDate))
-            ->sum('total_minor');
-
-        $charges = $grossCharges - $creditedInPeriod;
-
-        // collections = net allocations applied in the period (reversals net out) — what reduces AR.
-        $collections = (int) PaymentAllocation::query()
-            ->whereBetween('allocated_at', $this->dateTimeBounds($from, $to))
-            ->sum('amount_minor');
-
-        $adjustments = (int) InvoiceAdjustment::query()
-            ->where('type', InvoiceAdjustment::TYPE_CONTRACTUAL)
-            ->whereBetween('adjusted_at', $this->dateTimeBounds($from, $to))
-            ->sum('amount_minor');
-
-        $writeOffs = (int) InvoiceAdjustment::query()
-            ->where('type', InvoiceAdjustment::TYPE_WRITE_OFF)
-            ->whereBetween('adjusted_at', $this->dateTimeBounds($from, $to))
-            ->sum('amount_minor');
+        $charges = $this->chargesBilledMinor($from, $to);
+        $collections = $this->netCollectionsMinor($from, $to);
+        $adjustments = $this->contractualAdjustmentsMinor($from, $to);
+        $writeOffs = $this->writeOffsMinor($from, $to);
 
         // Closing computed INDEPENDENTLY of the bridge: the reconciled `invoice_balances` projection
         // (outstanding as of now/`to`). Comparing the movement-built bridge to the stored projection is
@@ -341,6 +315,131 @@ class MetricsService
             'discrepancy_minor' => $discrepancy,
             'ties' => $discrepancy === 0,
         ];
+    }
+
+    /**
+     * FINANCIAL — DAYS SALES OUTSTANDING (DSO) for a period (BILLAR.P3): how many days of sales the
+     * current receivables represent. Standard definition:
+     *
+     *     DSO = (AR outstanding ÷ credit sales in the period) × days in the period
+     *
+     * AR outstanding is the reconciled `invoice_balances` projection (as of now); credit sales are the
+     * charges billed in the period (new invoices net of credit-note cancellations — the P2 definition).
+     * The division is done in floating point and rounded to one decimal (the wireframe's "27.5 days")
+     * — the underlying money is exact integer minor units; only the ratio is rounded, and the rounding
+     * is documented here. A period with NO credit sales has an UNDEFINED DSO (no divide-by-zero): `dso`
+     * is null so the page shows "—", never 0 or ∞.
+     *
+     * @return array{from: string, to: string, ar_minor: int, credit_sales_minor: int, days: int, dso: float|null}
+     */
+    public function daysSalesOutstanding(User $actor, CarbonInterface|string $from, CarbonInterface|string $to): array
+    {
+        $this->authorizeFinancial($actor);
+
+        [$fromDate, $toDate] = $this->dateBounds($from, $to);
+        $ar = $this->outstandingBalanceMinor($actor);
+        $creditSales = $this->chargesBilledMinor($from, $to);
+        $days = (int) Carbon::parse($fromDate)->diffInDays(Carbon::parse($toDate)) + 1; // inclusive
+
+        return [
+            'from' => $fromDate,
+            'to' => $toDate,
+            'ar_minor' => $ar,
+            'credit_sales_minor' => $creditSales,
+            'days' => $days,
+            'dso' => $creditSales > 0 ? round($ar / $creditSales * $days, 1) : null,
+        ];
+    }
+
+    /**
+     * FINANCIAL — NET COLLECTION RATE for a period (BILLAR.P3): the share of what was collectible that
+     * was actually collected. Standard definition:
+     *
+     *     net collection rate = collections ÷ collectible
+     *     collectible         = charges billed − contractual adjustments
+     *
+     * COLLECTIBLE is honestly DERIVED, never fabricated: charges billed (new invoices net of credit-note
+     * cancellations, the P2 definition) minus the P1 CONTRACTUAL adjustments (insurer-agreed reductions
+     * that were never collectible). WRITE-OFFS are NOT subtracted — under the standard "net" definition
+     * they are amounts that WERE collectible but went uncollected, so leaving them in the denominator is
+     * what makes the rate reflect collection performance. COLLECTIONS are the net allocations actually
+     * applied in the period (the P2 definition — what reduced AR, not gross cash).
+     *
+     * The rate is a fraction rounded to 4 decimals (the page formats it as a percentage). A period with
+     * NO collectible (≤ 0) has an UNDEFINED rate (no divide-by-zero): `rate` is null so the page shows
+     * "—", never a fabricated value. A rate above 1.0 is possible (e.g. collecting prior-period balances)
+     * and is reported honestly, never capped.
+     *
+     * @return array{from: string, to: string, collections_minor: int, charges_minor: int, contractual_adjustments_minor: int, collectible_minor: int, rate: float|null}
+     */
+    public function netCollectionRate(User $actor, CarbonInterface|string $from, CarbonInterface|string $to): array
+    {
+        $this->authorizeFinancial($actor);
+
+        [$fromDate, $toDate] = $this->dateBounds($from, $to);
+        $collections = $this->netCollectionsMinor($from, $to);
+        $charges = $this->chargesBilledMinor($from, $to);
+        $contractual = $this->contractualAdjustmentsMinor($from, $to);
+        $collectible = $charges - $contractual;
+
+        return [
+            'from' => $fromDate,
+            'to' => $toDate,
+            'collections_minor' => $collections,
+            'charges_minor' => $charges,
+            'contractual_adjustments_minor' => $contractual,
+            'collectible_minor' => $collectible,
+            'rate' => $collectible > 0 ? round($collections / $collectible, 4) : null,
+        ];
+    }
+
+    /**
+     * Charges billed in a period: new issued invoices, NET of credit-note cancellations (a full credit
+     * note cancels an unpaid issued invoice, removing its total). Shared by the roll-forward (P2), DSO
+     * and the net collection rate so every "charges billed" figure agrees.
+     */
+    private function chargesBilledMinor(CarbonInterface|string $from, CarbonInterface|string $to): int
+    {
+        [$fromDate, $toDate] = $this->dateBounds($from, $to);
+
+        $gross = (int) Invoice::query()
+            ->where('series', Invoice::SERIES_INVOICE)
+            ->whereIn('status', $this->frozenStatuses())
+            ->whereBetween('issue_date', [$fromDate, $toDate])
+            ->sum('total_minor');
+
+        $credited = (int) Invoice::query()
+            ->where('series', Invoice::SERIES_INVOICE)
+            ->whereIn('id', $this->cancelledByCreditNoteInPeriodIds($fromDate, $toDate))
+            ->sum('total_minor');
+
+        return $gross - $credited;
+    }
+
+    /** Net payment allocations applied in a period (reversals net out) — the collections that reduce AR. */
+    private function netCollectionsMinor(CarbonInterface|string $from, CarbonInterface|string $to): int
+    {
+        return (int) PaymentAllocation::query()
+            ->whereBetween('allocated_at', $this->dateTimeBounds($from, $to))
+            ->sum('amount_minor');
+    }
+
+    /** Net P1 contractual-adjustment movements posted in a period. */
+    private function contractualAdjustmentsMinor(CarbonInterface|string $from, CarbonInterface|string $to): int
+    {
+        return (int) InvoiceAdjustment::query()
+            ->where('type', InvoiceAdjustment::TYPE_CONTRACTUAL)
+            ->whereBetween('adjusted_at', $this->dateTimeBounds($from, $to))
+            ->sum('amount_minor');
+    }
+
+    /** Net P1 write-off movements posted in a period. */
+    private function writeOffsMinor(CarbonInterface|string $from, CarbonInterface|string $to): int
+    {
+        return (int) InvoiceAdjustment::query()
+            ->where('type', InvoiceAdjustment::TYPE_WRITE_OFF)
+            ->whereBetween('adjusted_at', $this->dateTimeBounds($from, $to))
+            ->sum('amount_minor');
     }
 
     /**

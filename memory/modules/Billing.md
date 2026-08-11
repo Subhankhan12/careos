@@ -299,6 +299,23 @@ projection drifted. The five terms are the EXHAUSTIVE set of AR movements (charg
 P1 adjustments, P1 write-offs) — which is why P1 had to model write-offs/adjustments first. NO page-side money math;
 NO visual grid this gate (P6 displays the six figures). Locked by `tests/Feature/Billing/ArRollForwardTest.php` (7).
 
+## DSO + net collection rate (BILLAR.P3 — engine metrics, honest definitions)
+
+`MetricsService::daysSalesOutstanding($actor, $from, $to)` — **DSO = (AR outstanding ÷ credit sales in period) ×
+days-in-period**. AR = the reconciled `outstandingBalanceMinor` projection (as of now); credit sales = the P2
+`chargesBilledMinor` (new invoices net of credit-note cancellations); days = inclusive days in the period. The
+ratio is float, rounded to 1 decimal (money stays exact minor units; only the ratio rounds). Zero-sales period →
+`dso: null` ("—", no divide-by-zero). `MetricsService::netCollectionRate($actor, $from, $to)` — **rate =
+collections ÷ collectible**, where **collectible = charges billed − contractual adjustments** (honestly DERIVED,
+never fabricated: the P1 contractual adjustments are insurer write-downs that were never collectible; write-offs
+are NOT subtracted — uncollected-but-was-collectible, the standard "net" definition). Collections = the P2
+`netCollectionsMinor` (net allocations in period). Rate rounded to 4 decimals (page formats as %); zero-collectible
+→ `rate: null` ("—"); a rate > 1 is possible and reported honestly. The P2 roll-forward's inline term computations
+were extracted into shared private helpers (`chargesBilledMinor`/`netCollectionsMinor`/`contractualAdjustmentsMinor`/
+`writeOffsMinor`) so every "charges billed"/"collections" figure agrees across the roll-forward, DSO and the rate
+(arRollForward values unchanged — P2 tests pass). billing.view + tenant-scoped; engine-computed, page displays
+(P6), no page-side math. Locked by `tests/Feature/Billing/DsoCollectionRateTest.php` (6).
+
 ## Open items
 
 - FIX.1 (D-090): the W6/W7 detail/write controllers used implicit route-model binding, which 500'd in the
