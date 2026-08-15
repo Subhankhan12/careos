@@ -390,6 +390,26 @@ page money math. Locked by `tests/Feature/Billing/TopOverdueAccountsTest.php` (5
 org_admin, injected overdue AR — 3 real accounts, real stage 2, ordered, rollup ties, drill renders AccountDetail).
 **With P7 the whole BILLING & AR page's wireframe-parity is COMPLETE (P1→P7).**
 
+## AR Account Detail — per-account running-balance ledger (ARDETAIL.P1)
+
+`MetricsService::accountLedger($actor, string $accountId, $asOf)` (billing.view, tenant-scoped) is the engine behind the
+AR Account Detail ledger. It lists the account's issued invoices (series INV + frozen statuses) ordered by issue_date;
+per row `{invoice_id, number, issue_date, due_date, amount_minor (=total_minor), paid_minor (=amount−balance),
+balance_minor (the reconciled `invoice_balances` projection), status (the PAYMENT-DRIVEN `InvoiceBalance.status` —
+paid/partially_paid/issued, NOT `invoices.status` which stays 'issued'), days_overdue (aging day-math),
+running_balance_minor}` where the **running balance** is the cumulative Σ of balances down the rows, computed IN THE
+ENGINE. Returns `rows[]` + `invoice_count` + `total_amount_minor` + `total_paid_minor` + `account_outstanding_minor`
+(= Σ the account's `open_balance_minor`, the account-scoped `outstandingBalanceMinor`) + `ties`. **THE TIE:** each
+balance IS the projection (not recomputed), so Σ rows' balance === `account_outstanding_minor` === (single account) the
+global `outstandingBalanceMinor` and the FINAL running balance === that total (δ=0). `Billing/AccountDetail.vue` renders
+the ledger TABLE (invoice · date · status · age · amount · paid · balance · running) + a Balance-due tfoot + a ties
+badge; the Vue computes NO money (the running balance comes from the engine, never a client sum). NO writes this gate
+(record-payment is P4). i18n `billing.accountDetail.ledger*`/`col.*`/`status.*` (the placeholder `ledgerSoon*` keys
+removed). Locked by `tests/Feature/Billing/AccountLedgerTest.php` (5); browser-verified (Playwright, org_admin, injected
+overdue AR — ledger ties on screen, real projection status). Next (P2+): dunning timeline + account-wide figures (last
+payment / total outstanding) + hero/Swiss format; then record-payment (P4, PaymentService guard) / Betreibung escalation
+(operator-only + agent-excluded + audited) / payment plan.
+
 ## Open items
 
 - FIX.1 (D-090): the W6/W7 detail/write controllers used implicit route-model binding, which 500'd in the

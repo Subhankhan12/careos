@@ -168,8 +168,14 @@ from the start (the wireframe's own framing).
 ## 8. Prioritized parity punch-list
 
 **Now / near (display over existing engine):**
-1. *(High)* **Per-account ledger** — new engine method (chronological charges/payments/fees + running balance, tying
-   δ=0), displayed read-only. The page's core.
+1. ✅ **RESOLVED (ARDETAIL.P1)** — **Per-account ledger** — `MetricsService::accountLedger($actor, $accountId, $asOf)`:
+   the account's issued invoices ordered by issue date, each row = invoice # · date · status (the payment-driven
+   projection status) · age · amount / paid / balance (from the reconciled `invoice_balances` projection) + a
+   **running balance** computed in the engine. THE TIE: Σ rows' balance === `account_outstanding_minor` (the
+   account-scoped `outstandingBalanceMinor`) and the final running balance === that total (δ=0, `ties`). Rendered
+   read-only on `Billing/AccountDetail.vue` (the Vue computes no money). Locked by
+   `tests/Feature/Billing/AccountLedgerTest.php` (5); browser-verified. *(Ledger displays invoices with a running
+   balance; the reminder-fee ledger lines / dunning events on the same timeline are P2.)*
 2. *(Med)* **Dunning timeline** — display the account's real `dunning_events` (reminder → Mahnung …).
 3. *(Med)* **Account-wide figures** — total outstanding, last payment, invoice/payment counts (small engine methods).
 4. *(Med)* **Header/hero + status pill + Swiss `CHF x'xxx` formatting** — visual parity over the above.

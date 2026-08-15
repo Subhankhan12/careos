@@ -859,6 +859,105 @@ class MetricsService
     }
 
     /**
+     * FINANCIAL — the per-account AR LEDGER for the AR Account Detail drill (ARDETAIL.P1):
+     * the account's (patient's) issued invoices ordered chronologically, each row carrying
+     * amount / paid / balance (from the reconciled `invoice_balances` projection) / status /
+     * age (due-date vs as-of, the same day-math as {@see self::agingBuckets()}) and a
+     * RUNNING BALANCE — the cumulative outstanding down the ordered rows, computed HERE (the
+     * engine), never in the page.
+     *
+     * THE TIE (reconcile-to-the-unit): each `balance_minor` is the projection figure (not
+     * recomputed), `paid_minor` = `amount_minor − balance_minor` (the settled amount, exact
+     * by construction), so Σ the rows' `balance_minor` === `account_outstanding_minor` ===
+     * Σ `open_balance_minor` over the account's issued invoices — the account-scoped analog of
+     * {@see self::outstandingBalanceMinor()} — and the FINAL `running_balance_minor` === that
+     * total (δ=0, `ties`). Names are NOT resolved here (a patient read the controller performs);
+     * this returns invoice ids + figures only. Tenant-scoped via the Invoice/InvoiceBalance
+     * global scopes (a foreign-tenant account simply yields an empty ledger).
+     *
+     * @return array{
+     *     account_id: string,
+     *     as_of: string,
+     *     rows: list<array{invoice_id: string, number: string|null, issue_date: string, due_date: string|null, amount_minor: int, paid_minor: int, balance_minor: int, status: string, days_overdue: int, running_balance_minor: int}>,
+     *     invoice_count: int,
+     *     total_amount_minor: int,
+     *     total_paid_minor: int,
+     *     account_outstanding_minor: int,
+     *     ties: bool
+     * }
+     */
+    public function accountLedger(User $actor, string $accountId, CarbonInterface|string $asOf): array
+    {
+        $this->authorizeFinancial($actor);
+        $asOfDate = Carbon::parse($asOf instanceof CarbonInterface ? $asOf->toDateString() : $asOf)->startOfDay();
+
+        // The account's issued invoices, chronologically (the same issued population as the
+        // aging/rollup: series INV + frozen statuses), tenant-scoped by the global scope.
+        $invoices = Invoice::query()
+            ->where('series', Invoice::SERIES_INVOICE)
+            ->whereIn('status', $this->frozenStatuses())
+            ->where('patient_id', $accountId)
+            ->orderBy('issue_date')
+            ->orderBy('number')
+            ->orderBy('id')
+            ->get();
+
+        $balances = InvoiceBalance::query()
+            ->whereIn('invoice_id', $invoices->pluck('id')->all())
+            ->get()
+            ->keyBy('invoice_id');
+
+        $rows = [];
+        $running = 0;
+        $totalAmount = 0;
+        $totalPaid = 0;
+        foreach ($invoices as $invoice) {
+            $amount = (int) $invoice->total_minor;
+            $balanceRow = $balances->get($invoice->id);
+            $balance = $balanceRow instanceof InvoiceBalance ? (int) $balanceRow->open_balance_minor : 0;
+            // The settled STATUS is the payment-driven projection (paid/partially_paid/issued),
+            // not invoices.status (which stays 'issued' — the frozen legal row is never mutated).
+            $status = $balanceRow instanceof InvoiceBalance ? (string) $balanceRow->status : $invoice->status;
+            $paid = $amount - $balance; // settled to date (payments + adjustments); balance stays the projection
+            $running += $balance;
+            $totalAmount += $amount;
+            $totalPaid += $paid;
+
+            $dueDate = $invoice->due_date?->copy()->startOfDay();
+            $daysOverdue = ($dueDate === null || ! $dueDate->lt($asOfDate)) ? 0 : (int) $dueDate->diffInDays($asOfDate);
+
+            $rows[] = [
+                'invoice_id' => $invoice->id,
+                'number' => $invoice->number !== null ? $invoice->series.'-'.$invoice->number : null,
+                'issue_date' => $invoice->issue_date->toDateString(),
+                'due_date' => $invoice->due_date?->toDateString(),
+                'amount_minor' => $amount,
+                'paid_minor' => $paid,
+                'balance_minor' => $balance,
+                'status' => $status,
+                'days_overdue' => $daysOverdue,
+                'running_balance_minor' => $running,
+            ];
+        }
+
+        // account_outstanding = Σ the account's projected open balances (the tie target).
+        $accountOutstanding = (int) $balances->sum('open_balance_minor');
+        $sumRowBalances = array_sum(array_column($rows, 'balance_minor'));
+
+        return [
+            'account_id' => $accountId,
+            'as_of' => $asOfDate->toDateString(),
+            'rows' => $rows,
+            'invoice_count' => count($rows),
+            'total_amount_minor' => $totalAmount,
+            'total_paid_minor' => $totalPaid,
+            'account_outstanding_minor' => $accountOutstanding,
+            // Σ rows' balance === the account outstanding AND the final running balance === it (δ=0).
+            'ties' => $sumRowBalances === $accountOutstanding && $running === $accountOutstanding,
+        ];
+    }
+
+    /**
      * THROUGHPUT — encounters with `started_at` in the range. A count only; no
      * clinical interpretation of what happened in them.
      */

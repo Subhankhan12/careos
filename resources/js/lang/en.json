@@ -2343,8 +2343,29 @@
             "stageNone": "No reminder",
             "stageLevel": "Level {n}",
             "noOverdue": "This account has no overdue balance.",
-            "ledgerSoonTitle": "Full account ledger",
-            "ledgerSoonBody": "The per-invoice AR ledger for this account arrives in the next gate."
+            "notDue": "—",
+            "ledgerTitle": "Account ledger",
+            "ledgerSubtitle": "every invoice · amount, paid & running balance · engine-computed",
+            "ledgerEmpty": "No issued invoices for this account.",
+            "balanceDue": "Balance due",
+            "tiesOk": "Ledger ties — {total} outstanding",
+            "tiesOff": "Ledger does not tie",
+            "col": {
+                "invoice": "Invoice",
+                "date": "Issued",
+                "status": "Status",
+                "age": "Age",
+                "amount": "Amount",
+                "paid": "Paid",
+                "balance": "Balance",
+                "running": "Running"
+            },
+            "status": {
+                "issued": "Issued",
+                "paid": "Paid",
+                "partially_paid": "Partially paid",
+                "cancelled_by_credit_note": "Credited"
+            }
         }
     },
     "reporting": {

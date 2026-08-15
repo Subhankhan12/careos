@@ -56,6 +56,9 @@ class AccountDetailController
                 'max_stage' => $entry['max_stage'],
                 'ties' => $entry['ties'],
             ],
+            // ARDETAIL.P1 — the per-account running-balance ledger, engine-computed; the page
+            // only displays it (the running balance + the tie come from the engine).
+            'ledger' => $metrics->accountLedger($actor, (string) $patient->id, now()),
             'links' => [
                 'report' => route('billing.report'),
                 'dunning' => route('billing.dunning.index'),
