@@ -176,7 +176,15 @@ from the start (the wireframe's own framing).
    read-only on `Billing/AccountDetail.vue` (the Vue computes no money). Locked by
    `tests/Feature/Billing/AccountLedgerTest.php` (5); browser-verified. *(Ledger displays invoices with a running
    balance; the reminder-fee ledger lines / dunning events on the same timeline are P2.)*
-2. *(Med)* **Dunning timeline** — display the account's real `dunning_events` (reminder → Mahnung …).
+2. ✅ **RESOLVED (ARDETAIL.P2)** — **Dunning timeline** — `MetricsService::accountDunning($actor, $accountId,
+   $feeCodeByLevel, $asOf)`: a READ-ONLY display of the real state machine — the account's persisted append-only
+   `dunning_events` (level · date · status), ordered; the current stage = `max(level)` (the real machine, not an
+   "if age > N" label); per-event `fee_minor` = the REAL captured fee **Charge** matched by (account · the level's
+   policy fee_code · the event date), since the event row stores no fee; `fees_minor` = Σ those, and `fees_tie`
+   confirms it === Σ ALL the account's captured dunning-fee charges. Rendered as a timeline + a stage pill + the
+   account dunning figures (stage · reminders · fees) on `Billing/AccountDetail.vue`; **no dunning action this gate**
+   (send-reminder / Betreibung escalation are later, carefully-gated). Locked by
+   `tests/Feature/Billing/AccountDunningTest.php` (5, run through the REAL `DunningService`); browser-verified.
 3. *(Med)* **Account-wide figures** — total outstanding, last payment, invoice/payment counts (small engine methods).
 4. *(Med)* **Header/hero + status pill + Swiss `CHF x'xxx` formatting** — visual parity over the above.
 5. *(Low)* **Open patient chart** link; **Swiss QR-bill** display.

@@ -43,12 +43,30 @@ type Ledger = {
     account_outstanding_minor: number;
     ties: boolean;
 };
+type DunningEventRow = {
+    invoice_id: string;
+    invoice_number: string | null;
+    level: number;
+    triggered_on: string;
+    status: string;
+    fee_minor: number;
+};
+type Dunning = {
+    account_id: string;
+    as_of: string;
+    events: DunningEventRow[];
+    current_stage: number;
+    reminder_count: number;
+    fees_minor: number;
+    fees_tie: boolean;
+};
 
 const props = defineProps<{
     account: { id: string; name: string; mrn: string | null };
     currency: string;
     overdue: Overdue | null;
     ledger: Ledger;
+    dunning: Dunning;
     links: { report: string; dunning: string };
 }>();
 
@@ -64,6 +82,14 @@ function statusLabel(status: string): string {
 }
 function ageLabel(days: number): string {
     return days <= 0 ? t('billing.accountDetail.notDue') : t('billing.accountDetail.days', { n: days });
+}
+// The dunning level/status come straight from the persisted state machine; these only LABEL them.
+function dunningLevelLabel(level: number): string {
+    return t('billing.accountDetail.dunning.level', { n: level });
+}
+function dunningStatusLabel(status: string): string {
+    const key = `billing.accountDetail.dunning.eventStatus.${status}`;
+    return te(key) ? t(key) : status;
 }
 </script>
 
@@ -161,6 +187,63 @@ function ageLabel(days: number): string {
                         </tfoot>
                     </table>
                 </div>
+            </div>
+
+            <!-- Dunning timeline — a READ-ONLY display of the real state machine (append-only
+                 dunning_events). The stage is the persisted max level; the fees are the real
+                 captured charges. No dunning action here (send-reminder / escalation are later gates). -->
+            <div class="glass-card p-5">
+                <div class="flex flex-wrap items-center justify-between gap-2">
+                    <div class="flex items-baseline gap-2">
+                        <h2 class="text-sm font-semibold uppercase tracking-wide text-ink-subtle">{{ t('billing.accountDetail.dunning.title') }}</h2>
+                        <span class="text-xs text-ink-subtle">{{ t('billing.accountDetail.dunning.subtitle') }}</span>
+                    </div>
+                    <span
+                        class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold"
+                        :class="dunning.current_stage > 0 ? 'bg-warning/15 text-warning' : 'bg-euca-50 text-euca-800'"
+                    >
+                        <span class="h-2 w-2 rounded-full" :class="dunning.current_stage > 0 ? 'bg-warning' : 'bg-euca-500'"></span>
+                        {{ stageLabel(dunning.current_stage) }}
+                    </span>
+                </div>
+
+                <!-- Account dunning figures (all real: reminder count + Σ the captured fee charges) -->
+                <div class="mt-3 grid gap-4 sm:grid-cols-3">
+                    <div class="rounded-xl bg-surface-2 p-3">
+                        <p class="text-xs font-semibold uppercase tracking-wide text-ink-subtle">{{ t('billing.accountDetail.dunning.stage') }}</p>
+                        <p class="mt-1 text-lg font-semibold text-ink">{{ stageLabel(dunning.current_stage) }}</p>
+                    </div>
+                    <div class="rounded-xl bg-surface-2 p-3">
+                        <p class="text-xs font-semibold uppercase tracking-wide text-ink-subtle">{{ t('billing.accountDetail.dunning.reminders') }}</p>
+                        <p class="mt-1 text-lg font-semibold text-ink tabular-nums">{{ dunning.reminder_count }}</p>
+                    </div>
+                    <div class="rounded-xl bg-surface-2 p-3">
+                        <p class="text-xs font-semibold uppercase tracking-wide text-ink-subtle">{{ t('billing.accountDetail.dunning.fees') }}</p>
+                        <p class="mt-1 text-lg font-semibold text-ink tabular-nums">{{ money(dunning.fees_minor) }}</p>
+                    </div>
+                </div>
+
+                <!-- The timeline of the real events -->
+                <ol v-if="dunning.events.length" class="mt-4 space-y-0">
+                    <li v-for="(ev, i) in dunning.events" :key="ev.invoice_id + '-' + ev.level" class="flex gap-3">
+                        <div class="flex flex-col items-center">
+                            <span class="mt-1 h-2.5 w-2.5 flex-none rounded-full" :class="ev.level > 0 ? 'bg-warning' : 'bg-euca-500'"></span>
+                            <span v-if="i < dunning.events.length - 1" class="w-px flex-1 bg-line"></span>
+                        </div>
+                        <div class="flex flex-1 flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5 pb-4">
+                            <div>
+                                <span class="text-sm font-medium text-ink">{{ dunningLevelLabel(ev.level) }}</span>
+                                <span v-if="ev.invoice_number" class="ml-2 font-mono text-xs text-ink-subtle">{{ ev.invoice_number }}</span>
+                                <span class="ml-2 text-xs text-ink-muted">· {{ dunningStatusLabel(ev.status) }}</span>
+                            </div>
+                            <div class="flex items-baseline gap-3">
+                                <span v-if="ev.fee_minor > 0" class="text-xs tabular-nums text-ink-muted">{{ t('billing.accountDetail.dunning.fee', { amount: money(ev.fee_minor) }) }}</span>
+                                <span class="tabular-nums text-xs text-ink-subtle">{{ ev.triggered_on }}</span>
+                            </div>
+                        </div>
+                    </li>
+                </ol>
+                <p v-else class="mt-4 text-sm text-ink-muted">{{ t('billing.accountDetail.dunning.empty') }}</p>
             </div>
         </div>
     </AppLayout>

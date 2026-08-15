@@ -2365,6 +2365,20 @@
                 "paid": "Paid",
                 "partially_paid": "Partially paid",
                 "cancelled_by_credit_note": "Credited"
+            },
+            "dunning": {
+                "title": "Dunning timeline",
+                "subtitle": "the real reminder cadence · read-only",
+                "stage": "Current stage",
+                "reminders": "Reminders sent",
+                "fees": "Dunning fees",
+                "level": "Reminder {n}",
+                "fee": "fee {amount}",
+                "empty": "No dunning activity for this account.",
+                "eventStatus": {
+                    "created": "Prepared",
+                    "sent": "Sent"
+                }
             }
         }
     },

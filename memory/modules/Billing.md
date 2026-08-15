@@ -410,6 +410,24 @@ overdue AR — ledger ties on screen, real projection status). Next (P2+): dunni
 payment / total outstanding) + hero/Swiss format; then record-payment (P4, PaymentService guard) / Betreibung escalation
 (operator-only + agent-excluded + audited) / payment plan.
 
+## AR Account Detail — dunning timeline (ARDETAIL.P2 — the real state machine, read-only)
+
+`MetricsService::accountDunning($actor, string $accountId, array $feeCodeByLevel, $asOf)` (billing.view, tenant-scoped)
+is a READ-ONLY display of the real dunning state machine. It reads the account's append-only `dunning_events` (across
+the account's invoices) → `events[]` `{invoice_id, invoice_number, level, triggered_on, status, fee_minor}` ordered by
+date/level; `current_stage` = `max(level)` (the real machine, NOT an "if age>N" label); `reminder_count` = count.
+**Fees are NOT on the event** — a dunning fee is a separate captured `Charge` (code = the level's policy `fee_code`,
+`service_date` = the event's `triggered_on`); so per-event `fee_minor` = that real charge matched by (account, the
+level's fee_code, the event date), `fees_minor` = Σ those, and `fees_tie` confirms it === Σ ALL the account's captured
+dunning-fee charges (drift-surfacing). The level⇒fee_code map is derived by `AccountDetailController::dunningFeeCodeByLevel`
+from the `billing.dunning` policy (SettingsService + `DunningService::SETTINGS_KEY`), so MetricsService stays free of
+settings coupling. `Billing/AccountDetail.vue` renders the timeline + a stage pill + the dunning figures (stage ·
+reminders · Σ fees) — **read-only, NO dunning action** (send-reminder + Betreibung escalation are deferred,
+carefully-gated: operator-only + agent-excluded + audited). i18n `billing.accountDetail.dunning.*`. Locked by
+`tests/Feature/Billing/AccountDunningTest.php` (5, run through the REAL `DunningService::evaluate`; asserts the timeline
+=== the persisted events, stage === max level, fees tie to the real charges, and no mutation route added);
+browser-verified (Playwright, org_admin, a real dunning run — timeline + stage pill + fees, read-only).
+
 ## Open items
 
 - FIX.1 (D-090): the W6/W7 detail/write controllers used implicit route-model binding, which 500'd in the

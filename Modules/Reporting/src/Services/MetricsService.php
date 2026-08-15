@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Gate;
 use InvalidArgumentException;
+use Modules\Billing\Models\Charge;
 use Modules\Billing\Models\DunningEvent;
 use Modules\Billing\Models\Invoice;
 use Modules\Billing\Models\InvoiceAdjustment;
@@ -954,6 +955,103 @@ class MetricsService
             'account_outstanding_minor' => $accountOutstanding,
             // Σ rows' balance === the account outstanding AND the final running balance === it (δ=0).
             'ties' => $sumRowBalances === $accountOutstanding && $running === $accountOutstanding,
+        ];
+    }
+
+    /**
+     * FINANCIAL — the account's DUNNING TIMELINE for the AR Account Detail drill (ARDETAIL.P2):
+     * a READ-ONLY display of the REAL dunning state machine. Every event is a persisted,
+     * append-only `dunning_events` row (the output of the billing DunningService state machine);
+     * the stage is `max(level)` across the account's events — the SAME source the top-overdue table /
+     * dunning worklist fold — NOT an "if age > N" page label.
+     *
+     * Fees are NOT stored on the event: a dunning fee is a separate captured `Charge` (code = the
+     * level's policy `fee_code`, `service_date` = the event's `triggered_on`). So the per-event
+     * `fee_minor` is the REAL captured charge matched by (account, that level's fee code, the event
+     * date) — passed in as `$feeCodeByLevel` (level ⇒ fee_code, from the billing.dunning policy, which
+     * the caller reads); an event whose level has no configured fee reads 0. `fees_minor` is Σ those
+     * per-event fees, and `fees_tie` confirms it equals Σ ALL the account's captured dunning-fee charges
+     * (the recorded fees) — a non-tie would mean a fee charge exists with no matching event (drift to
+     * surface, not hide). Nothing here writes; names are not resolved.
+     *
+     * @param  array<int, string>  $feeCodeByLevel  dunning level ⇒ its configured fee_code (from the policy)
+     * @return array{
+     *     account_id: string,
+     *     as_of: string,
+     *     events: list<array{invoice_id: string, invoice_number: string|null, level: int, triggered_on: string, status: string, fee_minor: int}>,
+     *     current_stage: int,
+     *     reminder_count: int,
+     *     fees_minor: int,
+     *     fees_tie: bool
+     * }
+     */
+    public function accountDunning(User $actor, string $accountId, array $feeCodeByLevel, CarbonInterface|string $asOf): array
+    {
+        $this->authorizeFinancial($actor);
+        $asOfDate = Carbon::parse($asOf instanceof CarbonInterface ? $asOf->toDateString() : $asOf)->startOfDay();
+
+        // The account's issued invoices (for number display + to scope the events).
+        $invoices = Invoice::query()
+            ->where('series', Invoice::SERIES_INVOICE)
+            ->where('patient_id', $accountId)
+            ->get()
+            ->keyBy('id');
+
+        $events = DunningEvent::query()
+            ->whereIn('invoice_id', $invoices->keys()->all())
+            ->orderBy('triggered_on')
+            ->orderBy('level')
+            ->orderBy('id')
+            ->get();
+
+        // The account's captured dunning-fee charges (real charges; the recorded fees to tie to).
+        $feeCodes = array_values(array_unique($feeCodeByLevel));
+        $feeCharges = $feeCodes === []
+            ? collect()
+            : Charge::query()
+                ->where('patient_id', $accountId)
+                ->whereIn('code', $feeCodes)
+                ->where('status', '!=', Charge::STATUS_CANCELLED)
+                ->get();
+        $recordedFees = (int) $feeCharges->sum('line_total_minor');
+
+        $rows = [];
+        $feesFromEvents = 0;
+        $maxStage = 0;
+        foreach ($events as $event) {
+            $level = (int) $event->level;
+            $triggeredOn = $event->triggered_on->toDateString();
+
+            // The real captured fee for THIS event = the fee charge for its level's code on its date.
+            $feeCode = $feeCodeByLevel[$level] ?? null;
+            $fee = $feeCode === null ? 0 : (int) $feeCharges
+                ->where('code', $feeCode)
+                ->filter(fn (Charge $c): bool => $c->service_date->toDateString() === $triggeredOn)
+                ->sum('line_total_minor');
+
+            $feesFromEvents += $fee;
+            $maxStage = max($maxStage, $level);
+
+            $invoice = $invoices->get($event->invoice_id);
+            $rows[] = [
+                'invoice_id' => $event->invoice_id,
+                'invoice_number' => $invoice !== null && $invoice->number !== null ? $invoice->series.'-'.$invoice->number : null,
+                'level' => $level,
+                'triggered_on' => $triggeredOn,
+                'status' => (string) $event->status,
+                'fee_minor' => $fee,
+            ];
+        }
+
+        return [
+            'account_id' => $accountId,
+            'as_of' => $asOfDate->toDateString(),
+            'events' => $rows,
+            'current_stage' => $maxStage,
+            'reminder_count' => count($rows),
+            'fees_minor' => $feesFromEvents,
+            // Σ per-event fees === Σ ALL the account's captured dunning-fee charges (recorded fees, δ=0).
+            'fees_tie' => $feesFromEvents === $recordedFees,
         ];
     }
 

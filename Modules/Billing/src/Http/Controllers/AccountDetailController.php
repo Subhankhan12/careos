@@ -6,6 +6,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 use Inertia\Inertia;
 use Inertia\Response;
+use Modules\Billing\Services\DunningService;
 use Modules\Patients\Models\Patient;
 use Modules\Platform\Models\User;
 use Modules\Platform\Services\SettingsService;
@@ -59,10 +60,36 @@ class AccountDetailController
             // ARDETAIL.P1 — the per-account running-balance ledger, engine-computed; the page
             // only displays it (the running balance + the tie come from the engine).
             'ledger' => $metrics->accountLedger($actor, (string) $patient->id, now()),
+            // ARDETAIL.P2 — the account's dunning timeline, a READ-ONLY display of the real
+            // state machine. The billing policy (which the dunning service owns) maps each level
+            // to its fee_code, so the engine can attribute each event's real captured fee charge.
+            'dunning' => $metrics->accountDunning($actor, (string) $patient->id, $this->dunningFeeCodeByLevel($settings), now()),
             'links' => [
                 'report' => route('billing.report'),
                 'dunning' => route('billing.dunning.index'),
             ],
         ]);
+    }
+
+    /**
+     * The billing.dunning policy's level ⇒ fee_code map (the real state-machine parameters),
+     * so the engine can match each dunning event to its captured fee charge. Empty when no
+     * policy / no fees are configured (then the timeline honestly shows zero fees).
+     *
+     * @return array<int, string>
+     */
+    private function dunningFeeCodeByLevel(SettingsService $settings): array
+    {
+        $policy = $settings->get(DunningService::SETTINGS_KEY, []);
+        $levels = is_array($policy) && is_array($policy['levels'] ?? null) ? $policy['levels'] : [];
+
+        $map = [];
+        foreach ($levels as $level) {
+            if (is_array($level) && isset($level['level'], $level['fee_code'])) {
+                $map[(int) $level['level']] = (string) $level['fee_code'];
+            }
+        }
+
+        return $map;
     }
 }
