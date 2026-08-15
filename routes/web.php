@@ -627,6 +627,12 @@ Route::middleware('auth')->group(function () {
     // account header over engine figures; the full ledger content is the NEXT gate. String-id
     // {account} resolved in-controller (FIX.1 — no route-model binding of a tenant model).
     Route::get('/billing/accounts/{account}', [AccountDetailController::class, 'show'])->name('billing.accounts.show');
+    // ARDETAIL.P4 — record a payment against the account. The FIRST consequential write on this
+    // page: billing.manage (an OPERATOR; the agent has no path to it — it never commits money) and
+    // it goes exclusively through the EXISTING PaymentService (record + allocate), so the
+    // over-allocation guard, the append-only ledger and the reconcile invariants are the SAME ones
+    // the payments screen uses. No second payment path, no page-side balance write.
+    Route::post('/billing/accounts/{account}/payments', [AccountDetailController::class, 'recordPayment'])->name('billing.accounts.payments.store');
 
     // Reporting dashboard — the thin facts-only surface over ReportingService::summary.
     Route::get('/reporting', ReportingDashboardController::class)->name('reporting.dashboard');

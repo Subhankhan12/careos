@@ -2,11 +2,16 @@
 
 namespace Modules\Billing\Http\Controllers;
 
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 use Inertia\Inertia;
 use Inertia\Response;
+use InvalidArgumentException;
+use Modules\Billing\Models\Invoice;
+use Modules\Billing\Models\Payment;
 use Modules\Billing\Services\DunningService;
+use Modules\Billing\Services\PaymentService;
 use Modules\Patients\Models\Patient;
 use Modules\Platform\Models\User;
 use Modules\Platform\Services\SettingsService;
@@ -20,6 +25,13 @@ use Modules\Reporting\Services\MetricsService;
  * content is the NEXT gate. billing.view; the patient (account) is resolved from a STRING
  * id in-controller (FIX.1 — implicit route-model binding of a tenant model 500s), so a
  * cross-tenant id 404s via the tenant-scoped query.
+ *
+ * ARDETAIL.P4 adds the page's FIRST consequential write — {@see self::recordPayment()}. It
+ * owns NO money logic: it resolves the operator's chosen targets and hands them to the
+ * EXISTING {@see PaymentService} (`record` then `allocate`), which is the single authority
+ * for what an allocation may not exceed (the invoice open balance, the payment remainder),
+ * writes only append-only rows, refreshes the reconciled `invoice_balances` projection and
+ * audits every movement. Reads stay billing.view; the write is billing.manage.
  */
 class AccountDetailController
 {
@@ -42,6 +54,8 @@ class AccountDetailController
             }
         }
 
+        $ledger = $this->withInvoicePdfLinks($metrics->accountLedger($actor, (string) $patient->id, now()));
+
         return Inertia::render('Billing/AccountDetail', [
             'account' => [
                 'id' => (string) $patient->id,
@@ -60,11 +74,21 @@ class AccountDetailController
             // ARDETAIL.P1 — the per-account running-balance ledger, engine-computed; the page
             // only displays it. ARDETAIL.P3 decorates each row with a link to the EXISTING invoice
             // PDF generator (no new figure, no new mechanism).
-            'ledger' => $this->withInvoicePdfLinks($metrics->accountLedger($actor, (string) $patient->id, now())),
+            'ledger' => $ledger,
             // ARDETAIL.P2 — the account's dunning timeline, a READ-ONLY display of the real
             // state machine. The billing policy (which the dunning service owns) maps each level
             // to its fee_code, so the engine can attribute each event's real captured fee charge.
             'dunning' => $metrics->accountDunning($actor, (string) $patient->id, $this->dunningFeeCodeByLevel($settings), now()),
+            // ARDETAIL.P4 — the record-payment action. `open_invoices` is a SELECTION of the engine
+            // ledger rows already computed above (those the projection still reports as open), not a
+            // recomputation: the page needs no figure the engine has not already produced. The
+            // control is reflect-only — the server Gate below is what actually decides.
+            'payment' => [
+                'can_record' => Gate::allows('billing.manage'),
+                'store_url' => route('billing.accounts.payments.store', (string) $patient->id),
+                'methods' => Payment::METHODS,
+                'open_invoices' => $this->openInvoiceTargets($ledger),
+            ],
             'links' => [
                 'report' => route('billing.report'),
                 'dunning' => route('billing.dunning.index'),
@@ -72,6 +96,116 @@ class AccountDetailController
                 'chart' => route('patients.show', (string) $patient->id),
             ],
         ]);
+    }
+
+    /**
+     * Record a payment received for this account and (optionally) allocate it to the account's
+     * open invoices — the wireframe's "Record payment" action.
+     *
+     * THE FENCE: this method performs NO money math and writes NO payment/allocation row itself.
+     * It validates shapes, resolves the operator's chosen invoices (tenant-scoped AND restricted to
+     * THIS account, so a forged foreign/other-account invoice id 404s before any service call), and
+     * then calls the EXISTING PaymentService — `record()` for the receipt and `allocate()` per
+     * target. The service owns the guard: an allocation may exceed neither the invoice open balance
+     * nor the payment's unallocated remainder (it throws), only issued/partially-paid invoices
+     * receive allocations, every row is append-only, the reconciled projection is refreshed under a
+     * row lock, and each movement is audited. A forged over-allocation POST is therefore refused by
+     * the service, not by anything here.
+     *
+     * On a refused allocation the payment itself STANDS (money WAS received) and the error is
+     * surfaced — the existing PaymentController::store discipline; the remainder is simply left
+     * unallocated, which is exactly how the service models an overpayment. A correction is a
+     * reversal row (`PaymentService::reverseAllocation`), never a mutation.
+     */
+    public function recordPayment(Request $request, string $account, PaymentService $payments): RedirectResponse
+    {
+        // OPERATOR-GATED. The agent has no path here: no registered AI tool is a payment capability
+        // (the only financial tools are the advisory suggest-charge-codes / preflight-invoice drafts,
+        // both capped at "approve"), and no AiCore code references PaymentService or this route —
+        // the agent drafts, a human commits; it never commits money (D-151).
+        Gate::authorize('billing.manage');
+        $actor = $request->user();
+        abort_unless($actor instanceof User, 403);
+
+        $patient = Patient::query()->whereKey($account)->firstOrFail();
+
+        // Amounts arrive already in integer minor units (the form normalises the major-unit input,
+        // the existing Payments/Record.vue idiom); the service validates and owns all money math.
+        $validated = $request->validate([
+            'amount_minor' => ['required', 'integer', 'min:1'],
+            'method' => ['required', 'string', 'in:'.implode(',', Payment::METHODS)],
+            'received_on' => ['required', 'date'],
+            'reference' => ['nullable', 'string', 'max:255'],
+            'allocations' => ['nullable', 'array'],
+            'allocations.*.invoice_id' => ['required', 'string'],
+            'allocations.*.amount_minor' => ['required', 'integer', 'min:1'],
+        ]);
+
+        /** @var list<array{0: Invoice, 1: int}> $targets */
+        $targets = [];
+        foreach (($validated['allocations'] ?? []) as $line) {
+            // Tenant-scoped (global scope) AND account-scoped: an invoice belonging to another
+            // account — or another tenant — is never an allocation target from this page.
+            $invoice = Invoice::query()
+                ->where('series', Invoice::SERIES_INVOICE)
+                ->where('patient_id', $patient->id)
+                ->whereKey($line['invoice_id'])
+                ->firstOrFail();
+
+            $targets[] = [$invoice, (int) $line['amount_minor']];
+        }
+
+        $payment = $payments->record(
+            (int) $validated['amount_minor'],
+            $validated['method'],
+            $actor,
+            $patient,
+            null,
+            // Match the target invoices' currency when allocating (the service refuses a mismatch);
+            // otherwise the service stamps the tenant settlement currency.
+            $targets === [] ? null : $targets[0][0]->currency,
+            $validated['received_on'],
+            $validated['reference'] ?? null,
+        );
+
+        foreach ($targets as [$invoice, $amountMinor]) {
+            try {
+                $payments->allocate($payment, $invoice, $amountMinor, $actor);
+            } catch (InvalidArgumentException $e) {
+                // The guard fired (over-allocation / remainder / not-open invoice). Nothing was
+                // posted for this line; surface the service's own message on the account page.
+                return redirect()
+                    ->route('billing.accounts.show', (string) $patient->id)
+                    ->withErrors(['record_payment' => $e->getMessage()]);
+            }
+        }
+
+        return redirect()->route('billing.accounts.show', (string) $patient->id);
+    }
+
+    /**
+     * The account's still-open invoices, SELECTED from the engine ledger rows (never recomputed):
+     * the projection's own status says which may receive an allocation, and `balance_minor` is the
+     * projected open balance the service will cap against. Presentation input only — the authority
+     * on what an allocation may not exceed stays PaymentService.
+     *
+     * @param  array<string, mixed>  $ledger
+     * @return list<array{invoice_id: string, number: string|null, open_balance_minor: int}>
+     */
+    private function openInvoiceTargets(array $ledger): array
+    {
+        $open = [];
+        foreach ($ledger['rows'] as $row) {
+            if ($row['balance_minor'] > 0 && in_array($row['status'], [Invoice::STATUS_ISSUED, Invoice::STATUS_PARTIALLY_PAID], true)) {
+                $open[] = [
+                    'invoice_id' => $row['invoice_id'],
+                    'number' => $row['number'],
+                    'open_balance_minor' => $row['balance_minor'],
+                ];
+            }
+        }
+
+        return $open;
     }
 
     /**

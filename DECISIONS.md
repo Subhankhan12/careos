@@ -2590,3 +2590,25 @@ references the old ID.
   plan (P5) is a wireframe-new model; the real Swiss QR-bill (IBAN/reference) is a flagged backend gap (no homemade
   QR-bill fabricated — the existing invoice PDF is surfaced honestly). See [[Billing]], [[Reporting]],
   `docs/wireframe-parity/AR-ACCOUNT-DETAIL-DIFF.md`, [[LOG]].
+
+- **D-152 — AR Account Detail record-payment: the page WIRES the guarded engine, it does not become a second
+  payment path (ARDETAIL.P4).** The first consequential write on `/billing/accounts/{account}` posts through the
+  EXISTING `PaymentService` (`record` → `allocate` per operator-chosen invoice) and adds NO money logic of its own:
+  the controller validates shapes, resolves each target tenant-scoped AND account-scoped (a forged foreign or
+  other-account invoice id 404s **before** any money is written), and then hands over. **THE GUARD IS REUSED, NOT
+  RESTATED** — the service refuses an allocation exceeding the invoice open balance or the payment's unallocated
+  remainder, accepts only issued/partially-paid invoices, locks the payment + `invoice_balances` rows `FOR UPDATE`,
+  appends every movement and audits it; the page merely surfaces the service's own refusal message. **The existing
+  overpayment / partial-failure semantics are kept deliberately** (the `PaymentController::store` precedent): a
+  refused allocation leaves the RECEIPT standing with a larger unallocated remainder (I3 allows exactly this)
+  rather than losing money that was actually received, and a correction is a reversal row, never a mutation.
+  Displayed inputs stay engine-sourced: `open_invoices` is a SELECTION of the ARDETAIL.P1 ledger rows, never a
+  recomputation, and the allocation prefill is the engine's own open balance (editable, re-checked server-side).
+  **Proven:** I1–I6 tie δ=0 after the payment and the P1 ledger / P7 rollup / `outstandingBalanceMinor` all move by
+  exactly the payment; the adversarial grep finds no money math and no direct ledger write in the controller or the
+  Vue. **GOVERNANCE (D-151 upheld):** the write is `billing.manage`-only and the agent has **no path** to it — no
+  registered `AiTool` is a payment capability (the only financial tools are advisory drafts, both capped at
+  APPROVE) and neither `Modules/AiCore/src` nor `app/AiCore` references `PaymentService`/`PaymentAllocation`/the
+  write route. The agent never commits money. Remaining on this page: P5 payment plan (a wireframe-new model) and
+  P6 Betreibung escalation (human-operator only, agent-EXCLUDED by construction, audited). See [[Billing]],
+  `docs/wireframe-parity/AR-ACCOUNT-DETAIL-DIFF.md`, [[LOG]].

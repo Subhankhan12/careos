@@ -445,6 +445,34 @@ FENCE: pure presentation — no money computed, no writes, no new figures, no ne
 links target existing routes; no mutation route added); browser-verified (Erika Baumgartner — hero in CHF format, pills,
 chart + PDF links).
 
+## AR Account Detail — record payment (ARDETAIL.P4 — the first consequential write)
+
+`POST /billing/accounts/{account}/payments` (`billing.accounts.payments.store`) →
+`AccountDetailController@recordPayment`. THE WHOLE POINT: it is a WIRE, not a payment path. The controller
+validates shapes, resolves the operator's chosen invoices (tenant-scoped AND `where('patient_id', $patient->id)`,
+so a forged foreign/other-account invoice id 404s BEFORE any money is written), then calls the EXISTING
+`PaymentService::record()` + `::allocate()` per target. It computes no money, writes no `Payment`/
+`PaymentAllocation`/`InvoiceBalance` row itself, and adds NO second path — the adversarial grep over the
+controller and `AccountDetail.vue` is clean (no `line_total_minor`/`intdiv(`/client `reduce`/sum).
+**THE GUARD IS REUSED, NOT RESTATED:** the service refuses an allocation exceeding the invoice open balance
+("Cannot allocate more than the invoice open balance.") or the payment's unallocated remainder, and only
+issued/partially-paid invoices receive one; the controller catches `InvalidArgumentException` and surfaces the
+SERVICE's own message via `withErrors(['record_payment' => …])`. **Overpayment/partial-failure semantics are the
+existing ones** (`PaymentController::store` precedent): the receipt STANDS (money WAS received) with a larger
+unallocated remainder — I3 explicitly allows it — and a correction is a reversal row, never a mutation.
+`show` gained a `payment` prop (`can_record` [reflect-only], `store_url`, `methods`, `open_invoices`);
+`open_invoices` is a SELECTION of the P1 engine ledger rows (`balance_minor > 0` + projection status), never a
+recomputation. The Vue's `toMinor`/`major` are the existing input-normalisation idiom, and the allocation
+prefill is the engine's own open balance (editable; the server re-checks against the live balance).
+OPERATOR-GATED `billing.manage`; **the agent has NO path** — no registered `AiTool` is a payment capability
+(the only financial tools are the advisory `billing.suggest_charge_codes`/`billing.preflight_invoice`, both
+capped at APPROVE) and neither `Modules/AiCore/src` nor `app/AiCore` references `PaymentService`/
+`PaymentAllocation` (D-151: the agent never commits money). Locked by
+`tests/Feature/Billing/AccountRecordPaymentTest.php` (8) + the FIX.5 route smoke (reception → 403);
+browser-verified (Erika Baumgartner: CHF 100.00 → balance CHF 313.00 → CHF 213.00, INV-1 issued →
+partially paid, ledger ties, I1–I6 δ=0; a forged CHF 999.99 allocation refused with the service's message and
+the balance untouched; reception GET/POST 403).
+
 ## Open items
 
 - FIX.1 (D-090): the W6/W7 detail/write controllers used implicit route-model binding, which 500'd in the

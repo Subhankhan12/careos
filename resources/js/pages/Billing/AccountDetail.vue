@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { Head, Link } from '@inertiajs/vue3';
-import { computed } from 'vue';
+import { Head, Link, useForm } from '@inertiajs/vue3';
+import { computed, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import AppLayout from '@/Layouts/AppLayout.vue';
 
@@ -11,6 +11,11 @@ import AppLayout from '@/Layouts/AppLayout.vue';
  * balance / running balance) is engine-computed by MetricsService::accountLedger and only
  * DISPLAYED here — the view computes NO money (the running balance + the tie come from the
  * engine, never a client sum).
+ * ARDETAIL.P4 adds the record-payment action. It POSTs what the OPERATOR typed to the
+ * server, which records + allocates through the existing PaymentService: no allocation is
+ * computed here, no balance is written here, and the amount fields are plain major→minor
+ * input normalisation (the existing Payments/Record.vue idiom). The service's
+ * over-allocation guard — not this form — decides what may be allocated.
  */
 
 import { formatSwissMoney } from '@/lib/money';
@@ -65,12 +70,25 @@ type Dunning = {
     fees_tie: boolean;
 };
 
+type OpenInvoice = {
+    invoice_id: string;
+    number: string | null;
+    open_balance_minor: number;
+};
+type PaymentAction = {
+    can_record: boolean;
+    store_url: string;
+    methods: string[];
+    open_invoices: OpenInvoice[];
+};
+
 const props = defineProps<{
     account: { id: string; name: string; mrn: string | null };
     currency: string;
     overdue: Overdue | null;
     ledger: Ledger;
     dunning: Dunning;
+    payment: PaymentAction;
     links: { report: string; dunning: string; chart: string };
 }>();
 
@@ -110,6 +128,78 @@ function dunningLevelLabel(level: number): string {
 function dunningStatusLabel(status: string): string {
     const key = `billing.accountDetail.dunning.eventStatus.${status}`;
     return te(key) ? t(key) : status;
+}
+function methodLabel(method: string): string {
+    const key = `billing.method.${method}`;
+    return te(key) ? t(key) : method;
+}
+
+/* ── ARDETAIL.P4 — record payment (the form only collects operator input) ───────────────────
+ * toMinor/major are INPUT NORMALISATION between the operator's decimal field and the integer
+ * minor units the API speaks — the same helper Payments/Record.vue uses. Nothing here derives
+ * a balance, splits a payment across invoices, or decides what may be allocated: the operator
+ * types an amount per invoice and the server's PaymentService accepts or refuses it.
+ */
+function toMinor(value: string): number {
+    const n = Number.parseFloat(value);
+    return Number.isFinite(n) ? Math.round(n * 100) : 0;
+}
+function major(minor: number): string {
+    return (minor / 100).toFixed(2);
+}
+// Local calendar date (not the UTC slice of an ISO string, which shifts a day behind UTC).
+function todayLocal(): string {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+type AllocationLine = { invoice_id: string; number: string | null; open_balance_minor: number; amount: string; apply: boolean };
+
+function buildLines(): AllocationLine[] {
+    return props.payment.open_invoices.map((inv) => ({
+        invoice_id: inv.invoice_id,
+        number: inv.number,
+        open_balance_minor: inv.open_balance_minor,
+        // Pre-filled with the ENGINE's open balance, fully editable — a convenience default,
+        // never a computed split (the server re-checks it against the live open balance).
+        amount: major(inv.open_balance_minor),
+        apply: true,
+    }));
+}
+
+const showRecord = ref(false);
+const lines = ref<AllocationLine[]>(buildLines());
+watch(
+    () => props.payment.open_invoices,
+    () => {
+        lines.value = buildLines();
+    },
+);
+
+const form = useForm({
+    amount: '',
+    method: props.payment.methods[0] ?? 'bank_transfer',
+    received_on: todayLocal(),
+    reference: '',
+});
+
+function submitPayment(): void {
+    form.transform((data) => ({
+        amount_minor: toMinor(data.amount),
+        method: data.method,
+        received_on: data.received_on,
+        reference: data.reference || null,
+        allocations: lines.value
+            .filter((line) => line.apply && toMinor(line.amount) > 0)
+            .map((line) => ({ invoice_id: line.invoice_id, amount_minor: toMinor(line.amount) })),
+    })).post(props.payment.store_url, {
+        preserveScroll: true,
+        onSuccess: () => {
+            showRecord.value = false;
+            form.amount = '';
+            form.reference = '';
+        },
+    });
 }
 </script>
 
@@ -244,6 +334,67 @@ function dunningStatusLabel(status: string): string {
                         </tfoot>
                     </table>
                 </div>
+            </div>
+
+            <!-- Record payment — the account's first consequential write. The form posts what the
+                 OPERATOR typed; the server records + allocates through PaymentService, whose
+                 over-allocation guard is the authority. Reflect-only: hidden without billing.manage,
+                 but the server Gate is what refuses. -->
+            <div v-if="payment.can_record" class="glass-card p-5">
+                <div class="flex flex-wrap items-center justify-between gap-2">
+                    <div class="flex items-baseline gap-2">
+                        <h2 class="text-sm font-semibold uppercase tracking-wide text-ink-subtle">{{ t('billing.accountDetail.record.title') }}</h2>
+                        <span class="text-xs text-ink-subtle">{{ t('billing.accountDetail.record.subtitle') }}</span>
+                    </div>
+                    <button type="button" class="btn-glow" @click="showRecord = !showRecord">
+                        {{ showRecord ? t('billing.actions.cancel') : t('billing.accountDetail.record.open') }}
+                    </button>
+                </div>
+
+                <p v-if="form.errors.record_payment" class="mt-3 rounded-xl bg-danger/10 px-3 py-2 text-sm text-danger">{{ form.errors.record_payment }}</p>
+
+                <form v-if="showRecord" class="mt-4 space-y-5" @submit.prevent="submitPayment">
+                    <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                        <label class="block">
+                            <span class="text-xs font-semibold uppercase tracking-wide text-ink-subtle">{{ t('billing.accountDetail.record.amount', { currency }) }}</span>
+                            <input v-model="form.amount" type="number" step="0.01" min="0" required inputmode="decimal" class="mt-1 w-full rounded-xl border border-line bg-white/70 px-3 py-2 text-sm text-ink tabular-nums focus:border-euca-400 focus:outline-none focus:ring-2 focus:ring-euca-200" />
+                            <span v-if="form.errors.amount_minor" class="text-xs text-danger">{{ form.errors.amount_minor }}</span>
+                        </label>
+                        <label class="block">
+                            <span class="text-xs font-semibold uppercase tracking-wide text-ink-subtle">{{ t('billing.accountDetail.record.method') }}</span>
+                            <select v-model="form.method" class="mt-1 w-full rounded-xl border border-line bg-white/70 px-3 py-2 text-sm text-ink focus:border-euca-400 focus:outline-none focus:ring-2 focus:ring-euca-200">
+                                <option v-for="m in payment.methods" :key="m" :value="m">{{ methodLabel(m) }}</option>
+                            </select>
+                        </label>
+                        <label class="block">
+                            <span class="text-xs font-semibold uppercase tracking-wide text-ink-subtle">{{ t('billing.accountDetail.record.received') }}</span>
+                            <input v-model="form.received_on" type="date" required class="mt-1 w-full rounded-xl border border-line bg-white/70 px-3 py-2 text-sm text-ink focus:border-euca-400 focus:outline-none focus:ring-2 focus:ring-euca-200" />
+                        </label>
+                        <label class="block">
+                            <span class="text-xs font-semibold uppercase tracking-wide text-ink-subtle">{{ t('billing.accountDetail.record.reference') }}</span>
+                            <input v-model="form.reference" type="text" maxlength="255" class="mt-1 w-full rounded-xl border border-line bg-white/70 px-3 py-2 text-sm text-ink focus:border-euca-400 focus:outline-none focus:ring-2 focus:ring-euca-200" />
+                        </label>
+                    </div>
+
+                    <div v-if="lines.length" class="rounded-2xl border border-line bg-white/50 p-4">
+                        <p class="text-xs font-semibold uppercase tracking-wide text-ink-subtle">{{ t('billing.accountDetail.record.allocateTo') }}</p>
+                        <div v-for="line in lines" :key="line.invoice_id" class="mt-3 flex flex-wrap items-center gap-3">
+                            <label class="flex flex-1 items-center gap-2 text-sm text-ink">
+                                <input v-model="line.apply" type="checkbox" class="h-4 w-4 rounded border-line text-euca-600 focus:ring-euca-200" />
+                                <span class="font-mono text-xs">{{ line.number ?? '—' }}</span>
+                                <span class="text-ink-muted">{{ t('billing.accountDetail.record.openBalance', { amount: money(line.open_balance_minor) }) }}</span>
+                            </label>
+                            <input v-model="line.amount" type="number" step="0.01" min="0" :disabled="!line.apply" :aria-label="t('billing.accountDetail.record.allocationAmount', { invoice: line.number ?? '—' })" class="w-36 rounded-xl border border-line bg-white/70 px-3 py-2 text-right text-sm text-ink tabular-nums focus:border-euca-400 focus:outline-none focus:ring-2 focus:ring-euca-200 disabled:opacity-50" />
+                        </div>
+                    </div>
+                    <p v-else class="text-sm text-ink-muted">{{ t('billing.accountDetail.record.noOpenInvoices') }}</p>
+
+                    <p class="text-xs text-ink-subtle">{{ t('billing.accountDetail.record.guardHint') }}</p>
+
+                    <div class="flex justify-end">
+                        <button type="submit" class="btn-glow" :disabled="form.processing">{{ t('billing.accountDetail.record.confirm') }}</button>
+                    </div>
+                </form>
             </div>
 
             <!-- Dunning timeline — a READ-ONLY display of the real state machine (append-only

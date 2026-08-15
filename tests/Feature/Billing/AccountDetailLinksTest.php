@@ -107,8 +107,18 @@ test('the visual gate adds no mutation route and stays billing.view + tenant-sco
     $beta = adxFixture('beta');
     $this->actingAs($beta['actor'])->get(route('billing.accounts.show', $fx['patient']->id))->assertNotFound();
 
-    // Every /billing/accounts route is still GET-only (no write added by the visual gate).
+    // The P3 VISUAL gate itself still adds no write: the links it surfaced (patient chart, invoice PDF)
+    // are GETs on existing routes. (Contract narrowed at ARDETAIL.P4, which added the page's first and
+    // only write — record-payment — deliberately and under billing.manage. Asserting the exact write
+    // set keeps this test a real guard against an unnoticed mutation route appearing here.)
     $accountRoutes = collect(Route::getRoutes()->getRoutes())
         ->filter(fn ($r) => str_starts_with($r->uri(), 'billing/accounts'));
-    expect($accountRoutes->every(fn ($r) => in_array('GET', $r->methods(), true) && ! in_array('POST', $r->methods(), true)))->toBeTrue();
+    $writeRoutes = $accountRoutes->filter(fn ($r) => ! in_array('GET', $r->methods(), true) || in_array('POST', $r->methods(), true));
+
+    expect($writeRoutes->map(fn ($r) => $r->uri())->values()->all())->toBe(['billing/accounts/{account}/payments']);
+
+    // ...and that one write is operator-gated, not billing.view.
+    $this->actingAs($reception)
+        ->post(route('billing.accounts.payments.store', $fx['patient']->id), ['amount_minor' => 100, 'method' => 'cash', 'received_on' => '2026-06-22'])
+        ->assertForbidden();
 });

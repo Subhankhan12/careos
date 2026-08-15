@@ -675,6 +675,17 @@ test('per-role RBAC smoke: each role reaches its pages (200) and is denied other
         $failures[] = "radiology.billing.charge as reception -> {$radChargeStatus} (expected 403)";
     }
 
+    // ARDETAIL.P4: recording a payment from the AR account detail is billing.manage-gated (the billing
+    // office; the agent has no path to it at all). Reception (no billing.manage) is denied on the write
+    // route at the gate through the real stack, before PaymentService is ever reached.
+    smokeCtx()->forget();
+    $accountPaymentStatus = $this->actingAs($u['reception'])
+        ->post('/billing/accounts/'.$fx['patient']->id.'/payments', ['amount_minor' => 100, 'method' => 'cash', 'received_on' => '2026-06-22'])
+        ->status();
+    if ($accountPaymentStatus !== 403) {
+        $failures[] = "billing.accounts.payments.store as reception -> {$accountPaymentStatus} (expected 403)";
+    }
+
     expect(implode("\n", $failures))->toBe('');
 });
 

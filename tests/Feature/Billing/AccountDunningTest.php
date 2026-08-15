@@ -195,11 +195,19 @@ test('the AR Account Detail page renders the engine dunning timeline and adds no
             ->where('dunning.events.0.level', 1)
             ->where('dunning.events.0.fee_minor', 1500));
 
-    // READ-ONLY: every /billing/accounts route is a GET — no dunning action/mutation added this gate.
+    // THE DUNNING TIMELINE STAYS READ-ONLY. (Contract narrowed at ARDETAIL.P4, which added the page's
+    // first — and only — write: record-payment. The invariant this test actually protects is that NO
+    // DUNNING action exists on the account page: send-reminder and the Betreibung escalation are later,
+    // carefully-gated gates. That still holds, and is now asserted directly rather than via "GET-only".)
     $accountRoutes = collect(Route::getRoutes()->getRoutes())
         ->filter(fn ($r) => str_starts_with($r->uri(), 'billing/accounts'));
+    $writeRoutes = $accountRoutes->filter(fn ($r) => ! in_array('GET', $r->methods(), true) || in_array('POST', $r->methods(), true));
+
     expect($accountRoutes)->not->toBeEmpty()
-        ->and($accountRoutes->every(fn ($r) => in_array('GET', $r->methods(), true) && ! in_array('POST', $r->methods(), true)))->toBeTrue();
+        // No dunning/reminder/escalation action anywhere on this page.
+        ->and($accountRoutes->contains(fn ($r) => (bool) preg_match('/dunning|reminder|escalat|betreibung/i', $r->uri())))->toBeFalse()
+        // The only write is the ARDETAIL.P4 record-payment route.
+        ->and($writeRoutes->map(fn ($r) => $r->uri())->values()->all())->toBe(['billing/accounts/{account}/payments']);
 });
 
 // ── Empty state + RBAC/tenant scope ──────────────────────────────────────────────────────────────

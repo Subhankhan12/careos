@@ -54,7 +54,7 @@ BILLAR.P7 gate report says as much).
 | **4 KPI stat cards** | Balance due · Oldest invoice (days + INV#) · **Dunning stage** (Betreibung · "needs your approval") · **Last payment** (−CHF 350 · date · method) | 4 glass cards: Total overdue · Overdue invoices (count) · Oldest (days) · Dunning stage (Level N) | Close in shape; figures differ (overdue rollup vs. total outstanding; count vs. oldest-INV#; no last-payment card) | (a) visual + (b) gap | Med |
 | **Account ledger** (running balance) | Full transactional ledger: Date · Description · Charge · Payment · **Balance** running column; charges, QR-bill sent, payment received, reminder **fees** (CHF 20/30), reminder events; Tarmed/dental grounding ("Crown + endodontics, tooth 26"); "Balance due today CHF 4'820" | **Absent** — dashed "full ledger next gate" placeholder | Entire ledger missing → the page's core | (b) backend gap | **High** |
 | **Dunning timeline** | Vertical timeline: Invoice issued → QR-bill sent → Payment reminder → 1. Mahnung (fee 20) → 2. Mahnung (fee 30) → **Betreibung (drafted · awaiting approval)** | Absent | Timeline missing; reminder→Mahnung derivable from `dunning_events`, **Betreibung stage new** | (b) gap + (d) escalation | **High** |
-| **Actions panel** | Record payment · Send new QR-bill · Set up payment plan · **Approve Betreibung** ("it never files without you") | Absent (only "Back to report" link) | All actions missing; two are wireframe-new backend | (b)/(c)/(d) | **High** |
+| **Actions panel** | Record payment · Send new QR-bill · Set up payment plan · **Approve Betreibung** ("it never files without you") | **Record payment BUILT (ARDETAIL.P4)** — through the guarded `PaymentService`; the rest absent | Record payment resolved; payment plan (P5) + Betreibung (P6) + send-QR-bill remain wireframe-new backend | (b)/(c)/(d) | **High** |
 | **Billing-agent panel** | Graphite: "sent reminders + both Mahnungen, drafted Betreibungsandrohung and stopped…"; **4 sent · 1 awaiting · 0 auto-escalated** | Absent | Missing; display over existing governance | (b) gap | Med |
 | **Swiss QR-bill** | IBAN `CH93…` · structured ref · Praxis Lindenhof AG | Absent | Missing (billing has QR rendering) | (b) gap | Low |
 | **Open patient chart** link | history · treatment plan · recall | Absent | Missing (patient 360 exists) | (a) visual | Low |
@@ -201,8 +201,22 @@ from the start (the wireframe's own framing).
    payment part) remains a **flagged backend gap** — not fabricated.
 
 **Later / carefully-gated (backend + governance):**
-6. *(High, money-fenced)* **Record payment** action → wire to `PaymentService` (the over-allocation guard); **never** a
-   page-side balance write.
+6. ✅ **RESOLVED (ARDETAIL.P4)** — **Record payment** — `POST /billing/accounts/{account}/payments` →
+   `AccountDetailController@recordPayment`, which WIRES the EXISTING `PaymentService` (`record` → `allocate` per
+   operator-chosen invoice) and adds no money logic: the controller validates shapes, resolves each target
+   tenant-scoped AND account-scoped (a forged foreign/other-account invoice id 404s **before** any write), then hands
+   over and surfaces the service's own refusal message. **THE GUARD held through the page path** — a forged
+   over-allocation is refused server-side ("Cannot allocate more than the invoice open balance."), zero allocation
+   rows, balance untouched; the remainder guard likewise. Per the existing `PaymentController::store` semantics a
+   refused allocation leaves the RECEIPT standing with an unallocated remainder (I3 allows it) rather than losing
+   money actually received; a correction is a reversal row. **RECONCILE:** I1–I6 δ=0 after the payment, and the P1
+   ledger / P7 rollup / `outstandingBalanceMinor` all move by exactly the payment and still tie. **OPERATOR-GATED
+   + AGENT-EXCLUDED:** `billing.manage` only (reception 403 before the service is reached); no registered `AiTool`
+   is a payment capability and neither `Modules/AiCore/src` nor `app/AiCore` references `PaymentService`/
+   `PaymentAllocation` — the agent never commits money. `open_invoices` is a SELECTION of the P1 engine ledger rows
+   (never a recomputation); the Vue computes no money. Locked by `tests/Feature/Billing/AccountRecordPaymentTest.php`
+   (8) + the FIX.5 route smoke; browser-verified (CHF 313.00 → CHF 213.00, forged over-allocation refused,
+   reception 403). *(The "Send new QR-bill" half of this item stays #9 / the flagged QR-bill gap.)*
 7. *(High, operator-gated)* **Betreibung / debt-enforcement escalation** — its own gate: **human-operator only,
    agent-excluded, audited + append-only**; the agent drafts and stops ("0 auto-escalated" enforced, not just shown).
 8. *(Med)* **Payment plan** — wireframe-new model (its own gate); no page-side money math.
@@ -212,3 +226,8 @@ from the start (the wireframe's own framing).
 **Money-fence + operator-gate call-outs (must hold in every gate above):** ledger figures engine-computed + displayed,
 the running balance tying δ=0 (no Vue sum); record-payment through `PaymentService` + the over-allocation guard; the
 dunning stage the real state machine; **Betreibung human-operator + agent-excluded + audited — never auto-escalated**.
+
+**Progress:** items #1/#2/#4/#5 resolved (P1–P3, display) and **#6 resolved (P4, the first write)**. **REMAINING:**
+#3 account-wide figures (Med) · **#7 Betreibung escalation (P6 — human-operator only, agent-EXCLUDED by
+construction, audited)** · #8 payment plan (P5 — a new model) · #9 send new QR-bill/reminder (reuse `DunningService`
++ the agent-cap/ApprovalQueue path), plus the flagged real Swiss QR-bill (IBAN/reference) backend gap.

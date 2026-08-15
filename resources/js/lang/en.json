@@ -2388,6 +2388,21 @@
                     "created": "Prepared",
                     "sent": "Sent"
                 }
+            },
+            "record": {
+                "title": "Record payment",
+                "subtitle": "money already received · posted through the billing engine",
+                "open": "Record payment",
+                "amount": "Amount received ({currency})",
+                "method": "Method",
+                "received": "Received on",
+                "reference": "Reference",
+                "allocateTo": "Allocate to open invoices",
+                "openBalance": "open {amount}",
+                "allocationAmount": "Amount to allocate to invoice {invoice}",
+                "noOpenInvoices": "No open invoice to allocate to — the payment will be recorded with an unallocated remainder.",
+                "guardHint": "An allocation can never exceed an invoice's open balance or the payment remainder; anything left over stays unallocated. This records money already received — there is no card capture.",
+                "confirm": "Record payment"
             }
         }
     },
