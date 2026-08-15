@@ -344,6 +344,27 @@ definition across roll-forward/DSO/rate/by-payer/trend. billing.view + tenant-sc
 page displays (P6), no page-side aggregation, no visual grid yet. Locked by
 `tests/Feature/Billing/ChargedVsCollectedTrendTest.php` (5).
 
+## Billing & AR management-report grid (BILLAR.P6 — displays P1–P5, no page-side math)
+
+`/billing/report` (`BillingReportController@show`, name `billing.report`, `Billing/Report.vue`) is the consolidated
+grid that DISPLAYS the P1–P5 engine figures in one place: headline band (Total AR / current / overdue / in-collection
+= the 90+ aging bucket / DSO), stat cards (collected & collectible / net collection rate / period invoiced), the AR
+roll-forward (with the tie badge + δ), the aging schedule, the by-payer split (tie badge), and the charged-vs-collected
+column chart. **FENCE:** the Vue computes NO money — `money()` is minor/100 formatting, `percent()`/`dsoLabel()` render
+the engine's own ratios (null → "—"), and `widthPct()` is a CSS bar-width proportion only (visual, never a shown
+figure — the Aging.vue precedent). The controller's `engineFigures()` assembles each value from a MetricsService return
+(`outstandingBalanceMinor`, `overdueBalanceMinor`, `agingBuckets`, `arRollForward`, `daysSalesOutstanding`,
+`netCollectionRate`, `arByPayer`, `chargedVsCollectedTrend`, `invoicedTotalMinor`, `paymentsReceivedTotalMinor`) — it
+computes no money. The **period switcher** (Week/Month/Quarter/YTD + Compare) re-parameterizes the engine: `periodBounds`
+maps the key → calendar-aligned [from,to], and switching is a fresh server request (`router.get(links.self, {period,
+compare})`) — never a client re-slice; Compare fetches the prior equivalent period from the engine and displays both.
+**CSV export** (`@export`, name `billing.report.export`) streams the SAME engine figures as `text/csv`; PDF is flagged
+(not faked) for P7. **CONSOLIDATION is additive:** it links to — and does NOT replace — the live `/billing/aging`,
+`/reporting`, `/billing/dunning` surfaces (redirecting `/reporting`/`/billing/dunning` would break their operational
+content/worklist; a test asserts all three still render). billing.view + tenant-scoped. i18n under the unique
+`billing.report.*` block. Locked by `tests/Feature/Billing/BillingReportTest.php` (6); browser-verified with Playwright
+(org_admin, real seeded AR — roll-forward ties on screen, period re-fetches server-side, DSO/rate honest "—").
+
 ## Open items
 
 - FIX.1 (D-090): the W6/W7 detail/write controllers used implicit route-model binding, which 500'd in the

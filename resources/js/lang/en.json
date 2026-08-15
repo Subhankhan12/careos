@@ -2237,6 +2237,82 @@
                 "created": "Prepared",
                 "sent": "Sent"
             }
+        },
+        "report": {
+            "eyebrow": "Billing & AR",
+            "title": "Management report",
+            "rangeLabel": "{from} to {to}",
+            "compare": "Compare",
+            "comparePrev": "Previous period ({from} to {to}) — bold = current, muted = previous",
+            "exportCsv": "Export CSV",
+            "periods": {
+                "week": "Week",
+                "month": "Month",
+                "quarter": "Quarter",
+                "ytd": "YTD"
+            },
+            "headline": {
+                "totalAr": "Total AR",
+                "current": "Current",
+                "overdue": "Overdue",
+                "inCollection": "In collection (90+)",
+                "dso": "DSO"
+            },
+            "cards": {
+                "collected": "Collected (period)",
+                "collectible": "Collectible {amount}",
+                "netRate": "Net collection rate",
+                "chargesLess": "Charges {charges} less contractual {adj}",
+                "dsoDays": "over {days} days",
+                "periodInvoiced": "Invoiced (period)",
+                "periodCollected": "Cash received {amount}"
+            },
+            "rollForward": {
+                "title": "AR roll-forward",
+                "opening": "Opening AR",
+                "charges": "Charges billed",
+                "collections": "Collections",
+                "adjustments": "Contractual adjustments",
+                "writeOffs": "Write-offs",
+                "closing": "Closing AR",
+                "tiesOk": "Ties, delta = 0",
+                "tiesOff": "Off by {delta}"
+            },
+            "aging": {
+                "title": "AR aging schedule"
+            },
+            "byPayer": {
+                "title": "By payer",
+                "payer": "Payer",
+                "ar": "AR",
+                "collections": "Collections",
+                "charges": "Charges",
+                "total": "Total",
+                "tiesOk": "Groups tie to total",
+                "tiesOff": "Groups do not tie",
+                "empty": "No issued invoices in range."
+            },
+            "health": {
+                "netRate": "Net collection rate"
+            },
+            "trend": {
+                "title": "Charged vs collected",
+                "charges": "Charged",
+                "collections": "Collected",
+                "totals": "Period totals — charged {charges}, collected {collections}",
+                "empty": "No activity in range."
+            },
+            "payerTypes": {
+                "self_pay": "Self-pay",
+                "private_insurance": "Private insurance"
+            },
+            "links": {
+                "aging": "AR aging",
+                "dunning": "Dunning worklist",
+                "invoices": "Invoices",
+                "reporting": "Reporting dashboard"
+            },
+            "footnote": "Every figure is computed by the reporting engine over the reconciled ledger and displayed here; this page performs no money math. Switching the period recomputes on the server. The roll-forward and by-payer figures tie to the unit."
         }
     },
     "reporting": {

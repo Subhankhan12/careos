@@ -21,6 +21,7 @@ use App\Http\Controllers\StaffInviteController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 use Modules\Billing\Http\Controllers\AgingController;
+use Modules\Billing\Http\Controllers\BillingReportController;
 use Modules\Billing\Http\Controllers\CreditNoteController;
 use Modules\Billing\Http\Controllers\DunningController;
 use Modules\Billing\Http\Controllers\InvoiceController;
@@ -610,6 +611,15 @@ Route::middleware('auth')->group(function () {
     Route::post('/billing/new-invoice', [InvoiceDraftController::class, 'store'])->name('billing.invoices.store');
     Route::get('/billing/dunning', [DunningController::class, 'index'])->name('billing.dunning.index');
     Route::post('/billing/dunning/run', [DunningController::class, 'run'])->name('billing.dunning.run');
+
+    // Billing & AR management report (BILLAR.P6) — the consolidated grid that DISPLAYS the
+    // P1–P5 MetricsService engine figures (headline / stat cards / aging / roll-forward /
+    // by-payer / DSO / collection-rate / charged-vs-collected trend) in one place; the period
+    // switcher re-parameterizes the engine (server recomputes), and the CSV export streams the
+    // same engine figures. billing.view. It links to — and does NOT replace — the live
+    // aging/reporting/dunning surfaces. (Static /report before any {param} sibling.)
+    Route::get('/billing/report', [BillingReportController::class, 'show'])->name('billing.report');
+    Route::get('/billing/report/export', [BillingReportController::class, 'export'])->name('billing.report.export');
 
     // Reporting dashboard — the thin facts-only surface over ReportingService::summary.
     Route::get('/reporting', ReportingDashboardController::class)->name('reporting.dashboard');
