@@ -330,6 +330,20 @@ insurer entity are NOT modeled; enriching the payer dimension is a separate futu
 tenant-scoped (Invoice/InvoiceBalance/PaymentAllocation global scopes; no cross-tenant join). Engine-computed,
 page displays (P6), no page-side math. Locked by `tests/Feature/Billing/ArByPayerTest.php` (5).
 
+## Charged-vs-collected trend (BILLAR.P5 — engine time-series; buckets partition the range δ=0)
+
+`MetricsService::chargedVsCollectedTrend($actor, $from, $to, $bucket='month')` walks the range in buckets (`month`:
+calendar-month windows; `week`: 7-day windows from `from`; first/last CLAMPED to [from,to] so tiles never spill;
+unsupported bucket → `InvalidArgumentException`) and returns ordered `buckets[]` ({from, to, label, charges_minor,
+collections_minor}) + range `total_charges_minor`/`total_collections_minor` + `bucket` + `partitions`. Each bucket's
+figures come from the SAME shared P2/P3 helpers (`chargesBilledMinor` / `netCollectionsMinor`), so the buckets are a
+real PARTITION: Σ buckets' charges === the range `chargesBilledMinor` and Σ collections === `netCollectionsMinor`,
+δ=0 (`partitions`). An empty bucket is emitted with 0/0 (never dropped); a boundary charge (e.g. Jun-30 vs Jul-01)
+lands in exactly ONE bucket. CONSISTENCY: the totals === `arRollForward(same range)` charges/collections — ONE
+definition across roll-forward/DSO/rate/by-payer/trend. billing.view + tenant-scoped (fail-closed). Engine-computed,
+page displays (P6), no page-side aggregation, no visual grid yet. Locked by
+`tests/Feature/Billing/ChargedVsCollectedTrendTest.php` (5).
+
 ## Open items
 
 - FIX.1 (D-090): the W6/W7 detail/write controllers used implicit route-model binding, which 500'd in the

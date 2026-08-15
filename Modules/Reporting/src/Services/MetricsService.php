@@ -7,6 +7,7 @@ use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Gate;
+use InvalidArgumentException;
 use Modules\Billing\Models\Invoice;
 use Modules\Billing\Models\InvoiceAdjustment;
 use Modules\Billing\Models\InvoiceBalance;
@@ -483,6 +484,74 @@ class MetricsService
             'total_collections_minor' => $totalCollections,
             'total_charges_minor' => $totalCharges,
             'ties' => $ties,
+        ];
+    }
+
+    /**
+     * FINANCIAL — the CHARGED-VS-COLLECTED trend over a range, bucketed by month (default) or week
+     * (BILLAR.P5). For each bucket it reuses the SAME shared helpers as the roll-forward / DSO / rate /
+     * by-payer ({@see chargesBilledMinor} + {@see netCollectionsMinor}), so "charges billed" and
+     * "collections" mean exactly the same thing across every metric on the page — there is no fourth
+     * definition. Integer minor units; billing.view; tenant-scoped.
+     *
+     * THE PARTITION: the buckets tile the range [from, to] with no overlap and no gap (each aligned to a
+     * calendar month or a 7-day window, clamped to the range ends), and each helper sums by a date that
+     * falls in exactly one bucket — so `Σ buckets' charges === chargesBilledMinor(range)` and
+     * `Σ buckets' collections === netCollectionsMinor(range)` exactly (`partitions` confirms δ=0, surfaced
+     * not hidden). An empty bucket shows 0 (it stays in the ordered series, never dropped).
+     *
+     * @return array{from: string, to: string, bucket: string, buckets: list<array{from: string, to: string, label: string, charges_minor: int, collections_minor: int}>, total_charges_minor: int, total_collections_minor: int, partitions: bool}
+     */
+    public function chargedVsCollectedTrend(User $actor, CarbonInterface|string $from, CarbonInterface|string $to, string $bucket = 'month'): array
+    {
+        $this->authorizeFinancial($actor);
+
+        if (! in_array($bucket, ['month', 'week'], true)) {
+            throw new InvalidArgumentException("Unsupported trend bucket: {$bucket}.");
+        }
+
+        [$fromDate, $toDate] = $this->dateBounds($from, $to);
+        $rangeStart = Carbon::parse($fromDate);
+        $rangeEnd = Carbon::parse($toDate);
+
+        $buckets = [];
+        $cursor = $bucket === 'month' ? $rangeStart->copy()->startOfMonth() : $rangeStart->copy();
+
+        while ($cursor->lessThanOrEqualTo($rangeEnd)) {
+            $bucketStart = $bucket === 'month' ? $cursor->copy()->startOfMonth() : $cursor->copy();
+            $bucketEnd = $bucket === 'month' ? $cursor->copy()->endOfMonth() : $cursor->copy()->addDays(6);
+
+            // Clamp the first/last bucket to the requested range so the buckets tile exactly [from, to].
+            $bStart = $bucketStart->lessThan($rangeStart) ? $rangeStart->copy() : $bucketStart;
+            $bEnd = $bucketEnd->greaterThan($rangeEnd) ? $rangeEnd->copy() : $bucketEnd;
+
+            $buckets[] = [
+                'from' => $bStart->toDateString(),
+                'to' => $bEnd->toDateString(),
+                'label' => $bucket === 'month' ? $bucketStart->format('Y-m') : $bStart->toDateString(),
+                'charges_minor' => $this->chargesBilledMinor($bStart, $bEnd),
+                'collections_minor' => $this->netCollectionsMinor($bStart, $bEnd),
+            ];
+
+            $cursor = $bucket === 'month'
+                ? $cursor->addMonthNoOverflow()->startOfMonth()
+                : $cursor->addDays(7);
+        }
+
+        $totalCharges = $this->chargesBilledMinor($from, $to);
+        $totalCollections = $this->netCollectionsMinor($from, $to);
+
+        $partitions = array_sum(array_column($buckets, 'charges_minor')) === $totalCharges
+            && array_sum(array_column($buckets, 'collections_minor')) === $totalCollections;
+
+        return [
+            'from' => $fromDate,
+            'to' => $toDate,
+            'bucket' => $bucket,
+            'buckets' => $buckets,
+            'total_charges_minor' => $totalCharges,
+            'total_collections_minor' => $totalCollections,
+            'partitions' => $partitions,
         ];
     }
 

@@ -140,6 +140,15 @@ populations so reporting keeps reconciling with the billing source of truth) —
    insurer entity are NOT modeled and NOT fabricated; extending the payer dimension is a separate future gate.
    Locked by `tests/Feature/Billing/ArByPayerTest.php` (5).
 5. **Charged-vs-collected time series** (Low) — a period-bucketed (weekly) charged + collected series.
+   **→ RESOLVED (BILLAR.P5) — the engine time-series:** `MetricsService::chargedVsCollectedTrend($actor, from, to,
+   $bucket='month'): array` walks the range in buckets (calendar-month or 7-day windows, first/last CLAMPED to
+   [from,to]) and returns ordered `buckets[]` `{from,to,label,charges_minor,collections_minor}` + range
+   `total_charges_minor`/`total_collections_minor` + `partitions`. Each bucket's figures come from the SAME shared
+   helpers as the roll-forward/DSO/rate/by-payer (`chargesBilledMinor`/`netCollectionsMinor` — ONE definition), so
+   the buckets PARTITION the range: Σ buckets === the range totals (δ=0), an empty bucket shows 0/0 (never
+   dropped), a boundary charge lands in exactly one bucket, and the totals === `arRollForward(same range)`. Engine
+   only — page P6 displays, computes nothing; no page-side aggregation; no visual grid this gate. Locked by
+   `tests/Feature/Billing/ChargedVsCollectedTrendTest.php` (5).
 6. **Write-offs / contractual adjustments** (Med, blocker for #1) — model them as distinct, **operator-gated**
    ledger movements (today the only balance-down paths are payment allocation + credit note; the credit note is
    the de-facto operator-gated write-off). Read-only on this report — see §5.
@@ -174,7 +183,7 @@ Verdict key: **✅ engine-computed + displayed (keep)** · **⚠️ presentation
 | **AR roll-forward** (opening/charges/collections/adjustments/write-offs/closing) | 🚧 **reconcile-to-the-unit statement** | Charges/collections/closing are engine figures, but **opening**, **contractual adjustments** and **write-offs** are ABSENT/unmodeled → the bridge **cannot tie out today**. The engine must produce a **tying** roll-forward (opening → closing reconciled to the unit); the page renders it. The page must **NEVER** compute the bridge or subtract the lines client-side. |
 | **By-payer amounts** | 🚧 | ABSENT aggregate + incomplete payer dimension → engine `groupBy(payer)` after modeling the dimension. |
 | Top-overdue balances / age / stage | ✅ (data) / 🚧 (rollup) | Balances read from stored `open_balance_minor` + folded `DunningEvent`s (no money summing — fence-safe). But a per-ACCOUNT "top N by balance" rollup is not an engine aggregate yet. |
-| Charged-vs-collected trend points | 🚧 | ABSENT — engine time-series method. |
+| Charged-vs-collected trend points | ✅ (BILLAR.P5) | `MetricsService::chargedVsCollectedTrend` — engine time-series, buckets partition the range (Σ === totals δ=0), same shared helpers. Page P6 displays; no page-side math; no visual grid yet. |
 
 **Write-offs / contractual adjustments (read-only + operator-gated):** these appear only as **roll-forward lines**.
 The report is a **read-only** view — it must **never initiate or compute** a write-off/adjustment. A write-off is
@@ -235,4 +244,5 @@ report.
 | **BILLAR.P2** | AR roll-forward reconciliation (`MetricsService::arRollForward`): opening + charges − collections − adjustments − write-offs = closing, computed IN THE ENGINE, tying out δ=0 vs. the reconciled projection; credit notes fold into charges (net) so the bridge is exhaustive; a non-tie is SURFACED. No visual grid this gate (P6 displays it). | **RESOLVED** |
 | **BILLAR.P3** | DSO + net collection rate (+ honest collectible = charges − contractual adjustments) as engine methods; real figures, stated definitions, zero/edge → honest null ("—"); no page math | **RESOLVED** |
 | **BILLAR.P4** | By-payer AR/collections/charges aggregate over the real `payer_type` dimension; groups tie to totals δ=0; no fabricated payer categories (the finer Swiss taxonomy stays a flagged gap) | **RESOLVED** |
-| BILLAR.P5+ | payer-dimension enrichment (accident/social + insurer entity) · charged-vs-collected series · management-report grid (visual, P6 displays DSO/rate/roll-forward/by-payer) · account-level overdue rollup + AR Account Detail | pending |
+| **BILLAR.P5** | Charged-vs-collected TREND as an engine time-series (`MetricsService::chargedVsCollectedTrend`): buckets tile the range (month/week, first/last clamped), each bucket via the SAME shared helpers, so Σ buckets === the range totals δ=0; empty bucket shows 0; totals === `arRollForward`; page P6 displays, no page-side math, no visual grid | **RESOLVED** |
+| BILLAR.P6+ | management-report grid (visual, P6 displays DSO/rate/roll-forward/by-payer/trend) · account-level overdue rollup + AR Account Detail · payer-dimension enrichment (accident/social + insurer entity) | pending |
