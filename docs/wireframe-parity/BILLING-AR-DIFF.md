@@ -131,6 +131,14 @@ populations so reporting keeps reconciling with the billing source of truth) —
    Locked by `DsoCollectionRateTest`.
 4. **By-payer split** (Med) — a payer/insurer **dimension** (extend `payer_type` beyond self_pay/private_insurance
    to accident SUVA/UVG + social/municipal, and/or an insurer entity) + a `groupBy(payer)` aggregate.
+   **→ RESOLVED (BILLAR.P4) — the aggregate over the REAL dimension:** `MetricsService::arByPayer($actor, from,
+   to)` groups AR / collections / charges by the real `invoices.payer_type` (self-pay vs. private insurance),
+   reusing the shared P2/P3 helpers so the figures agree. THE TIE: a real partition — the groups SUM to the
+   totals (`outstandingBalanceMinor` / `netCollectionsMinor` / `chargesBilledMinor`), δ=0 (`ties`); an unexpected
+   payer_type becomes its own group (never dropped/folded). **KNOWN GAP (still open):** the model has only 2 payer
+   types — the wireframe's finer Swiss taxonomy (supplementary / accident SUVA-UVG / social-municipal) and an
+   insurer entity are NOT modeled and NOT fabricated; extending the payer dimension is a separate future gate.
+   Locked by `tests/Feature/Billing/ArByPayerTest.php` (5).
 5. **Charged-vs-collected time series** (Low) — a period-bucketed (weekly) charged + collected series.
 6. **Write-offs / contractual adjustments** (Med, blocker for #1) — model them as distinct, **operator-gated**
    ledger movements (today the only balance-down paths are payment allocation + credit note; the credit note is
@@ -226,4 +234,5 @@ report.
 | **BILLAR.P1** | Write-offs + contractual adjustments as operator-gated, reconciling, append-only ledger movements (`InvoiceAdjustment` + `AdjustmentService`; I2/I6 extended, tie-out δ=0, count still 6) | **RESOLVED** — the money-integrity foundation. No reporting UI this gate. |
 | **BILLAR.P2** | AR roll-forward reconciliation (`MetricsService::arRollForward`): opening + charges − collections − adjustments − write-offs = closing, computed IN THE ENGINE, tying out δ=0 vs. the reconciled projection; credit notes fold into charges (net) so the bridge is exhaustive; a non-tie is SURFACED. No visual grid this gate (P6 displays it). | **RESOLVED** |
 | **BILLAR.P3** | DSO + net collection rate (+ honest collectible = charges − contractual adjustments) as engine methods; real figures, stated definitions, zero/edge → honest null ("—"); no page math | **RESOLVED** |
-| BILLAR.P4+ | by-payer dimension+aggregate · charged-vs-collected series · management-report grid (visual, P6 displays DSO/rate/roll-forward) · account-level overdue rollup + AR Account Detail | pending |
+| **BILLAR.P4** | By-payer AR/collections/charges aggregate over the real `payer_type` dimension; groups tie to totals δ=0; no fabricated payer categories (the finer Swiss taxonomy stays a flagged gap) | **RESOLVED** |
+| BILLAR.P5+ | payer-dimension enrichment (accident/social + insurer entity) · charged-vs-collected series · management-report grid (visual, P6 displays DSO/rate/roll-forward/by-payer) · account-level overdue rollup + AR Account Detail | pending |

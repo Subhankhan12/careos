@@ -316,6 +316,20 @@ were extracted into shared private helpers (`chargesBilledMinor`/`netCollections
 (arRollForward values unchanged — P2 tests pass). billing.view + tenant-scoped; engine-computed, page displays
 (P6), no page-side math. Locked by `tests/Feature/Billing/DsoCollectionRateTest.php` (6).
 
+## By-payer AR aggregate (BILLAR.P4 — honest grouping over the real payer dimension)
+
+`MetricsService::arByPayer($actor, $from, $to)` groups AR + collections + charges by the REAL `invoices.payer_type`
+(the modeled payer: `self_pay` / `private_insurance`; + `payer_name` for the insurer name), reusing the shared
+P2/P3 helpers so the figures agree with the roll-forward/DSO/rate. Returns `groups[]` ({payer_type, ar_minor,
+collections_minor, charges_minor}) + totals + `ties`. **THE TIE:** a real PARTITION — every issued invoice carries
+exactly one payer_type, so the group AR/collections/charges each SUM to the totals (`outstandingBalanceMinor` /
+`netCollectionsMinor` / `chargesBilledMinor`), δ=0 (`ties`); an unexpected payer_type gets its own group (labelled
+by the raw value), never dropped/folded/double-counted. **KNOWN GAP (honest, NOT fabricated):** the model has only
+2 payer types — the wireframe's finer Swiss taxonomy (supplementary / accident SUVA-UVG / social-municipal) + an
+insurer entity are NOT modeled; enriching the payer dimension is a separate future gate. billing.view +
+tenant-scoped (Invoice/InvoiceBalance/PaymentAllocation global scopes; no cross-tenant join). Engine-computed,
+page displays (P6), no page-side math. Locked by `tests/Feature/Billing/ArByPayerTest.php` (5).
+
 ## Open items
 
 - FIX.1 (D-090): the W6/W7 detail/write controllers used implicit route-model binding, which 500'd in the

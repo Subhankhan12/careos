@@ -394,6 +394,99 @@ class MetricsService
     }
 
     /**
+     * FINANCIAL — AR + collections + charges split BY PAYER for a period (BILLAR.P4), grouped over the
+     * REAL `invoices.payer_type` dimension (the modeled payer: self-pay vs. private insurance). Each
+     * group's figures reuse the same engine definitions as the roll-forward/DSO/rate (the reconciled
+     * projection for AR; the shared period helpers for collections/charges), so the numbers agree.
+     *
+     * THE TIE: the split is a real PARTITION of the totals — every issued invoice carries exactly one
+     * `payer_type`, so the group AR / collections / charges each SUM to the overall totals
+     * ({@see outstandingBalanceMinor}, {@see netCollectionsMinor}, {@see chargesBilledMinor}); `ties`
+     * confirms δ=0 on all three. No invoice is dropped or double-counted; an unexpected payer_type is
+     * kept as its own group (labelled by the raw value), never folded away or invented.
+     *
+     * HONESTY / KNOWN GAP: the model has only two payer types (self-pay, private insurance). The
+     * wireframe's finer Swiss taxonomy (supplementary insurance, accident SUVA/UVG, social/municipal)
+     * is NOT modeled and is NOT fabricated here — a richer payer/insurer model is a separate future
+     * gate. This method groups by the real dimension only.
+     *
+     * @return array{from: string, to: string, groups: list<array{payer_type: string, ar_minor: int, collections_minor: int, charges_minor: int}>, total_ar_minor: int, total_collections_minor: int, total_charges_minor: int, ties: bool}
+     */
+    public function arByPayer(User $actor, CarbonInterface|string $from, CarbonInterface|string $to): array
+    {
+        $this->authorizeFinancial($actor);
+
+        [$fromDate, $toDate] = $this->dateBounds($from, $to);
+        $dateTimeBounds = $this->dateTimeBounds($from, $to);
+        $cancelledIds = $this->cancelledByCreditNoteInPeriodIds($fromDate, $toDate);
+
+        // Every payer_type present on an issued invoice — the exhaustive partition key (tenant-scoped).
+        $payerTypes = Invoice::query()
+            ->where('series', Invoice::SERIES_INVOICE)
+            ->whereIn('status', $this->frozenStatuses())
+            ->distinct()
+            ->orderBy('payer_type')
+            ->pluck('payer_type')
+            ->all();
+
+        $groups = [];
+        foreach ($payerTypes as $payerType) {
+            $payerInvoiceIds = Invoice::query()
+                ->where('series', Invoice::SERIES_INVOICE)
+                ->whereIn('status', $this->frozenStatuses())
+                ->where('payer_type', $payerType)
+                ->select('id');
+
+            $ar = (int) InvoiceBalance::query()
+                ->whereIn('invoice_id', $payerInvoiceIds)
+                ->sum('open_balance_minor');
+
+            $collections = (int) PaymentAllocation::query()
+                ->whereBetween('allocated_at', $dateTimeBounds)
+                ->whereIn('invoice_id', $payerInvoiceIds)
+                ->sum('amount_minor');
+
+            $grossCharges = (int) Invoice::query()
+                ->where('series', Invoice::SERIES_INVOICE)
+                ->whereIn('status', $this->frozenStatuses())
+                ->where('payer_type', $payerType)
+                ->whereBetween('issue_date', [$fromDate, $toDate])
+                ->sum('total_minor');
+
+            $creditedCharges = $cancelledIds === [] ? 0 : (int) Invoice::query()
+                ->where('series', Invoice::SERIES_INVOICE)
+                ->where('payer_type', $payerType)
+                ->whereIn('id', $cancelledIds)
+                ->sum('total_minor');
+
+            $groups[] = [
+                'payer_type' => $payerType,
+                'ar_minor' => $ar,
+                'collections_minor' => $collections,
+                'charges_minor' => $grossCharges - $creditedCharges,
+            ];
+        }
+
+        $totalAr = $this->outstandingBalanceMinor($actor);
+        $totalCollections = $this->netCollectionsMinor($from, $to);
+        $totalCharges = $this->chargesBilledMinor($from, $to);
+
+        $ties = array_sum(array_column($groups, 'ar_minor')) === $totalAr
+            && array_sum(array_column($groups, 'collections_minor')) === $totalCollections
+            && array_sum(array_column($groups, 'charges_minor')) === $totalCharges;
+
+        return [
+            'from' => $fromDate,
+            'to' => $toDate,
+            'groups' => $groups,
+            'total_ar_minor' => $totalAr,
+            'total_collections_minor' => $totalCollections,
+            'total_charges_minor' => $totalCharges,
+            'ties' => $ties,
+        ];
+    }
+
+    /**
      * Charges billed in a period: new issued invoices, NET of credit-note cancellations (a full credit
      * note cancels an unpaid issued invoice, removing its total). Shared by the roll-forward (P2), DSO
      * and the net collection rate so every "charges billed" figure agrees.
