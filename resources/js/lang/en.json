@@ -2344,6 +2344,15 @@
             "stageLevel": "Level {n}",
             "noOverdue": "This account has no overdue balance.",
             "notDue": "—",
+            "openChart": "Open patient chart",
+            "oldestLine": "Oldest invoice {days} days overdue",
+            "overdueOf": "{amount} overdue",
+            "invoicePdf": "Download invoice PDF",
+            "accountStatus": {
+                "current": "Current",
+                "overdue": "Overdue",
+                "in_collection": "In collection"
+            },
             "ledgerTitle": "Account ledger",
             "ledgerSubtitle": "every invoice · amount, paid & running balance · engine-computed",
             "ledgerEmpty": "No issued invoices for this account.",

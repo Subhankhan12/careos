@@ -58,8 +58,9 @@ class AccountDetailController
                 'ties' => $entry['ties'],
             ],
             // ARDETAIL.P1 — the per-account running-balance ledger, engine-computed; the page
-            // only displays it (the running balance + the tie come from the engine).
-            'ledger' => $metrics->accountLedger($actor, (string) $patient->id, now()),
+            // only displays it. ARDETAIL.P3 decorates each row with a link to the EXISTING invoice
+            // PDF generator (no new figure, no new mechanism).
+            'ledger' => $this->withInvoicePdfLinks($metrics->accountLedger($actor, (string) $patient->id, now())),
             // ARDETAIL.P2 — the account's dunning timeline, a READ-ONLY display of the real
             // state machine. The billing policy (which the dunning service owns) maps each level
             // to its fee_code, so the engine can attribute each event's real captured fee charge.
@@ -67,8 +68,28 @@ class AccountDetailController
             'links' => [
                 'report' => route('billing.report'),
                 'dunning' => route('billing.dunning.index'),
+                // ARDETAIL.P3 — the correctly-more-real patient-chart link (the existing patient 360).
+                'chart' => route('patients.show', (string) $patient->id),
             ],
         ]);
+    }
+
+    /**
+     * Decorate each ledger row with a link to the EXISTING invoice-PDF generator
+     * (`billing.invoices.download`). No new figure or payment mechanism — just a link.
+     *
+     * @param  array<string, mixed>  $ledger
+     * @return array<string, mixed>
+     */
+    private function withInvoicePdfLinks(array $ledger): array
+    {
+        $ledger['rows'] = array_map(function (array $row): array {
+            $row['pdf_url'] = route('billing.invoices.download', $row['invoice_id']);
+
+            return $row;
+        }, $ledger['rows']);
+
+        return $ledger;
     }
 
     /**

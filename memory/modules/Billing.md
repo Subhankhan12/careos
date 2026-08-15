@@ -428,6 +428,23 @@ carefully-gated: operator-only + agent-excluded + audited). i18n `billing.accoun
 === the persisted events, stage === max level, fees tie to the real charges, and no mutation route added);
 browser-verified (Playwright, org_admin, a real dunning run — timeline + stage pill + fees, read-only).
 
+## AR Account Detail — hero + Swiss format + links (ARDETAIL.P3 — pure visual parity)
+
+`Billing/AccountDetail.vue`'s header is a graphite account hero (reusing `euca-tile-dark`) over the EXISTING P1/P2/P7
+figures: initials · name · MRN · a presentational status pill (`accountStatus`: in-collection when dunned, overdue when
+past-due, else current — a display STATE, not a new figure) · the real dunning-stage pill · the oldest-age line · and
+the big **Balance due** = `ledger.account_outstanding_minor`. Money uses `resources/js/lib/money.ts` `formatSwissMoney`
+(→ `CHF 4'820.00`) — a NEW reusable display-only formatter that groups the major part with a straight apostrophe BY HAND
+(not `toLocaleString`, so it's ICU-independent); it does NO money math (splits an integer minor for display). The
+controller adds `links.chart` = `route('patients.show', id)` (the existing patient 360) and decorates each ledger row
+with `pdf_url` = `route('billing.invoices.download', invoice_id)` (the existing invoice-PDF generator) via
+`withInvoicePdfLinks`. **HONESTY:** there is NO real Swiss QR-bill/IBAN renderer (`InvoicePdfRenderer` emits a stub PDF);
+P3 surfaces the existing invoice PDF, and the real QR-bill (IBAN/reference) stays a flagged backend gap — not fabricated.
+FENCE: pure presentation — no money computed, no writes, no new figures, no new payment path. Locked by
+`resources/js/lib/money.test.ts` (Vitest, the Swiss format) + `tests/Feature/Billing/AccountDetailLinksTest.php` (the
+links target existing routes; no mutation route added); browser-verified (Erika Baumgartner — hero in CHF format, pills,
+chart + PDF links).
+
 ## Open items
 
 - FIX.1 (D-090): the W6/W7 detail/write controllers used implicit route-model binding, which 500'd in the

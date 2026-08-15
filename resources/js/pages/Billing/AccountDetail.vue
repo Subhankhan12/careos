@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { Head, Link } from '@inertiajs/vue3';
+import { computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 import AppLayout from '@/Layouts/AppLayout.vue';
 
@@ -11,6 +12,8 @@ import AppLayout from '@/Layouts/AppLayout.vue';
  * DISPLAYED here — the view computes NO money (the running balance + the tie come from the
  * engine, never a client sum).
  */
+
+import { formatSwissMoney } from '@/lib/money';
 
 const { t, te } = useI18n();
 
@@ -32,6 +35,7 @@ type LedgerRow = {
     status: string;
     days_overdue: number;
     running_balance_minor: number;
+    pdf_url: string;
 };
 type Ledger = {
     account_id: string;
@@ -67,12 +71,28 @@ const props = defineProps<{
     overdue: Overdue | null;
     ledger: Ledger;
     dunning: Dunning;
-    links: { report: string; dunning: string };
+    links: { report: string; dunning: string; chart: string };
 }>();
 
+// Swiss CHF display format (CHF x'xxx.xx) — display only; the integer-minor figure is unchanged.
 function money(minor: number): string {
-    return `${(minor / 100).toFixed(2)} ${props.currency}`;
+    return formatSwissMoney(minor, props.currency);
 }
+// A presentational account-status derived from the EXISTING figures (a display state, not a
+// new money figure): in-collection when dunned, overdue when past-due, else current.
+const accountStatus = computed(() => {
+    if (props.dunning.current_stage > 0) return 'in_collection';
+    if ((props.overdue?.total_overdue_minor ?? 0) > 0) return 'overdue';
+    return 'current';
+});
+const initials = computed(() =>
+    props.account.name
+        .split(/\s+/)
+        .filter(Boolean)
+        .slice(0, 2)
+        .map((p) => p[0]?.toUpperCase() ?? '')
+        .join(''),
+);
 function stageLabel(stage: number): string {
     return stage <= 0 ? t('billing.accountDetail.stageNone') : t('billing.accountDetail.stageLevel', { n: stage });
 }
@@ -97,13 +117,44 @@ function dunningStatusLabel(status: string): string {
     <AppLayout>
         <Head :title="t('billing.accountDetail.title', { name: account.name })" />
         <div class="space-y-5">
-            <div class="euca-tile-dark flex flex-col justify-between gap-4 p-6 sm:flex-row sm:items-end">
-                <div>
-                    <p class="text-xs font-semibold uppercase tracking-[0.14em] text-euca-200">{{ t('billing.accountDetail.eyebrow') }}</p>
-                    <h1 class="mt-1 text-2xl font-semibold tracking-tight text-euca-50">{{ account.name }}</h1>
-                    <p v-if="account.mrn" class="mt-1 text-sm text-euca-200">{{ t('billing.accountDetail.mrn', { mrn: account.mrn }) }}</p>
+            <!-- Account hero — the balance-due headline over the EXISTING P1/P2 figures (no new figure). -->
+            <div class="euca-tile-dark p-6">
+                <div class="flex items-start justify-between gap-3">
+                    <Link :href="links.report" class="inline-flex items-center gap-1.5 text-xs font-semibold text-euca-200 transition hover:text-euca-50">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="m14 6-6 6 6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" /></svg>
+                        {{ t('billing.accountDetail.backToReport') }}
+                    </Link>
+                    <Link :href="links.chart" class="inline-flex items-center gap-1.5 rounded-xl bg-white/15 px-3 py-1.5 text-xs font-semibold text-euca-50 transition hover:bg-white/25">{{ t('billing.accountDetail.openChart') }}</Link>
                 </div>
-                <Link :href="links.report" class="self-start rounded-xl bg-white/15 px-4 py-2 text-sm font-semibold text-euca-50 transition hover:bg-white/25 sm:self-auto">{{ t('billing.accountDetail.backToReport') }}</Link>
+
+                <div class="mt-3 flex flex-col justify-between gap-5 sm:flex-row sm:items-end">
+                    <div class="flex items-center gap-4">
+                        <span class="flex h-14 w-14 flex-none items-center justify-center rounded-full border border-white/25 bg-white/10 text-lg font-semibold text-euca-50">{{ initials }}</span>
+                        <div class="min-w-0">
+                            <p class="text-xs font-semibold uppercase tracking-[0.14em] text-euca-200">{{ t('billing.accountDetail.eyebrow') }}</p>
+                            <h1 class="mt-0.5 text-2xl font-semibold tracking-tight text-euca-50">{{ account.name }}</h1>
+                            <div class="mt-1.5 flex flex-wrap items-center gap-2">
+                                <span v-if="account.mrn" class="rounded-md bg-white/10 px-2 py-0.5 font-mono text-xs text-euca-100">{{ account.mrn }}</span>
+                                <span
+                                    class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold"
+                                    :class="accountStatus === 'current' ? 'bg-euca-50 text-euca-800' : 'bg-warning/20 text-warning'"
+                                >
+                                    <span class="h-1.5 w-1.5 rounded-full" :class="accountStatus === 'current' ? 'bg-euca-500' : 'bg-warning'"></span>
+                                    {{ t(`billing.accountDetail.accountStatus.${accountStatus}`) }}
+                                </span>
+                                <span v-if="dunning.current_stage > 0" class="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-2.5 py-0.5 text-xs font-semibold text-euca-100">
+                                    {{ stageLabel(dunning.current_stage) }}
+                                </span>
+                            </div>
+                            <p v-if="overdue" class="mt-2 text-xs text-euca-200">{{ t('billing.accountDetail.oldestLine', { days: overdue.max_days_overdue }) }}</p>
+                        </div>
+                    </div>
+                    <div class="flex-none text-left sm:text-right">
+                        <p class="text-xs font-semibold uppercase tracking-wide text-euca-200">{{ t('billing.accountDetail.balanceDue') }}</p>
+                        <p class="mt-1 text-4xl font-semibold leading-none tabular-nums text-euca-50">{{ money(ledger.account_outstanding_minor) }}</p>
+                        <p v-if="overdue" class="mt-1.5 text-xs text-euca-200">{{ t('billing.accountDetail.overdueOf', { amount: money(overdue.total_overdue_minor) }) }}</p>
+                    </div>
+                </div>
             </div>
 
             <!-- Engine figures for this account (from topOverdueAccounts) -->
@@ -158,7 +209,13 @@ function dunningStatusLabel(status: string): string {
                         </thead>
                         <tbody class="divide-y divide-line/70">
                             <tr v-for="row in ledger.rows" :key="row.invoice_id">
-                                <td class="px-2 py-2.5 font-mono text-xs text-ink">{{ row.number ?? '—' }}</td>
+                                <td class="px-2 py-2.5">
+                                    <a v-if="row.number" :href="row.pdf_url" class="inline-flex items-center gap-1 font-mono text-xs text-euca-700 transition hover:text-euca-900" :title="t('billing.accountDetail.invoicePdf')">
+                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M7 3h7l4 4v14H7z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" /><path d="M14 3v4h4" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" /></svg>
+                                        {{ row.number }}
+                                    </a>
+                                    <span v-else class="font-mono text-xs text-ink-subtle">—</span>
+                                </td>
                                 <td class="px-2 py-2.5 tabular-nums text-ink-muted">{{ row.issue_date }}</td>
                                 <td class="px-2 py-2.5">
                                     <span class="inline-flex items-center gap-1.5">

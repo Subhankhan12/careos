@@ -186,8 +186,19 @@ from the start (the wireframe's own framing).
    (send-reminder / Betreibung escalation are later, carefully-gated). Locked by
    `tests/Feature/Billing/AccountDunningTest.php` (5, run through the REAL `DunningService`); browser-verified.
 3. *(Med)* **Account-wide figures** — total outstanding, last payment, invoice/payment counts (small engine methods).
-4. *(Med)* **Header/hero + status pill + Swiss `CHF x'xxx` formatting** — visual parity over the above.
-5. *(Low)* **Open patient chart** link; **Swiss QR-bill** display.
+4. ✅ **RESOLVED (ARDETAIL.P3)** — **Header/hero + status pills + Swiss `CHF x'xxx.xx` format** — a pure-visual pass
+   over the EXISTING P1/P2 figures: the graphite account hero (name · MRN · balance-due = `ledger.account_outstanding_minor`
+   · overdue sub · oldest-age line · a status pill {current/overdue/in-collection, derived presentationally from the
+   existing figures} + the real dunning-stage pill); a reusable Swiss formatter `resources/js/lib/money.ts`
+   (`formatSwissMoney` → `CHF 4'820.00`, display-only, manual apostrophe grouping so it's ICU-independent) used across
+   the hero/ledger/timeline. No new figure, no money math, no write. Locked by `resources/js/lib/money.test.ts` (Vitest)
+   + `tests/Feature/Billing/AccountDetailLinksTest.php`; browser-verified.
+5. ✅ **RESOLVED (ARDETAIL.P3, partial)** — **Open patient chart** link (the existing `patients.show` 360) + the
+   per-invoice **PDF** link (the existing `billing.invoices.download` generator) surfaced on the ledger. **HONESTY
+   NOTE:** the wireframe's dedicated **Swiss QR-bill card (IBAN + structured reference)** is NOT built — grep confirms
+   there is NO QR-bill/IBAN renderer; `InvoicePdfRenderer` emits a stub invoice PDF, not a QR payment part. So P3
+   surfaces the existing invoice PDF (honestly labelled "invoice PDF"), and a real Swiss QR-bill (IBAN/reference
+   payment part) remains a **flagged backend gap** — not fabricated.
 
 **Later / carefully-gated (backend + governance):**
 6. *(High, money-fenced)* **Record payment** action → wire to `PaymentService` (the over-allocation guard); **never** a
