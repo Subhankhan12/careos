@@ -365,6 +365,31 @@ content/worklist; a test asserts all three still render). billing.view + tenant-
 `billing.report.*` block. Locked by `tests/Feature/Billing/BillingReportTest.php` (6); browser-verified with Playwright
 (org_admin, real seeded AR — roll-forward ties on screen, period re-fetches server-side, DSO/rate honest "—").
 
+## Top-overdue accounts + account rollup + AR Account Detail drill (BILLAR.P7 — FINAL; wireframe-parity COMPLETE)
+
+`MetricsService::topOverdueAccounts($actor, $asOf, $limit=10)` (billing.view, tenant-scoped) is the engine behind the
+top-overdue table on `/billing/report`. Over the SAME population + day-math as `agingBuckets` (issued invoices with
+`open_balance_minor>0`, `due_date<asOf`), per overdue invoice it takes age (due-date vs as-of), balance (the reconciled
+projection), and the dunning STAGE = `max(DunningEvent.level)` — the REAL persisted state-machine level (the same fold
+the dunning worklist does as `current_level`; NOT a page label). Groups by `patient_id` (a patient IS the account) into
+`accounts[]` ordered most-overdue-first (age, then balance), top-N, plus `account_count`/`shown`/
+`grand_total_overdue_minor`/`ties`. **THE TIE:** every overdue invoice in exactly one account, so Σ each account's
+invoices === its `total_overdue_minor` (per-account `ties`) and Σ all accounts === the grand total ===
+`overdueBalanceMinor` (δ=0). Patient NAMES are NOT resolved in the engine (the class fence — a billing-office read);
+`BillingReportController::topOverdue()` adds the name (Patient::whereIn, like the dunning worklist) + `detail_url` =
+`route('billing.accounts.show', patient_id)`, and the table is also in the CSV export.
+
+**The drill target** (wired here; the full page is the NEXT gate): `GET /billing/accounts/{account}` name
+`billing.accounts.show` → `AccountDetailController@show` (billing.view; patient resolved from a STRING id via
+`whereKey()->firstOrFail()` — FIX.1, so a cross-tenant id 404s) renders a MINIMAL `Billing/AccountDetail.vue` — account
+header + the account's overdue engine figures (from `topOverdueAccounts`) + a "full ledger next gate" placeholder; the
+per-invoice ledger is deliberately NOT built. `Billing/Report.vue` gains the top-overdue table (account · invoices ·
+age · dunning stage · balance), rows drill to `detail_url`, a rollup-ties badge; `stageLabel()` only LABELS the engine's
+real stage. FENCE: ages/balances/stage are engine values (displayed === the service returns), the rollup ties δ=0, no
+page money math. Locked by `tests/Feature/Billing/TopOverdueAccountsTest.php` (5); browser-verified (Playwright,
+org_admin, injected overdue AR — 3 real accounts, real stage 2, ordered, rollup ties, drill renders AccountDetail).
+**With P7 the whole BILLING & AR page's wireframe-parity is COMPLETE (P1→P7).**
+
 ## Open items
 
 - FIX.1 (D-090): the W6/W7 detail/write controllers used implicit route-model binding, which 500'd in the

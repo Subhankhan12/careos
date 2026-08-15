@@ -62,8 +62,9 @@ function rfFixture(string $slug = 'alpha'): array
 /** Issue an invoice of `$priceMinor` (VAT-exempt) with a given issue date. */
 function rfIssuedInvoice(array $fx, int $priceMinor, string $issueDate): Invoice
 {
+    static $codeSeq = 44000; // deterministic-unique tariff code (random_int(10,99) collides across a test)
     $item = TariffItem::query()->create([
-        'tariff_catalog_id' => $fx['catalog']->id, 'code' => '40'.random_int(10, 99), 'description' => 'Consultation',
+        'tariff_catalog_id' => $fx['catalog']->id, 'code' => (string) (++$codeSeq), 'description' => 'Consultation',
         'unit_price_minor' => $priceMinor, 'vat_rate_bp' => 0, 'unit' => 'session',
         'requires_service_documentation' => false, 'active' => true,
     ]);

@@ -20,6 +20,7 @@ use App\Http\Controllers\StaffInviteAcceptController;
 use App\Http\Controllers\StaffInviteController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
+use Modules\Billing\Http\Controllers\AccountDetailController;
 use Modules\Billing\Http\Controllers\AgingController;
 use Modules\Billing\Http\Controllers\BillingReportController;
 use Modules\Billing\Http\Controllers\CreditNoteController;
@@ -620,6 +621,12 @@ Route::middleware('auth')->group(function () {
     // aging/reporting/dunning surfaces. (Static /report before any {param} sibling.)
     Route::get('/billing/report', [BillingReportController::class, 'show'])->name('billing.report');
     Route::get('/billing/report/export', [BillingReportController::class, 'export'])->name('billing.report.export');
+
+    // AR Account Detail (BILLAR.P7) — the drill target for the report's top-overdue table (a
+    // per-account, patient-keyed AR ledger). This gate wires the drill destination + a minimal
+    // account header over engine figures; the full ledger content is the NEXT gate. String-id
+    // {account} resolved in-controller (FIX.1 — no route-model binding of a tenant model).
+    Route::get('/billing/accounts/{account}', [AccountDetailController::class, 'show'])->name('billing.accounts.show');
 
     // Reporting dashboard — the thin facts-only surface over ReportingService::summary.
     Route::get('/reporting', ReportingDashboardController::class)->name('reporting.dashboard');

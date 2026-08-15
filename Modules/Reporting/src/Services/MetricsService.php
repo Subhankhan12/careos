@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Gate;
 use InvalidArgumentException;
+use Modules\Billing\Models\DunningEvent;
 use Modules\Billing\Models\Invoice;
 use Modules\Billing\Models\InvoiceAdjustment;
 use Modules\Billing\Models\InvoiceBalance;
@@ -742,6 +743,119 @@ class MetricsService
         $buckets = $this->agingBuckets($actor, $asOf);
 
         return $buckets['days_1_30'] + $buckets['days_31_60'] + $buckets['days_61_90'] + $buckets['days_90_plus'];
+    }
+
+    /**
+     * FINANCIAL — the overdue ACCOUNTS (a patient is the account) ranked most-overdue
+     * first, for the top-overdue worklist on the AR report. Every figure is engine-computed:
+     * the age is due-date vs as-of (the SAME calendar-day math as {@see self::agingBuckets()});
+     * the balance is the reconciled `invoice_balances` projection; and the dunning STAGE is
+     * the REAL persisted state-machine level — `max(DunningEvent.level)` over the invoice's
+     * append-only dunning_events (the same source the billing dunning worklist folds),
+     * never a page-computed label.
+     *
+     * The rollup is a REAL partition: every overdue invoice belongs to exactly one account,
+     * so Σ each account's overdue invoices === that account's `total_overdue_minor` (per-account
+     * `ties`), and Σ all accounts === `grand_total_overdue_minor` === {@see self::overdueBalanceMinor()}
+     * (δ=0, top-level `ties`) — it is over the same population + day math as the aging buckets.
+     * Patient NAMES are NOT resolved here (that is a patient read the billing controller performs,
+     * as the billing dunning worklist does) — this returns account ids + sums + the invoice breakdown only.
+     *
+     * @return array{
+     *     as_of: string,
+     *     accounts: list<array{patient_id: string, invoice_count: int, total_overdue_minor: int, max_days_overdue: int, max_stage: int, oldest_due_date: string, ties: bool, invoices: list<array{id: string, number: string|null, due_date: string, days_overdue: int, open_balance_minor: int, stage: int}>}>,
+     *     account_count: int,
+     *     shown: int,
+     *     grand_total_overdue_minor: int,
+     *     ties: bool
+     * }
+     */
+    public function topOverdueAccounts(User $actor, CarbonInterface|string $asOf, int $limit = 10): array
+    {
+        $this->authorizeFinancial($actor);
+        $asOfDate = Carbon::parse($asOf instanceof CarbonInterface ? $asOf->toDateString() : $asOf)->startOfDay();
+
+        // Same population as the aging buckets: issued invoices with an open balance.
+        $balances = InvoiceBalance::query()
+            ->whereIn('invoice_id', $this->issuedInvoiceIdsQuery())
+            ->where('open_balance_minor', '>', 0)
+            ->get()
+            ->keyBy('invoice_id');
+
+        $invoices = Invoice::query()
+            ->whereIn('id', $balances->keys()->all())
+            ->whereNotNull('due_date')
+            ->get();
+
+        // Real dunning stage = the max persisted level per invoice (the state machine's output).
+        $stageByInvoice = DunningEvent::query()
+            ->whereIn('invoice_id', $invoices->pluck('id')->all())
+            ->get()
+            ->groupBy('invoice_id')
+            ->map(fn ($events): int => (int) $events->max('level'));
+
+        /** @var array<string, array{patient_id: string, invoice_count: int, total_overdue_minor: int, max_days_overdue: int, max_stage: int, oldest_due_date: string, ties: bool, invoices: list<array{id: string, number: string|null, due_date: string, days_overdue: int, open_balance_minor: int, stage: int}>}> $byPatient */
+        $byPatient = [];
+        $grandTotal = 0;
+
+        foreach ($invoices as $invoice) {
+            $dueDate = $invoice->due_date?->copy()->startOfDay();
+            if ($dueDate === null || ! $dueDate->lt($asOfDate)) {
+                continue; // not yet past due → not overdue (mirrors the aging 'current' exclusion)
+            }
+
+            $days = (int) $dueDate->diffInDays($asOfDate);
+            $open = (int) $balances->get($invoice->id)->open_balance_minor;
+            $stage = $stageByInvoice->get($invoice->id, 0);
+            $grandTotal += $open;
+            $dueString = $invoice->due_date->toDateString();
+            $pid = (string) $invoice->patient_id;
+
+            $byPatient[$pid] ??= [
+                'patient_id' => $pid, 'invoice_count' => 0, 'total_overdue_minor' => 0,
+                'max_days_overdue' => 0, 'max_stage' => 0, 'oldest_due_date' => $dueString, 'ties' => true, 'invoices' => [],
+            ];
+            $byPatient[$pid]['invoices'][] = [
+                'id' => $invoice->id,
+                'number' => $invoice->number !== null ? $invoice->series.'-'.$invoice->number : null,
+                'due_date' => $dueString,
+                'days_overdue' => $days,
+                'open_balance_minor' => $open,
+                'stage' => $stage,
+            ];
+            $byPatient[$pid]['total_overdue_minor'] += $open;
+            $byPatient[$pid]['max_days_overdue'] = max($byPatient[$pid]['max_days_overdue'], $days);
+            $byPatient[$pid]['max_stage'] = max($byPatient[$pid]['max_stage'], $stage);
+            if ($dueString < $byPatient[$pid]['oldest_due_date']) {
+                $byPatient[$pid]['oldest_due_date'] = $dueString;
+            }
+        }
+
+        $accounts = [];
+        $sumAccounts = 0;
+        foreach ($byPatient as $account) {
+            usort($account['invoices'], fn (array $a, array $b): int => ($b['days_overdue'] <=> $a['days_overdue']) ?: ($b['open_balance_minor'] <=> $a['open_balance_minor']));
+            $account['invoice_count'] = count($account['invoices']);
+            // Per-account tie: the account rollup === Σ its own overdue invoices (δ=0).
+            $account['ties'] = array_sum(array_column($account['invoices'], 'open_balance_minor')) === $account['total_overdue_minor'];
+            $sumAccounts += $account['total_overdue_minor'];
+            $accounts[] = $account;
+        }
+
+        // Rank accounts: most overdue (age) first, then largest balance.
+        usort($accounts, fn (array $a, array $b): int => ($b['max_days_overdue'] <=> $a['max_days_overdue']) ?: ($b['total_overdue_minor'] <=> $a['total_overdue_minor']));
+
+        $shown = array_slice($accounts, 0, max(0, $limit));
+
+        return [
+            'as_of' => $asOfDate->toDateString(),
+            'accounts' => $shown,
+            'account_count' => count($accounts),
+            'shown' => count($shown),
+            'grand_total_overdue_minor' => $grandTotal,
+            // Top-level tie: Σ all accounts === the grand total === overdueBalanceMinor (δ=0).
+            'ties' => $sumAccounts === $grandTotal,
+        ];
     }
 
     /**

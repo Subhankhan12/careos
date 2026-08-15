@@ -2302,6 +2302,22 @@
                 "totals": "Period totals — charged {charges}, collected {collections}",
                 "empty": "No activity in range."
             },
+            "topOverdue": {
+                "title": "Top overdue accounts",
+                "account": "Account",
+                "invoices": "Invoices",
+                "age": "Age",
+                "stage": "Dunning stage",
+                "balance": "Overdue balance",
+                "days": "{n}d",
+                "stageNone": "No reminder",
+                "stageLevel": "Level {n}",
+                "unknownAccount": "Unknown account",
+                "tiesOk": "Rollup ties — {total} overdue",
+                "tiesOff": "Rollup does not tie",
+                "truncated": "Showing the {shown} most overdue of {total} accounts.",
+                "empty": "No overdue accounts."
+            },
             "payerTypes": {
                 "self_pay": "Self-pay",
                 "private_insurance": "Private insurance"
@@ -2313,6 +2329,22 @@
                 "reporting": "Reporting dashboard"
             },
             "footnote": "Every figure is computed by the reporting engine over the reconciled ledger and displayed here; this page performs no money math. Switching the period recomputes on the server. The roll-forward and by-payer figures tie to the unit."
+        },
+        "accountDetail": {
+            "eyebrow": "AR account detail",
+            "title": "{name} — AR account",
+            "mrn": "MRN {mrn}",
+            "backToReport": "Back to report",
+            "totalOverdue": "Total overdue",
+            "overdueInvoices": "Overdue invoices",
+            "oldest": "Oldest",
+            "days": "{n}d",
+            "stage": "Dunning stage",
+            "stageNone": "No reminder",
+            "stageLevel": "Level {n}",
+            "noOverdue": "This account has no overdue balance.",
+            "ledgerSoonTitle": "Full account ledger",
+            "ledgerSoonBody": "The per-invoice AR ledger for this account arrives in the next gate."
         }
     },
     "reporting": {

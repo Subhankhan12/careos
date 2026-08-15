@@ -46,6 +46,24 @@ type Report = {
     by_payer: ByPayer;
     trend: Trend;
 };
+type OverdueAccount = {
+    patient_id: string;
+    patient_name: string | null;
+    invoice_count: number;
+    total_overdue_minor: number;
+    max_days_overdue: number;
+    max_stage: number;
+    oldest_due_date: string;
+    ties: boolean;
+    detail_url: string;
+};
+type TopOverdue = {
+    accounts: OverdueAccount[];
+    account_count: number;
+    shown: number;
+    grand_total_overdue_minor: number;
+    ties: boolean;
+};
 
 const props = defineProps<{
     period: string;
@@ -54,6 +72,7 @@ const props = defineProps<{
     currency: string;
     report: Report;
     compare: Report | null;
+    topOverdue: TopOverdue;
     links: { self: string; aging: string; dunning: string; reporting: string; invoices: string; export: string };
 }>();
 
@@ -67,6 +86,10 @@ function percent(rate: number | null): string {
 }
 function dsoLabel(value: number | null): string {
     return value === null ? '—' : String(value);
+}
+// The dunning stage is the engine's real max level; this only LABELS it (0 = no reminder).
+function stageLabel(stage: number): string {
+    return stage <= 0 ? t('billing.report.topOverdue.stageNone') : t('billing.report.topOverdue.stageLevel', { n: stage });
 }
 // CSS width only — a visual proportion of two server figures, never a displayed figure.
 function widthPct(part: number, whole: number): string {
@@ -337,6 +360,54 @@ function toggleCompare(): void {
                 <p v-else class="mt-3 text-sm text-ink-muted">{{ t('billing.report.trend.empty') }}</p>
                 <p class="mt-2 text-xs text-ink-subtle">
                     {{ t('billing.report.trend.totals', { charges: money(report.trend.total_charges_minor), collections: money(report.trend.total_collections_minor) }) }}
+                </p>
+            </div>
+
+            <!-- Top-overdue accounts — engine ages/balances + the REAL dunning stage; each row
+                 drills to the account's AR detail. The Vue computes no money; ordering + the
+                 rollup are the engine's. -->
+            <div class="glass-card p-5">
+                <div class="flex items-center justify-between">
+                    <h2 class="text-sm font-semibold uppercase tracking-wide text-ink-subtle">{{ t('billing.report.topOverdue.title') }}</h2>
+                    <span
+                        class="rounded-full px-2.5 py-0.5 text-xs font-semibold"
+                        :class="topOverdue.ties ? 'bg-euca-50 text-euca-800' : 'bg-warning/15 text-warning'"
+                    >{{ topOverdue.ties ? t('billing.report.topOverdue.tiesOk', { total: money(topOverdue.grand_total_overdue_minor) }) : t('billing.report.topOverdue.tiesOff') }}</span>
+                </div>
+                <div class="mt-3 overflow-x-auto">
+                    <table class="w-full text-left text-sm">
+                        <thead class="text-xs uppercase tracking-wide text-ink-subtle">
+                            <tr class="border-b border-line">
+                                <th class="px-2 py-2 font-semibold">{{ t('billing.report.topOverdue.account') }}</th>
+                                <th class="px-2 py-2 font-semibold">{{ t('billing.report.topOverdue.invoices') }}</th>
+                                <th class="px-2 py-2 text-right font-semibold">{{ t('billing.report.topOverdue.age') }}</th>
+                                <th class="px-2 py-2 font-semibold">{{ t('billing.report.topOverdue.stage') }}</th>
+                                <th class="px-2 py-2 text-right font-semibold">{{ t('billing.report.topOverdue.balance') }}</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-line/70">
+                            <tr v-for="a in topOverdue.accounts" :key="a.patient_id" class="cursor-pointer transition hover:bg-euca-50/50" @click="router.visit(a.detail_url)">
+                                <td class="px-2 py-2.5">
+                                    <Link :href="a.detail_url" class="font-medium text-ink hover:text-euca-700" @click.stop>{{ a.patient_name ?? t('billing.report.topOverdue.unknownAccount') }}</Link>
+                                </td>
+                                <td class="px-2 py-2.5 tabular-nums text-ink-muted">{{ a.invoice_count }}</td>
+                                <td class="px-2 py-2.5 text-right tabular-nums text-ink">{{ t('billing.report.topOverdue.days', { n: a.max_days_overdue }) }}</td>
+                                <td class="px-2 py-2.5">
+                                    <span class="inline-flex items-center gap-1.5">
+                                        <span class="h-2 w-2 rounded-full" :class="a.max_stage > 0 ? 'bg-warning' : 'bg-line'"></span>
+                                        <span class="text-ink">{{ stageLabel(a.max_stage) }}</span>
+                                    </span>
+                                </td>
+                                <td class="px-2 py-2.5 text-right tabular-nums text-ink">{{ money(a.total_overdue_minor) }}</td>
+                            </tr>
+                            <tr v-if="topOverdue.accounts.length === 0">
+                                <td colspan="5" class="px-2 py-4 text-center text-ink-muted">{{ t('billing.report.topOverdue.empty') }}</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <p v-if="topOverdue.account_count > topOverdue.shown" class="mt-2 text-xs text-ink-subtle">
+                    {{ t('billing.report.topOverdue.truncated', { shown: topOverdue.shown, total: topOverdue.account_count }) }}
                 </p>
             </div>
 

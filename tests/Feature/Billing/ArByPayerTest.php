@@ -58,8 +58,9 @@ function bpFixture(string $slug = 'alpha'): array
 /** Issue an invoice of `$priceMinor` for a given real payer_type. */
 function bpInvoice(array $fx, int $priceMinor, string $payerType, string $issueDate = '2026-06-05'): Invoice
 {
+    static $codeSeq = 41000; // deterministic-unique tariff code (random_int(10,99) collides across a test)
     $item = TariffItem::query()->create([
-        'tariff_catalog_id' => $fx['catalog']->id, 'code' => '40'.random_int(10, 99), 'description' => 'Consultation',
+        'tariff_catalog_id' => $fx['catalog']->id, 'code' => (string) (++$codeSeq), 'description' => 'Consultation',
         'unit_price_minor' => $priceMinor, 'vat_rate_bp' => 0, 'unit' => 'session',
         'requires_service_documentation' => false, 'active' => true,
     ]);

@@ -56,8 +56,9 @@ function brpFixture(string $slug = 'alpha'): array
 
 function brpInvoice(array $fx, int $priceMinor, string $issueDate, string $payerType = Invoice::PAYER_SELF_PAY): Invoice
 {
+    static $codeSeq = 45000; // deterministic-unique tariff code (random_int(10,99) collides across a test)
     $item = TariffItem::query()->create([
-        'tariff_catalog_id' => $fx['catalog']->id, 'code' => '50'.random_int(10, 99), 'description' => 'Consultation',
+        'tariff_catalog_id' => $fx['catalog']->id, 'code' => (string) (++$codeSeq), 'description' => 'Consultation',
         'unit_price_minor' => $priceMinor, 'vat_rate_bp' => 0, 'unit' => 'session',
         'requires_service_documentation' => false, 'active' => true,
     ]);

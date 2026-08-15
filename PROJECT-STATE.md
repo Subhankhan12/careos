@@ -3,7 +3,7 @@
 Short, factual snapshot of where the project stands. Updated at consolidations and after gates
 (per the MEMORY PROTOCOL in AGENTS.md).
 
-## STATUS: BUILD COMPLETE + AUDITED (3 audits, ZERO must-fix) · EIGHT VERTICALS · DEMOABLE HOSPITAL TENANT · CURRENT STAGE = DEPLOYMENT · WIREFRAME-PARITY PASS (4 PAGES DONE: Admin Settings · Approval Queue P1→P7 · Branches P1→P5 · Agent&Tool Config P1→P6 COMPLETE · Allergy Alert safe-part [ALLERGY.P1] · Billing&AR audit + BILLAR.P1 write-off/adjustment ledger + BILLAR.P2 AR roll-forward + BILLAR.P3 DSO/collection-rate + BILLAR.P4 by-payer + BILLAR.P5 charged-vs-collected trend + BILLAR.P6 management-report grid)
+## STATUS: BUILD COMPLETE + AUDITED (3 audits, ZERO must-fix) · EIGHT VERTICALS · DEMOABLE HOSPITAL TENANT · CURRENT STAGE = DEPLOYMENT · WIREFRAME-PARITY PASS (6 PAGES DONE: Admin Settings · Approval Queue P1→P7 · Branches P1→P5 · Agent&Tool Config P1→P6 COMPLETE · Billing & AR P1→P7 COMPLETE · Allergy Alert safe-part [ALLERGY.P1] · Billing&AR audit + BILLAR.P1 write-off/adjustment ledger + BILLAR.P2 AR roll-forward + BILLAR.P3 DSO/collection-rate + BILLAR.P4 by-payer + BILLAR.P5 charged-vs-collected trend + BILLAR.P6 management-report grid + BILLAR.P7 top-overdue+drill — Billing & AR PARITY COMPLETE)
 
 > **RECONCILED (this pass — eight verticals built + audited; at the DEPLOY stage; a page-by-page wireframe-parity
 > pass now in progress).** CareOS is a multi-tenant agentic healthcare-operations platform (EU-first). **Stack:**
@@ -11,8 +11,8 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
 > 10.4 @3306, prod+CI MySQL 8 + Redis 7 + Node 22; Horizon via Memurai locally. **Latest commit:** `aac95c8`
 > (APPROVAL.P3 — the Approval Queue approve-contract caption), after the Admin Settings parity chain (→ `e7cabf0`),
 > DemoHospitalSeeder (D-147), the full-system QA audit + re-audit, and A11Y.1. **Suite:** `composer check` green —
-> Pest **1129 passed** (+6 from BILLAR.P6), PHPStan L5 `[OK]`, Pint clean; npm build green; `composer test:smoke`
-> green; CI green on MySQL 8; the FIX.5 route-smoke guards against request-time 500s. (Latest commit: BILLAR.P6.)
+> Pest **1134 passed** (+5 from BILLAR.P7), PHPStan L5 `[OK]`, Pint clean; npm build green; `composer test:smoke`
+> green; CI green on MySQL 8; the FIX.5 route-smoke guards against request-time 500s. (Latest commit: BILLAR.P7 — Billing & AR wireframe-parity COMPLETE.)
 >
 > **WIREFRAME-PARITY PASS (in progress) — the discipline:** each app page is matched to its decoded wireframe in
 > the gitignored `resources/prototype/` (decode the bundler-shell HTML → AUDIT/diff into `docs/wireframe-parity/*.md`

@@ -7,23 +7,29 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Gate;
 use Inertia\Inertia;
 use Inertia\Response;
+use Modules\Patients\Models\Patient;
 use Modules\Platform\Models\User;
 use Modules\Platform\Services\SettingsService;
 use Modules\Reporting\Services\MetricsService;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
- * Billing & AR management report (BILLAR.P6) — the consolidated grid that DISPLAYS
+ * Billing & AR management report (BILLAR.P6/P7) — the consolidated grid that DISPLAYS
  * the P1–P5 MetricsService engine figures (headline, stat cards, aging, roll-forward,
- * by-payer, DSO/collection-rate, charged-vs-collected trend) in one place.
+ * by-payer, DSO/collection-rate, charged-vs-collected trend) plus the P7 top-overdue
+ * accounts table in one place.
  *
  * FENCE: this controller computes NO money. Every figure is a MetricsService return
  * value; the page only formats them. The period switcher RE-PARAMETERIZES the engine
  * ([from,to] passed to the tested service) — the server recomputes for the new period;
  * nothing is re-sliced/re-aggregated in the page. The CSV export streams the same
- * engine figures. It does NOT replace the live aging/reporting/dunning surfaces — those
- * routes stay working; this page consolidates their AR content and links back to them.
- * billing.view + tenant-scoped (the service fails closed without a tenant context).
+ * engine figures. The top-overdue ages/balances are engine figures and the dunning STAGE
+ * is the real persisted state-machine level (from `topOverdueAccounts`); only patient
+ * NAMES are resolved here (a billing-office read, as the dunning worklist does). It does
+ * NOT replace the live aging/reporting/dunning surfaces — those routes stay working; this
+ * page consolidates their AR content and links back to them, and each overdue row drills
+ * to the AR Account Detail route. billing.view + tenant-scoped (fails closed without a
+ * tenant context).
  */
 class BillingReportController
 {
@@ -55,6 +61,7 @@ class BillingReportController
             'currency' => $settings->get('currency', 'EUR'),
             'report' => $report,
             'compare' => $compare,
+            'topOverdue' => $this->topOverdue($actor, $metrics, $to),
             'links' => [
                 'self' => route('billing.report'),
                 'aging' => route('billing.aging'),
@@ -117,6 +124,16 @@ class BillingReportController
             $rows[] = ['trend:'.$b['label'], 'charges_minor', $b['charges_minor']];
             $rows[] = ['trend:'.$b['label'], 'collections_minor', $b['collections_minor']];
         }
+        $overdue = $metrics->topOverdueAccounts($actor, $to, 10);
+        $rows[] = ['top_overdue', 'grand_total_overdue_minor', $overdue['grand_total_overdue_minor']];
+        $rows[] = ['top_overdue', 'account_count', $overdue['account_count']];
+        foreach ($overdue['accounts'] as $account) {
+            $key = 'top_overdue:'.$account['patient_id'];
+            $rows[] = [$key, 'total_overdue_minor', $account['total_overdue_minor']];
+            $rows[] = [$key, 'max_days_overdue', $account['max_days_overdue']];
+            $rows[] = [$key, 'max_stage', $account['max_stage']];
+            $rows[] = [$key, 'invoice_count', $account['invoice_count']];
+        }
 
         $filename = 'billing-ar-report-'.$period.'-'.$r['period']['from'].'_'.$r['period']['to'].'.csv';
 
@@ -160,6 +177,32 @@ class BillingReportController
             'by_payer' => $metrics->arByPayer($actor, $from, $to),
             'trend' => $metrics->chargedVsCollectedTrend($actor, $from, $to, $bucket),
         ];
+    }
+
+    /**
+     * The engine's top-overdue accounts, decorated for display: the ages/balances/dunning
+     * stages are the engine's figures (untouched); only patient NAMES + the drill URL are
+     * added here (a billing-office read, as the dunning worklist does — never money math).
+     *
+     * @return array<string, mixed>
+     */
+    private function topOverdue(User $actor, MetricsService $metrics, Carbon $asOf): array
+    {
+        $overdue = $metrics->topOverdueAccounts($actor, $asOf, 10);
+
+        $names = Patient::query()
+            ->whereIn('id', array_column($overdue['accounts'], 'patient_id'))
+            ->get(['id', 'first_name', 'last_name'])
+            ->mapWithKeys(fn (Patient $p): array => [(string) $p->id => trim($p->first_name.' '.$p->last_name)]);
+
+        $overdue['accounts'] = array_map(function (array $account) use ($names): array {
+            $account['patient_name'] = $names->get($account['patient_id']);
+            $account['detail_url'] = route('billing.accounts.show', $account['patient_id']);
+
+            return $account;
+        }, $overdue['accounts']);
+
+        return $overdue;
     }
 
     /**
