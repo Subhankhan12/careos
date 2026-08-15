@@ -215,14 +215,31 @@ partner can drop in later — never a homemade clinical/safety engine:
   (`FenceRefusalException` is a subclass of `AiCoreException`; the eval is untouched). The stat strip's fence count +
   the resolved `fence_refused` category now count real records. (A pre-draft clinical refusal still writes a
   `refused` ledger row + handoff and creates no action — a different, already-ledgered path, not double-counted.)
-- **Approval Queue parity — COMPLETE (P1–P7, `docs/wireframe-parity/APPROVAL-QUEUE-DIFF.md`).** All punch-list
-  items RESOLVED, incl. P7 bulk-approve (low-risk only; clinical+financial excluded server-side, proven; per-item
-  gate). No remaining Approval Queue parity parts. **Two pages done in the wireframe-parity pass: Admin Settings +
-  Approval Queue. Branches is next** (see the wireframe-pages item below).
-- **The remaining wireframe pages.** Branches is decoded + QUEUED next (`resources/prototype/branches.wireframe.html`
-  — a rich master-detail, largely correctly-more-real: bring the visual to parity without regressing the more-real
-  functionality); subsequent app pages follow the same decode → audit → per-part-fix loop. **Trigger:** the
-  page-by-page parity pass reaches each page.
+- **Wireframe-parity pass — SIX pages COMPLETE.** Admin Settings (SETTINGS.P1–P6) · Approval Queue (APPROVAL.P1–P7,
+  incl. P7 bulk-approve — low-risk only, clinical+financial excluded server-side) · Branches (BRANCH.P1–P5) · Agent &
+  Tool Config (AGENT.P1–P6) · Allergy Alert **safe-part** (ALLERGY.P1 — record-display + display-only seam; the
+  computed drug-allergy checking is a certified-partner medical-device NON-GOAL, not built) · **Billing & AR
+  (BILLAR.P1–P7)**. Each has a resolved `docs/wireframe-parity/<PAGE>-DIFF.md`.
+- **AR Account Detail — IN PROGRESS (the Billing & AR drill-in), remaining parts DEFERRED as their own gates.**
+  ARDETAIL.P1 (per-account running-balance ledger) · P2 (dunning timeline, read-only) · P3 (hero + Swiss CHF format +
+  status/dunning pills + patient-chart & invoice-PDF links) are DONE. **Remaining:**
+  - **P4 — record payment on the account.** Must go through the guarded `PaymentService` (over-allocation refused;
+    append-only; reconciles) — never a page-side balance write. **Trigger:** the parity pass reaches P4.
+  - **P5 — payment plan.** Wireframe-new; NO installment-plan model exists. A modeled construct (its own gate); no
+    page-side money math. **Trigger:** the parity pass reaches P5 (or a customer needs installment plans).
+  - **P6 — Betreibung / debt-enforcement escalation.** NO escalation model/action exists. MUST be built
+    human-operator-only, **agent-EXCLUDED by construction**, audited + append-only (never an auto-escalation path);
+    the agent may only DRAFT a reminder through the existing cap/ApprovalQueue path. **Trigger:** the parity pass
+    reaches P6 (a legally-sensitive gate — design the operator gate + agent exclusion + audit first).
+  - **Real Swiss QR-bill (IBAN + structured reference payment part).** There is NO QR-bill/IBAN renderer today
+    (`InvoicePdfRenderer` emits a stub invoice PDF); P3 surfaced the existing invoice PDF honestly. A real Swiss
+    QR-bill is a backend build. **Trigger:** a Swiss customer needs real QR-bill payment slips.
+- **Finer Swiss payer taxonomy (BILLAR.P4 gap).** `arByPayer` groups over the REAL modeled `payer_type` (self_pay /
+  private_insurance). The wireframe's finer 4-way Swiss split (supplementary / accident SUVA-UVG / social-municipal)
+  + an insurer entity are NOT modeled and NOT fabricated. **Trigger:** a customer needs the finer split (then model
+  the payer dimension). Adjacent to the CH/KVG billing pack.
+- **The remaining decoded wireframe pages (after AR Account Detail): Appointment Detail · Auth Screens.** Same
+  decode → audit → per-part-fix loop. **Trigger:** the page-by-page parity pass reaches each page.
 
 **Medical-device NON-GOALS (never build the homemade version — regulated-device territory, electric fence).**
 These are permanent non-goals for CareOS-authored code; only a certified partner product may provide them:

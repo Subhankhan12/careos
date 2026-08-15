@@ -18,7 +18,25 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
 > the gitignored `resources/prototype/` (decode the bundler-shell HTML → AUDIT/diff into `docs/wireframe-parity/*.md`
 > → FIX per-part, one gate = one commit). **The rule: match the LOCKED/CAPPED visual, but NEVER weaken a real,
 > enforced server gate, and NEVER regress a "correctly-more-real" item; every surfaced governance element must be
-> REAL (no fabricated permission/ceiling/source) or an honest absence.** Page status:
+> REAL (no fabricated permission/ceiling/source) or an honest absence.**
+>
+> **CURRENT PARITY STATUS (authoritative — the per-page bullets further down are historical detail; where one
+> still reads "IN PROGRESS" it was completed in a later gate, per this summary + the header):**
+> **SIX pages COMPLETE** — Admin Settings (SETTINGS.P1–P6, `e7cabf0`) · Approval Queue (APPROVAL.P1–P7, `ea0e9b3`) ·
+> Branches (BRANCH.P1–P5, `a865a31`) · Agent & Tool Config (AGENT.P1–P6, `d0199e3`) · Allergy Alert **safe-part**
+> (ALLERGY.P1 record-display + display-only seam; computed drug-allergy checking is a certified-partner MEDICAL-DEVICE
+> non-goal, NOT built, `46e45d1`) · **Billing & AR (BILLAR.P1–P7, `aa82ea0`)** — write-offs/adjustments as
+> operator-gated reconciling ledger movements → AR roll-forward (ties δ=0) → DSO/rate/honest-collectible → by-payer
+> (ties δ=0) → charged-vs-collected trend → management-report grid (displays engine figures; period re-parameterizes
+> the engine) → top-overdue table + account rollup + drill.
+> **AR Account Detail — IN PROGRESS** (the Billing & AR drill-in): **ARDETAIL.P1** per-account running-balance ledger
+> (engine-computed, ties δ=0) → **P2** dunning timeline (the real state machine, read-only, fees tie) → **P3** hero +
+> Swiss `CHF x'xxx.xx` format + status/dunning pills + patient-chart & invoice-PDF links (pure visual) — **done,
+> `9c95246`**. **REMAINING:** P4 record-payment (through the guarded `PaymentService`) · P5 payment-plan (new model) ·
+> P6 **Betreibung/debt-enforcement escalation** (human-operator only, **agent-excluded by construction**, audited —
+> never auto-escalated); plus the real Swiss QR-bill (IBAN/reference) which is a flagged backend gap.
+> **REMAINING decoded pages after AR Account Detail:** Appointment Detail · Auth Screens.
+> Page status (historical per-page detail):
 > - **Admin Settings — COMPLETE** (SETTINGS.P1 glass → P2 Agents/AutonomyPolicy cap → P3 Scheduling/honest buffer →
 >   P4 Security/2FA-locked → P5 Notifications/email-prefs + SMS-seam + attention-flag-locked → P6 staff-invite +
 >   sub-nav, RBAC reflect-only). Latest `e7cabf0`; audit `docs/wireframe-parity/ADMIN-SETTINGS-DIFF.md`.
@@ -38,9 +56,10 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
 >   fence reason, and the list + counts are tenant + RBAC scoped (a reviewer sees only tools they may review). **P7
 >   built bulk-approve** — LOW-RISK only, a LOOP over the real per-action gate; clinical AND financial are EXCLUDED
 >   server-side (a forged bulk including one is refused for that item — a test proves it); the fence still fires per
->   item (P5) and per-item RBAC binds. **Approval Queue parity is now COMPLETE (P1→P7); two pages done in the pass
->   (Admin Settings + Approval Queue), Branches next.** Audit `docs/wireframe-parity/APPROVAL-QUEUE-DIFF.md`.
-> - **Branches — IN PROGRESS** (audit `docs/wireframe-parity/BRANCHES-DIFF.md`; largely correctly-more-real — the
+>   item (P5) and per-item RBAC binds. **Approval Queue parity is COMPLETE (P1→P7).** (Historical note: this was the
+>   second page done; SIX pages are now complete — see the CURRENT PARITY STATUS summary above.) Audit
+>   `docs/wireframe-parity/APPROVAL-QUEUE-DIFF.md`.
+> - **Branches — COMPLETE (BRANCH.P1–P5)** (audit `docs/wireframe-parity/BRANCHES-DIFF.md`; largely correctly-more-real — the
 >   W8b/W8c backend is built). **BRANCH.P1 (backend/soft-suspend)** added a REAL per-branch `accepts_online_bookings`
 >   (the wireframe's "Accept online bookings" toggle = a distinct SOFT-SUSPEND: stops NEW online bookings, keeps
 >   existing appointments + the day-board, always allowed) wired into the online write path + public/portal slot
@@ -59,7 +78,7 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
 >   unchanged/authoritative (a duplicate/missing field still refused server-side, surfaced in the wizard); P2
 >   primary invariant intact. **Branches parity COMPLETE (P1→P5). THREE wireframe-parity pages done: Admin Settings
 >   + Approval Queue + Branches.**
-> - **Agent & Tool Config — IN PROGRESS** (audit `docs/wireframe-parity/AGENT-TOOL-CONFIG-DIFF.md`; a governance-dense
+> - **Agent & Tool Config — COMPLETE (AGENT.P1–P6)** (audit `docs/wireframe-parity/AGENT-TOOL-CONFIG-DIFF.md`; a governance-dense
 >   agent-centric SUPERSET of the per-tool SETTINGS.P2 card). **AGENT.P1 (backend, NO UI)** introduced the real
 >   `Agent` entity (per-tenant, maps to the code-class agents, configured level + status + tool whitelist; seeded per
 >   tenant) + the **capped effective-level resolver**: an agent's effective autonomy = MIN(configured, tool ceiling,

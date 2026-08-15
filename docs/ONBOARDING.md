@@ -15,20 +15,26 @@ wireframe without weakening a single enforced gate). See §5.
 > required reject-reason, the AutonomyPolicy ceiling, approve = re-authorise + re-ground + still-pending); never
 > regress a "correctly-more-real" item; RBAC is reflect-only (server Gate stays authoritative); surface-don't-
 > fabricate (every permission/ceiling/source shown is REAL or an honest absence — no faked control/count/copy).**
-> **Where each page stands:** **Admin Settings = COMPLETE** (SETTINGS.P1–P6, `e7cabf0`); **Approval Queue = MID-CHAIN**
-> (P1 chrome → P2 real-provenance card anatomy → P3 approve-contract caption, `aac95c8`; remaining: edit-before-
-> sending, stat strip, fence-refused modelling, bulk-approve[excludes clinical], resolved filters); **Branches = NEXT**
-> (decoded to `resources/prototype/branches.wireframe.html`). Do NOT start the next part unprompted — each is its own
-> re-issued gate.
+> **Where each page stands (SIX pages COMPLETE + one in progress):** Admin Settings (SETTINGS.P1–P6, `e7cabf0`) ·
+> Approval Queue (APPROVAL.P1–P7, `ea0e9b3`) · Branches (BRANCH.P1–P5, `a865a31`) · Agent & Tool Config (AGENT.P1–P6,
+> `d0199e3`) · Allergy Alert **safe-part** (ALLERGY.P1, `46e45d1` — record-display only; computed drug-allergy checking
+> is a certified-partner MEDICAL-DEVICE non-goal, NOT built) · **Billing & AR (BILLAR.P1–P7, `aa82ea0`)**. **AR Account
+> Detail = IN PROGRESS** (the Billing & AR drill-in): P1 per-account running-balance ledger → P2 dunning timeline
+> (real state machine, read-only) → P3 hero + Swiss `CHF x'xxx.xx` + status/dunning pills + chart/PDF links — done
+> (`9c95246`); **remaining P4 record-payment[guarded PaymentService] · P5 payment-plan[new model] · P6 Betreibung
+> escalation[human-operator only, agent-EXCLUDED by construction, audited]**. Then the remaining decoded pages:
+> **Appointment Detail · Auth Screens.** Do NOT start the next part unprompted — each is its own re-issued gate.
 
 > **One-liner to paste at the start of a new session:**
 > *"CareOS is a multi-tenant, agentic healthcare-operations SaaS (Laravel 12 · Inertia/Vue 3 · Eucalyptus Glow ·
 > offline Nurse PWA). THE BUILD IS COMPLETE — EIGHT built + green verticals on one platform: CLINIC (delivered +
 > admin), DENTAL (G1–G9), HOME-CARE/SPITEX, INPATIENT/ADT (Hospital P1), PHARMACY (P2), LAB/LIS (P3), RADIOLOGY/RIS
 > (P4), SURGERY/OR (P5), ED (P6) — ALL hospital phases built. Current focus is DEPLOY + PARTNERSHIPS, NOT building
-> (there are no more verticals to build); a page-by-page WIREFRAME-PARITY pass also runs alongside (Admin Settings
-> done · Approval Queue → P3 · Branches next — match the visual, NEVER weaken a gate, surface-don't-fabricate, one
-> part = one commit; D-149 + docs/wireframe-parity/). Read docs/ONBOARDING.md → AGENTS.md → PROJECT-STATE.md → DECISIONS.md →
+> (there are no more verticals to build); a page-by-page WIREFRAME-PARITY pass also runs alongside (SIX pages done —
+> Admin Settings · Approval Queue · Branches · Agent&Tool Config · Allergy safe-part · Billing & AR; AR Account Detail
+> drill-in in progress through P3, remaining P4 record-payment / P5 payment-plan / P6 Betreibung[agent-excluded];
+> then Appointment Detail · Auth Screens — match the visual, NEVER weaken a gate, surface-don't-fabricate, one
+> part = one commit; D-149/D-150/D-151 + docs/wireframe-parity/). Read docs/ONBOARDING.md → AGENTS.md → PROJECT-STATE.md → DECISIONS.md →
 > DEFERRED.md → memory/LOG.md first. HARD RULES: electric fence (record-not-judge; no AI in the clinical-decision
 > path; checklists RECORD not ENFORCE; ranges/results DISPLAYED not FLAGGED; reports/acuity/ASA AUTHORED/ASSIGNED
 > not computed; every safety judgment — drug interactions, triage, HL7, DICOM/CAD — is a certified-partner seam,
@@ -43,13 +49,15 @@ wireframe without weakening a single enforced gate). See §5.
 1. **`AGENTS.md`** — single source of truth: project, stack, hard rules, workflow, module map, MEMORY PROTOCOL.
 2. **`PROJECT-STATE.md`** — authoritative "where we are" snapshot (BUILD COMPLETE · eight verticals · all hospital
    phases · focus = deploy + partnerships · latest commit + suite counts).
-3. **`DECISIONS.md`** — architecture decision log, **D-001 → D-149** (append-only; never edit past entries; **D-149**
-   = the wireframe-parity discipline).
+3. **`DECISIONS.md`** — architecture decision log, **D-001 → D-151** (append-only; never edit past entries; **D-149**
+   = the wireframe-parity discipline, **D-150** = the Billing & AR reconcile extension + engine-computed reporting,
+   **D-151** = AR Account Detail read-only-over-the-engine + the agent-never-commits-money / never-escalates-Betreibung line).
 4. **`DEFERRED.md`** — the parked backlog, each item with its pull-forward TRIGGER (the certified-partner seams +
    medical-device non-goals + earlier parked items).
 5. **`memory/LOG.md`** — one line per completed gate; the full build history (Phases 0/A–G · P0P · CLINIC.W1–W10 ·
    FIX.1–5 · POLISH.1–3 · UI.F1–2 · DENTAL.G1–9 · HOSPITAL.G1–7 · PHARMACY.G1–5 · SURGERY.G1–5 · ED.G1–6 ·
-   LAB.G1–6 · RAD.G1–5 · the reconciliation entries).
+   LAB.G1–6 · RAD.G1–5 · A11Y.1 · the WIREFRAME-PARITY gates [SETTINGS.P1–6 · APPROVAL.P1–7 · BRANCH.P1–5 ·
+   AGENT.P1–6 · ALLERGY.P1 · BILLAR.P1–7 · ARDETAIL.P1–3] · the reconciliation entries).
 6. **`memory/modules/*.md`** — per-module deep notes (20): Platform, Audit, AiCore, People, Patients, Scheduling,
    Clinical, Billing, Comms, FrontDesk, Nursing, Reporting, Import, **Dental, Hospital, Pharmacy, Surgery, ED,
    Lab, Radiology**.
@@ -63,10 +71,12 @@ wireframe without weakening a single enforced gate). See §5.
 11. **The audit reports** — `docs/QA-AUDIT-REPORT.md` (live-browser QA + FIX.1–5), `docs/DEEP-AUDIT-REPORT.md`,
     `docs/FULL-EXERCISE-AUDIT-REPORT.md` (all-roles exercise). Plus `docs/ONBOARDING-REHEARSAL-REPORT.md`,
     `docs/DISCOVERY.md`, `docs/SCREENS.md`, `docs/AGENT-EVALS.md`, `docs/DEPLOY-RUNBOOK.md`.
-14. **`docs/wireframe-parity/*.md`** — the wireframe-parity pass (D-149): per-page audit/diff reports +
-    per-part progress. `ADMIN-SETTINGS-DIFF.md` (COMPLETE), `APPROVAL-QUEUE-DIFF.md` (mid-chain, through P3). The
-    decoded wireframes live in the **gitignored** `resources/prototype/` (regenerate by decoding the bundle, never
-    committed).
+14. **`docs/wireframe-parity/*.md`** — the wireframe-parity pass (D-149/D-150/D-151): per-page audit/diff reports +
+    per-part progress. SEVEN docs: `ADMIN-SETTINGS-DIFF.md`, `APPROVAL-QUEUE-DIFF.md`, `BRANCHES-DIFF.md`,
+    `AGENT-TOOL-CONFIG-DIFF.md`, `ALLERGY-ALERT-DIFF.md`, `BILLING-AR-DIFF.md` (all COMPLETE/RESOLVED), and
+    `AR-ACCOUNT-DETAIL-DIFF.md` (IN PROGRESS — items #1/#2/#4/#5 RESOLVED through P3; #3/#6-#9 = the P4–P6 gates +
+    the flagged QR-bill/payer-taxonomy gaps). The decoded wireframes live in the **gitignored** `resources/prototype/`
+    (regenerate by decoding the bundle, never committed).
 12. **The scoping doc** (`careos-hospital-expansion-scoping.md`) — **NOT in-repo** (external); the hospital build is
     captured in the six HOSPITAL-PHASE maps above.
 13. **this file** (`docs/ONBOARDING.md`).
@@ -111,8 +121,9 @@ composer fix            # Pint auto-fix
 > actual Pint/PHPStan/Pest text from the log tail. The exit code has LIED before (a Pint style failure returned
 > exit 0).** Pint runs FIRST and halts the chain on any style nit — a new test/controller file commonly trips
 > `fully_qualified_strict_types` / `ordered_imports` / `no_unused_imports`; auto-fix with `composer fix` (or
-> `pint <files>`) then re-run. **Current baseline: Pest 953 passed / 2 skipped / 13,544 assertions** (the 2 skips
-> = Redis-Horizon + one reminder-infra case, green in CI on Redis 7); PHPStan L5 `[OK]`; Pint clean.
+> `pint <files>`) then re-run. **Current baseline: Pest 1146 passed / 15,159 assertions** (as of ARDETAIL.P3,
+> `9c95246`; earlier reference: 953 at the pre-parity build), plus **Vitest `npm run test:unit` 29 passed**; PHPStan
+> L5 `[OK]`; Pint clean.
 
 **Frontend:**
 ```

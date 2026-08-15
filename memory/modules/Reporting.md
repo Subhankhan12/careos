@@ -32,7 +32,27 @@ modules' tenant-owned data through their Eloquent query surfaces.
     (point-in-time sum of `invoice_balances.open_balance_minor` over issued INV
     invoices — the I2 projection; no date range), `agingBuckets(asOf)` (open
     balance split current / 1-30 / 31-60 / 61-90 / 90+ days past `due_date`;
-    factual date math, no labeling).
+    factual date math, no labeling), `overdueBalanceMinor(asOf)` (Σ the past-due
+    aging buckets).
+  - FINANCIAL — the BILLING & AR wireframe-parity methods (BILLAR/ARDETAIL,
+    `billing.view`, integer minor, all TIE δ=0; the pages DISPLAY these — no
+    page-side money math; see [[D-150]]/[[D-151]]): `arRollForward` (opening +
+    charges − collections − adjustments − write-offs = closing, ties two ways,
+    a non-tie surfaced) · `daysSalesOutstanding` + `netCollectionRate` (+ honest
+    collectible = charges − contractual; zero/edge → honest null "—") · `arByPayer`
+    (groups over the real `payer_type`, tie δ=0; finer Swiss taxonomy is a flagged
+    gap, not fabricated) · `chargedVsCollectedTrend(from,to,bucket)` (buckets
+    partition the range δ=0, shared helpers) · `topOverdueAccounts(asOf,limit)`
+    (per-account overdue rollup ordered most-overdue-first; stage = real
+    `max(DunningEvent.level)`; rollup ties to its invoices + `overdueBalanceMinor`,
+    δ=0) · `accountLedger(accountId,asOf)` (per-account running-balance ledger; Σ
+    rows === `outstandingBalanceMinor` for the account, final running === total,
+    δ=0) · `accountDunning(accountId,feeCodeByLevel,asOf)` (READ-ONLY display of the
+    real dunning state machine — the persisted `dunning_events` + per-event fee
+    matched to the real captured fee Charge; fees tie). The private shared helpers
+    (`chargesBilledMinor` net of credit-note cancellations, `netCollectionsMinor`,
+    `contractualAdjustmentsMinor`, `writeOffsMinor`, `dateBounds`/`dateTimeBounds`)
+    give ONE definition of "charges"/"collections" across all of the above.
   - THROUGHPUT (`reporting.view`, counts only): `encountersInRange` (`started_at`),
     `signedNotesInRange` (status=signed + `signed_at`), `ordersPlacedInRange`
     (`ordered_at`).

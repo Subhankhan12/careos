@@ -2549,8 +2549,44 @@ references the old ID.
      recorded grounding sources, the real enforced approve contract — or an **honest absence** ("No linked sources
      on this action."). No invented permission/ceiling/source, no premature "edit"/stat claim, no control the
      backend can't honour. Copy states only what the server actually does (verified before it's written).
-  **Applied so far:** Admin Settings (SETTINGS.P1–P6, COMPLETE — `e7cabf0`) and Approval Queue (APPROVAL.P1 chrome
-  → P2 real-provenance card anatomy → P3 the honest approve-contract caption, `aac95c8`; the caption is accurate
-  per action — a draft says "re-grounds the draft…posts", a direct action "re-derives the action…runs" — driven by
-  a real `reGroundsDraft` flag read from the action's own `proposed_output`, interpolating the action's real tool
-  permission). Branches is queued next. See `docs/wireframe-parity/*.md`, [[AiCore]], [[Platform]], [[LOG]].
+  **Applied (updated at the ARDETAIL.P2 reconciliation):** SIX pages COMPLETE — Admin Settings (SETTINGS.P1–P6,
+  `e7cabf0`) · Approval Queue (APPROVAL.P1–P7, `ea0e9b3`) · Branches (BRANCH.P1–P5, `a865a31`) · Agent & Tool Config
+  (AGENT.P1–P6, `d0199e3`) · Allergy Alert safe-part (ALLERGY.P1, `46e45d1` — record-display only; computed
+  drug-allergy checking is a certified-partner medical-device NON-GOAL, not built) · Billing & AR (BILLAR.P1–P7,
+  `aa82ea0`). **AR Account Detail IN PROGRESS** — the Billing & AR drill-in: ARDETAIL.P1 per-account running-balance
+  ledger → P2 dunning timeline → P3 hero/Swiss-format/links done (`9c95246`); remaining P4 record-payment · P5
+  payment-plan · P6 Betreibung escalation. Remaining decoded pages after it: Appointment Detail · Auth Screens. See
+  [[D-150]] (billing reconcile extension + engine reporting) + [[D-151]] (AR account detail + the agent-never-commits-
+  money / never-escalates-Betreibung line). `docs/wireframe-parity/*.md`, [[AiCore]], [[Platform]], [[LOG]].
+
+- **D-150 — Billing & AR reconcile-to-the-unit EXTENDED + reporting is engine-computed-and-displayed (BILLAR.P1–P7).**
+  The billing parity chain extended the reconcile invariant WITHOUT weakening it: (1) **write-offs + contractual
+  adjustments** are now first-class, operator-gated (`billing.manage`), **append-only** signed-minor ledger movements
+  (`InvoiceAdjustment` via `AdjustmentService`; a correction is a reversal row, never a mutation) that REDUCE the open
+  balance — the `ReconciliationEngine`'s I2 (balance derivation) + I6 (no-orphan) were extended to include them,
+  invariant count unchanged at 6, tie-out δ=0 (the agent has NO path to write one). (2) **All AR reporting is an
+  engine method that TIES and is DISPLAYED, never page-computed:** `arRollForward` (opening+charges−collections−
+  adjustments−write-offs=closing, δ=0 two ways) · `daysSalesOutstanding`/`netCollectionRate`/honest collectible ·
+  `arByPayer` (groups tie δ=0 over the real `payer_type`; the finer Swiss taxonomy is a flagged gap, not fabricated) ·
+  `chargedVsCollectedTrend` (buckets partition the range δ=0, shared helpers) · `topOverdueAccounts` (rollup ties to
+  its invoices + `overdueBalanceMinor`, δ=0) — all `billing.view`, tenant-scoped, integer-minor. **The management-report
+  grid + AR detail DISPLAY these; the Vue computes NO money (no client sum/ratio/bucket); the period switcher
+  re-parameterizes the ENGINE (server recompute), and the CSV export is of engine figures.** The money fence now reads:
+  every displayed figure is a `MetricsService` return (proven by assertInertia: props === the service), all money math
+  is in the engine, and it ties δ=0. See [[Billing]], [[Reporting]], `docs/wireframe-parity/BILLING-AR-DIFF.md`, [[LOG]].
+
+- **D-151 — AR Account Detail: read-only over the engine + the real state machine; money movements + Betreibung are
+  human-owned, agent-excluded, audited (ARDETAIL.P1–P2 + the remaining plan).** The Billing & AR drill-in
+  `/billing/accounts/{account}` DISPLAYS the account over the engine: **P1** a per-account running-balance ledger
+  (`MetricsService::accountLedger` — per-invoice amount/paid/balance from the reconciled projection + a running balance
+  computed IN THE ENGINE; Σ rows === the account's `outstandingBalanceMinor`, final running === total, δ=0). **P2** the
+  dunning timeline (`accountDunning`) — a READ-ONLY display of the REAL state machine: the stage is the persisted
+  `max(DunningEvent.level)` (NOT an "if age>N" page label), and per-event fees are the REAL captured fee Charges
+  (matched by the policy's level⇒fee_code + the event date), Σ tying to the recorded charges. **THE GOVERNANCE LINE
+  (binding for the later gates):** the **agent NEVER commits money** and **NEVER initiates Betreibung/debt-enforcement**
+  — record-payment (P4) must go through the guarded `PaymentService` (over-allocation refused; append-only; reconciles);
+  the **Betreibung escalation (P6) must be human-operator-only, agent-EXCLUDED by construction, and audited (never an
+  auto-escalation path)** — the agent may only DRAFT a reminder through the existing cap/ApprovalQueue path. Payment
+  plan (P5) is a wireframe-new model; the real Swiss QR-bill (IBAN/reference) is a flagged backend gap (no homemade
+  QR-bill fabricated — the existing invoice PDF is surfaced honestly). See [[Billing]], [[Reporting]],
+  `docs/wireframe-parity/AR-ACCOUNT-DETAIL-DIFF.md`, [[LOG]].
