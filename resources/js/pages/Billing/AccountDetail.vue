@@ -82,6 +82,37 @@ type PaymentAction = {
     open_invoices: OpenInvoice[];
 };
 
+type PlanInstallment = {
+    id: string;
+    sequence: number;
+    due_date: string;
+    amount_minor: number;
+    status: string;
+    overdue: boolean;
+    paid_on: string | null;
+    pay_url: string;
+};
+type Plan = {
+    id: string;
+    status: string;
+    total_minor: number;
+    currency: string;
+    installment_count: number;
+    start_date: string;
+    outstanding_at_creation_minor: number;
+    paid_minor: number;
+    remaining_minor: number;
+    closed_reason: string | null;
+    ties: boolean;
+    installments: PlanInstallment[];
+    cancel_url: string;
+};
+type PlanAction = {
+    can_manage: boolean;
+    store_url: string;
+    current: Plan | null;
+};
+
 const props = defineProps<{
     account: { id: string; name: string; mrn: string | null };
     currency: string;
@@ -89,6 +120,7 @@ const props = defineProps<{
     ledger: Ledger;
     dunning: Dunning;
     payment: PaymentAction;
+    plan: PlanAction;
     links: { report: string; dunning: string; chart: string };
 }>();
 
@@ -182,6 +214,56 @@ const form = useForm({
     received_on: todayLocal(),
     reference: '',
 });
+
+/* ── ARDETAIL.P5 — payment plan. The page NEVER splits a schedule: it posts the operator's agreed
+ * total / count / start date and the ENGINE partitions the total exactly (and refuses a total above
+ * the account's real outstanding). Everything shown below is a server figure.
+ */
+const showPlanForm = ref(false);
+const planForm = useForm({
+    // Defaulted to the engine's own outstanding figure — a convenience default, not a computation.
+    amount: major(props.ledger.account_outstanding_minor),
+    installment_count: '3',
+    start_date: todayLocal(),
+});
+const installmentForm = useForm({ method: props.payment.methods[0] ?? 'bank_transfer', received_on: todayLocal(), reference: '' });
+const cancelForm = useForm({ reason: '' });
+const payingId = ref<string | null>(null);
+
+const planStatusIsOpen = computed(() => props.plan.current?.status === 'active');
+
+function submitPlan(): void {
+    planForm.transform((data) => ({
+        total_minor: toMinor(data.amount),
+        installment_count: Number.parseInt(data.installment_count, 10) || 0,
+        start_date: data.start_date,
+    })).post(props.plan.store_url, {
+        preserveScroll: true,
+        onSuccess: () => {
+            showPlanForm.value = false;
+        },
+    });
+}
+
+function payInstallment(installment: PlanInstallment): void {
+    payingId.value = installment.id;
+    installmentForm.post(installment.pay_url, {
+        preserveScroll: true,
+        onFinish: () => {
+            payingId.value = null;
+        },
+    });
+}
+
+function cancelPlan(): void {
+    if (!props.plan.current) return;
+    cancelForm.post(props.plan.current.cancel_url, { preserveScroll: true });
+}
+
+function planStatusLabel(status: string): string {
+    const key = `billing.accountDetail.plan.statuses.${status}`;
+    return te(key) ? t(key) : status;
+}
 
 function submitPayment(): void {
     form.transform((data) => ({
@@ -395,6 +477,130 @@ function submitPayment(): void {
                         <button type="submit" class="btn-glow" :disabled="form.processing">{{ t('billing.accountDetail.record.confirm') }}</button>
                     </div>
                 </form>
+            </div>
+
+            <!-- Payment plan — the schedule is ENGINE-computed (an exact partition of a total that
+                 can never exceed the account's real outstanding). The page displays it and posts
+                 operator input; it splits nothing and moves no money. Settling an installment goes
+                 through the same guarded PaymentService path as record-payment. -->
+            <div v-if="plan.can_manage || plan.current" class="glass-card p-5">
+                <div class="flex flex-wrap items-center justify-between gap-2">
+                    <div class="flex items-baseline gap-2">
+                        <h2 class="text-sm font-semibold uppercase tracking-wide text-ink-subtle">{{ t('billing.accountDetail.plan.title') }}</h2>
+                        <span class="text-xs text-ink-subtle">{{ t('billing.accountDetail.plan.subtitle') }}</span>
+                    </div>
+                    <button v-if="plan.can_manage && !planStatusIsOpen" type="button" class="btn-glow" @click="showPlanForm = !showPlanForm">
+                        {{ showPlanForm ? t('billing.actions.cancel') : t('billing.accountDetail.plan.open') }}
+                    </button>
+                </div>
+
+                <p v-if="planForm.errors.payment_plan || installmentForm.errors.payment_plan || cancelForm.errors.payment_plan" class="mt-3 rounded-xl bg-danger/10 px-3 py-2 text-sm text-danger">
+                    {{ planForm.errors.payment_plan || installmentForm.errors.payment_plan || cancelForm.errors.payment_plan }}
+                </p>
+
+                <!-- Create -->
+                <form v-if="showPlanForm && !planStatusIsOpen" class="mt-4 space-y-4" @submit.prevent="submitPlan">
+                    <div class="grid gap-4 sm:grid-cols-3">
+                        <label class="block">
+                            <span class="text-xs font-semibold uppercase tracking-wide text-ink-subtle">{{ t('billing.accountDetail.plan.amount', { currency }) }}</span>
+                            <input v-model="planForm.amount" type="number" step="0.01" min="0" required inputmode="decimal" class="mt-1 w-full rounded-xl border border-line bg-white/70 px-3 py-2 text-sm text-ink tabular-nums focus:border-euca-400 focus:outline-none focus:ring-2 focus:ring-euca-200" />
+                            <span v-if="planForm.errors.total_minor" class="text-xs text-danger">{{ planForm.errors.total_minor }}</span>
+                        </label>
+                        <label class="block">
+                            <span class="text-xs font-semibold uppercase tracking-wide text-ink-subtle">{{ t('billing.accountDetail.plan.installments') }}</span>
+                            <input v-model="planForm.installment_count" type="number" step="1" min="1" max="60" required class="mt-1 w-full rounded-xl border border-line bg-white/70 px-3 py-2 text-sm text-ink tabular-nums focus:border-euca-400 focus:outline-none focus:ring-2 focus:ring-euca-200" />
+                            <span v-if="planForm.errors.installment_count" class="text-xs text-danger">{{ planForm.errors.installment_count }}</span>
+                        </label>
+                        <label class="block">
+                            <span class="text-xs font-semibold uppercase tracking-wide text-ink-subtle">{{ t('billing.accountDetail.plan.startDate') }}</span>
+                            <input v-model="planForm.start_date" type="date" required class="mt-1 w-full rounded-xl border border-line bg-white/70 px-3 py-2 text-sm text-ink focus:border-euca-400 focus:outline-none focus:ring-2 focus:ring-euca-200" />
+                        </label>
+                    </div>
+                    <p class="text-xs text-ink-subtle">{{ t('billing.accountDetail.plan.tieHint', { outstanding: money(ledger.account_outstanding_minor) }) }}</p>
+                    <div class="flex justify-end">
+                        <button type="submit" class="btn-glow" :disabled="planForm.processing">{{ t('billing.accountDetail.plan.confirm') }}</button>
+                    </div>
+                </form>
+
+                <!-- The plan + its schedule -->
+                <div v-if="plan.current" class="mt-4">
+                    <div class="flex flex-wrap items-center justify-between gap-2">
+                        <span
+                            class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold"
+                            :class="planStatusIsOpen ? 'bg-euca-50 text-euca-800' : 'bg-surface-2 text-ink-muted'"
+                        >
+                            <span class="h-2 w-2 rounded-full" :class="planStatusIsOpen ? 'bg-euca-500' : 'bg-ink-subtle'"></span>
+                            {{ planStatusLabel(plan.current.status) }}
+                        </span>
+                        <span v-if="plan.current.ties" class="rounded-full bg-euca-50 px-2.5 py-0.5 text-xs font-semibold text-euca-800">
+                            {{ t('billing.accountDetail.plan.tiesOk', { total: money(plan.current.total_minor) }) }}
+                        </span>
+                        <span v-else class="rounded-full bg-warning/15 px-2.5 py-0.5 text-xs font-semibold text-warning">{{ t('billing.accountDetail.plan.tiesOff') }}</span>
+                    </div>
+
+                    <div class="mt-3 grid gap-4 sm:grid-cols-3">
+                        <div class="rounded-xl bg-surface-2 p-3">
+                            <p class="text-xs font-semibold uppercase tracking-wide text-ink-subtle">{{ t('billing.accountDetail.plan.total') }}</p>
+                            <p class="mt-1 text-lg font-semibold text-ink tabular-nums">{{ money(plan.current.total_minor) }}</p>
+                        </div>
+                        <div class="rounded-xl bg-surface-2 p-3">
+                            <p class="text-xs font-semibold uppercase tracking-wide text-ink-subtle">{{ t('billing.accountDetail.plan.paid') }}</p>
+                            <p class="mt-1 text-lg font-semibold text-euca-700 tabular-nums">{{ money(plan.current.paid_minor) }}</p>
+                        </div>
+                        <div class="rounded-xl bg-surface-2 p-3">
+                            <p class="text-xs font-semibold uppercase tracking-wide text-ink-subtle">{{ t('billing.accountDetail.plan.remaining') }}</p>
+                            <p class="mt-1 text-lg font-semibold text-ink tabular-nums">{{ money(plan.current.remaining_minor) }}</p>
+                        </div>
+                    </div>
+
+                    <div class="mt-3 overflow-x-auto">
+                        <table class="w-full text-left text-sm">
+                            <thead class="text-xs uppercase tracking-wide text-ink-subtle">
+                                <tr class="border-b border-line">
+                                    <th class="px-2 py-2 font-semibold">{{ t('billing.accountDetail.plan.col.number') }}</th>
+                                    <th class="px-2 py-2 font-semibold">{{ t('billing.accountDetail.plan.col.due') }}</th>
+                                    <th class="px-2 py-2 text-right font-semibold">{{ t('billing.accountDetail.plan.col.amount') }}</th>
+                                    <th class="px-2 py-2 font-semibold">{{ t('billing.accountDetail.plan.col.status') }}</th>
+                                    <th v-if="plan.can_manage && planStatusIsOpen" class="px-2 py-2 text-right font-semibold">{{ t('billing.accountDetail.plan.col.action') }}</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-line/70">
+                                <tr v-for="i in plan.current.installments" :key="i.id">
+                                    <td class="px-2 py-2.5 tabular-nums text-ink-muted">{{ i.sequence }}</td>
+                                    <td class="px-2 py-2.5 tabular-nums text-ink-muted">{{ i.due_date }}</td>
+                                    <td class="px-2 py-2.5 text-right tabular-nums text-ink">{{ money(i.amount_minor) }}</td>
+                                    <td class="px-2 py-2.5">
+                                        <span class="inline-flex items-center gap-1.5">
+                                            <span class="h-2 w-2 rounded-full" :class="i.status === 'paid' ? 'bg-euca-500' : i.overdue ? 'bg-warning' : 'bg-ink-subtle'"></span>
+                                            <span class="text-ink">{{ i.status === 'paid' ? t('billing.accountDetail.plan.paidOn', { date: i.paid_on }) : i.overdue ? t('billing.accountDetail.plan.overdue') : t('billing.accountDetail.plan.pending') }}</span>
+                                        </span>
+                                    </td>
+                                    <td v-if="plan.can_manage && planStatusIsOpen" class="px-2 py-2.5 text-right">
+                                        <button
+                                            v-if="i.status !== 'paid'"
+                                            type="button"
+                                            class="rounded-xl border border-line px-3 py-1.5 text-xs font-semibold text-ink transition hover:bg-surface-2 disabled:opacity-50"
+                                            :disabled="installmentForm.processing && payingId === i.id"
+                                            @click="payInstallment(i)"
+                                        >{{ t('billing.accountDetail.plan.markPaid') }}</button>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <p v-if="plan.current.closed_reason" class="mt-3 text-xs text-ink-muted">{{ t('billing.accountDetail.plan.closedReason', { reason: plan.current.closed_reason }) }}</p>
+
+                    <form v-if="plan.can_manage && planStatusIsOpen" class="mt-4 flex flex-wrap items-end gap-2" @submit.prevent="cancelPlan">
+                        <label class="min-w-[16rem] flex-1">
+                            <span class="text-xs font-semibold uppercase tracking-wide text-ink-subtle">{{ t('billing.accountDetail.plan.cancelReason') }}</span>
+                            <input v-model="cancelForm.reason" type="text" maxlength="500" required class="mt-1 w-full rounded-xl border border-line bg-white/70 px-3 py-2 text-sm text-ink focus:border-euca-400 focus:outline-none focus:ring-2 focus:ring-euca-200" />
+                            <span v-if="cancelForm.errors.reason" class="text-xs text-danger">{{ cancelForm.errors.reason }}</span>
+                        </label>
+                        <button type="submit" class="rounded-xl border border-line px-4 py-2 text-sm font-semibold text-ink-muted transition hover:bg-surface-2" :disabled="cancelForm.processing">{{ t('billing.accountDetail.plan.cancelPlan') }}</button>
+                    </form>
+                </div>
+                <p v-else-if="!showPlanForm" class="mt-3 text-sm text-ink-muted">{{ t('billing.accountDetail.plan.empty') }}</p>
             </div>
 
             <!-- Dunning timeline — a READ-ONLY display of the real state machine (append-only

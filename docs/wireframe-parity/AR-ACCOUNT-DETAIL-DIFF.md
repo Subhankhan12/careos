@@ -39,7 +39,7 @@ BILLAR.P7 gate report says as much).
 | **Dunning timeline** (reminder → 1./2. Mahnung → Betreibung) | `DunningEvent` (append-only, real state-machine output; `level`, `triggered_on`, `status`) via `DunningService` | **reminder→Mahnung real**; **Betreibung stage is new** (not a modeled dunning level) |
 | Record payment | `PaymentService::record` + `allocate` (over-allocation guard; append-only; reconciles) — already wired at `/billing/payments/record` | **exists** (guarded); needs wiring on this page |
 | Send new QR-bill | Swiss QR-bill/PDF rendering exists in billing (`DunningLetterRenderer`, invoice PDF) | **partly exists**; account-level "send" action is new wiring |
-| Set up payment plan | *none* — no payment-plan model/service anywhere | **WIREFRAME-NEW backend (its own gate)** |
+| Set up payment plan | **BUILT (ARDETAIL.P5)** — `PaymentPlan` + `PaymentPlanInstallment` + `PaymentPlanService`; total capped by the real outstanding, installments an exact partition, settled via the P4 guarded `PaymentService` | **resolved** (was wireframe-new) |
 | **Approve Betreibung / debt-enforcement escalation** | *none* — no Betreibung/escalation model or action (grep: the only "escalation" in code is the agent uncertainty hand-off, unrelated) | **WIREFRAME-NEW backend (its own gate) — MUST be operator-gated + agent-excluded + audited** |
 | Billing-agent panel ("4 notices sent · 1 awaiting you · 0 auto-escalated") | `DunningEvent` counts + the ApprovalQueue/agent-cap governance (AGENT.P1–P6) | **display gap** over existing governance |
 | Open patient chart link | Patient 360 (`/patients/{id}`) | **exists** (link) |
@@ -219,7 +219,20 @@ from the start (the wireframe's own framing).
    reception 403). *(The "Send new QR-bill" half of this item stays #9 / the flagged QR-bill gap.)*
 7. *(High, operator-gated)* **Betreibung / debt-enforcement escalation** — its own gate: **human-operator only,
    agent-excluded, audited + append-only**; the agent drafts and stops ("0 auto-escalated" enforced, not just shown).
-8. *(Med)* **Payment plan** — wireframe-new model (its own gate); no page-side money math.
+8. ✅ **RESOLVED (ARDETAIL.P5)** — **Payment plan** — the wireframe-new model, built so phantom money is
+   impossible: `payment_plans` + `payment_plan_installments` (additive, integer minor) whose **total may not
+   exceed the account's REAL outstanding** (measured over the SAME population the P1 ledger sums, and a second
+   active plan is refused so two cannot together exceed the balance), and whose installments are an **exact
+   PARTITION** of that total — split in the ENGINE with the last installment absorbing the integer remainder, so
+   `Σ installments === total_minor` (δ=0), re-asserted against the persisted rows before commit. **The plan
+   writes no money:** settling an installment goes through the ARDETAIL.P4 guarded `PaymentService` (allocated
+   oldest-first, each allocation capped by that invoice's open balance so the over-allocation guard binds; the
+   leftover stays an honest unallocated remainder), after which I1–I6 tie δ=0 and the P1 ledger/outstanding move
+   by exactly the installment. Operator-created/cancelled/defaulted (`billing.manage`, reason + audit required);
+   **agent-excluded** (no AI tool is a payment/installment capability; AiCore references neither `PaymentPlan`
+   nor `PaymentService`). The Vue splits nothing. Locked by `tests/Feature/Billing/PaymentPlanTest.php` (11) +
+   the route smoke; browser-verified (CHF 313.00 → 104.33/104.33/104.34 ties; two installments settled → balance
+   CHF 104.34; a CHF 500.00 plan against it refused in-page).
 9. *(Low/Med)* **Send new QR-bill / reminder** — reuse the existing `DunningService` + agent-cap/ApprovalQueue path; not
    a new auto-send.
 
@@ -227,7 +240,8 @@ from the start (the wireframe's own framing).
 the running balance tying δ=0 (no Vue sum); record-payment through `PaymentService` + the over-allocation guard; the
 dunning stage the real state machine; **Betreibung human-operator + agent-excluded + audited — never auto-escalated**.
 
-**Progress:** items #1/#2/#4/#5 resolved (P1–P3, display) and **#6 resolved (P4, the first write)**. **REMAINING:**
-#3 account-wide figures (Med) · **#7 Betreibung escalation (P6 — human-operator only, agent-EXCLUDED by
-construction, audited)** · #8 payment plan (P5 — a new model) · #9 send new QR-bill/reminder (reuse `DunningService`
-+ the agent-cap/ApprovalQueue path), plus the flagged real Swiss QR-bill (IBAN/reference) backend gap.
+**Progress:** items #1/#2/#4/#5 resolved (P1–P3, display), **#6 resolved (P4, the first write)** and **#8 resolved
+(P5, the payment plan)**. **REMAINING:** #3 account-wide figures (Med) · **#7 Betreibung escalation (P6 —
+human-operator only, agent-EXCLUDED by construction, audited)** · #9 send new QR-bill/reminder (reuse
+`DunningService` + the agent-cap/ApprovalQueue path), plus the flagged real Swiss QR-bill (IBAN/reference)
+backend gap.

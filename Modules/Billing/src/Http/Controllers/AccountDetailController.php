@@ -10,7 +10,10 @@ use Inertia\Response;
 use InvalidArgumentException;
 use Modules\Billing\Models\Invoice;
 use Modules\Billing\Models\Payment;
+use Modules\Billing\Models\PaymentPlan;
+use Modules\Billing\Models\PaymentPlanInstallment;
 use Modules\Billing\Services\DunningService;
+use Modules\Billing\Services\PaymentPlanService;
 use Modules\Billing\Services\PaymentService;
 use Modules\Patients\Models\Patient;
 use Modules\Platform\Models\User;
@@ -35,7 +38,7 @@ use Modules\Reporting\Services\MetricsService;
  */
 class AccountDetailController
 {
-    public function show(Request $request, string $account, MetricsService $metrics, SettingsService $settings): Response
+    public function show(Request $request, string $account, MetricsService $metrics, SettingsService $settings, PaymentPlanService $plans): Response
     {
         Gate::authorize('billing.view');
         $actor = $request->user();
@@ -88,6 +91,14 @@ class AccountDetailController
                 'store_url' => route('billing.accounts.payments.store', (string) $patient->id),
                 'methods' => Payment::METHODS,
                 'open_invoices' => $this->openInvoiceTargets($ledger),
+            ],
+            // ARDETAIL.P5 — the installment payment plan. Every figure is a recorded fact or an
+            // engine total from PaymentPlanService::present(); the page computes no money and does
+            // NOT split the schedule (the engine partitions the total exactly).
+            'plan' => [
+                'can_manage' => Gate::allows('billing.manage'),
+                'store_url' => route('billing.accounts.plans.store', (string) $patient->id),
+                'current' => $this->withPlanActionUrls($plans->present($plans->currentOrLatestFor((string) $patient->id), now()), (string) $patient->id),
             ],
             'links' => [
                 'report' => route('billing.report'),
@@ -181,6 +192,136 @@ class AccountDetailController
         }
 
         return redirect()->route('billing.accounts.show', (string) $patient->id);
+    }
+
+    /**
+     * Create an installment payment plan for this account — the wireframe's "Set up payment plan".
+     *
+     * THE FENCE: no money math and no schedule arithmetic here. The controller passes the operator's
+     * agreed total, installment count and start date to {@see PaymentPlanService::create()}, which
+     * refuses a total above the account's REAL outstanding (and a second active plan), partitions the
+     * total in integer minor units so the installments sum to it EXACTLY, and audits the agreement.
+     * A plan schedules money; it moves none.
+     */
+    public function storePlan(Request $request, string $account, PaymentPlanService $plans): RedirectResponse
+    {
+        // OPERATOR-GATED — the agent never creates a payment plan (D-151/D-152).
+        Gate::authorize('billing.manage');
+        $actor = $request->user();
+        abort_unless($actor instanceof User, 403);
+
+        $patient = Patient::query()->whereKey($account)->firstOrFail();
+
+        // total_minor arrives already in integer minor units (the form normalises the major-unit
+        // input); the service validates it against the real outstanding and owns the split.
+        $validated = $request->validate([
+            'total_minor' => ['required', 'integer', 'min:1'],
+            'installment_count' => ['required', 'integer', 'min:1', 'max:'.PaymentPlanService::MAX_INSTALLMENTS],
+            'start_date' => ['required', 'date'],
+        ]);
+
+        try {
+            $plans->create(
+                $patient,
+                (int) $validated['total_minor'],
+                (int) $validated['installment_count'],
+                $validated['start_date'],
+                $actor,
+            );
+        } catch (InvalidArgumentException $e) {
+            // The tie refused it (over the outstanding / a second active plan / an impossible split).
+            return redirect()
+                ->route('billing.accounts.show', (string) $patient->id)
+                ->withErrors(['payment_plan' => $e->getMessage()]);
+        }
+
+        return redirect()->route('billing.accounts.show', (string) $patient->id);
+    }
+
+    /**
+     * Settle one installment. The plan writes NO money: the service records the payment through the
+     * SAME guarded {@see PaymentService} path as ARDETAIL.P4 (over-allocation-guarded, append-only,
+     * reconciling) and then records which payment settled the installment.
+     */
+    public function payInstallment(Request $request, string $account, string $installment, PaymentPlanService $plans): RedirectResponse
+    {
+        Gate::authorize('billing.manage');
+        $actor = $request->user();
+        abort_unless($actor instanceof User, 403);
+
+        $patient = Patient::query()->whereKey($account)->firstOrFail();
+
+        $validated = $request->validate([
+            'method' => ['required', 'string', 'in:'.implode(',', Payment::METHODS)],
+            'received_on' => ['required', 'date'],
+            'reference' => ['nullable', 'string', 'max:255'],
+        ]);
+
+        // Tenant-scoped AND account-scoped: an installment of another account's plan is never
+        // settleable from this page (it 404s before any money is recorded).
+        $target = PaymentPlanInstallment::query()
+            ->whereKey($installment)
+            ->whereIn('payment_plan_id', PaymentPlan::query()->where('patient_id', $patient->id)->select('id'))
+            ->firstOrFail();
+
+        try {
+            $plans->payInstallment($target, $validated['method'], $validated['received_on'], $actor, $validated['reference'] ?? null);
+        } catch (InvalidArgumentException $e) {
+            return redirect()
+                ->route('billing.accounts.show', (string) $patient->id)
+                ->withErrors(['payment_plan' => $e->getMessage()]);
+        }
+
+        return redirect()->route('billing.accounts.show', (string) $patient->id);
+    }
+
+    /** Cancel a running plan (an agreement that ended). Reason required; audited by the service. */
+    public function cancelPlan(Request $request, string $account, string $plan, PaymentPlanService $plans): RedirectResponse
+    {
+        Gate::authorize('billing.manage');
+        $actor = $request->user();
+        abort_unless($actor instanceof User, 403);
+
+        $patient = Patient::query()->whereKey($account)->firstOrFail();
+
+        $validated = $request->validate([
+            'reason' => ['required', 'string', 'max:500'],
+        ]);
+
+        $target = PaymentPlan::query()->whereKey($plan)->where('patient_id', $patient->id)->firstOrFail();
+
+        try {
+            $plans->cancel($target, $validated['reason'], $actor);
+        } catch (InvalidArgumentException $e) {
+            return redirect()
+                ->route('billing.accounts.show', (string) $patient->id)
+                ->withErrors(['payment_plan' => $e->getMessage()]);
+        }
+
+        return redirect()->route('billing.accounts.show', (string) $patient->id);
+    }
+
+    /**
+     * Decorate the engine's presented plan with its action routes (the `withInvoicePdfLinks`
+     * pattern). Routes only — no figure is added, changed or recomputed here.
+     *
+     * @param  array<string, mixed>|null  $plan
+     * @return array<string, mixed>|null
+     */
+    private function withPlanActionUrls(?array $plan, string $patientId): ?array
+    {
+        if ($plan === null) {
+            return null;
+        }
+
+        $plan['cancel_url'] = route('billing.accounts.plans.cancel', [$patientId, $plan['id']]);
+        $plan['installments'] = array_map(function (array $installment) use ($patientId): array {
+            $installment['pay_url'] = route('billing.accounts.plans.pay', [$patientId, $installment['id']]);
+
+            return $installment;
+        }, $plan['installments']);
+
+        return $plan;
     }
 
     /**

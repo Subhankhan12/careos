@@ -473,6 +473,29 @@ browser-verified (Erika Baumgartner: CHF 100.00 → balance CHF 313.00 → CHF 2
 partially paid, ledger ties, I1–I6 δ=0; a forged CHF 999.99 allocation refused with the service's message and
 the balance untouched; reception GET/POST 403).
 
+## AR Account Detail — payment plan (ARDETAIL.P5 — schedules money, never moves it)
+
+`payment_plans` + `payment_plan_installments` (additive migrations, integer minor, CHECK constraints; rows MUTATE
+so every recorded moment is `dateTime()` per P0P.G15) + `PaymentPlanService` (`billing.manage` on every method).
+**THE TIE (no phantom money):** `create()` refuses a `total_minor` above `accountOutstandingMinor()` — the SAME
+population the P1 ledger sums (series INV + frozen statuses, Σ the reconciled `invoice_balances.open_balance_minor`),
+so plan and ledger agree by construction — refuses a SECOND active plan (two plans could otherwise exceed the
+balance together), and refuses a plan on a zero-balance account. **THE PARTITION:** the split is engine-side —
+`intdiv($total, $count)` with the LAST installment absorbing the remainder (`PaymentPlanService.php:333`, the only
+such line) — and is RE-ASSERTED against the persisted rows inside the creating transaction, so a schedule that did
+not sum to its total could never reach the DB. **THE PLAN MOVES NO MONEY:** `payInstallment()` records through the
+P4 `PaymentService::record` then allocates oldest-invoice-first with each allocation CAPPED by that invoice's own
+open balance (respecting the guard rather than probing it); the leftover stays an honest unallocated remainder (I3);
+the installment records WHICH payment settled it and the plan auto-completes when nothing is pending.
+`cancel()`/`markDefaulted()` need a reason and are audited; `overdue` is DERIVED (due date vs. now), never stored,
+so it cannot drift. Controller: `storePlan`/`payInstallment`/`cancelPlan` (account-scoped resolution → a foreign
+installment/plan 404s before any write) + `withPlanActionUrls` (routes only, the `withInvoicePdfLinks` pattern).
+The Vue displays the engine plan and splits nothing (adversarial grep clean). AGENT-EXCLUDED as in P4 (no AI tool
+is a payment/installment/allocation capability; AiCore references neither `PaymentPlan` nor `PaymentService`).
+Locked by `tests/Feature/Billing/PaymentPlanTest.php` (11) + the route smoke; browser-verified (CHF 313.00 → a
+104.33/104.33/104.34 schedule that ties, two installments settled through the guarded path → balance CHF 104.34,
+a CHF 500.00 plan against it refused, I1–I6 δ=0 throughout).
+
 ## Open items
 
 - FIX.1 (D-090): the W6/W7 detail/write controllers used implicit route-model binding, which 500'd in the

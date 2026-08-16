@@ -633,6 +633,14 @@ Route::middleware('auth')->group(function () {
     // over-allocation guard, the append-only ledger and the reconcile invariants are the SAME ones
     // the payments screen uses. No second payment path, no page-side balance write.
     Route::post('/billing/accounts/{account}/payments', [AccountDetailController::class, 'recordPayment'])->name('billing.accounts.payments.store');
+    // ARDETAIL.P5 — installment payment plans. All three are billing.manage OPERATOR actions (the
+    // agent never creates a plan and never commits an installment). The plan only SCHEDULES money:
+    // its total can never exceed the account's real outstanding and its installments partition that
+    // total exactly, while settling one records a real payment through the SAME guarded
+    // PaymentService path as P4 (over-allocation-guarded, append-only, reconciling).
+    Route::post('/billing/accounts/{account}/plans', [AccountDetailController::class, 'storePlan'])->name('billing.accounts.plans.store');
+    Route::post('/billing/accounts/{account}/plans/installments/{installment}/pay', [AccountDetailController::class, 'payInstallment'])->name('billing.accounts.plans.pay');
+    Route::post('/billing/accounts/{account}/plans/{plan}/cancel', [AccountDetailController::class, 'cancelPlan'])->name('billing.accounts.plans.cancel');
 
     // Reporting dashboard — the thin facts-only surface over ReportingService::summary.
     Route::get('/reporting', ReportingDashboardController::class)->name('reporting.dashboard');

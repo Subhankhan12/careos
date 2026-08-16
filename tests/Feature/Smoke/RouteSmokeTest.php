@@ -686,6 +686,17 @@ test('per-role RBAC smoke: each role reaches its pages (200) and is denied other
         $failures[] = "billing.accounts.payments.store as reception -> {$accountPaymentStatus} (expected 403)";
     }
 
+    // ARDETAIL.P5: creating an installment payment plan is billing.manage-gated (an operator agreement;
+    // the agent never schedules or commits money). Reception is denied at the gate through the real
+    // stack, before the plan service — and therefore before any schedule could be written.
+    smokeCtx()->forget();
+    $accountPlanStatus = $this->actingAs($u['reception'])
+        ->post('/billing/accounts/'.$fx['patient']->id.'/plans', ['total_minor' => 1000, 'installment_count' => 2, 'start_date' => '2026-07-01'])
+        ->status();
+    if ($accountPlanStatus !== 403) {
+        $failures[] = "billing.accounts.plans.store as reception -> {$accountPlanStatus} (expected 403)";
+    }
+
     expect(implode("\n", $failures))->toBe('');
 });
 

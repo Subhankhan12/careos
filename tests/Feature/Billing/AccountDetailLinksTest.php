@@ -115,7 +115,12 @@ test('the visual gate adds no mutation route and stays billing.view + tenant-sco
         ->filter(fn ($r) => str_starts_with($r->uri(), 'billing/accounts'));
     $writeRoutes = $accountRoutes->filter(fn ($r) => ! in_array('GET', $r->methods(), true) || in_array('POST', $r->methods(), true));
 
-    expect($writeRoutes->map(fn ($r) => $r->uri())->values()->all())->toBe(['billing/accounts/{account}/payments']);
+    expect($writeRoutes->map(fn ($r) => $r->uri())->sort()->values()->all())->toBe([
+        'billing/accounts/{account}/payments',
+        'billing/accounts/{account}/plans',
+        'billing/accounts/{account}/plans/installments/{installment}/pay',
+        'billing/accounts/{account}/plans/{plan}/cancel',
+    ]);
 
     // ...and that one write is operator-gated, not billing.view.
     $this->actingAs($reception)

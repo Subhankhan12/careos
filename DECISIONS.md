@@ -2612,3 +2612,29 @@ references the old ID.
   write route. The agent never commits money. Remaining on this page: P5 payment plan (a wireframe-new model) and
   P6 Betreibung escalation (human-operator only, agent-EXCLUDED by construction, audited). See [[Billing]],
   `docs/wireframe-parity/AR-ACCOUNT-DETAIL-DIFF.md`, [[LOG]].
+
+- **D-153 — Payment plans SCHEDULE money against a real balance; they never create or move it (ARDETAIL.P5).**
+  The wireframe's payment plan is a real model (`payment_plans` + `payment_plan_installments`, integer minor,
+  additive migrations) built on two invariants that together make phantom money impossible: (1) **THE TIE** — a
+  plan's `total_minor` may not exceed the account's REAL outstanding, measured by `PaymentPlanService::
+  accountOutstandingMinor()` over the SAME population the ARDETAIL.P1 ledger sums (series INV + frozen statuses,
+  Σ of the reconciled `invoice_balances` open balances), so plan and ledger agree by construction; and a second
+  ACTIVE plan per account is refused, so two plans can never together schedule more than the balance. (2) **THE
+  PARTITION** — the schedule is computed in the ENGINE in integer minor units, every installment taking
+  `intdiv(total, n)` with the LAST absorbing the remainder, so `Σ installments === total_minor` EXACTLY (δ=0);
+  it is re-asserted against the persisted rows inside the creating transaction, so a schedule that did not
+  partition its total could never reach the database. The page posts the operator's agreed total/count/start
+  date and splits nothing.
+  **THE PLAN WRITES NO MONEY.** Settling an installment goes through the ARDETAIL.P4 guarded `PaymentService`
+  (`record` then `allocate`, oldest invoice first, each allocation CAPPED by that invoice's own open balance so
+  the over-allocation guard is respected rather than probed); anything the account cannot absorb stays an honest
+  unallocated remainder (I3 allows it), and the installment merely records WHICH payment settled it. Proven:
+  I1–I6 tie δ=0 after each installment, the P1 ledger and outstanding move by exactly the installment, and
+  paying every installment settles the balance to zero and completes the plan.
+  **GOVERNANCE (D-151/D-152 upheld):** create, settle, cancel and default are all `billing.manage` operator
+  actions; the agent has no path — no registered `AiTool` is a payment/installment/allocation capability (the
+  financial tools remain advisory drafts capped at APPROVE) and no AiCore code references `PaymentPlan`,
+  `PaymentService` or the plan routes. Every lifecycle step is audited, and cancel/default require a reason.
+  `overdue` is DERIVED from the due date rather than stored, so it can never drift from the schedule. Remaining
+  on this page: P6 Betreibung escalation (human-operator only, agent-EXCLUDED by construction, audited). See
+  [[Billing]], `docs/wireframe-parity/AR-ACCOUNT-DETAIL-DIFF.md`, [[LOG]].

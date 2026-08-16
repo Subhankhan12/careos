@@ -206,8 +206,14 @@ test('the AR Account Detail page renders the engine dunning timeline and adds no
     expect($accountRoutes)->not->toBeEmpty()
         // No dunning/reminder/escalation action anywhere on this page.
         ->and($accountRoutes->contains(fn ($r) => (bool) preg_match('/dunning|reminder|escalat|betreibung/i', $r->uri())))->toBeFalse()
-        // The only write is the ARDETAIL.P4 record-payment route.
-        ->and($writeRoutes->map(fn ($r) => $r->uri())->values()->all())->toBe(['billing/accounts/{account}/payments']);
+        // The writes are exactly the money/plan operator actions (P4 record-payment, P5 plan
+        // lifecycle) — nothing else has appeared on this page.
+        ->and($writeRoutes->map(fn ($r) => $r->uri())->sort()->values()->all())->toBe([
+            'billing/accounts/{account}/payments',
+            'billing/accounts/{account}/plans',
+            'billing/accounts/{account}/plans/installments/{installment}/pay',
+            'billing/accounts/{account}/plans/{plan}/cancel',
+        ]);
 });
 
 // ── Empty state + RBAC/tenant scope ──────────────────────────────────────────────────────────────

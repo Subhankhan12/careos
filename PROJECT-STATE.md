@@ -3,7 +3,7 @@
 Short, factual snapshot of where the project stands. Updated at consolidations and after gates
 (per the MEMORY PROTOCOL in AGENTS.md).
 
-## STATUS: BUILD COMPLETE + AUDITED (3 audits, ZERO must-fix) · EIGHT VERTICALS · DEMOABLE HOSPITAL TENANT · CURRENT STAGE = DEPLOYMENT · WIREFRAME-PARITY PASS (6 PAGES DONE: Admin Settings · Approval Queue P1→P7 · Branches P1→P5 · Agent&Tool Config P1→P6 COMPLETE · Billing & AR P1→P7 COMPLETE · Allergy Alert safe-part [ALLERGY.P1] · Billing&AR audit + BILLAR.P1 write-off/adjustment ledger + BILLAR.P2 AR roll-forward + BILLAR.P3 DSO/collection-rate + BILLAR.P4 by-payer + BILLAR.P5 charged-vs-collected trend + BILLAR.P6 management-report grid + BILLAR.P7 top-overdue+drill — Billing & AR PARITY COMPLETE · AR Account Detail drill-in now building: ARDETAIL.P1 per-account running-balance ledger + ARDETAIL.P2 dunning timeline + ARDETAIL.P3 hero/Swiss-format/links + ARDETAIL.P4 record-payment through the guarded PaymentService)
+## STATUS: BUILD COMPLETE + AUDITED (3 audits, ZERO must-fix) · EIGHT VERTICALS · DEMOABLE HOSPITAL TENANT · CURRENT STAGE = DEPLOYMENT · WIREFRAME-PARITY PASS (6 PAGES DONE: Admin Settings · Approval Queue P1→P7 · Branches P1→P5 · Agent&Tool Config P1→P6 COMPLETE · Billing & AR P1→P7 COMPLETE · Allergy Alert safe-part [ALLERGY.P1] · Billing&AR audit + BILLAR.P1 write-off/adjustment ledger + BILLAR.P2 AR roll-forward + BILLAR.P3 DSO/collection-rate + BILLAR.P4 by-payer + BILLAR.P5 charged-vs-collected trend + BILLAR.P6 management-report grid + BILLAR.P7 top-overdue+drill — Billing & AR PARITY COMPLETE · AR Account Detail drill-in now building: ARDETAIL.P1 per-account running-balance ledger + ARDETAIL.P2 dunning timeline + ARDETAIL.P3 hero/Swiss-format/links + ARDETAIL.P4 record-payment through the guarded PaymentService + ARDETAIL.P5 payment-plan model)
 
 > **RECONCILED (this pass — eight verticals built + audited; at the DEPLOY stage; a page-by-page wireframe-parity
 > pass now in progress).** CareOS is a multi-tenant agentic healthcare-operations platform (EU-first). **Stack:**
@@ -36,9 +36,14 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
 > EXISTING `PaymentService`: the over-allocation guard held through the page path [a forged over-allocation refused
 > server-side, balance untouched], I1–I6 δ=0 after the payment with the P1 ledger/P7 rollup/outstanding all moving by
 > exactly the payment, append-only + audited, `billing.manage`-only, **agent-EXCLUDED** — no AI tool is a payment
-> capability and AiCore never references `PaymentService`; D-152) — **done**. **REMAINING:** P5 payment-plan (new
-> model) · P6 **Betreibung/debt-enforcement escalation** (human-operator only, **agent-excluded by construction**,
-> audited — never auto-escalated); plus the real Swiss QR-bill (IBAN/reference) which is a flagged backend gap.
+> capability and AiCore never references `PaymentService`; D-152) → **P5 PAYMENT PLAN** (a real installment model
+> built so phantom money is impossible: the total may not exceed the account's REAL outstanding [same population
+> the P1 ledger sums] and a second active plan is refused; the installments are an EXACT engine-computed PARTITION
+> of that total [last absorbs the remainder, Σ === total, δ=0, re-asserted before commit]; settling one goes
+> through the P4 guarded `PaymentService` so the plan itself moves NO money and I1–I6 still tie δ=0; operator
+> created/cancelled/defaulted with reason + audit, **agent-excluded**; D-153) — **done**. **REMAINING:** P6
+> **Betreibung/debt-enforcement escalation** (human-operator only, **agent-excluded by construction**, audited —
+> never auto-escalated); plus the real Swiss QR-bill (IBAN/reference) which is a flagged backend gap.
 > **REMAINING decoded pages after AR Account Detail:** Appointment Detail · Auth Screens.
 > Page status (historical per-page detail):
 > - **Admin Settings — COMPLETE** (SETTINGS.P1 glass → P2 Agents/AutonomyPolicy cap → P3 Scheduling/honest buffer →

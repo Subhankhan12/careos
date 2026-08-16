@@ -2389,6 +2389,42 @@
                     "sent": "Sent"
                 }
             },
+            "plan": {
+                "title": "Payment plan",
+                "subtitle": "installments over the real balance · scheduled by the billing engine",
+                "open": "Set up payment plan",
+                "amount": "Amount to schedule ({currency})",
+                "installments": "Installments",
+                "startDate": "First installment due",
+                "tieHint": "A plan can schedule at most the account's outstanding balance ({outstanding}); the engine splits it into equal installments, with the last absorbing the remainder so the schedule sums exactly.",
+                "confirm": "Create plan",
+                "empty": "No payment plan on this account.",
+                "total": "Scheduled",
+                "paid": "Paid so far",
+                "remaining": "Remaining",
+                "tiesOk": "Schedule ties — {total}",
+                "tiesOff": "Schedule does not tie",
+                "pending": "Pending",
+                "overdue": "Overdue",
+                "paidOn": "Paid {date}",
+                "markPaid": "Record installment",
+                "cancelReason": "Reason for closing the plan",
+                "cancelPlan": "Cancel plan",
+                "closedReason": "Closed: {reason}",
+                "col": {
+                    "number": "#",
+                    "due": "Due",
+                    "amount": "Amount",
+                    "status": "Status",
+                    "action": "Action"
+                },
+                "statuses": {
+                    "active": "Active",
+                    "completed": "Completed",
+                    "cancelled": "Cancelled",
+                    "defaulted": "Defaulted"
+                }
+            },
             "record": {
                 "title": "Record payment",
                 "subtitle": "money already received · posted through the billing engine",
