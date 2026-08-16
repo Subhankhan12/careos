@@ -154,6 +154,12 @@ Route::middleware('auth')->group(function () {
     // of a tenant model), so a cross-tenant id 404s. Registered AFTER the static day-board path.
     Route::get('/scheduling/appointments/{appointment}', [AppointmentDetailController::class, 'show'])
         ->name('scheduling.appointments.show');
+    // APPT.P2 — the action row's write. The verb is mapped to the REAL AppointmentService method and
+    // the SERVICE decides legality (assertLegal, re-asserted inside the row lock), so a forged illegal
+    // move is refused and `LEGAL_TRANSITIONS` is never widened for the UI. Rescheduling is NOT here —
+    // it needs the slot finder + overlap guard (APPT.P3).
+    Route::post('/scheduling/appointments/{appointment}/transition', [AppointmentDetailController::class, 'transition'])
+        ->name('scheduling.appointments.transition');
     Route::post('/scheduling/day-board/transition', [DayBoardActionController::class, 'transition'])
         ->name('scheduling.day-board.transition');
     Route::post('/scheduling/day-board/quick-book', [DayBoardActionController::class, 'quickBook'])

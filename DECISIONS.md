@@ -2695,3 +2695,31 @@ references the old ID.
   modal APPT.P3). `appointment.manage`, branch-scoped; the appointment is resolved from a string id in-controller
   (FIX.1) so an unknown or cross-tenant id 404s. See [[Scheduling]],
   `docs/wireframe-parity/APPOINTMENT-DETAIL-DIFF.md`, [[LOG]].
+
+- **D-156 — The action row renders the machine's own legal set; the server stays the only authority (APPT.P2).**
+  The Appointment Detail action row is built from `AppointmentService::LEGAL_TRANSITIONS` for the appointment's
+  ACTUAL status, not from a hardcoded list:
+  1. **A READ ACCESSOR, NOT A COPY.** `LEGAL_TRANSITIONS` was private, so the gate added
+     `AppointmentService::legalTransitionsFrom(string $status): array` — a read-only view of the SAME map
+     `assertLegal()` enforces. It grants nothing (every move still goes through `transition()`, which re-asserts
+     legality inside the row lock), and it means the UI and the guard cannot drift. Duplicating the map in the
+     controller would have been precisely the page-side allow the fence forbids.
+  2. **THE (a) RECONCILIATION — true status → its legal actions.** Because the page shows the TRUE status
+     (D-155), it offers exactly that status's legal moves: booked → {Confirm, Cancel, No-show}; confirmed →
+     {Mark arrived, Cancel, No-show}; arrived → {Start, Cancel}; in_progress → {Complete}; terminal → none. A
+     genuinely booked appointment therefore offers **Confirm, never "Mark arrived"** — `booked → arrived` is not
+     an edge, and no shortcut is composed here. **No edge was added to the machine.**
+  3. **A DELIBERATE, RECORDED CROSS-SURFACE DIVERGENCE.** The day-board's `DayBoardActionController` continues
+     to compose `confirm() → arrive()` for a booked appointment — two legal steps, each audited (the audit's
+     option (c)). This page instead reflects the machine literally (option (a)). Both are legal, neither weakens
+     `LEGAL_TRANSITIONS`, and they differ only in how many clicks reception needs; the divergence is recorded
+     rather than silently reconciled, and either surface can be aligned later as a product decision.
+  4. **THE REASON RULE COMES FROM THE SERVICE, NOT THE PAGE.** Cancelling validates a required reason because
+     `cancel()` itself throws without one. A no-show reason stays **optional**, because `noShow()` permits null —
+     the page does not invent a stricter rule at one surface (P0D.GU: rules are enforced server-side, not
+     page-side). `rescheduled` is filtered out of the row entirely: reaching it needs the slot finder and the
+     overlap guard, and belongs to APPT.P3.
+  Proven: a forged illegal POST (arrive/complete/start from booked, or any move on a terminal appointment) is
+  refused by `assertLegal` with the record untouched, and every accepted move writes the real
+  `appointment.<status>` audit row attributed to the operator. See [[Scheduling]],
+  `docs/wireframe-parity/APPOINTMENT-DETAIL-DIFF.md`, [[LOG]].

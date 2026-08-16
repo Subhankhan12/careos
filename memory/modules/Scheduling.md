@@ -258,6 +258,26 @@ APPT.P2, reschedule modal = APPT.P3).
 action keys are stored/looked up in underscore form (`appointment_booked`), with a raw-key fallback.
 Locked by `tests/Feature/Scheduling/AppointmentDetailTest.php` (7) + the FIX.5 route smoke; browser-verified.
 
+## Appointment Detail — action row (APPT.P2 — the real legal set, server-authoritative)
+
+`POST /scheduling/appointments/{appointment}/transition` -> `AppointmentDetailController::transition`.
+**`AppointmentService::legalTransitionsFrom(string $status)`** is a NEW read accessor over the SAME private
+`LEGAL_TRANSITIONS` map `assertLegal()` enforces — it grants nothing (every move still goes through
+`transition()`, which re-asserts legality inside the row lock) and it stops the UI drifting from the machine.
+The controller renders `legalTransitionsFrom(status)` MINUS `rescheduled` (that needs the slot finder +
+overlap guard — APPT.P3), so the row is: booked -> {confirm, cancel, no_show} · confirmed -> {arrive, cancel,
+no_show} · arrived -> {start, cancel} · in_progress -> {complete} · terminal -> NONE.
+**THE (a) RECONCILIATION:** the page shows the TRUE status, so a genuinely BOOKED appointment offers
+**Confirm, never "Mark arrived"** (`booked->arrived` is not an edge); arrive appears only once confirmed.
+**DELIBERATE DIVERGENCE (recorded, D-156):** the DAY-BOARD still composes `confirm()->arrive()` for a booked
+appointment (two legal steps, both audited — option (c)); this page reflects the machine literally (option (a)).
+Both legal; neither weakens the machine.
+**REASON RULE from the service, not the page:** cancel is `required_if` (the service throws without one);
+**no_show stays OPTIONAL** (the service permits null) — no stricter page-side rule invented (P0D.GU).
+A forged illegal POST is refused by `assertLegal` with the record untouched; every accepted move writes the real
+`appointment.<status>` audit row attributed to the operator. Locked by the APPT.P2 half of
+`tests/Feature/Scheduling/AppointmentDetailTest.php` (13 total); browser-verified.
+
 ## Open items
 
 - Later gates add realtime day-board refresh and UI surfaces for agent proposals.

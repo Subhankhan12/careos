@@ -2,19 +2,23 @@
 
 namespace App\Http\Controllers;
 
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 use Inertia\Inertia;
 use Inertia\Response;
+use InvalidArgumentException;
 use Modules\Audit\Models\AuditEvent;
 use Modules\Clinical\Models\Allergy;
 use Modules\Patients\Models\Patient;
 use Modules\Platform\Models\Branch;
 use Modules\Platform\Models\User;
+use Modules\Scheduling\Exceptions\IllegalAppointmentTransitionException;
 use Modules\Scheduling\Models\Appointment;
 use Modules\Scheduling\Models\AppointmentReminder;
 use Modules\Scheduling\Models\Resource;
 use Modules\Scheduling\Models\Service;
+use Modules\Scheduling\Services\AppointmentService;
 
 /**
  * APPT.P1 — the staff APPOINTMENT DETAIL page: the drill-in from the day-board tile.
@@ -44,6 +48,21 @@ use Modules\Scheduling\Models\Service;
  */
 class AppointmentDetailController extends Controller
 {
+    /**
+     * The action verbs this page accepts, mapped to the status each one moves TO. `rescheduled` is
+     * absent on purpose — it needs the slot finder + overlap guard (APPT.P3).
+     *
+     * @var array<string, string>
+     */
+    private const ACTION_TO_STATUS = [
+        'confirm' => Appointment::STATUS_CONFIRMED,
+        'arrive' => Appointment::STATUS_ARRIVED,
+        'start' => Appointment::STATUS_IN_PROGRESS,
+        'complete' => Appointment::STATUS_COMPLETED,
+        'cancel' => Appointment::STATUS_CANCELLED,
+        'no_show' => Appointment::STATUS_NO_SHOW,
+    ];
+
     public function show(Request $request, string $appointment): Response
     {
         $record = Appointment::query()->whereKey($appointment)->firstOrFail();
@@ -100,10 +119,97 @@ class AppointmentDetailController extends Controller
                     ->all(),
             ],
             'timeline' => $this->timeline($record),
+            // APPT.P2 — the action row: the REAL legal transitions for this appointment's ACTUAL
+            // status, straight from the machine. Never a hardcoded list.
+            'actions' => $this->legalActions($record),
             'links' => [
                 'day_board' => route('scheduling.day-board', ['date' => $record->starts_at->toDateString()]),
             ],
         ]);
+    }
+
+    /**
+     * APPT.P2 — perform a state transition through the REAL {@see AppointmentService}.
+     *
+     * The controller chooses NOTHING about legality: it maps the submitted verb to the service method
+     * and the service's {@see AppointmentService::transition()} authorizes, asserts legality, re-asserts
+     * it inside the row lock and dispatches the event the audit listener records. A forged illegal move
+     * (e.g. booked → arrived, or booked → completed) therefore throws and is refused here — the machine
+     * is never widened to accommodate a UI.
+     *
+     * Rescheduling is deliberately NOT one of these verbs: it needs the slot finder and the overlap
+     * guard, and is APPT.P3.
+     */
+    public function transition(Request $request, string $appointment, AppointmentService $appointments): RedirectResponse
+    {
+        $record = Appointment::query()->whereKey($appointment)->firstOrFail();
+
+        Gate::authorize('appointment.manage', ['branch_id' => $record->branch_id]);
+        $actor = $request->user();
+        abort_unless($actor instanceof User, 403);
+
+        $validated = $request->validate([
+            'action' => ['required', 'string', 'in:'.implode(',', array_keys(self::ACTION_TO_STATUS))],
+            // Cancelling REQUIRES a reason — the service itself throws without one, so the rule is the
+            // server's, not this page's. A no-show reason is optional (the service permits null), and
+            // is recorded verbatim when given.
+            'reason' => ['nullable', 'string', 'max:500', 'required_if:action,cancel'],
+        ]);
+
+        $reason = isset($validated['reason']) ? trim((string) $validated['reason']) : null;
+
+        try {
+            match ($validated['action']) {
+                'confirm' => $appointments->confirm($record, $actor),
+                'arrive' => $appointments->arrive($record, $actor),
+                'start' => $appointments->start($record, $actor),
+                'complete' => $appointments->complete($record, $actor),
+                'cancel' => $appointments->cancel($record, $actor, (string) $reason),
+                default => $appointments->noShow($record, $actor, $reason === '' ? null : $reason),
+            };
+        } catch (IllegalAppointmentTransitionException|InvalidArgumentException $e) {
+            // The machine (or the reason guard) refused it. Nothing moved.
+            return redirect()
+                ->route('scheduling.appointments.show', $record->id)
+                ->withErrors(['appointment_action' => $e->getMessage()]);
+        }
+
+        return redirect()->route('scheduling.appointments.show', $record->id);
+    }
+
+    /**
+     * The action row for the appointment's ACTUAL status, derived from the machine's own map.
+     *
+     * THE RECONCILIATION (the audit's option (a)): the page shows the TRUE status, so it offers exactly
+     * that status's legal moves — a genuinely BOOKED appointment offers **Confirm**, never "Mark
+     * arrived", because `booked → arrived` is not an edge. Arrive appears once the appointment IS
+     * confirmed, where it is a single legal edge. No shortcut is composed here and no edge is added.
+     *
+     * `rescheduled` is filtered out: it is a legal target, but reaching it needs the slot finder and the
+     * overlap guard, so it belongs to the reschedule modal (APPT.P3), not this row.
+     *
+     * @return list<array{action: string, to_status: string, requires_reason: bool, url: string}>
+     */
+    private function legalActions(Appointment $record): array
+    {
+        $statusToAction = array_flip(self::ACTION_TO_STATUS);
+        $actions = [];
+
+        foreach (AppointmentService::legalTransitionsFrom($record->status) as $toStatus) {
+            if ($toStatus === Appointment::STATUS_RESCHEDULED || ! isset($statusToAction[$toStatus])) {
+                continue;
+            }
+
+            $actions[] = [
+                'action' => $statusToAction[$toStatus],
+                'to_status' => $toStatus,
+                // Only cancellation actually requires one (the service throws without it).
+                'requires_reason' => $toStatus === Appointment::STATUS_CANCELLED,
+                'url' => route('scheduling.appointments.transition', $record->id),
+            ];
+        }
+
+        return $actions;
     }
 
     /**

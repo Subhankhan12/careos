@@ -47,6 +47,22 @@ class AppointmentService
 
     public function __construct(private readonly BookingService $bookings) {}
 
+    /**
+     * The transitions the machine actually allows from a status — a READ accessor over the SAME map
+     * {@see self::assertLegal()} enforces (APPT.P2).
+     *
+     * It exists so a UI can render exactly the legal set instead of a hardcoded list that could drift
+     * from the machine. It grants nothing: every move still goes through {@see self::transition()},
+     * which re-asserts legality inside the row lock, so the server remains authoritative regardless of
+     * what any caller renders.
+     *
+     * @return list<string>
+     */
+    public static function legalTransitionsFrom(string $status): array
+    {
+        return self::LEGAL_TRANSITIONS[$status] ?? [];
+    }
+
     public function confirm(Appointment $appointment, User $actor): Appointment
     {
         return $this->transition($appointment, Appointment::STATUS_CONFIRMED, $actor);

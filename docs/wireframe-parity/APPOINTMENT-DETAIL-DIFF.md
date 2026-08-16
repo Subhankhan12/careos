@@ -194,7 +194,7 @@ Booked (arrive · …)") — `arrive` is reachable from Booked as a **two-step c
 1. ✅ **RESOLVED (APPT.P1)** — **The page itself** — route `GET /scheduling/appointments/{appointment}` (string-id resolved in-controller
    per FIX.1), `appointment.manage` gate, `Scheduling/AppointmentDetail.vue`: hero · resources · patient · timeline ·
    action row · reschedule modal, Eucalyptus Glow, i18n keys, plus the drill link from the day-board tile.
-2. *(High, state-machine — APPT.P2)* **Action row from the REAL legal set** — the controller supplies
+2. ✅ **RESOLVED (APPT.P2)** — **Action row from the REAL legal set** — the controller supplies
    `LEGAL_TRANSITIONS[status]`; the Vue renders only those. A forged illegal POST stays refused by `assertLegal`
    (already true). Honour the wireframe's own rule rather than its hardcoded list.
 3. *(High, guard — APPT.P3)* **Reschedule via the real services** — slots from `AvailableSlotFinder`, the move through
@@ -228,8 +228,12 @@ reminder rows, channel labelled as recorded [email — never a claimed SMS], rea
 attribution, never a fabricated reply], honest empty state). No computed judgment, no money, no actions.
 D-155; `tests/Feature/Scheduling/AppointmentDetailTest.php` (7) + route smoke.
 
-**REMAINING:** **APPT.P2** the action row rendered from the REAL `LEGAL_TRANSITIONS` (incl. the
-`booked → arrived` decision — recommendation (c): keep the existing server-side confirm→arrive compose, which
-walks two legal edges and audits both) · **APPT.P3** the reschedule modal over the REAL `AvailableSlotFinder`
+**APPT.P2 (done)** — the action row renders `AppointmentService::legalTransitionsFrom(status)` (a new read
+accessor over the same map `assertLegal` enforces) minus `rescheduled`; transitions go through the real service.
+**The `booked → arrived` decision was taken as option (a)**: the page shows the true status and offers its legal
+moves, so a booked appointment offers **Confirm**, not "Mark arrived". The DAY-BOARD keeps its option-(c)
+`confirm→arrive` compose — a deliberate, recorded divergence (D-156); neither weakens the machine.
+
+**REMAINING:** **APPT.P3** the reschedule modal over the REAL `AvailableSlotFinder`
 + `reschedule()` overlap guard · **P4/P5** the do-not-fabricate items (resource capabilities, preferred-
 practitioner slot filtering) only if a real backend is built for them.

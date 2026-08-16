@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { Head, Link } from '@inertiajs/vue3';
-import { computed } from 'vue';
+import { Head, Link, useForm } from '@inertiajs/vue3';
+import { computed, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import { ageFromDateOnly, formatDateOnly } from '@/lib/date';
@@ -39,6 +39,8 @@ type TimelineRow = {
     occurred_at: string | null;
 };
 
+type ActionOption = { action: string; to_status: string; requires_reason: boolean; url: string };
+
 const props = defineProps<{
     appointment: {
         id: string;
@@ -65,6 +67,7 @@ const props = defineProps<{
         allergies: Allergy[];
     } | null;
     timeline: TimelineRow[];
+    actions: ActionOption[];
     links: { day_board: string };
 }>();
 
@@ -134,6 +137,44 @@ function dayOf(value: string | null): string {
 }
 
 const patientAge = computed(() => (props.patient ? ageFromDateOnly(props.patient.date_of_birth) : null));
+
+/* ── APPT.P2 — the action row. It renders EXACTLY the legal transitions the server supplied for the
+ * appointment's true status; it decides nothing. The service re-asserts legality (inside a row lock),
+ * so a forged move is refused no matter what this row shows.
+ */
+const actionForm = useForm({ action: '', reason: '' });
+const reasonFor = ref<ActionOption | null>(null);
+
+function actionLabel(action: string): string {
+    const key = `scheduling.appointmentDetail.actions.${action}`;
+    return te(key) ? t(key) : action;
+}
+function isDestructive(action: string): boolean {
+    return action === 'cancel' || action === 'no_show';
+}
+function runAction(option: ActionOption): void {
+    // Cancelling needs a reason (the server requires it) — collect it first.
+    if (option.requires_reason) {
+        reasonFor.value = option;
+        actionForm.reason = '';
+
+        return;
+    }
+    actionForm.action = option.action;
+    actionForm.reason = '';
+    actionForm.post(option.url, { preserveScroll: true });
+}
+function submitWithReason(): void {
+    if (!reasonFor.value) return;
+    actionForm.action = reasonFor.value.action;
+    actionForm.post(reasonFor.value.url, {
+        preserveScroll: true,
+        onSuccess: () => {
+            reasonFor.value = null;
+            actionForm.reason = '';
+        },
+    });
+}
 </script>
 
 <template>
@@ -178,6 +219,47 @@ const patientAge = computed(() => (props.patient ? ageFromDateOnly(props.patient
                         <p class="mt-1 font-mono text-[11px] text-euca-200">{{ appointment.id }}</p>
                     </div>
                 </div>
+            </div>
+
+            <!-- Action row — ONLY the transitions the real machine allows from this appointment's true
+                 status (server-supplied). A terminal appointment shows none. The server re-asserts
+                 legality, so this row can never grant anything. -->
+            <div class="glass-card p-5">
+                <div class="flex flex-wrap items-center justify-between gap-3">
+                    <div class="flex items-baseline gap-2">
+                        <h2 class="text-sm font-semibold uppercase tracking-wide text-ink-subtle">{{ t('scheduling.appointmentDetail.actions.title') }}</h2>
+                        <span class="text-xs text-ink-subtle">{{ t('scheduling.appointmentDetail.actions.subtitle') }}</span>
+                    </div>
+                    <div v-if="actions.length" class="flex flex-wrap gap-2">
+                        <button
+                            v-for="option in actions"
+                            :key="option.action"
+                            type="button"
+                            class="rounded-xl px-4 py-2 text-sm font-semibold transition"
+                            :class="isDestructive(option.action)
+                                ? 'border border-danger/40 text-danger hover:bg-danger-soft'
+                                : 'btn-glow'"
+                            :disabled="actionForm.processing"
+                            @click="runAction(option)"
+                        >{{ actionLabel(option.action) }}</button>
+                    </div>
+                </div>
+
+                <p v-if="actionForm.errors.appointment_action" class="mt-3 rounded-xl bg-danger/10 px-3 py-2 text-sm text-danger">{{ actionForm.errors.appointment_action }}</p>
+
+                <!-- A terminal appointment honestly offers nothing. -->
+                <p v-if="!actions.length" class="mt-3 text-sm text-ink-muted">{{ t('scheduling.appointmentDetail.actions.none', { status: statusLabel(appointment.status) }) }}</p>
+
+                <!-- Cancelling requires a reason (the server enforces it). -->
+                <form v-if="reasonFor" class="mt-4 flex flex-wrap items-end gap-2 border-t border-line pt-4" @submit.prevent="submitWithReason">
+                    <label class="min-w-[18rem] flex-1">
+                        <span class="text-xs font-semibold uppercase tracking-wide text-ink-subtle">{{ t('scheduling.appointmentDetail.actions.reasonFor', { action: actionLabel(reasonFor.action) }) }}</span>
+                        <input v-model="actionForm.reason" type="text" maxlength="500" required class="mt-1 w-full rounded-xl border border-line bg-white/70 px-3 py-2 text-sm text-ink focus:border-euca-400 focus:outline-none focus:ring-2 focus:ring-euca-200" />
+                        <span v-if="actionForm.errors.reason" class="text-xs text-danger">{{ actionForm.errors.reason }}</span>
+                    </label>
+                    <button type="button" class="rounded-xl border border-line px-4 py-2 text-sm font-semibold text-ink-muted transition hover:bg-surface-2" @click="reasonFor = null">{{ t('scheduling.appointmentDetail.actions.cancelAction') }}</button>
+                    <button type="submit" class="rounded-xl border border-danger/40 px-4 py-2 text-sm font-semibold text-danger transition hover:bg-danger-soft" :disabled="actionForm.processing">{{ t('scheduling.appointmentDetail.actions.confirmAction') }}</button>
+                </form>
             </div>
 
             <div class="grid gap-4 lg:grid-cols-2">

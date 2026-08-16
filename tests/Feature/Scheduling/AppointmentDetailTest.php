@@ -2,6 +2,7 @@
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use Inertia\Testing\AssertableInertia as Assert;
 use Modules\Clinical\Models\Allergy;
 use Modules\Patients\Models\Patient;
@@ -300,4 +301,171 @@ test('the day-board tile exposes the drill link to this page', function () {
             ->component('Scheduling/DayBoard')
             ->where('appointments.0.id', $appointment->id)
             ->where('appointments.0.detail_url', route('scheduling.appointments.show', $appointment->id)));
+});
+
+// ── APPT.P2 — the action row IS the real LEGAL_TRANSITIONS for the true status ───────────────────
+
+/** The action verbs the page offered, in order. */
+function apdOfferedActions(Assert $page): array
+{
+    return array_column($page->toArray()['props']['actions'], 'action');
+}
+
+test('the action row offers exactly the legal transitions for each status (rescheduled excluded — APPT.P3)', function () {
+    $fx = apdFixture();
+    $service = app(AppointmentService::class);
+
+    // booked → confirm · cancel · no_show   (arrive is NOT legal from booked)
+    $booked = apdBook($fx, apdPatient('Bk'), '2026-07-11 09:00:00');
+    $this->actingAs($fx['actor'])->get(route('scheduling.appointments.show', $booked->id))
+        ->assertInertia(fn (Assert $p) => expect(apdOfferedActions($p))->toBe(['confirm', 'cancel', 'no_show']));
+
+    // confirmed → arrive · cancel · no_show
+    $confirmed = $service->confirm(apdBook($fx, apdPatient('Cf'), '2026-07-11 11:00:00'), $fx['actor']);
+    $this->actingAs($fx['actor'])->get(route('scheduling.appointments.show', $confirmed->id))
+        ->assertInertia(fn (Assert $p) => expect(apdOfferedActions($p))->toBe(['arrive', 'cancel', 'no_show']));
+
+    // arrived → start · cancel
+    $arrived = $service->arrive($service->confirm(apdBook($fx, apdPatient('Ar'), '2026-07-11 12:00:00'), $fx['actor']), $fx['actor']);
+    $this->actingAs($fx['actor'])->get(route('scheduling.appointments.show', $arrived->id))
+        ->assertInertia(fn (Assert $p) => expect(apdOfferedActions($p))->toBe(['start', 'cancel']));
+
+    // in_progress → complete
+    $inProgress = $service->start($arrived, $fx['actor']);
+    $this->actingAs($fx['actor'])->get(route('scheduling.appointments.show', $inProgress->id))
+        ->assertInertia(fn (Assert $p) => expect(apdOfferedActions($p))->toBe(['complete']));
+
+    // completed → NOTHING (terminal); likewise cancelled.
+    $completed = $service->complete($inProgress, $fx['actor']);
+    $this->actingAs($fx['actor'])->get(route('scheduling.appointments.show', $completed->id))
+        ->assertInertia(fn (Assert $p) => expect(apdOfferedActions($p))->toBe([]));
+
+    $cancelled = $service->cancel(apdBook($fx, apdPatient('Cn'), '2026-07-11 13:00:00'), $fx['actor'], 'Patient rang.');
+    $this->actingAs($fx['actor'])->get(route('scheduling.appointments.show', $cancelled->id))
+        ->assertInertia(fn (Assert $p) => expect(apdOfferedActions($p))->toBe([]));
+});
+
+test('THE RECONCILIATION: a booked appointment offers Confirm and NOT arrive; a confirmed one offers arrive', function () {
+    $fx = apdFixture();
+    $booked = apdBook($fx, apdPatient('Reconcile'), '2026-07-11 09:00:00');
+
+    // The page reflects the machine honestly — no booked→arrived shortcut is offered here.
+    $this->actingAs($fx['actor'])->get(route('scheduling.appointments.show', $booked->id))
+        ->assertInertia(function (Assert $page) {
+            expect(apdOfferedActions($page))->toContain('confirm')
+                ->and(apdOfferedActions($page))->not->toContain('arrive');
+        });
+
+    // ...and the machine agrees: booked → arrived is not an edge.
+    expect(AppointmentService::legalTransitionsFrom(Appointment::STATUS_BOOKED))
+        ->not->toContain(Appointment::STATUS_ARRIVED)
+        ->and(AppointmentService::legalTransitionsFrom(Appointment::STATUS_CONFIRMED))
+        ->toContain(Appointment::STATUS_ARRIVED);
+
+    // Once confirmed through the real service, arrive becomes a single legal edge and IS offered.
+    app(AppointmentService::class)->confirm($booked, $fx['actor']);
+    $this->actingAs($fx['actor'])->get(route('scheduling.appointments.show', $booked->id))
+        ->assertInertia(function (Assert $page) {
+            expect(apdOfferedActions($page))->toContain('arrive')
+                ->and(apdOfferedActions($page))->not->toContain('confirm');
+        });
+});
+
+// ── The transition goes through the REAL service; a forged illegal move is refused ───────────────
+
+test('an action moves the appointment through the real service and is audited to the operator', function () {
+    $fx = apdFixture();
+    $appointment = apdBook($fx, apdPatient('Acting'));
+
+    $this->actingAs($fx['actor'])
+        ->post(route('scheduling.appointments.transition', $appointment->id), ['action' => 'confirm'])
+        ->assertRedirect(route('scheduling.appointments.show', $appointment->id))
+        ->assertSessionHasNoErrors();
+
+    expect($appointment->refresh()->status)->toBe(Appointment::STATUS_CONFIRMED)
+        ->and($appointment->status_changed_by)->toBe((string) $fx['actor']->id);
+
+    // The real transition event produced the real audit row (actor = the operator, from → to).
+    $audit = DB::selectOne(
+        'SELECT actor_type, actor_id, context FROM audit_events WHERE resource_id = ? AND action = ?',
+        [$appointment->id, 'appointment.confirmed'],
+    );
+    expect($audit)->not->toBeNull()
+        ->and($audit->actor_type)->toBe('user')
+        ->and((string) $audit->actor_id)->toBe((string) $fx['actor']->id)
+        ->and($audit->context)->toContain('"from_status":"booked"')
+        ->and($audit->context)->toContain('"to_status":"confirmed"');
+});
+
+test('a FORGED illegal transition is refused server-side and the machine is untouched', function () {
+    $fx = apdFixture();
+    $appointment = apdBook($fx, apdPatient('Forged'));
+
+    // booked → arrived / completed / in_progress are all illegal; the page never offers them, and a
+    // forged POST is refused by assertLegal inside the service.
+    foreach (['arrive', 'complete', 'start'] as $forged) {
+        $this->actingAs($fx['actor'])
+            ->post(route('scheduling.appointments.transition', $appointment->id), ['action' => $forged])
+            ->assertRedirect(route('scheduling.appointments.show', $appointment->id))
+            ->assertSessionHasErrors('appointment_action');
+
+        expect($appointment->refresh()->status)->toBe(Appointment::STATUS_BOOKED); // never moved
+    }
+
+    // An unknown verb never reaches the service at all.
+    $this->actingAs($fx['actor'])
+        ->post(route('scheduling.appointments.transition', $appointment->id), ['action' => 'teleport'])
+        ->assertSessionHasErrors('action');
+
+    // A terminal appointment cannot be moved either.
+    $cancelled = app(AppointmentService::class)->cancel(apdBook($fx, apdPatient('Term'), '2026-07-11 15:00:00'), $fx['actor'], 'Done.');
+    $this->actingAs($fx['actor'])
+        ->post(route('scheduling.appointments.transition', $cancelled->id), ['action' => 'confirm'])
+        ->assertSessionHasErrors('appointment_action');
+    expect($cancelled->refresh()->status)->toBe(Appointment::STATUS_CANCELLED);
+});
+
+test('cancelling requires a reason and records it; a no-show reason is optional but recorded when given', function () {
+    $fx = apdFixture();
+    $appointment = apdBook($fx, apdPatient('Reasoned'));
+
+    // Cancel WITHOUT a reason is refused by validation (the service throws without one too).
+    $this->actingAs($fx['actor'])
+        ->post(route('scheduling.appointments.transition', $appointment->id), ['action' => 'cancel'])
+        ->assertSessionHasErrors('reason');
+    expect($appointment->refresh()->status)->toBe(Appointment::STATUS_BOOKED);
+
+    // With a reason it moves, and the reason is recorded verbatim.
+    $this->actingAs($fx['actor'])
+        ->post(route('scheduling.appointments.transition', $appointment->id), ['action' => 'cancel', 'reason' => 'Patient rang to cancel.'])
+        ->assertSessionHasNoErrors();
+    expect($appointment->refresh()->status)->toBe(Appointment::STATUS_CANCELLED)
+        ->and($appointment->status_reason)->toBe('Patient rang to cancel.');
+
+    // A no-show reason is OPTIONAL in the service, so the page does not invent a requirement — but it
+    // is recorded verbatim when supplied.
+    $noShow = apdBook($fx, apdPatient('Missed'), '2026-07-11 16:00:00');
+    $this->actingAs($fx['actor'])
+        ->post(route('scheduling.appointments.transition', $noShow->id), ['action' => 'no_show', 'reason' => 'Did not attend.'])
+        ->assertSessionHasNoErrors();
+    expect($noShow->refresh()->status)->toBe(Appointment::STATUS_NO_SHOW)
+        ->and($noShow->status_reason)->toBe('Did not attend.');
+});
+
+test('the transition action is gated on appointment.manage and tenant-scoped', function () {
+    $fx = apdFixture('alpha');
+    $appointment = apdBook($fx, apdPatient('Guarded'));
+
+    $billing = apdUser($fx['tenant'], 'billing'); // no appointment.manage
+    $this->actingAs($billing)
+        ->post(route('scheduling.appointments.transition', $appointment->id), ['action' => 'confirm'])
+        ->assertForbidden();
+
+    $beta = apdFixture('beta');
+    $this->actingAs($beta['actor'])
+        ->post(route('scheduling.appointments.transition', $appointment->id), ['action' => 'confirm'])
+        ->assertNotFound();
+
+    app(TenantContext::class)->set($fx['tenant']);
+    expect($appointment->refresh()->status)->toBe(Appointment::STATUS_BOOKED);
 });

@@ -1723,6 +1723,20 @@
                     "appointment_reminder": "Reminder"
                 },
                 "byPatient": "by the patient (portal)"
+            },
+            "actions": {
+                "title": "Actions",
+                "subtitle": "only the transitions this appointment can actually make",
+                "none": "No further action is possible — this appointment is {status}.",
+                "confirm": "Confirm",
+                "arrive": "Mark arrived",
+                "start": "Start treatment",
+                "complete": "Complete",
+                "cancel": "Cancel appointment",
+                "no_show": "Mark no-show",
+                "reasonFor": "Reason for {action}",
+                "cancelAction": "Back",
+                "confirmAction": "Record"
             }
         }
     },
