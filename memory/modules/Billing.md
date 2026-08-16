@@ -496,6 +496,28 @@ Locked by `tests/Feature/Billing/PaymentPlanTest.php` (11) + the route smoke; br
 104.33/104.33/104.34 schedule that ties, two installments settled through the guarded path → balance CHF 104.34,
 a CHF 500.00 plan against it refused, I1–I6 δ=0 throughout).
 
+## AR Account Detail — Betreibung / debt enforcement (ARDETAIL.P6 — the finale; page parity COMPLETE)
+
+`debt_enforcement_escalations` (additive; APPEND-ONLY via ORM guards + DB triggers; `initiated_by` NOT NULL FK to
+`users`, so no system/agent actor can ever be recorded as an initiator; `confirmed_at`/`initiated_at` `dateTime()`
+per P0P.G15) + `DebtEnforcementEscalation` (initiated | withdrawn, `supersedes_escalation_id`) +
+`DebtEnforcementService`. **NEW PERMISSION `billing.escalate`**, granted ONLY to `org_admin` + `billing` —
+deliberately NARROWER than `billing.manage`, which pharmacist/surgical-scheduler/ED/lab/radiology hold for charge
+capture (a test proves a pharmacist holds billing.manage and is still refused). **ELIGIBILITY:** the account must
+have reached the TERMINAL configured dunning level (`max(level)` of the `billing.dunning` policy) on ≥1 invoice,
+still owe money, and have no live escalation — re-checked inside the service transaction; with no policy
+configured NOTHING is eligible (fail-closed). **EXPLICIT CONFIRMATION:** `initiate()` refuses without the
+confirmation flag (route-validated `accepted`, never defaulted) and without a reason. **AGENT-EXCLUDED BY
+CONSTRUCTION:** no `AiTool` is an escalation capability; no AiCore reference; the ONLY `Modules/`+`app/` files
+referencing the service/model are the service, the model and the operator-gated controller (asserted as an EXACT
+list — no job/command/listener/schedule can reach it); `routes/console.php` automates nothing enforcement-related.
+"0 auto-escalated" is structural. **APPEND-ONLY:** withdrawal APPENDS a superseding row (original never mutated;
+withdrawn at most once via unique index + lock); both acts audit with `actor_type=user`. Controller:
+`initiateEnforcement`/`withdrawEnforcement` (account-scoped resolution). Locked by
+`tests/Feature/Billing/DebtEnforcementTest.php` (8, incl. the 5-part agent-exclusion proof) + the route smoke;
+browser-verified (stage 2 of 2 → escalation recorded with human provenance; ineligible account refused even on a
+forged confirmed POST; reception 403). **AR ACCOUNT DETAIL PARITY COMPLETE (P1→P6).**
+
 ## Open items
 
 - FIX.1 (D-090): the W6/W7 detail/write controllers used implicit route-model binding, which 500'd in the

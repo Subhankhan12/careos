@@ -8,10 +8,12 @@ use Illuminate\Support\Facades\Gate;
 use Inertia\Inertia;
 use Inertia\Response;
 use InvalidArgumentException;
+use Modules\Billing\Models\DebtEnforcementEscalation;
 use Modules\Billing\Models\Invoice;
 use Modules\Billing\Models\Payment;
 use Modules\Billing\Models\PaymentPlan;
 use Modules\Billing\Models\PaymentPlanInstallment;
+use Modules\Billing\Services\DebtEnforcementService;
 use Modules\Billing\Services\DunningService;
 use Modules\Billing\Services\PaymentPlanService;
 use Modules\Billing\Services\PaymentService;
@@ -38,7 +40,7 @@ use Modules\Reporting\Services\MetricsService;
  */
 class AccountDetailController
 {
-    public function show(Request $request, string $account, MetricsService $metrics, SettingsService $settings, PaymentPlanService $plans): Response
+    public function show(Request $request, string $account, MetricsService $metrics, SettingsService $settings, PaymentPlanService $plans, DebtEnforcementService $enforcement): Response
     {
         Gate::authorize('billing.view');
         $actor = $request->user();
@@ -58,6 +60,7 @@ class AccountDetailController
         }
 
         $ledger = $this->withInvoicePdfLinks($metrics->accountLedger($actor, (string) $patient->id, now()));
+        $liveEscalation = $enforcement->currentFor((string) $patient->id);
 
         return Inertia::render('Billing/AccountDetail', [
             'account' => [
@@ -100,6 +103,16 @@ class AccountDetailController
                 'store_url' => route('billing.accounts.plans.store', (string) $patient->id),
                 'current' => $this->withPlanActionUrls($plans->present($plans->currentOrLatestFor((string) $patient->id), now()), (string) $patient->id),
             ],
+            // ARDETAIL.P6 — debt enforcement (Betreibung). Recorded facts + the REAL eligibility
+            // evidence (terminal vs. reached dunning stage); `can_escalate` is the dedicated
+            // billing.escalate permission, reflect-only — the server Gate is what refuses.
+            'enforcement' => array_merge($enforcement->present((string) $patient->id), [
+                'can_escalate' => Gate::allows(DebtEnforcementService::PERMISSION),
+                'store_url' => route('billing.accounts.enforcement.store', (string) $patient->id),
+                'withdraw_url' => $liveEscalation === null
+                    ? null
+                    : route('billing.accounts.enforcement.withdraw', [(string) $patient->id, $liveEscalation->id]),
+            ]),
             'links' => [
                 'report' => route('billing.report'),
                 'dunning' => route('billing.dunning.index'),
@@ -296,6 +309,84 @@ class AccountDetailController
             return redirect()
                 ->route('billing.accounts.show', (string) $patient->id)
                 ->withErrors(['payment_plan' => $e->getMessage()]);
+        }
+
+        return redirect()->route('billing.accounts.show', (string) $patient->id);
+    }
+
+    /**
+     * Start debt-enforcement (Betreibung) proceedings — the wireframe's "Approve Betreibung".
+     *
+     * THE SHARPEST FENCE ON THIS PAGE. A legal proceeding, so: gated on the dedicated
+     * `billing.escalate` (NARROWER than billing.manage — charge-capturing clinical roles hold that
+     * and must not be able to file); requiring the operator's EXPLICIT confirmation plus a recorded
+     * reason (validated `accepted` — a missing confirmation is refused, never defaulted); allowed
+     * only once the dunning process is EXHAUSTED (the service re-checks eligibility inside its own
+     * transaction, so the page cannot talk it into an early escalation); recorded append-only and
+     * audited with the operator's identity.
+     *
+     * This action and {@see self::withdrawEnforcement()} are the ONLY callers of
+     * {@see DebtEnforcementService} in the codebase — no tool, job or schedule can reach it, which is
+     * what makes "the agent never auto-escalates" structural rather than a claim.
+     */
+    public function initiateEnforcement(Request $request, string $account, DebtEnforcementService $enforcement): RedirectResponse
+    {
+        Gate::authorize(DebtEnforcementService::PERMISSION);
+        $actor = $request->user();
+        abort_unless($actor instanceof User, 403);
+
+        $patient = Patient::query()->whereKey($account)->firstOrFail();
+
+        $validated = $request->validate([
+            // The operator's deliberate confirmation of a legal act — must be explicitly true.
+            'confirmed' => ['required', 'accepted'],
+            'reason' => ['required', 'string', 'max:1000'],
+            'reference' => ['nullable', 'string', 'max:255'],
+        ]);
+
+        try {
+            $enforcement->initiate(
+                $patient,
+                $validated['reason'],
+                true,
+                $actor,
+                $validated['reference'] ?? null,
+            );
+        } catch (InvalidArgumentException $e) {
+            // Ineligible (dunning not exhausted / nothing owed / already escalated) — surfaced verbatim.
+            return redirect()
+                ->route('billing.accounts.show', (string) $patient->id)
+                ->withErrors(['enforcement' => $e->getMessage()]);
+        }
+
+        return redirect()->route('billing.accounts.show', (string) $patient->id);
+    }
+
+    /** Withdraw a live escalation. Appends a superseding record (never a mutation); reason required. */
+    public function withdrawEnforcement(Request $request, string $account, string $escalation, DebtEnforcementService $enforcement): RedirectResponse
+    {
+        Gate::authorize(DebtEnforcementService::PERMISSION);
+        $actor = $request->user();
+        abort_unless($actor instanceof User, 403);
+
+        $patient = Patient::query()->whereKey($account)->firstOrFail();
+
+        $validated = $request->validate([
+            'reason' => ['required', 'string', 'max:1000'],
+        ]);
+
+        // Tenant-scoped AND account-scoped: another account's escalation 404s before anything happens.
+        $target = DebtEnforcementEscalation::query()
+            ->whereKey($escalation)
+            ->where('patient_id', $patient->id)
+            ->firstOrFail();
+
+        try {
+            $enforcement->withdraw($target, $validated['reason'], $actor);
+        } catch (InvalidArgumentException $e) {
+            return redirect()
+                ->route('billing.accounts.show', (string) $patient->id)
+                ->withErrors(['enforcement' => $e->getMessage()]);
         }
 
         return redirect()->route('billing.accounts.show', (string) $patient->id);

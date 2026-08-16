@@ -2389,6 +2389,33 @@
                     "sent": "Sent"
                 }
             },
+            "enforcement": {
+                "title": "Debt enforcement (Betreibung)",
+                "subtitle": "a legal proceeding · started by a person, never automatically",
+                "governance": "Only the billing office can start debt enforcement, and only after the dunning process is exhausted. It requires an explicit confirmation and a recorded reason, and every step is logged with the name of the person who took it. The AI agent can draft reminders for approval — it has no way to start, approve or file a legal proceeding.",
+                "inEnforcement": "In enforcement",
+                "open": "Start debt enforcement",
+                "reason": "Reason (recorded)",
+                "reference": "Official reference (optional)",
+                "confirm": "I confirm that I am starting a legal debt-enforcement proceeding against this account.",
+                "submit": "Confirm and record escalation",
+                "withdraw": "Withdraw escalation",
+                "withdrawReason": "Reason for withdrawing",
+                "initiatedBy": "Started by {who} on {date}",
+                "atStage": "at reminder stage {stage} · {amount} outstanding",
+                "stageEvidence": "reminder stage {reached} of {terminal}",
+                "reasons": {
+                    "eligible": "The dunning process is exhausted — this account may be escalated.",
+                    "dunning_not_exhausted": "Not available: the dunning process has not reached its final reminder stage.",
+                    "nothing_outstanding": "Not available: this account has no outstanding balance.",
+                    "no_dunning_policy": "Not available: no dunning policy is configured, so the process cannot be exhausted.",
+                    "already_escalated": "This account is already in debt enforcement."
+                },
+                "actions": {
+                    "initiated": "Escalation started",
+                    "withdrawn": "Escalation withdrawn"
+                }
+            },
             "plan": {
                 "title": "Payment plan",
                 "subtitle": "installments over the real balance · scheduled by the billing engine",

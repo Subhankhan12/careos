@@ -697,6 +697,17 @@ test('per-role RBAC smoke: each role reaches its pages (200) and is denied other
         $failures[] = "billing.accounts.plans.store as reception -> {$accountPlanStatus} (expected 403)";
     }
 
+    // ARDETAIL.P6: starting debt enforcement (Betreibung) is gated on the DEDICATED billing.escalate —
+    // narrower than billing.manage. Reception is denied at the gate through the real stack. (The
+    // agent has no path to this route at all: no tool, no job, no schedule references the service.)
+    smokeCtx()->forget();
+    $enforcementStatus = $this->actingAs($u['reception'])
+        ->post('/billing/accounts/'.$fx['patient']->id.'/enforcement', ['confirmed' => '1', 'reason' => 'smoke'])
+        ->status();
+    if ($enforcementStatus !== 403) {
+        $failures[] = "billing.accounts.enforcement.store as reception -> {$enforcementStatus} (expected 403)";
+    }
+
     expect(implode("\n", $failures))->toBe('');
 });
 

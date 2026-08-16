@@ -43,6 +43,10 @@ class RbacProvisioner
         'comms.manage' => 'Manage secure messaging threads',
         'billing.view' => 'View billing',
         'billing.manage' => 'Manage billing tariffs and billable items',
+        // ARDETAIL.P6 — starting a legal debt-enforcement proceeding (Betreibung). DELIBERATELY
+        // NARROWER than billing.manage, which charge-capturing clinical roles also hold: only the
+        // billing office and the org admin may take a legal action. The AI agent has no path to it.
+        'billing.escalate' => 'Start debt-enforcement (Betreibung) proceedings',
         'reporting.view' => 'View operational reporting aggregates',
         'audit.view' => 'View the audit log',
         'admin.manage' => 'Manage tenant settings and users',
@@ -89,7 +93,7 @@ class RbacProvisioner
                 'encounter.manage',
                 'timesheet.approve', 'note.write', 'note.sign', 'note.supervise', 'allergy.override',
                 'snippet.manage.shared', 'order.manage', 'ai.manage', 'comms.manage', 'billing.view',
-                'billing.manage', 'reporting.view', 'audit.view', 'data.import', 'dental.chart',
+                'billing.manage', 'billing.escalate', 'reporting.view', 'audit.view', 'data.import', 'dental.chart',
                 'ward.manage', 'bed.manage', 'admission.manage', 'document.view',
                 'formulary.manage', 'dispense.manage', 'medication.prescribe',
                 'theatre.manage', 'surgery.schedule', 'surgery.manage',
@@ -130,7 +134,10 @@ class RbacProvisioner
         ],
         'billing' => [
             'name' => 'Billing',
-            'permissions' => ['billing.view', 'billing.manage'],
+            // billing.escalate (ARDETAIL.P6) is granted ONLY here and to org_admin — the billing
+            // office owns debt-enforcement; the clinical roles that hold billing.manage for charge
+            // capture must not be able to start a legal proceeding.
+            'permissions' => ['billing.view', 'billing.manage', 'billing.escalate'],
         ],
         // Inpatient / hospital vertical starter roles (HOSPITAL.G1). Additive; each
         // maps to an existing clinical role plus the minimal inpatient permission it

@@ -116,6 +116,8 @@ test('the visual gate adds no mutation route and stays billing.view + tenant-sco
     $writeRoutes = $accountRoutes->filter(fn ($r) => ! in_array('GET', $r->methods(), true) || in_array('POST', $r->methods(), true));
 
     expect($writeRoutes->map(fn ($r) => $r->uri())->sort()->values()->all())->toBe([
+        'billing/accounts/{account}/enforcement',
+        'billing/accounts/{account}/enforcement/{escalation}/withdraw',
         'billing/accounts/{account}/payments',
         'billing/accounts/{account}/plans',
         'billing/accounts/{account}/plans/installments/{installment}/pay',

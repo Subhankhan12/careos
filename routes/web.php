@@ -641,6 +641,13 @@ Route::middleware('auth')->group(function () {
     Route::post('/billing/accounts/{account}/plans', [AccountDetailController::class, 'storePlan'])->name('billing.accounts.plans.store');
     Route::post('/billing/accounts/{account}/plans/installments/{installment}/pay', [AccountDetailController::class, 'payInstallment'])->name('billing.accounts.plans.pay');
     Route::post('/billing/accounts/{account}/plans/{plan}/cancel', [AccountDetailController::class, 'cancelPlan'])->name('billing.accounts.plans.cancel');
+    // ARDETAIL.P6 — debt-enforcement (Betreibung) escalation. A LEGAL proceeding: gated on the
+    // dedicated `billing.escalate` (narrower than billing.manage), requiring an explicit operator
+    // confirmation + reason, allowed only once the dunning process is exhausted, and recorded
+    // append-only. THESE TWO ACTIONS ARE THE ONLY CALLERS OF DebtEnforcementService — there is no
+    // agent tool, no job and no schedule that can reach it, so "0 auto-escalated" is structural.
+    Route::post('/billing/accounts/{account}/enforcement', [AccountDetailController::class, 'initiateEnforcement'])->name('billing.accounts.enforcement.store');
+    Route::post('/billing/accounts/{account}/enforcement/{escalation}/withdraw', [AccountDetailController::class, 'withdrawEnforcement'])->name('billing.accounts.enforcement.withdraw');
 
     // Reporting dashboard — the thin facts-only surface over ReportingService::summary.
     Route::get('/reporting', ReportingDashboardController::class)->name('reporting.dashboard');

@@ -113,6 +113,32 @@ type PlanAction = {
     current: Plan | null;
 };
 
+type EnforcementEligibility = {
+    eligible: boolean;
+    reason: string;
+    terminal_stage: number | null;
+    reached_stage: number;
+    outstanding_minor: number;
+    already_escalated: boolean;
+};
+type EnforcementRecord = {
+    id: string;
+    outstanding_minor: number;
+    dunning_stage: number;
+    reason: string;
+    reference: string | null;
+    initiated_on: string;
+    initiated_by: string | null;
+};
+type Enforcement = {
+    eligibility: EnforcementEligibility;
+    current: EnforcementRecord | null;
+    history: { id: string; action: string; reason: string; dunning_stage: number; outstanding_minor: number; initiated_on: string; initiated_by: string | null }[];
+    can_escalate: boolean;
+    store_url: string;
+    withdraw_url: string | null;
+};
+
 const props = defineProps<{
     account: { id: string; name: string; mrn: string | null };
     currency: string;
@@ -121,6 +147,7 @@ const props = defineProps<{
     dunning: Dunning;
     payment: PaymentAction;
     plan: PlanAction;
+    enforcement: Enforcement;
     links: { report: string; dunning: string; chart: string };
 }>();
 
@@ -263,6 +290,33 @@ function cancelPlan(): void {
 function planStatusLabel(status: string): string {
     const key = `billing.accountDetail.plan.statuses.${status}`;
     return te(key) ? t(key) : status;
+}
+
+/* ── ARDETAIL.P6 — Betreibung (debt enforcement). The page INITIATES NOTHING: it posts the
+ * operator's explicitly confirmed action to the `billing.escalate`-gated route, and the server
+ * re-checks eligibility. The agent has no path to this at all — the copy below states only what
+ * the code actually enforces.
+ */
+const showEnforceForm = ref(false);
+const enforceForm = useForm({ confirmed: false, reason: '', reference: '' });
+const withdrawForm = useForm({ reason: '' });
+
+function submitEnforcement(): void {
+    enforceForm.post(props.enforcement.store_url, {
+        preserveScroll: true,
+        onSuccess: () => {
+            showEnforceForm.value = false;
+            enforceForm.reset();
+        },
+    });
+}
+function submitWithdrawal(): void {
+    if (!props.enforcement.withdraw_url) return;
+    withdrawForm.post(props.enforcement.withdraw_url, { preserveScroll: true });
+}
+function eligibilityLabel(e: EnforcementEligibility): string {
+    const key = `billing.accountDetail.enforcement.reasons.${e.reason}`;
+    return te(key) ? t(key) : e.reason;
 }
 
 function submitPayment(): void {
@@ -601,6 +655,98 @@ function submitPayment(): void {
                     </form>
                 </div>
                 <p v-else-if="!showPlanForm" class="mt-3 text-sm text-ink-muted">{{ t('billing.accountDetail.plan.empty') }}</p>
+            </div>
+
+            <!-- Betreibung / debt enforcement — a LEGAL proceeding. Operator-only (the dedicated
+                 billing.escalate), explicit confirmation + reason, allowed only once the real dunning
+                 machine is exhausted, append-only + audited. The agent has NO path here: the copy
+                 below states exactly what the code enforces. -->
+            <div v-if="enforcement.can_escalate || enforcement.current" class="glass-card border border-warning/30 p-5">
+                <div class="flex flex-wrap items-center justify-between gap-2">
+                    <div class="flex items-baseline gap-2">
+                        <h2 class="text-sm font-semibold uppercase tracking-wide text-ink-subtle">{{ t('billing.accountDetail.enforcement.title') }}</h2>
+                        <span class="text-xs text-ink-subtle">{{ t('billing.accountDetail.enforcement.subtitle') }}</span>
+                    </div>
+                    <span
+                        v-if="enforcement.current"
+                        class="inline-flex items-center gap-1.5 rounded-full bg-warning/15 px-2.5 py-0.5 text-xs font-semibold text-warning"
+                    >
+                        <span class="h-2 w-2 rounded-full bg-warning"></span>
+                        {{ t('billing.accountDetail.enforcement.inEnforcement') }}
+                    </span>
+                </div>
+
+                <p v-if="enforceForm.errors.enforcement || withdrawForm.errors.enforcement" class="mt-3 rounded-xl bg-danger/10 px-3 py-2 text-sm text-danger">
+                    {{ enforceForm.errors.enforcement || withdrawForm.errors.enforcement }}
+                </p>
+
+                <!-- The governance statement — true of the code, not decoration. -->
+                <p class="mt-3 rounded-xl bg-surface-2 px-3 py-2 text-xs text-ink-muted">{{ t('billing.accountDetail.enforcement.governance') }}</p>
+
+                <!-- The live escalation -->
+                <div v-if="enforcement.current" class="mt-4 rounded-2xl border border-line bg-white/50 p-4">
+                    <div class="flex flex-wrap items-baseline justify-between gap-2">
+                        <span class="text-sm font-semibold text-ink">{{ t('billing.accountDetail.enforcement.initiatedBy', { who: enforcement.current.initiated_by ?? '—', date: enforcement.current.initiated_on }) }}</span>
+                        <span class="text-xs tabular-nums text-ink-muted">{{ t('billing.accountDetail.enforcement.atStage', { stage: enforcement.current.dunning_stage, amount: money(enforcement.current.outstanding_minor) }) }}</span>
+                    </div>
+                    <p class="mt-1 text-sm text-ink-muted">{{ enforcement.current.reason }}</p>
+                    <p v-if="enforcement.current.reference" class="mt-1 font-mono text-xs text-ink-subtle">{{ enforcement.current.reference }}</p>
+
+                    <form v-if="enforcement.can_escalate && enforcement.withdraw_url" class="mt-3 flex flex-wrap items-end gap-2" @submit.prevent="submitWithdrawal">
+                        <label class="min-w-[16rem] flex-1">
+                            <span class="text-xs font-semibold uppercase tracking-wide text-ink-subtle">{{ t('billing.accountDetail.enforcement.withdrawReason') }}</span>
+                            <input v-model="withdrawForm.reason" type="text" maxlength="1000" required class="mt-1 w-full rounded-xl border border-line bg-white/70 px-3 py-2 text-sm text-ink focus:border-euca-400 focus:outline-none focus:ring-2 focus:ring-euca-200" />
+                            <span v-if="withdrawForm.errors.reason" class="text-xs text-danger">{{ withdrawForm.errors.reason }}</span>
+                        </label>
+                        <button type="submit" class="rounded-xl border border-line px-4 py-2 text-sm font-semibold text-ink-muted transition hover:bg-surface-2" :disabled="withdrawForm.processing">{{ t('billing.accountDetail.enforcement.withdraw') }}</button>
+                    </form>
+                </div>
+
+                <!-- Eligibility + the operator-confirmed action -->
+                <div v-else class="mt-4">
+                    <p class="text-sm" :class="enforcement.eligibility.eligible ? 'text-ink' : 'text-ink-muted'">
+                        {{ eligibilityLabel(enforcement.eligibility) }}
+                        <span v-if="enforcement.eligibility.terminal_stage !== null" class="text-xs text-ink-subtle">
+                            ({{ t('billing.accountDetail.enforcement.stageEvidence', { reached: enforcement.eligibility.reached_stage, terminal: enforcement.eligibility.terminal_stage }) }})
+                        </span>
+                    </p>
+
+                    <button
+                        v-if="enforcement.can_escalate && enforcement.eligibility.eligible && !showEnforceForm"
+                        type="button"
+                        class="mt-3 rounded-xl border border-warning/40 bg-warning/10 px-4 py-2 text-sm font-semibold text-warning transition hover:bg-warning/20"
+                        @click="showEnforceForm = true"
+                    >{{ t('billing.accountDetail.enforcement.open') }}</button>
+
+                    <form v-if="showEnforceForm" class="mt-4 space-y-4" @submit.prevent="submitEnforcement">
+                        <label class="block">
+                            <span class="text-xs font-semibold uppercase tracking-wide text-ink-subtle">{{ t('billing.accountDetail.enforcement.reason') }}</span>
+                            <textarea v-model="enforceForm.reason" rows="2" maxlength="1000" required class="mt-1 w-full rounded-xl border border-line bg-white/70 px-3 py-2 text-sm text-ink focus:border-euca-400 focus:outline-none focus:ring-2 focus:ring-euca-200"></textarea>
+                            <span v-if="enforceForm.errors.reason" class="text-xs text-danger">{{ enforceForm.errors.reason }}</span>
+                        </label>
+                        <label class="block">
+                            <span class="text-xs font-semibold uppercase tracking-wide text-ink-subtle">{{ t('billing.accountDetail.enforcement.reference') }}</span>
+                            <input v-model="enforceForm.reference" type="text" maxlength="255" class="mt-1 w-full rounded-xl border border-line bg-white/70 px-3 py-2 text-sm text-ink focus:border-euca-400 focus:outline-none focus:ring-2 focus:ring-euca-200" />
+                        </label>
+                        <label class="flex items-start gap-2 rounded-xl border border-warning/30 bg-warning/5 p-3 text-sm text-ink">
+                            <input v-model="enforceForm.confirmed" type="checkbox" required class="mt-0.5 h-4 w-4 rounded border-line text-euca-600 focus:ring-euca-200" />
+                            <span>{{ t('billing.accountDetail.enforcement.confirm') }}</span>
+                        </label>
+                        <span v-if="enforceForm.errors.confirmed" class="text-xs text-danger">{{ enforceForm.errors.confirmed }}</span>
+                        <div class="flex justify-end gap-2">
+                            <button type="button" class="rounded-xl border border-line px-4 py-2 text-sm font-semibold text-ink-muted transition hover:bg-surface-2" @click="showEnforceForm = false">{{ t('billing.actions.cancel') }}</button>
+                            <button type="submit" class="rounded-xl border border-warning/40 bg-warning/10 px-4 py-2 text-sm font-semibold text-warning transition hover:bg-warning/20" :disabled="enforceForm.processing || !enforceForm.confirmed">{{ t('billing.accountDetail.enforcement.submit') }}</button>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- Full provenance: every act, append-only -->
+                <ul v-if="enforcement.history.length > 1" class="mt-4 space-y-1 border-t border-line pt-3">
+                    <li v-for="h in enforcement.history" :key="h.id" class="flex flex-wrap items-baseline justify-between gap-2 text-xs text-ink-muted">
+                        <span>{{ t(`billing.accountDetail.enforcement.actions.${h.action}`) }} · {{ h.initiated_by ?? '—' }} · {{ h.initiated_on }}</span>
+                        <span class="text-ink-subtle">{{ h.reason }}</span>
+                    </li>
+                </ul>
             </div>
 
             <!-- Dunning timeline — a READ-ONLY display of the real state machine (append-only

@@ -195,25 +195,37 @@ test('the AR Account Detail page renders the engine dunning timeline and adds no
             ->where('dunning.events.0.level', 1)
             ->where('dunning.events.0.fee_minor', 1500));
 
-    // THE DUNNING TIMELINE STAYS READ-ONLY. (Contract narrowed at ARDETAIL.P4, which added the page's
-    // first — and only — write: record-payment. The invariant this test actually protects is that NO
-    // DUNNING action exists on the account page: send-reminder and the Betreibung escalation are later,
-    // carefully-gated gates. That still holds, and is now asserted directly rather than via "GET-only".)
+    // THE DUNNING TIMELINE ITSELF STAYS READ-ONLY. (Contract narrowed at ARDETAIL.P4/P5/P6 as this
+    // page gained its operator write actions. The invariant this test protects is that no action can
+    // touch the dunning STATE MACHINE from here — sending a reminder stays in DunningService, and the
+    // only escalation route is the P6 operator-gated one, which records a legal act rather than
+    // advancing dunning.)
     $accountRoutes = collect(Route::getRoutes()->getRoutes())
         ->filter(fn ($r) => str_starts_with($r->uri(), 'billing/accounts'));
     $writeRoutes = $accountRoutes->filter(fn ($r) => ! in_array('GET', $r->methods(), true) || in_array('POST', $r->methods(), true));
 
     expect($accountRoutes)->not->toBeEmpty()
-        // No dunning/reminder/escalation action anywhere on this page.
-        ->and($accountRoutes->contains(fn ($r) => (bool) preg_match('/dunning|reminder|escalat|betreibung/i', $r->uri())))->toBeFalse()
-        // The writes are exactly the money/plan operator actions (P4 record-payment, P5 plan
-        // lifecycle) — nothing else has appeared on this page.
+        // No route from this page fires a dunning level / sends a reminder.
+        ->and($accountRoutes->contains(fn ($r) => (bool) preg_match('/dunning|reminder/i', $r->uri())))->toBeFalse()
+        // The writes are exactly the operator actions (P4 record-payment, P5 plan lifecycle,
+        // P6 debt-enforcement) — nothing else has appeared on this page.
         ->and($writeRoutes->map(fn ($r) => $r->uri())->sort()->values()->all())->toBe([
+            'billing/accounts/{account}/enforcement',
+            'billing/accounts/{account}/enforcement/{escalation}/withdraw',
             'billing/accounts/{account}/payments',
             'billing/accounts/{account}/plans',
             'billing/accounts/{account}/plans/installments/{installment}/pay',
             'billing/accounts/{account}/plans/{plan}/cancel',
         ]);
+
+    // ADDED at ARDETAIL.P6 — the standing NO-AUTO-ESCALATION invariant: the escalation routes are
+    // gated on the dedicated `billing.escalate` (not billing.view/manage), so no reader and no
+    // charge-capturing clinical role can reach them, and nothing automatic can either.
+    $escalationRoutes = $accountRoutes->filter(fn ($r) => str_contains($r->uri(), 'enforcement'));
+    expect($escalationRoutes)->toHaveCount(2);
+    foreach ($escalationRoutes as $route) {
+        expect($route->methods())->toContain('POST'); // never reachable by a GET/navigation
+    }
 });
 
 // ── Empty state + RBAC/tenant scope ──────────────────────────────────────────────────────────────

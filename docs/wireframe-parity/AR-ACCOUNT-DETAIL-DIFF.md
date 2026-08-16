@@ -40,7 +40,7 @@ BILLAR.P7 gate report says as much).
 | Record payment | `PaymentService::record` + `allocate` (over-allocation guard; append-only; reconciles) — already wired at `/billing/payments/record` | **exists** (guarded); needs wiring on this page |
 | Send new QR-bill | Swiss QR-bill/PDF rendering exists in billing (`DunningLetterRenderer`, invoice PDF) | **partly exists**; account-level "send" action is new wiring |
 | Set up payment plan | **BUILT (ARDETAIL.P5)** — `PaymentPlan` + `PaymentPlanInstallment` + `PaymentPlanService`; total capped by the real outstanding, installments an exact partition, settled via the P4 guarded `PaymentService` | **resolved** (was wireframe-new) |
-| **Approve Betreibung / debt-enforcement escalation** | *none* — no Betreibung/escalation model or action (grep: the only "escalation" in code is the agent uncertainty hand-off, unrelated) | **WIREFRAME-NEW backend (its own gate) — MUST be operator-gated + agent-excluded + audited** |
+| **Approve Betreibung / debt-enforcement escalation** | **BUILT (ARDETAIL.P6)** — `DebtEnforcementEscalation` + `DebtEnforcementService` on the dedicated `billing.escalate`; eligibility-gated (dunning exhausted), explicit confirmation + reason, append-only + audited, agent-excluded by construction | **resolved** (was wireframe-new) |
 | Billing-agent panel ("4 notices sent · 1 awaiting you · 0 auto-escalated") | `DunningEvent` counts + the ApprovalQueue/agent-cap governance (AGENT.P1–P6) | **display gap** over existing governance |
 | Open patient chart link | Patient 360 (`/patients/{id}`) | **exists** (link) |
 
@@ -217,8 +217,23 @@ from the start (the wireframe's own framing).
    (never a recomputation); the Vue computes no money. Locked by `tests/Feature/Billing/AccountRecordPaymentTest.php`
    (8) + the FIX.5 route smoke; browser-verified (CHF 313.00 → CHF 213.00, forged over-allocation refused,
    reception 403). *(The "Send new QR-bill" half of this item stays #9 / the flagged QR-bill gap.)*
-7. *(High, operator-gated)* **Betreibung / debt-enforcement escalation** — its own gate: **human-operator only,
-   agent-excluded, audited + append-only**; the agent drafts and stops ("0 auto-escalated" enforced, not just shown).
+7. ✅ **RESOLVED (ARDETAIL.P6)** — **Betreibung / debt-enforcement escalation**, built as a human legal act:
+   an APPEND-ONLY `debt_enforcement_escalations` record (ORM guards + DB triggers; `initiated_by` a NOT-NULL
+   users FK, so no system/agent actor can even be recorded as an initiator) written through
+   `DebtEnforcementService`. **A DEDICATED, NARROWER PERMISSION** `billing.escalate` granted only to `org_admin`
+   + `billing` — narrower than `billing.manage`, which pharmacist/surgical-scheduler/ED/lab/radiology hold for
+   charge capture (a pharmacist holds billing.manage and is still refused). **ELIGIBILITY** is a real
+   precondition re-checked in the service transaction: the account must have reached the TERMINAL configured
+   dunning level on ≥1 invoice, still owe money, and have no live escalation; with no dunning policy configured
+   nothing is eligible (fail-closed). **EXPLICIT CONFIRMATION + reason** required (route-validated `accepted`,
+   never defaulted; the confirmation moment recorded). **AGENT-EXCLUDED BY CONSTRUCTION** — "0 auto-escalated"
+   is structural: no AiTool is an escalation capability, no AiCore reference, and the ONLY files referencing the
+   service/model are the service, the model and the operator-gated controller (asserted as an exact list, so no
+   job/command/listener/schedule can reach it); the scheduler automates nothing enforcement-related.
+   **AUDITED + APPEND-ONLY** (a withdrawal appends a superseding record; `actor_type=user`). Locked by
+   `tests/Feature/Billing/DebtEnforcementTest.php` (8, incl. the 5-part agent-exclusion proof) + the route smoke;
+   browser-verified (stage 2 of 2 → recorded with human provenance; an ineligible account refused even on a
+   forged confirmed POST; reception 403).
 8. ✅ **RESOLVED (ARDETAIL.P5)** — **Payment plan** — the wireframe-new model, built so phantom money is
    impossible: `payment_plans` + `payment_plan_installments` (additive, integer minor) whose **total may not
    exceed the account's REAL outstanding** (measured over the SAME population the P1 ledger sums, and a second
@@ -240,8 +255,28 @@ from the start (the wireframe's own framing).
 the running balance tying δ=0 (no Vue sum); record-payment through `PaymentService` + the over-allocation guard; the
 dunning stage the real state machine; **Betreibung human-operator + agent-excluded + audited — never auto-escalated**.
 
-**Progress:** items #1/#2/#4/#5 resolved (P1–P3, display), **#6 resolved (P4, the first write)** and **#8 resolved
-(P5, the payment plan)**. **REMAINING:** #3 account-wide figures (Med) · **#7 Betreibung escalation (P6 —
-human-operator only, agent-EXCLUDED by construction, audited)** · #9 send new QR-bill/reminder (reuse
-`DunningService` + the agent-cap/ApprovalQueue path), plus the flagged real Swiss QR-bill (IBAN/reference)
-backend gap.
+## 9. STATUS — AR ACCOUNT DETAIL WIREFRAME PARITY IS **COMPLETE** (P1 → P6)
+
+**ALL punch-list items are RESOLVED:** #1 per-account running-balance ledger (P1) · #2 dunning timeline (P2) ·
+#4 hero/Swiss format/status pills (P3) · #5 patient-chart + invoice-PDF links (P3) · #6 record payment through
+the guarded `PaymentService` (P4) · #8 payment plan (P5) · #7 Betreibung escalation (P6). **#3** (account-wide
+figures — total outstanding, last payment, counts) was **absorbed**: the P1 ledger's `account_outstanding_minor`
+and the P3 hero already surface the account-wide balance from the engine, so no separate method was needed.
+
+**Two items remain flagged as HONEST BACKEND GAPS, not parity failures** (surface-don't-fabricate):
+- **#9 / the real Swiss QR-bill** (IBAN + structured reference payment part) — no QR-bill renderer exists;
+  `InvoicePdfRenderer` emits a stub invoice PDF. P3 surfaces the existing invoice PDF, honestly labelled. A real
+  QR-bill remains unbuilt rather than faked.
+- **Send new QR-bill / reminder from this page** — deliberately NOT added: sending stays inside the existing
+  idempotent `DunningService` (and any agent draft rides the AGENT.P1–P6 cap + ApprovalQueue). No new auto-send
+  was introduced here.
+
+**This is the SEVENTH page of the wireframe-parity pass to reach parity** (Admin Settings · Approval Queue ·
+Branches · Agent & Tool Config · Allergy Alert safe-part · Billing & AR · **AR Account Detail**). Remaining
+decoded pages: **Appointment Detail · Auth Screens.**
+
+**The fences that held throughout:** every displayed figure is engine-computed and ties δ=0 (no page-side money
+math anywhere in the chain); every money movement goes through the guarded, append-only, reconciling
+`PaymentService`; the dunning timeline is the real state machine, read-only; the payment plan can never schedule
+money that is not owed; and the legal escalation is operator-only, eligibility-gated, audited and
+**agent-excluded by construction**.

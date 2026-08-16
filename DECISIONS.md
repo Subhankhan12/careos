@@ -2638,3 +2638,35 @@ references the old ID.
   `overdue` is DERIVED from the due date rather than stored, so it can never drift from the schedule. Remaining
   on this page: P6 Betreibung escalation (human-operator only, agent-EXCLUDED by construction, audited). See
   [[Billing]], `docs/wireframe-parity/AR-ACCOUNT-DETAIL-DIFF.md`, [[LOG]].
+
+- **D-154 — Betreibung (debt enforcement) is a human legal act: operator-only, agent-excluded BY CONSTRUCTION,
+  eligibility-gated, append-only (ARDETAIL.P6 — the AR Account Detail finale).** A Betreibung is a real legal
+  proceeding, so none of its safeguards is a setting or a label:
+  1. **A DEDICATED, NARROWER PERMISSION.** `billing.escalate` is new and is granted ONLY to `org_admin` and
+     `billing`. It is deliberately narrower than `billing.manage`, which pharmacist / surgical-scheduler / ED /
+     lab / radiology roles hold so they can capture charges through the engine — a clinical role that may
+     capture a charge must not be able to start a legal proceeding (proven: a pharmacist holds `billing.manage`
+     and is still refused).
+  2. **ELIGIBILITY IS A REAL PRECONDITION.** Only an account whose dunning process is EXHAUSTED may be
+     escalated — it must have reached the TERMINAL configured dunning level (the real state machine's last
+     level) on at least one invoice and still owe money. Re-checked inside the service's own transaction, so the
+     page cannot talk it into an early escalation. With no dunning policy configured NOTHING is eligible
+     (fail-closed: you cannot exhaust a process that does not exist).
+  3. **EXPLICIT HUMAN CONFIRMATION.** The service refuses without an explicit operator confirmation and a
+     recorded reason; the route validates the confirmation as `accepted` so it can never be defaulted, and the
+     confirmation moment is stored.
+  4. **AGENT-EXCLUDED BY CONSTRUCTION — the point of the gate.** "0 auto-escalated" is not a displayed number:
+     no registered `AiTool` is an escalation capability; no AiCore code references the service, model,
+     permission or routes; the ONLY files in `Modules/` + `app/` that reference them are the service, the model
+     and the two operator-gated controller actions (asserted as an EXACT list, so no job, console command,
+     listener or schedule can reach it); `routes/console.php` automates nothing enforcement-related; and
+     `initiated_by` is a NOT-NULL foreign key to `users`, so no system or agent actor can even be recorded as an
+     initiator. The agent may still DRAFT dunning reminders through the existing cap/ApprovalQueue path — it
+     simply has no path to a legal action.
+  5. **APPEND-ONLY PROVENANCE.** Escalations are never edited or deleted (ORM guards + DB triggers); a
+     withdrawal APPENDS a superseding record, and both acts audit with `actor_type = user`. The history of a
+     legal action can never be rewritten.
+  The page's copy states exactly this and nothing more. **With P6 the AR Account Detail page's wireframe parity
+  is COMPLETE (P1 ledger → P2 dunning timeline → P3 visual → P4 record-payment → P5 payment plan → P6
+  Betreibung)** — the seventh page of the parity pass; Appointment Detail and Auth Screens remain. See
+  [[Billing]], `docs/wireframe-parity/AR-ACCOUNT-DETAIL-DIFF.md`, [[LOG]].

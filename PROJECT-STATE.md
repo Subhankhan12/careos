@@ -3,7 +3,7 @@
 Short, factual snapshot of where the project stands. Updated at consolidations and after gates
 (per the MEMORY PROTOCOL in AGENTS.md).
 
-## STATUS: BUILD COMPLETE + AUDITED (3 audits, ZERO must-fix) · EIGHT VERTICALS · DEMOABLE HOSPITAL TENANT · CURRENT STAGE = DEPLOYMENT · WIREFRAME-PARITY PASS (6 PAGES DONE: Admin Settings · Approval Queue P1→P7 · Branches P1→P5 · Agent&Tool Config P1→P6 COMPLETE · Billing & AR P1→P7 COMPLETE · Allergy Alert safe-part [ALLERGY.P1] · Billing&AR audit + BILLAR.P1 write-off/adjustment ledger + BILLAR.P2 AR roll-forward + BILLAR.P3 DSO/collection-rate + BILLAR.P4 by-payer + BILLAR.P5 charged-vs-collected trend + BILLAR.P6 management-report grid + BILLAR.P7 top-overdue+drill — Billing & AR PARITY COMPLETE · AR Account Detail drill-in now building: ARDETAIL.P1 per-account running-balance ledger + ARDETAIL.P2 dunning timeline + ARDETAIL.P3 hero/Swiss-format/links + ARDETAIL.P4 record-payment through the guarded PaymentService + ARDETAIL.P5 payment-plan model)
+## STATUS: BUILD COMPLETE + AUDITED (3 audits, ZERO must-fix) · EIGHT VERTICALS · DEMOABLE HOSPITAL TENANT · CURRENT STAGE = DEPLOYMENT · WIREFRAME-PARITY PASS (7 PAGES DONE: Admin Settings · Approval Queue P1→P7 · Branches P1→P5 · Agent&Tool Config P1→P6 COMPLETE · Billing & AR P1→P7 COMPLETE · Allergy Alert safe-part [ALLERGY.P1] · Billing&AR audit + BILLAR.P1 write-off/adjustment ledger + BILLAR.P2 AR roll-forward + BILLAR.P3 DSO/collection-rate + BILLAR.P4 by-payer + BILLAR.P5 charged-vs-collected trend + BILLAR.P6 management-report grid + BILLAR.P7 top-overdue+drill — Billing & AR PARITY COMPLETE · AR Account Detail COMPLETE: ARDETAIL.P1 per-account running-balance ledger + P2 dunning timeline + P3 hero/Swiss-format/links + P4 record-payment through the guarded PaymentService + P5 payment-plan model + P6 Betreibung escalation [operator-only, agent-excluded by construction])
 
 > **RECONCILED (this pass — eight verticals built + audited; at the DEPLOY stage; a page-by-page wireframe-parity
 > pass now in progress).** CareOS is a multi-tenant agentic healthcare-operations platform (EU-first). **Stack:**
@@ -41,9 +41,18 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
 > the P1 ledger sums] and a second active plan is refused; the installments are an EXACT engine-computed PARTITION
 > of that total [last absorbs the remainder, Σ === total, δ=0, re-asserted before commit]; settling one goes
 > through the P4 guarded `PaymentService` so the plan itself moves NO money and I1–I6 still tie δ=0; operator
-> created/cancelled/defaulted with reason + audit, **agent-excluded**; D-153) — **done**. **REMAINING:** P6
-> **Betreibung/debt-enforcement escalation** (human-operator only, **agent-excluded by construction**, audited —
-> never auto-escalated); plus the real Swiss QR-bill (IBAN/reference) which is a flagged backend gap.
+> created/cancelled/defaulted with reason + audit, **agent-excluded**; D-153) → **P6 BETREIBUNG / DEBT-ENFORCEMENT
+> ESCALATION** (a human legal act: a NEW, deliberately NARROWER `billing.escalate` permission granted only to
+> org_admin + billing [charge-capturing clinical roles hold `billing.manage` and are refused]; eligibility =
+> the REAL dunning machine exhausted at its terminal level, re-checked server-side, fail-closed with no policy;
+> an EXPLICIT operator confirmation + recorded reason; APPEND-ONLY + audited with `actor_type=user`, a withdrawal
+> appending a superseding row; and **AGENT-EXCLUDED BY CONSTRUCTION** — no AiTool capability, no AiCore reference,
+> and the ONLY files reaching the service are the service, the model and the operator-gated controller [asserted
+> as an exact list], so "0 auto-escalated" is structural, not displayed; D-154) — **done**.
+> **AR ACCOUNT DETAIL WIREFRAME PARITY IS COMPLETE (P1→P6) — the SEVENTH page of the pass.**
+> **REMAINING decoded pages: Appointment Detail · Auth Screens.** Two honest backend gaps stay flagged on this
+> page (not faked): the real Swiss QR-bill (IBAN/reference payment part) and send-QR-bill/reminder-from-the-page
+> (sending stays inside the existing idempotent `DunningService` + the agent-cap/ApprovalQueue path).
 > **REMAINING decoded pages after AR Account Detail:** Appointment Detail · Auth Screens.
 > Page status (historical per-page detail):
 > - **Admin Settings — COMPLETE** (SETTINGS.P1 glass → P2 Agents/AutonomyPolicy cap → P3 Scheduling/honest buffer →
