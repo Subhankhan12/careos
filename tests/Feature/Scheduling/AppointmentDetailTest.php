@@ -390,11 +390,15 @@ test('an action moves the appointment through the real service and is audited to
         'SELECT actor_type, actor_id, context FROM audit_events WHERE resource_id = ? AND action = ?',
         [$appointment->id, 'appointment.confirmed'],
     );
+    // DECODE the context rather than string-matching the raw column: MySQL 8 normalises a JSON
+    // column (space after the colon, keys reordered) while MariaDB round-trips it compactly, so a
+    // literal substring match passes on the dev engine and fails on CI. Assert the MEANING.
+    $context = json_decode((string) $audit->context, true);
     expect($audit)->not->toBeNull()
         ->and($audit->actor_type)->toBe('user')
         ->and((string) $audit->actor_id)->toBe((string) $fx['actor']->id)
-        ->and($audit->context)->toContain('"from_status":"booked"')
-        ->and($audit->context)->toContain('"to_status":"confirmed"');
+        ->and($context['from_status'])->toBe('booked')
+        ->and($context['to_status'])->toBe('confirmed');
 });
 
 test('a FORGED illegal transition is refused server-side and the machine is untouched', function () {
