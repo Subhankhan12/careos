@@ -2723,3 +2723,31 @@ references the old ID.
   refused by `assertLegal` with the record untouched, and every accepted move writes the real
   `appointment.<status>` audit row attributed to the operator. See [[Scheduling]],
   `docs/wireframe-parity/APPOINTMENT-DETAIL-DIFF.md`, [[LOG]].
+
+- **D-157 — The reschedule modal is a caller of the real slot finder and the real reschedule(); it computes no
+  availability and books nothing itself (APPT.P3).** The wireframe's reschedule flow is wired to the engine so
+  that its promises are literally true rather than decorative:
+  1. **THE SLOTS ARE THE FINDER'S.** The panel MERGES `AvailableSlotFinder::forServiceBranchDate()` answers
+     across the next fortnight (the finder is per-date by design), excluding the appointment's own current slot.
+     A merge of engine results is not a computation: the page never decides what is free. Each offered slot is
+     tested to appear in the finder's own answer for its date. The constraint chips simply describe what the
+     finder already applies (the same service, hence the same duration and required resource types).
+  2. **THE PAGE NEVER PICKS RESOURCES.** Confirming submits only the chosen START TIME and the reason. The
+     controller re-runs the finder at confirm, requires the slot to still be conflict-free, and uses **its**
+     `resource_ids`.
+  3. **THE GUARD, TWICE OVER — a reschedule cannot double-book.** After the re-check, `reschedule()` performs the
+     move: reason-required, `assertLegal(→ rescheduled)`, one transaction with the old row `lockForUpdate`,
+     re-booked via `BookingService::book` → `lockResource` → `assertNoOverlap`. A slot taken between display and
+     confirm is refused by the re-check, and any race that slips past it is refused by the overlap guard
+     (`BookingConflictException`) — both proven. "Availability is re-checked server-side at confirm" is therefore
+     a statement of fact.
+  4. **OMITTED, NOT FAKED.** The wireframe's "Dr. Weber only" toggle is absent: `AvailableSlotFinder` takes no
+     preferred-resource parameter (it picks the first free resource of each required type), so rendering the
+     control would fabricate a filter the engine cannot honour. It is queued as its own backend gate.
+  Note for readers of the browser evidence: two appointments may legitimately share a start time on **disjoint**
+  resources — that is not a double-book. The invariant is per-resource, and it holds (no resource ever carries two
+  overlapping blocking appointments).
+  **With P3 the Appointment Detail page's CORE wireframe parity is complete** (P1 display → P2 action row → P3
+  reschedule); only the two optional backend follow-ons remain (a room-capability field for the chips; a
+  preferred-practitioner filter for the toggle). See [[Scheduling]],
+  `docs/wireframe-parity/APPOINTMENT-DETAIL-DIFF.md`, [[LOG]].

@@ -1737,6 +1737,21 @@
                 "reasonFor": "Reason for {action}",
                 "cancelAction": "Back",
                 "confirmAction": "Record"
+            },
+            "reschedule": {
+                "open": "Reschedule",
+                "title": "Reschedule appointment",
+                "subtitle": "conflict-free slots from the scheduler · next {days} days",
+                "sameService": "Same service · {service} · {minutes} min",
+                "sameResources": "Same resource types as booked",
+                "reason": "Reason for rescheduling (recorded)",
+                "slots": "Conflict-free slots",
+                "soonest": "soonest",
+                "noSlots": "No conflict-free slot in the next {days} days.",
+                "effect": "Moves to {when}, frees the current slot and books the new one in one step.",
+                "recheck": "Availability is re-checked on the server when you confirm — a slot taken in the meantime is refused, so a reschedule can never double-book.",
+                "keep": "Keep current time",
+                "confirm": "Reschedule"
             }
         }
     },

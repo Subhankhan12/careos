@@ -160,6 +160,12 @@ Route::middleware('auth')->group(function () {
     // it needs the slot finder + overlap guard (APPT.P3).
     Route::post('/scheduling/appointments/{appointment}/transition', [AppointmentDetailController::class, 'transition'])
         ->name('scheduling.appointments.transition');
+    // APPT.P3 — the reschedule move. The page submits only the chosen start time + reason; the
+    // controller re-runs the REAL AvailableSlotFinder at confirm (taking ITS resources) and hands the
+    // move to the REAL AppointmentService::reschedule(), which re-books through
+    // lockResource → assertNoOverlap. A reschedule therefore CANNOT double-book.
+    Route::post('/scheduling/appointments/{appointment}/reschedule', [AppointmentDetailController::class, 'reschedule'])
+        ->name('scheduling.appointments.reschedule');
     Route::post('/scheduling/day-board/transition', [DayBoardActionController::class, 'transition'])
         ->name('scheduling.day-board.transition');
     Route::post('/scheduling/day-board/quick-book', [DayBoardActionController::class, 'quickBook'])

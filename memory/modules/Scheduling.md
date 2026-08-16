@@ -278,6 +278,25 @@ A forged illegal POST is refused by `assertLegal` with the record untouched; eve
 `appointment.<status>` audit row attributed to the operator. Locked by the APPT.P2 half of
 `tests/Feature/Scheduling/AppointmentDetailTest.php` (13 total); browser-verified.
 
+## Appointment Detail — reschedule (APPT.P3 — real finder + real overlap guard; core parity complete)
+
+`POST /scheduling/appointments/{appointment}/reschedule` -> `AppointmentDetailController::reschedule`.
+**THE SLOTS ARE THE FINDER'S:** `reschedulePanel()` MERGES `AvailableSlotFinder::forServiceBranchDate()`
+answers across the next 14 days (<=4/day, <=12 total, the current slot excluded) — the finder is per-date by
+design, so this is a merge of engine results, never a page-side availability computation. Offered only when
+`rescheduled` is a legal move (reuses the P2 `legalTransitionsFrom`).
+**THE PAGE NEVER PICKS RESOURCES:** confirm submits only `starts_at` + `reason`; the controller RE-RUNS the
+finder at confirm, requires the slot to still be conflict-free, and uses ITS `resource_ids`.
+**THE GUARD, TWICE OVER:** then `reschedule()` moves it — reason-required, assertLegal(->rescheduled), one
+transaction with the old row lockForUpdate (links freed), re-booked via `BookingService::book` ->
+`lockResource` -> `assertNoOverlap` (throws `BookingConflictException::resourceTaken`). A slot taken between
+display and confirm is refused by the re-check, and any race past it by the guard. **Cannot double-book.**
+`reschedule()` returns the NEW appointment (old -> `rescheduled`, terminal), so the operator is redirected there.
+**OMITTED, NOT FAKED:** the "Dr. Weber only" toggle — the finder has NO preferred-resource parameter.
+**Reading browser evidence:** two appointments MAY share a start time on DISJOINT resources — that is not a
+double-book; the invariant is per-resource.
+Locked by the APPT.P3 half of `tests/Feature/Scheduling/AppointmentDetailTest.php` (18 total); browser-verified.
+
 ## Open items
 
 - Later gates add realtime day-board refresh and UI surfaces for agent proposals.

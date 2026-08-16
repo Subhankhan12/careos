@@ -197,7 +197,7 @@ Booked (arrive · …)") — `arrive` is reachable from Booked as a **two-step c
 2. ✅ **RESOLVED (APPT.P2)** — **Action row from the REAL legal set** — the controller supplies
    `LEGAL_TRANSITIONS[status]`; the Vue renders only those. A forged illegal POST stays refused by `assertLegal`
    (already true). Honour the wireframe's own rule rather than its hardcoded list.
-3. *(High, guard — APPT.P3)* **Reschedule via the real services** — slots from `AvailableSlotFinder`, the move through
+3. ✅ **RESOLVED (APPT.P3)** — **Reschedule via the real services** — slots from `AvailableSlotFinder`, the move through
    `reschedule()` (reason required, atomic, overlap-guarded). No page-side slot list, no page-side re-book.
 4. ✅ **RESOLVED (APPT.P1)** — **Timeline from real records** — audit `appointment.*` rows + `AppointmentReminder`, with honest channel
    labels and an empty state.
@@ -234,6 +234,30 @@ accessor over the same map `assertLegal` enforces) minus `rescheduled`; transiti
 moves, so a booked appointment offers **Confirm**, not "Mark arrived". The DAY-BOARD keeps its option-(c)
 `confirm→arrive` compose — a deliberate, recorded divergence (D-156); neither weakens the machine.
 
-**REMAINING:** **APPT.P3** the reschedule modal over the REAL `AvailableSlotFinder`
-+ `reschedule()` overlap guard · **P4/P5** the do-not-fabricate items (resource capabilities, preferred-
-practitioner slot filtering) only if a real backend is built for them.
+**APPT.P3 (done)** — the reschedule modal MERGES the real `AvailableSlotFinder` per-date answers (never a
+page-side availability computation); confirm submits only the start time + reason, the controller re-runs the
+finder and uses ITS resources, and `reschedule()` performs the move behind `lockResource → assertNoOverlap`.
+**A reschedule cannot double-book** — refused first by the confirm-time re-check and, in any race, by the guard
+itself. The "Dr. Weber only" toggle is OMITTED (the finder has no preferred-resource parameter). D-157.
+
+## 10. CORE PARITY COMPLETE
+
+**The Appointment Detail page's core wireframe parity is COMPLETE** — P1 display (true status across all eight
+states, real resources/patient/timeline, honest labels) → P2 action row (the real `LEGAL_TRANSITIONS`,
+server-authoritative) → P3 reschedule (the real finder + overlap guard). Items #1–#5 of the punch-list are
+resolved.
+
+**The two remaining items are OPTIONAL BACKEND FOLLOW-ONS, not parity gaps** — each needs a real backend before
+any UI, and neither is faked today:
+- **P4 — room capability chips**: `Resource` has no capability/equipment field. Needs a tenant-authored
+  capability field first; the chips are omitted until then.
+- **P5 — the "Dr. Weber only" preferred-practitioner toggle**: `AvailableSlotFinder` takes no preferred-resource
+  parameter (it picks the first free resource of each required type). Needs an optional filter on the finder
+  first; the toggle is omitted until then.
+
+Also still honestly labelled rather than fabricated: the reminder channel (email only — SMS/WhatsApp drivers are
+deferred) and the confirmation provenance (the real recorded actor, not an inbound "replied JA").
+
+**EIGHT pages of the parity pass now have their core complete** (Admin Settings · Approval Queue · Branches ·
+Agent & Tool Config · Allergy safe-part · Billing & AR · AR Account Detail · **Appointment Detail**). **Only Auth
+Screens remains.**

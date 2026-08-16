@@ -31,7 +31,7 @@ wireframe without weakening a single enforced gate). See §5.
 > confirmation + recorded reason; append-only + audited; **AGENT-EXCLUDED BY CONSTRUCTION** — no AiTool, no AiCore
 > reference, and the only files reaching the service are the service, the model and the operator-gated controller,
 > asserted as an exact list, so "0 auto-escalated" is structural; D-154). Then the remaining decoded pages:
-> **Appointment Detail · Auth Screens.** Do NOT start the next part unprompted — each is its own re-issued gate.
+> **Appointment Detail CORE COMPLETE (APPT.P1–P3) · Auth Screens (the last page).** Do NOT start the next part unprompted — each is its own re-issued gate.
 
 > **One-liner to paste at the start of a new session:**
 > *"CareOS is a multi-tenant, agentic healthcare-operations SaaS (Laravel 12 · Inertia/Vue 3 · Eucalyptus Glow ·
@@ -57,7 +57,7 @@ wireframe without weakening a single enforced gate). See §5.
 1. **`AGENTS.md`** — single source of truth: project, stack, hard rules, workflow, module map, MEMORY PROTOCOL.
 2. **`PROJECT-STATE.md`** — authoritative "where we are" snapshot (BUILD COMPLETE · eight verticals · all hospital
    phases · focus = deploy + partnerships · latest commit + suite counts).
-3. **`DECISIONS.md`** — architecture decision log, **D-001 → D-156** (append-only; never edit past entries; **D-149**
+3. **`DECISIONS.md`** — architecture decision log, **D-001 → D-157** (append-only; never edit past entries; **D-149**
    = the wireframe-parity discipline, **D-150** = the Billing & AR reconcile extension + engine-computed reporting,
    **D-151** = AR Account Detail read-only-over-the-engine + the agent-never-commits-money / never-escalates-Betreibung line,
    **D-152** = the AR record-payment gate WIRES the guarded `PaymentService` rather than becoming a second payment path,
@@ -69,7 +69,7 @@ wireframe without weakening a single enforced gate). See §5.
 5. **`memory/LOG.md`** — one line per completed gate; the full build history (Phases 0/A–G · P0P · CLINIC.W1–W10 ·
    FIX.1–5 · POLISH.1–3 · UI.F1–2 · DENTAL.G1–9 · HOSPITAL.G1–7 · PHARMACY.G1–5 · SURGERY.G1–5 · ED.G1–6 ·
    LAB.G1–6 · RAD.G1–5 · A11Y.1 · the WIREFRAME-PARITY gates [SETTINGS.P1–6 · APPROVAL.P1–7 · BRANCH.P1–5 ·
-   AGENT.P1–6 · ALLERGY.P1 · BILLAR.P1–7 · ARDETAIL.P1–6 · APPT.P1–2] · the reconciliation entries).
+   AGENT.P1–6 · ALLERGY.P1 · BILLAR.P1–7 · ARDETAIL.P1–6 · APPT.P1–3] · the reconciliation entries).
 6. **`memory/modules/*.md`** — per-module deep notes (20): Platform, Audit, AiCore, People, Patients, Scheduling,
    Clinical, Billing, Comms, FrontDesk, Nursing, Reporting, Import, **Dental, Hospital, Pharmacy, Surgery, ED,
    Lab, Radiology**.

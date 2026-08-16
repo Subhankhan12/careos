@@ -14,12 +14,14 @@ use Modules\Platform\Models\RoleAssignment;
 use Modules\Platform\Models\Tenant;
 use Modules\Platform\Models\User;
 use Modules\Platform\Services\TenantContext;
+use Modules\Scheduling\Exceptions\BookingConflictException;
 use Modules\Scheduling\Models\Appointment;
 use Modules\Scheduling\Models\AppointmentReminder;
 use Modules\Scheduling\Models\Resource;
 use Modules\Scheduling\Models\ResourceAvailability;
 use Modules\Scheduling\Models\Service;
 use Modules\Scheduling\Services\AppointmentService;
+use Modules\Scheduling\Services\AvailableSlotFinder;
 use Modules\Scheduling\Services\BookingService;
 
 uses(RefreshDatabase::class);
@@ -454,6 +456,148 @@ test('cancelling requires a reason and records it; a no-show reason is optional 
         ->assertSessionHasNoErrors();
     expect($noShow->refresh()->status)->toBe(Appointment::STATUS_NO_SHOW)
         ->and($noShow->status_reason)->toBe('Did not attend.');
+});
+
+// ── APPT.P3 — the reschedule modal over the REAL finder + the REAL overlap guard ─────────────────
+
+test('the offered slots ARE the AvailableSlotFinder output (conflict-free, not page-computed)', function () {
+    $fx = apdFixture();
+    $appointment = apdBook($fx, apdPatient('Slots'));
+
+    $page = $this->actingAs($fx['actor'])->get(route('scheduling.appointments.show', $appointment->id))->assertOk();
+
+    $page->assertInertia(function (Assert $p) use ($fx, $appointment) {
+        $panel = $p->toArray()['props']['reschedule'];
+        expect($panel['can_reschedule'])->toBeTrue()
+            ->and($panel['slots'])->not->toBeEmpty();
+
+        // Every offered slot must appear in the REAL finder's answer for that same date — the page
+        // invents nothing and filters nothing in.
+        $finder = app(AvailableSlotFinder::class);
+        foreach ($panel['slots'] as $slot) {
+            $date = substr($slot['starts_at'], 0, 10);
+            $real = array_column($finder->forServiceBranchDate($fx['service'], $fx['branch']->id, $date, 200), 'starts_at');
+            expect($real)->toContain($slot['starts_at']);
+        }
+
+        // The appointment's own current slot is never offered back to itself.
+        expect(array_column($panel['slots'], 'starts_at'))->not->toContain($appointment->starts_at->toDateTimeString());
+    });
+
+    // A TERMINAL appointment cannot be rescheduled — the machine says so, and the panel reflects it.
+    $cancelled = app(AppointmentService::class)->cancel(apdBook($fx, apdPatient('Term2'), '2026-07-11 17:00:00'), $fx['actor'], 'Done.');
+    $this->actingAs($fx['actor'])->get(route('scheduling.appointments.show', $cancelled->id))
+        ->assertInertia(fn (Assert $p) => $p->where('reschedule.can_reschedule', false)->where('reschedule.slots', []));
+});
+
+test('a reschedule without a reason is refused (the real service rule)', function () {
+    $fx = apdFixture();
+    $appointment = apdBook($fx, apdPatient('NoReason'));
+    $slot = app(AvailableSlotFinder::class)->forServiceBranchDate($fx['service'], $fx['branch']->id, '2026-07-02', 1)[0];
+
+    $this->actingAs($fx['actor'])
+        ->post(route('scheduling.appointments.reschedule', $appointment->id), ['starts_at' => $slot['starts_at']])
+        ->assertSessionHasErrors('reason');
+
+    expect($appointment->refresh()->status)->toBe(Appointment::STATUS_BOOKED)
+        ->and(Appointment::query()->count())->toBe(1); // nothing was re-booked
+});
+
+test('a valid reschedule goes through the real reschedule(): old → rescheduled, a new appointment, audited', function () {
+    $fx = apdFixture();
+    $appointment = apdBook($fx, apdPatient('Mover'));
+    $slot = app(AvailableSlotFinder::class)->forServiceBranchDate($fx['service'], $fx['branch']->id, '2026-07-02', 1)[0];
+
+    $this->actingAs($fx['actor'])
+        ->post(route('scheduling.appointments.reschedule', $appointment->id), [
+            'starts_at' => $slot['starts_at'],
+            'reason' => 'Patient requested a later time.',
+        ])
+        ->assertSessionHasNoErrors();
+
+    // The OLD appointment is terminal, with the reason recorded.
+    $appointment->refresh();
+    expect($appointment->status)->toBe(Appointment::STATUS_RESCHEDULED)
+        ->and($appointment->status_reason)->toBe('Patient requested a later time.')
+        // ...and its resource links were freed by the service.
+        ->and($appointment->resourceLinks()->count())->toBe(0);
+
+    // A NEW appointment exists at the chosen slot, linked back to the old one.
+    $new = Appointment::query()->where('rescheduled_from_id', $appointment->id)->firstOrFail();
+    expect($new->starts_at->toDateTimeString())->toBe($slot['starts_at'])
+        ->and($new->status)->toBe(Appointment::STATUS_BOOKED)
+        ->and($new->patient_id)->toBe($appointment->patient_id)
+        ->and($new->resourceLinks()->count())->toBe(2); // practitioner + room, from the FINDER
+
+    // Both movements are audited; the rescheduled row carries the new appointment id in context.
+    $rescheduled = DB::selectOne(
+        'SELECT context FROM audit_events WHERE resource_id = ? AND action = ?',
+        [$appointment->id, 'appointment.rescheduled'],
+    );
+    // DECODE (never a raw-JSON substring — the MySQL-8 lesson from APPT.P2).
+    $context = json_decode((string) $rescheduled->context, true);
+    expect($context['from_status'])->toBe('booked')
+        ->and($context['to_status'])->toBe('rescheduled')
+        ->and($context['new_appointment_id'])->toBe($new->id);
+
+    $booked = DB::selectOne('SELECT COUNT(*) c FROM audit_events WHERE resource_id = ? AND action = ?', [$new->id, 'appointment.booked']);
+    expect((int) $booked->c)->toBe(1);
+});
+
+test('THE GUARD: a slot taken between display and confirm is refused — a reschedule cannot double-book', function () {
+    $fx = apdFixture();
+    $appointment = apdBook($fx, apdPatient('Racer'));
+    $slot = app(AvailableSlotFinder::class)->forServiceBranchDate($fx['service'], $fx['branch']->id, '2026-07-02', 1)[0];
+
+    // Someone else books that exact slot on the SAME resources first.
+    app(BookingService::class)->book(
+        $fx['service']->id,
+        apdPatient('Rival')->id,
+        $fx['branch']->id,
+        $slot['starts_at'],
+        $slot['resource_ids'],
+        $fx['actor'],
+    );
+
+    // Confirming the now-taken slot is refused server-side; the appointment never moved.
+    $this->actingAs($fx['actor'])
+        ->post(route('scheduling.appointments.reschedule', $appointment->id), [
+            'starts_at' => $slot['starts_at'],
+            'reason' => 'Trying a taken slot.',
+        ])
+        ->assertRedirect(route('scheduling.appointments.show', $appointment->id))
+        ->assertSessionHasErrors('reschedule');
+
+    expect($appointment->refresh()->status)->toBe(Appointment::STATUS_BOOKED)
+        ->and(Appointment::query()->where('rescheduled_from_id', $appointment->id)->count())->toBe(0);
+
+    // AND the backstop itself: calling the real reschedule() directly into that taken slot — past the
+    // controller's finder re-check — is refused by lockResource → assertNoOverlap.
+    expect(fn () => app(AppointmentService::class)->reschedule(
+        $appointment,
+        $slot['starts_at'],
+        $slot['resource_ids'],
+        $fx['actor'],
+        'Forced into a taken slot.',
+    ))->toThrow(BookingConflictException::class);
+
+    expect($appointment->refresh()->status)->toBe(Appointment::STATUS_BOOKED);
+});
+
+test('the reschedule action is gated on appointment.manage and tenant-scoped', function () {
+    $fx = apdFixture('alpha');
+    $appointment = apdBook($fx, apdPatient('Fenced'));
+    $slot = app(AvailableSlotFinder::class)->forServiceBranchDate($fx['service'], $fx['branch']->id, '2026-07-02', 1)[0];
+    $payload = ['starts_at' => $slot['starts_at'], 'reason' => 'nope'];
+
+    $billing = apdUser($fx['tenant'], 'billing'); // no appointment.manage
+    $this->actingAs($billing)->post(route('scheduling.appointments.reschedule', $appointment->id), $payload)->assertForbidden();
+
+    $beta = apdFixture('beta');
+    $this->actingAs($beta['actor'])->post(route('scheduling.appointments.reschedule', $appointment->id), $payload)->assertNotFound();
+
+    app(TenantContext::class)->set($fx['tenant']);
+    expect($appointment->refresh()->status)->toBe(Appointment::STATUS_BOOKED);
 });
 
 test('the transition action is gated on appointment.manage and tenant-scoped', function () {

@@ -2,8 +2,10 @@
 
 namespace App\Http\Controllers;
 
+use Carbon\CarbonImmutable;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Gate;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -13,12 +15,15 @@ use Modules\Clinical\Models\Allergy;
 use Modules\Patients\Models\Patient;
 use Modules\Platform\Models\Branch;
 use Modules\Platform\Models\User;
+use Modules\Scheduling\Exceptions\BookingConflictException;
+use Modules\Scheduling\Exceptions\BookingUnavailableException;
 use Modules\Scheduling\Exceptions\IllegalAppointmentTransitionException;
 use Modules\Scheduling\Models\Appointment;
 use Modules\Scheduling\Models\AppointmentReminder;
 use Modules\Scheduling\Models\Resource;
 use Modules\Scheduling\Models\Service;
 use Modules\Scheduling\Services\AppointmentService;
+use Modules\Scheduling\Services\AvailableSlotFinder;
 
 /**
  * APPT.P1 — the staff APPOINTMENT DETAIL page: the drill-in from the day-board tile.
@@ -63,7 +68,14 @@ class AppointmentDetailController extends Controller
         'no_show' => Appointment::STATUS_NO_SHOW,
     ];
 
-    public function show(Request $request, string $appointment): Response
+    /** How far ahead the reschedule modal scans for conflict-free slots, and how many it offers. */
+    private const RESCHEDULE_SCAN_DAYS = 14;
+
+    private const SLOTS_PER_DAY = 4;
+
+    private const MAX_SLOTS = 12;
+
+    public function show(Request $request, string $appointment, AvailableSlotFinder $slots): Response
     {
         $record = Appointment::query()->whereKey($appointment)->firstOrFail();
 
@@ -122,6 +134,9 @@ class AppointmentDetailController extends Controller
             // APPT.P2 — the action row: the REAL legal transitions for this appointment's ACTUAL
             // status, straight from the machine. Never a hardcoded list.
             'actions' => $this->legalActions($record),
+            // APPT.P3 — the reschedule modal. Offered only when `rescheduled` is a LEGAL move from
+            // this status; the slots are the REAL finder's conflict-free output, never page-computed.
+            'reschedule' => $this->reschedulePanel($record, $service, $slots),
             'links' => [
                 'day_board' => route('scheduling.day-board', ['date' => $record->starts_at->toDateString()]),
             ],
@@ -175,6 +190,146 @@ class AppointmentDetailController extends Controller
         }
 
         return redirect()->route('scheduling.appointments.show', $record->id);
+    }
+
+    /**
+     * APPT.P3 — move the appointment to a new slot through the REAL
+     * {@see AppointmentService::reschedule()}.
+     *
+     * THE GUARD, TWICE OVER. The page submits only the chosen START TIME and the operator's reason —
+     * never the resources. The controller re-runs the REAL {@see AvailableSlotFinder} at confirm time
+     * and requires the chosen slot to still be conflict-free right now; the finder's own
+     * `resource_ids` for that slot are what get booked. Then `reschedule()` does the actual move:
+     * reason-required, `assertLegal(→ rescheduled)`, one transaction with the old row `lockForUpdate`,
+     * re-booked via `BookingService::book` → `lockResource` → `assertNoOverlap`. So a slot that was
+     * taken between display and confirm is refused — first by the finder re-check, and in any race
+     * that slips past it by the overlap guard itself (`BookingConflictException`). **A reschedule
+     * cannot double-book**, and "availability re-checked server-side at confirm" is literally true.
+     *
+     * On success the OLD appointment is terminal (`rescheduled`) and a NEW one exists, so the operator
+     * is redirected to the new appointment's page.
+     */
+    public function reschedule(
+        Request $request,
+        string $appointment,
+        AppointmentService $appointments,
+        AvailableSlotFinder $slots,
+    ): RedirectResponse {
+        $record = Appointment::query()->whereKey($appointment)->firstOrFail();
+
+        Gate::authorize('appointment.manage', ['branch_id' => $record->branch_id]);
+        $actor = $request->user();
+        abort_unless($actor instanceof User, 403);
+
+        $validated = $request->validate([
+            'starts_at' => ['required', 'date'],
+            // The real service throws without a reason; the rule is the server's, not this page's.
+            'reason' => ['required', 'string', 'max:500'],
+        ]);
+
+        $service = Service::query()->find($record->service_id);
+        abort_unless($service instanceof Service, 404);
+
+        $startsAt = Carbon::parse($validated['starts_at'])->toDateTimeString();
+
+        // RE-CHECK at confirm through the REAL finder — and take the resources from ITS answer.
+        $match = null;
+        foreach ($slots->forServiceBranchDate($service, $record->branch_id, substr($startsAt, 0, 10), 200) as $slot) {
+            if ($slot['starts_at'] === $startsAt) {
+                $match = $slot;
+                break;
+            }
+        }
+
+        if ($match === null) {
+            // Re-checked at confirm and it is no longer conflict-free (or never was). Surfaced in the
+            // same plain form as the service's own refusals — there is no PHP translation catalogue,
+            // so a translation key here would leak to the operator.
+            return redirect()
+                ->route('scheduling.appointments.show', $record->id)
+                ->withErrors(['reschedule' => 'That slot is no longer available. Pick another one.']);
+        }
+
+        try {
+            $moved = $appointments->reschedule(
+                $record,
+                $startsAt,
+                $match['resource_ids'],
+                $actor,
+                $validated['reason'],
+            );
+        } catch (BookingConflictException|BookingUnavailableException|IllegalAppointmentTransitionException|InvalidArgumentException $e) {
+            // The overlap guard (or the machine, or the reason rule) refused it. Nothing moved.
+            return redirect()
+                ->route('scheduling.appointments.show', $record->id)
+                ->withErrors(['reschedule' => $e->getMessage()]);
+        }
+
+        // The old appointment is now terminal — send the operator to the appointment that exists.
+        return redirect()->route('scheduling.appointments.show', $moved->id);
+    }
+
+    /**
+     * The reschedule panel: whether the move is legal from here, plus the REAL finder's conflict-free
+     * slots for THIS appointment's own service and branch.
+     *
+     * The finder is per-date by design, so this MERGES its per-date answers across the next fortnight —
+     * a merge of engine results, never a page-side availability computation. The constraint chips the
+     * wireframe draws are simply a description of what the finder already applies (the same service,
+     * hence the same duration and required resource types).
+     *
+     * The wireframe's "Dr. Weber only" toggle is DELIBERATELY ABSENT: `AvailableSlotFinder` takes no
+     * preferred-resource parameter (it picks the first free resource of each required type), so
+     * offering the control would be fabricating a filter the engine cannot honour. It is its own gate.
+     *
+     * @return array<string, mixed>
+     */
+    private function reschedulePanel(Appointment $record, ?Service $service, AvailableSlotFinder $finder): array
+    {
+        $legal = in_array(
+            Appointment::STATUS_RESCHEDULED,
+            AppointmentService::legalTransitionsFrom($record->status),
+            true,
+        );
+
+        if (! $legal || ! $service instanceof Service) {
+            return ['can_reschedule' => false, 'slots' => [], 'store_url' => null, 'scan_days' => self::RESCHEDULE_SCAN_DAYS];
+        }
+
+        $current = $record->starts_at->toDateTimeString();
+        $names = Resource::query()->pluck('name', 'id');
+        $offered = [];
+        $day = CarbonImmutable::parse(now()->toDateString());
+
+        for ($i = 0; $i < self::RESCHEDULE_SCAN_DAYS && count($offered) < self::MAX_SLOTS; $i++) {
+            $date = $day->addDays($i)->toDateString();
+
+            foreach ($finder->forServiceBranchDate($service, $record->branch_id, $date, self::SLOTS_PER_DAY) as $slot) {
+                if ($slot['starts_at'] === $current || count($offered) >= self::MAX_SLOTS) {
+                    continue;
+                }
+
+                $offered[] = [
+                    'starts_at' => $slot['starts_at'],
+                    'ends_at' => $slot['ends_at'],
+                    // Which real resources the finder would use — display only; the server re-derives
+                    // them at confirm.
+                    'resources' => array_values(array_filter(array_map(
+                        fn (string $id): ?string => $names[$id] ?? null,
+                        $slot['resource_ids'],
+                    ))),
+                ];
+            }
+        }
+
+        return [
+            'can_reschedule' => true,
+            'slots' => $offered,
+            'store_url' => route('scheduling.appointments.reschedule', $record->id),
+            'scan_days' => self::RESCHEDULE_SCAN_DAYS,
+            'duration_minutes' => $service->default_duration_minutes,
+            'service' => $service->name,
+        ];
     }
 
     /**

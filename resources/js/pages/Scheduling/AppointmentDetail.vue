@@ -40,6 +40,15 @@ type TimelineRow = {
 };
 
 type ActionOption = { action: string; to_status: string; requires_reason: boolean; url: string };
+type Slot = { starts_at: string; ends_at: string; resources: string[] };
+type ReschedulePanel = {
+    can_reschedule: boolean;
+    slots: Slot[];
+    store_url: string | null;
+    scan_days: number;
+    duration_minutes?: number | null;
+    service?: string | null;
+};
 
 const props = defineProps<{
     appointment: {
@@ -68,6 +77,7 @@ const props = defineProps<{
     } | null;
     timeline: TimelineRow[];
     actions: ActionOption[];
+    reschedule: ReschedulePanel;
     links: { day_board: string };
 }>();
 
@@ -164,6 +174,27 @@ function runAction(option: ActionOption): void {
     actionForm.reason = '';
     actionForm.post(option.url, { preserveScroll: true });
 }
+/* ── APPT.P3 — the reschedule modal. The slot list is the REAL AvailableSlotFinder's conflict-free
+ * output, rendered as given; this view computes NO availability. Confirming submits only the chosen
+ * start time + the reason — the server re-runs the finder, takes ITS resources, and performs the move
+ * through the real reschedule(), which re-books behind the overlap guard.
+ */
+const showReschedule = ref(false);
+const rescheduleForm = useForm({ starts_at: '', reason: '' });
+
+function openReschedule(): void {
+    showReschedule.value = true;
+    rescheduleForm.reset();
+    rescheduleForm.clearErrors();
+}
+function chooseSlot(slot: Slot): void {
+    rescheduleForm.starts_at = slot.starts_at;
+}
+function submitReschedule(): void {
+    if (!props.reschedule.store_url) return;
+    rescheduleForm.post(props.reschedule.store_url, { preserveScroll: true });
+}
+
 function submitWithReason(): void {
     if (!reasonFor.value) return;
     actionForm.action = reasonFor.value.action;
@@ -230,7 +261,7 @@ function submitWithReason(): void {
                         <h2 class="text-sm font-semibold uppercase tracking-wide text-ink-subtle">{{ t('scheduling.appointmentDetail.actions.title') }}</h2>
                         <span class="text-xs text-ink-subtle">{{ t('scheduling.appointmentDetail.actions.subtitle') }}</span>
                     </div>
-                    <div v-if="actions.length" class="flex flex-wrap gap-2">
+                    <div v-if="actions.length || reschedule.can_reschedule" class="flex flex-wrap gap-2">
                         <button
                             v-for="option in actions"
                             :key="option.action"
@@ -242,6 +273,13 @@ function submitWithReason(): void {
                             :disabled="actionForm.processing"
                             @click="runAction(option)"
                         >{{ actionLabel(option.action) }}</button>
+                        <!-- Reschedule is offered only when the machine allows it from this status. -->
+                        <button
+                            v-if="reschedule.can_reschedule"
+                            type="button"
+                            class="rounded-xl border border-line px-4 py-2 text-sm font-semibold text-ink transition hover:bg-surface-2"
+                            @click="openReschedule"
+                        >{{ t('scheduling.appointmentDetail.reschedule.open') }}</button>
                     </div>
                 </div>
 
@@ -259,6 +297,66 @@ function submitWithReason(): void {
                     </label>
                     <button type="button" class="rounded-xl border border-line px-4 py-2 text-sm font-semibold text-ink-muted transition hover:bg-surface-2" @click="reasonFor = null">{{ t('scheduling.appointmentDetail.actions.cancelAction') }}</button>
                     <button type="submit" class="rounded-xl border border-danger/40 px-4 py-2 text-sm font-semibold text-danger transition hover:bg-danger-soft" :disabled="actionForm.processing">{{ t('scheduling.appointmentDetail.actions.confirmAction') }}</button>
+                </form>
+            </div>
+
+            <!-- Reschedule — the slots are the REAL AvailableSlotFinder's conflict-free output. The
+                 move goes through the real reschedule(): reason-required, atomic, old row locked, and
+                 re-booked behind lockResource → assertNoOverlap, so it cannot double-book. -->
+            <div v-if="showReschedule && reschedule.can_reschedule" class="glass-card border border-euca-200 p-5">
+                <div class="flex flex-wrap items-center justify-between gap-2">
+                    <div class="flex items-baseline gap-2">
+                        <h2 class="text-sm font-semibold uppercase tracking-wide text-ink-subtle">{{ t('scheduling.appointmentDetail.reschedule.title') }}</h2>
+                        <span class="text-xs text-ink-subtle">{{ t('scheduling.appointmentDetail.reschedule.subtitle', { days: reschedule.scan_days }) }}</span>
+                    </div>
+                    <button type="button" class="text-xs font-semibold text-ink-muted transition hover:text-ink" @click="showReschedule = false">✕</button>
+                </div>
+
+                <p v-if="rescheduleForm.errors.reschedule" class="mt-3 rounded-xl bg-danger/10 px-3 py-2 text-sm text-danger">{{ rescheduleForm.errors.reschedule }}</p>
+
+                <!-- The constraints the finder already applies — described, not re-implemented. -->
+                <div class="mt-3 flex flex-wrap gap-1.5">
+                    <span class="rounded-full bg-surface-2 px-2.5 py-0.5 text-xs font-medium text-ink-muted">{{ t('scheduling.appointmentDetail.reschedule.sameService', { service: reschedule.service, minutes: reschedule.duration_minutes }) }}</span>
+                    <span class="rounded-full bg-surface-2 px-2.5 py-0.5 text-xs font-medium text-ink-muted">{{ t('scheduling.appointmentDetail.reschedule.sameResources') }}</span>
+                </div>
+
+                <form class="mt-4 space-y-4" @submit.prevent="submitReschedule">
+                    <label class="block">
+                        <span class="text-xs font-semibold uppercase tracking-wide text-ink-subtle">{{ t('scheduling.appointmentDetail.reschedule.reason') }}</span>
+                        <input v-model="rescheduleForm.reason" type="text" maxlength="500" required class="mt-1 w-full rounded-xl border border-line bg-white/70 px-3 py-2 text-sm text-ink focus:border-euca-400 focus:outline-none focus:ring-2 focus:ring-euca-200" />
+                        <span v-if="rescheduleForm.errors.reason" class="text-xs text-danger">{{ rescheduleForm.errors.reason }}</span>
+                    </label>
+
+                    <div>
+                        <p class="text-xs font-semibold uppercase tracking-wide text-ink-subtle">{{ t('scheduling.appointmentDetail.reschedule.slots') }}</p>
+                        <div v-if="reschedule.slots.length" class="mt-2 space-y-1.5">
+                            <label
+                                v-for="(slot, i) in reschedule.slots"
+                                :key="slot.starts_at"
+                                class="flex cursor-pointer items-center justify-between gap-3 rounded-xl border px-3 py-2 text-sm transition"
+                                :class="rescheduleForm.starts_at === slot.starts_at ? 'border-euca-400 bg-euca-50' : 'border-line bg-white/50 hover:bg-surface-2'"
+                            >
+                                <span class="flex items-center gap-2">
+                                    <input type="radio" name="slot" class="h-4 w-4 text-euca-600 focus:ring-euca-200" :checked="rescheduleForm.starts_at === slot.starts_at" @change="chooseSlot(slot)" />
+                                    <span class="tabular-nums font-medium text-ink">{{ dayOf(slot.starts_at) }} · {{ timeOf(slot.starts_at) }}</span>
+                                    <span v-if="i === 0" class="rounded-full bg-euca-100 px-2 py-0.5 text-[11px] font-semibold text-euca-800">{{ t('scheduling.appointmentDetail.reschedule.soonest') }}</span>
+                                </span>
+                                <span class="text-xs text-ink-muted">{{ slot.resources.join(' · ') }}</span>
+                            </label>
+                        </div>
+                        <p v-else class="mt-2 text-sm text-ink-muted">{{ t('scheduling.appointmentDetail.reschedule.noSlots', { days: reschedule.scan_days }) }}</p>
+                        <span v-if="rescheduleForm.errors.starts_at" class="text-xs text-danger">{{ rescheduleForm.errors.starts_at }}</span>
+                    </div>
+
+                    <p v-if="rescheduleForm.starts_at" class="text-xs text-ink-muted">
+                        {{ t('scheduling.appointmentDetail.reschedule.effect', { when: dayOf(rescheduleForm.starts_at) + ' · ' + timeOf(rescheduleForm.starts_at) }) }}
+                    </p>
+                    <p class="text-xs text-ink-subtle">{{ t('scheduling.appointmentDetail.reschedule.recheck') }}</p>
+
+                    <div class="flex justify-end gap-2">
+                        <button type="button" class="rounded-xl border border-line px-4 py-2 text-sm font-semibold text-ink-muted transition hover:bg-surface-2" @click="showReschedule = false">{{ t('scheduling.appointmentDetail.reschedule.keep') }}</button>
+                        <button type="submit" class="btn-glow" :disabled="rescheduleForm.processing || !rescheduleForm.starts_at">{{ t('scheduling.appointmentDetail.reschedule.confirm') }}</button>
+                    </div>
                 </form>
             </div>
 
