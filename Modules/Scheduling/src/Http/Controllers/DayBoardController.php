@@ -127,6 +127,9 @@ class DayBoardController
             'ends_at' => $appointment->ends_at->toDateTimeString(),
             'status' => $appointment->status,
             'resource_ids' => $appointment->resourceLinks->pluck('resource_id')->all(),
+            // APPT.P1 — the drill-in to the Appointment Detail page. A link only; the tile's own
+            // actions are unchanged.
+            'detail_url' => route('scheduling.appointments.show', $appointment->id),
         ];
     }
 

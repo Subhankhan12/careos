@@ -1,0 +1,207 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Gate;
+use Inertia\Inertia;
+use Inertia\Response;
+use Modules\Audit\Models\AuditEvent;
+use Modules\Clinical\Models\Allergy;
+use Modules\Patients\Models\Patient;
+use Modules\Platform\Models\Branch;
+use Modules\Platform\Models\User;
+use Modules\Scheduling\Models\Appointment;
+use Modules\Scheduling\Models\AppointmentReminder;
+use Modules\Scheduling\Models\Resource;
+use Modules\Scheduling\Models\Service;
+
+/**
+ * APPT.P1 — the staff APPOINTMENT DETAIL page: the drill-in from the day-board tile.
+ *
+ * A pure DISPLAY surface over the already-complete scheduling backend. It composes four modules
+ * (Scheduling + Patients + Clinical + Audit), so it lives in the APP LAYER — modules never depend on
+ * each other (D-017); Scheduling stays free of Clinical and Audit.
+ *
+ * EVERYTHING SHOWN IS REAL:
+ *  - the status pill renders the appointment's TRUE `status` — all EIGHT states the machine defines,
+ *    not the four the wireframe happened to draw;
+ *  - the source badge is the real `source` (staff / online / agent);
+ *  - the duration is the SERVICE's configured `default_duration_minutes` — a recorded fact, never a
+ *    predicted or computed length;
+ *  - resources are the real linked `Resource` rows (type + name). The wireframe's room capability
+ *    chips ("scanner · X-ray") are DELIBERATELY OMITTED: no capability field exists on `Resource`, and
+ *    inventing one would be fabrication (deferred to its own gate);
+ *  - the timeline is the real append-only `audit_events` for this appointment plus its real
+ *    `AppointmentReminder` rows, whose channel is labelled HONESTLY (only email exists today — SMS
+ *    drivers are deferred, so the page never claims one), and the confirmation provenance is the real
+ *    recorded actor/time, never a fabricated "patient replied" line.
+ *
+ * NO computed judgment (no no-show risk, no priority, no predicted duration), NO money, and NO
+ * actions — the action row is APPT.P2 and the reschedule modal APPT.P3. `appointment.manage`; the
+ * appointment is resolved from a STRING id in-controller (FIX.1), so a cross-tenant id 404s through
+ * the tenant-scoped query.
+ */
+class AppointmentDetailController extends Controller
+{
+    public function show(Request $request, string $appointment): Response
+    {
+        $record = Appointment::query()->whereKey($appointment)->firstOrFail();
+
+        // Branch-scoped permission, exactly as the day-board gates it.
+        Gate::authorize('appointment.manage', ['branch_id' => $record->branch_id]);
+        abort_unless($request->user() instanceof User, 403);
+
+        $service = Service::query()->find($record->service_id);
+        $patient = $record->patient_id !== null ? Patient::query()->find($record->patient_id) : null;
+        $branch = Branch::query()->find($record->branch_id);
+
+        return Inertia::render('Scheduling/AppointmentDetail', [
+            'appointment' => [
+                'id' => $record->id,
+                // The TRUE status — the page labels all eight, including the ones the wireframe omits.
+                'status' => $record->status,
+                'source' => $record->source,
+                'starts_at' => $record->starts_at->toDateTimeString(),
+                'ends_at' => $record->ends_at->toDateTimeString(),
+                // The SERVICE's configured duration (a recorded fact), not a computed/predicted one.
+                'duration_minutes' => $service?->default_duration_minutes,
+                'service' => $service?->name,
+                'branch' => $branch?->name,
+                'notes' => $record->notes,
+                // Why/when/by whom the status last moved — recorded provenance.
+                'status_reason' => $record->status_reason,
+                'status_changed_at' => $record->status_changed_at?->toDateTimeString(),
+                'status_changed_by' => $this->userName($record->status_changed_by),
+                'rescheduled_from_id' => $record->rescheduled_from_id,
+            ],
+            'resources' => $this->resources($record),
+            'patient' => $patient === null ? null : [
+                'id' => (string) $patient->id,
+                'name' => trim($patient->first_name.' '.$patient->last_name),
+                'mrn' => $patient->mrn,
+                // Date-only: the page renders it through the shared formatDateOnly/ageFromDateOnly
+                // helpers (local-midnight parse, no timezone day-shift — M-2/FIX.3).
+                'date_of_birth' => $patient->date_of_birth->toDateString(),
+                'chart_url' => route('patients.show', (string) $patient->id),
+                // RECORDED clinical facts (ALLERGY.P1): substance/reaction/severity as documented.
+                // Displayed, never graded — the system computes no allergy judgment.
+                'allergies' => Allergy::query()
+                    ->where('patient_id', $patient->id)
+                    ->where('status', Allergy::STATUS_ACTIVE)
+                    ->orderBy('substance')
+                    ->get()
+                    ->map(fn (Allergy $allergy): array => [
+                        'id' => $allergy->id,
+                        'substance' => $allergy->substance,
+                        'reaction' => $allergy->reaction,
+                        'severity' => $allergy->severity,
+                    ])
+                    ->all(),
+            ],
+            'timeline' => $this->timeline($record),
+            'links' => [
+                'day_board' => route('scheduling.day-board', ['date' => $record->starts_at->toDateString()]),
+            ],
+        ]);
+    }
+
+    /**
+     * The appointment's REAL linked resources (practitioner / room / chair / vehicle). Only recorded
+     * fields — `Resource` carries no capability/equipment data, so none is shown or invented.
+     *
+     * @return list<array{id: string, name: string, type: string}>
+     */
+    private function resources(Appointment $record): array
+    {
+        $resourceIds = $record->resourceLinks()->orderBy('resource_id')->pluck('resource_id')->all();
+
+        if ($resourceIds === []) {
+            return [];
+        }
+
+        return Resource::query()
+            ->whereIn('id', $resourceIds)
+            ->orderBy('type')
+            ->orderBy('name')
+            ->get()
+            ->map(fn (Resource $resource): array => [
+                'id' => $resource->id,
+                'name' => $resource->name,
+                'type' => $resource->type,
+            ])
+            ->values()
+            ->all();
+    }
+
+    /**
+     * The appointment's REAL history, newest last: the append-only `audit_events` recorded for this
+     * appointment (booked / confirmed / arrived / … with their from→to statuses and actor) merged with
+     * its real `AppointmentReminder` rows.
+     *
+     * HONEST LABELS: a reminder's channel is whatever the row actually says — today the only channel
+     * that exists is email (`AppointmentReminder::CHANNEL_EMAIL`; SMS/WhatsApp drivers are deferred),
+     * so the page can never claim an SMS was sent. Likewise the confirmation line carries the REAL
+     * recorded actor, not an invented "patient replied" provenance.
+     *
+     * @return list<array<string, mixed>>
+     */
+    private function timeline(Appointment $record): array
+    {
+        /** @var list<array<string, mixed>> $rows */
+        $rows = [];
+
+        foreach (AuditEvent::query()
+            ->where('resource_type', 'appointment')
+            ->where('resource_id', $record->id)
+            ->orderBy('occurred_at')
+            ->orderBy('id')
+            ->get() as $event) {
+            $context = is_array($event->context) ? $event->context : [];
+            $reason = $event->getAttribute('reason');
+
+            $rows[] = [
+                'kind' => 'status',
+                'action' => $event->action,
+                'from_status' => isset($context['from_status']) ? (string) $context['from_status'] : null,
+                'to_status' => isset($context['to_status']) ? (string) $context['to_status'] : null,
+                'reason' => is_string($reason) ? $reason : null,
+                // The RECORDED actor kind. A portal action is attributed to the patient, a scheduled
+                // job to the system — the page never resolves a patient id against `users`.
+                'actor_type' => $event->actor_type,
+                'actor' => $event->actor_type === 'user' ? $this->userName($event->actor_id) : null,
+                'occurred_at' => $event->occurred_at,
+            ];
+        }
+
+        foreach (AppointmentReminder::query()
+            ->where('appointment_id', $record->id)
+            ->orderBy('scheduled_for')
+            ->orderBy('id')
+            ->get() as $reminder) {
+            $rows[] = [
+                'kind' => 'reminder',
+                'action' => 'appointment.reminder',
+                'reminder_type' => $reminder->type,
+                // The REAL channel recorded on the row — never embellished.
+                'channel' => $reminder->channel,
+                'status' => $reminder->status,
+                'failure_reason' => $reminder->failure_reason,
+                'occurred_at' => ($reminder->sent_at ?? $reminder->scheduled_for)->toDateTimeString(),
+            ];
+        }
+
+        usort($rows, fn (array $a, array $b): int => (string) ($a['occurred_at'] ?? '') <=> (string) ($b['occurred_at'] ?? ''));
+
+        return $rows;
+    }
+
+    private function userName(int|string|null $userId): ?string
+    {
+        if ($userId === null || $userId === '') {
+            return null;
+        }
+
+        return User::query()->whereKey($userId)->value('name');
+    }
+}

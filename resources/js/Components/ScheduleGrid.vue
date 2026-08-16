@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { Link } from '@inertiajs/vue3';
+
 const props = defineProps<{
     resources: Array<{ id: string; name: string; type: string }>;
     appointments: Array<{
@@ -10,6 +12,9 @@ const props = defineProps<{
         ends_at: string;
         status: string;
         resource_ids: string[];
+        // APPT.P1 — the drill-in to the Appointment Detail page (optional so any other caller of this
+        // grid keeps working unchanged).
+        detail_url?: string;
     }>;
 }>();
 
@@ -85,7 +90,14 @@ function edgeClass(status: string): string {
                     >
                         <div class="flex items-start justify-between gap-2">
                             <div class="min-w-0">
-                                <p class="truncate font-semibold text-ink">{{ appointment.patient ?? $t('scheduling.dayBoard.block') }}</p>
+                                <!-- APPT.P1 — drill into the appointment detail. A plain link; the
+                                     tile's existing actions are untouched. -->
+                                <component
+                                    :is="appointment.detail_url ? Link : 'p'"
+                                    :href="appointment.detail_url"
+                                    class="block truncate font-semibold text-ink"
+                                    :class="appointment.detail_url ? 'transition hover:text-euca-800 hover:underline' : ''"
+                                >{{ appointment.patient ?? $t('scheduling.dayBoard.block') }}</component>
                                 <p class="text-ink-muted">{{ time(appointment.starts_at) }}–{{ time(appointment.ends_at) }}</p>
                                 <p class="truncate text-ink-muted">{{ appointment.service }}</p>
                             </div>

@@ -244,6 +244,20 @@ Local `composer check` is green: 205 tests / 1013 assertions. Local `cmd /c npm 
   invalid edit), NOT a trim — facility CRUD + practitioner name/status (activate/deactivate, still guarded)
   unchanged. Locked by `tests/Feature/Scheduling/BranchPractitionerResourceTest.php` (6).
 
+## Appointment Detail page (APPT.P1 — net-new display surface)
+
+`GET /scheduling/appointments/{appointment}` (`scheduling.appointments.show`) -> `app/Http/Controllers/AppointmentDetailController` + `resources/js/pages/Scheduling/AppointmentDetail.vue`.
+**APP-LAYER on purpose:** it composes Scheduling + Patients + Clinical (allergies) + Audit, so it lives in `app/`
+(D-017) and Scheduling stays free of Clinical/Audit. `appointment.manage` (branch-scoped, as the day-board gates
+it); the appointment is resolved from a STRING id in-controller (FIX.1) so an unknown/cross-tenant id 404s.
+**Display sources:** `Appointment` (status/source/starts/ends/id/status_reason/status_changed_*) · `Service.default_duration_minutes` (the RECORDED length) · `AppointmentResource`->`Resource` (type/name only) · `Patient` + Clinical `Allergy` (recorded facts) · the timeline = append-only `audit_events` (`resource_type=appointment`, `context.from_status/to_status`, the `reason` column, `occurred_at`) merged with `AppointmentReminder` rows.
+**THE FENCE (all three are tested):** the status pill shows the TRUE status and labels ALL EIGHT machine states (the wireframe drew four); resources expose EXACTLY `{id,name,type}` — the wireframe capability chips are OMITTED because `Resource` has no such field (a test pins the key set); the reminder channel is labelled exactly as recorded (**email only exists** — the page can never claim SMS) and provenance is real (portal actions attributed to the patient, unattributed rows to the system; never a fabricated "replied JA" — a test asserts no sms/replied/whatsapp string). Honest empty timeline. NO computed judgment, NO money, NO actions (action row =
+APPT.P2, reschedule modal = APPT.P3).
+**Day-board:** `appointmentSummary()` now carries `detail_url`; `ScheduleGrid.vue` links the patient name to it
+(optional prop — other callers unaffected). **i18n gotcha:** vue-i18n treats `.` as a path separator, so audit
+action keys are stored/looked up in underscore form (`appointment_booked`), with a raw-key fallback.
+Locked by `tests/Feature/Scheduling/AppointmentDetailTest.php` (7) + the FIX.5 route smoke; browser-verified.
+
 ## Open items
 
 - Later gates add realtime day-board refresh and UI surfaces for agent proposals.

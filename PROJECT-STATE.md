@@ -50,7 +50,7 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
 > and the ONLY files reaching the service are the service, the model and the operator-gated controller [asserted
 > as an exact list], so "0 auto-escalated" is structural, not displayed; D-154) — **done**.
 > **AR ACCOUNT DETAIL WIREFRAME PARITY IS COMPLETE (P1→P6) — the SEVENTH page of the pass.**
-> **REMAINING decoded pages: Appointment Detail · Auth Screens.** Two honest backend gaps stay flagged on this
+> **REMAINING decoded pages: Appointment Detail [audited + APPT.P1 built — the page/hero/resources/patient/timeline over the real backend, true status across all 8 states, no fabricated capability chips or SMS claim; D-155. Remaining APPT.P2 action row from the real LEGAL_TRANSITIONS + APPT.P3 reschedule via the real slot-finder/overlap guard] · Auth Screens.** Two honest backend gaps stay flagged on this
 > page (not faked): the real Swiss QR-bill (IBAN/reference payment part) and send-QR-bill/reminder-from-the-page
 > (sending stays inside the existing idempotent `DunningService` + the agent-cap/ApprovalQueue path).
 > **REMAINING decoded pages after AR Account Detail:** Appointment Detail · Auth Screens.

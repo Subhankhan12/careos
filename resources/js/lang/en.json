@@ -943,11 +943,26 @@
             "title": "How this agent acts",
             "subtitle": "Every run follows the same governed path — the ceiling is checked before anything leaves the agent, and the fence is never crossed.",
             "steps": {
-                "message": { "label": "Message", "hint": "An inbound task arrives." },
-                "draft": { "label": "Grounded draft", "hint": "Composed from real records only." },
-                "checked": { "label": "Checked vs ceiling", "hint": "min(config, tool, role)." },
-                "fence": { "label": "Electric fence", "hint": "No diagnosis, triage or dosing." },
-                "review": { "label": "Human review", "hint": "A person decides / approves." }
+                "message": {
+                    "label": "Message",
+                    "hint": "An inbound task arrives."
+                },
+                "draft": {
+                    "label": "Grounded draft",
+                    "hint": "Composed from real records only."
+                },
+                "checked": {
+                    "label": "Checked vs ceiling",
+                    "hint": "min(config, tool, role)."
+                },
+                "fence": {
+                    "label": "Electric fence",
+                    "hint": "No diagnosis, triage or dosing."
+                },
+                "review": {
+                    "label": "Human review",
+                    "hint": "A person decides / approves."
+                }
             }
         },
         "ladder": {
@@ -1632,6 +1647,83 @@
             "continue": "Continue",
             "confirmBooking": "Confirm booking",
             "book": "Book appointment"
+        },
+        "appointmentDetail": {
+            "eyebrow": "Appointment",
+            "title": "{patient} — appointment",
+            "backToBoard": "Back to day-board",
+            "openChart": "Open patient chart",
+            "noService": "No service recorded",
+            "when": "When",
+            "untilAndDuration": "until {end} · {minutes} min scheduled",
+            "status": {
+                "booked": "Booked",
+                "confirmed": "Confirmed",
+                "arrived": "Arrived",
+                "in_progress": "In progress",
+                "completed": "Completed",
+                "cancelled": "Cancelled",
+                "no_show": "No-show",
+                "rescheduled": "Rescheduled"
+            },
+            "source": {
+                "staff": "Booked by staff",
+                "online": "Booked online",
+                "agent": "Booked by agent"
+            },
+            "resourceType": {
+                "practitioner": "Practitioner",
+                "room": "Room",
+                "chair": "Chair",
+                "vehicle": "Vehicle"
+            },
+            "severity": {
+                "mild": "mild",
+                "moderate": "moderate",
+                "severe": "severe",
+                "unknown": "severity not recorded"
+            },
+            "channel": {
+                "email": "email"
+            },
+            "resources": {
+                "title": "Resources",
+                "empty": "No resources are linked to this appointment."
+            },
+            "patient": {
+                "title": "Patient",
+                "age": "{n} y",
+                "allergies": "Recorded allergies",
+                "none": "This appointment has no linked patient."
+            },
+            "timeline": {
+                "title": "History",
+                "subtitle": "recorded events · read-only",
+                "empty": "No history recorded for this appointment yet.",
+                "by": "by {who}",
+                "system": "recorded by the system",
+                "automated": "automated reminder",
+                "channelUnknown": "no channel recorded",
+                "reminder": {
+                    "pending": "Reminder scheduled ({channel})",
+                    "sent": "Reminder sent ({channel})",
+                    "skipped": "Reminder skipped ({channel})",
+                    "failed": "Reminder failed ({channel})"
+                },
+                "action": {
+                    "appointment_booked": "Appointment booked",
+                    "appointment_confirmed": "Confirmed",
+                    "appointment_arrived": "Patient arrived",
+                    "appointment_in_progress": "Treatment started",
+                    "appointment_completed": "Completed",
+                    "appointment_cancelled": "Cancelled",
+                    "appointment_no_show": "Marked no-show",
+                    "appointment_rescheduled": "Rescheduled",
+                    "appointment_checked_in": "Checked in",
+                    "appointment_reminder": "Reminder"
+                },
+                "byPatient": "by the patient (portal)"
+            }
         }
     },
     "clinical": {

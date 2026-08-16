@@ -4,6 +4,7 @@ use App\Http\Controllers\AgentAutonomyController;
 use App\Http\Controllers\AgentConfigController;
 use App\Http\Controllers\AiApprovalQueueController;
 use App\Http\Controllers\AppLandingController;
+use App\Http\Controllers\AppointmentDetailController;
 use App\Http\Controllers\BranchController;
 use App\Http\Controllers\ClinicalSummaryDraftController;
 use App\Http\Controllers\ClinicalSummaryInsertController;
@@ -146,6 +147,13 @@ Route::middleware('auth')->group(function () {
         ->name('patients.consents.withdraw');
 
     Route::get('/scheduling/day-board', DayBoardController::class)->name('scheduling.day-board');
+    // APPT.P1 — the staff Appointment Detail drill-in from a day-board tile. A DISPLAY surface over
+    // the existing scheduling backend (no actions here: the action row is APPT.P2 and the reschedule
+    // modal APPT.P3). App-layer controller because it composes Scheduling + Patients + Clinical +
+    // Audit (D-017). String-id {appointment} resolved in-controller (FIX.1 — no route-model binding
+    // of a tenant model), so a cross-tenant id 404s. Registered AFTER the static day-board path.
+    Route::get('/scheduling/appointments/{appointment}', [AppointmentDetailController::class, 'show'])
+        ->name('scheduling.appointments.show');
     Route::post('/scheduling/day-board/transition', [DayBoardActionController::class, 'transition'])
         ->name('scheduling.day-board.transition');
     Route::post('/scheduling/day-board/quick-book', [DayBoardActionController::class, 'quickBook'])

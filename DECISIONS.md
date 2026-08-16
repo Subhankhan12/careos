@@ -2670,3 +2670,28 @@ references the old ID.
   is COMPLETE (P1 ledger → P2 dunning timeline → P3 visual → P4 record-payment → P5 payment plan → P6
   Betreibung)** — the seventh page of the parity pass; Appointment Detail and Auth Screens remain. See
   [[Billing]], `docs/wireframe-parity/AR-ACCOUNT-DETAIL-DIFF.md`, [[LOG]].
+
+- **D-155 — The Appointment Detail page DISPLAYS the real record; it never fabricates a backend (APPT.P1).**
+  The net-new staff page `GET /scheduling/appointments/{appointment}` is a pure read surface over the
+  already-complete scheduling backend, and three choices define it:
+  1. **APP-LAYER PLACEMENT.** It composes Scheduling + Patients + Clinical + Audit, so the controller lives in
+     `app/Http/Controllers/` (D-017). Scheduling stays free of Clinical and Audit; the module-boundary arch
+     tests keep it that way.
+  2. **THE TRUE STATUS, ALL EIGHT STATES.** The pill renders `Appointment.status` as recorded and labels every
+     state the machine defines (booked · confirmed · arrived · in_progress · completed · cancelled · no_show ·
+     rescheduled) — not the four the wireframe happened to draw. This is the honest half of the audit's
+     `booked → arrived` reconciliation: the page tells the truth about where the appointment IS; whether an
+     action composes two legal edges is APPT.P2's decision, and `LEGAL_TRANSITIONS` is untouched here.
+  3. **OMIT WHAT HAS NO BACKEND — surface-don't-fabricate.** The wireframe's room capability chips
+     ("scanner · X-ray") are NOT rendered, because `Resource` has no capability field; inventing them would be
+     fabrication. A test pins the resource payload to exactly `{id, name, type}` so they cannot creep in. The
+     same rule governs the timeline: a reminder's channel is labelled exactly as recorded (only email exists —
+     SMS/WhatsApp drivers are deferred, so the page can never claim one), and the confirmation line carries the
+     REAL recorded actor — a portal action is attributed to the patient, an unattributed one to the system —
+     rather than the wireframe's illustrative "patient replied 'JA'", which no inbound path produces. A test
+     asserts no 'sms'/'replied'/'whatsapp' string can appear.
+  The page shows **no computed judgment** (no no-show risk, no priority, no predicted duration — the duration is
+  the service's configured length), **no money**, and **no actions** (the action row is APPT.P2, the reschedule
+  modal APPT.P3). `appointment.manage`, branch-scoped; the appointment is resolved from a string id in-controller
+  (FIX.1) so an unknown or cross-tenant id 404s. See [[Scheduling]],
+  `docs/wireframe-parity/APPOINTMENT-DETAIL-DIFF.md`, [[LOG]].

@@ -191,15 +191,15 @@ Booked (arrive · …)") — `arrive` is reachable from Booked as a **two-step c
 ## 8. Prioritized parity punch-list
 
 **Build (net-new UI over the complete backend):**
-1. *(High)* **The page itself** — route `GET /scheduling/appointments/{appointment}` (string-id resolved in-controller
+1. ✅ **RESOLVED (APPT.P1)** — **The page itself** — route `GET /scheduling/appointments/{appointment}` (string-id resolved in-controller
    per FIX.1), `appointment.manage` gate, `Scheduling/AppointmentDetail.vue`: hero · resources · patient · timeline ·
    action row · reschedule modal, Eucalyptus Glow, i18n keys, plus the drill link from the day-board tile.
-2. *(High, state-machine)* **Action row from the REAL legal set** — the controller supplies
+2. *(High, state-machine — APPT.P2)* **Action row from the REAL legal set** — the controller supplies
    `LEGAL_TRANSITIONS[status]`; the Vue renders only those. A forged illegal POST stays refused by `assertLegal`
    (already true). Honour the wireframe's own rule rather than its hardcoded list.
-3. *(High, guard)* **Reschedule via the real services** — slots from `AvailableSlotFinder`, the move through
+3. *(High, guard — APPT.P3)* **Reschedule via the real services** — slots from `AvailableSlotFinder`, the move through
    `reschedule()` (reason required, atomic, overlap-guarded). No page-side slot list, no page-side re-book.
-4. *(Med)* **Timeline from real records** — audit `appointment.*` rows + `AppointmentReminder`, with honest channel
+4. ✅ **RESOLVED (APPT.P1)** — **Timeline from real records** — audit `appointment.*` rows + `AppointmentReminder`, with honest channel
    labels and an empty state.
 5. *(Med)* **States** — no conflict-free slots; terminal-status appointment (no actions); loading/error on the modal.
 
@@ -215,3 +215,21 @@ Booked (arrive · …)") — `arrive` is reachable from Booked as a **two-step c
 server stays authoritative; the reschedule uses the REAL slot finder and the `lockResource → assertNoOverlap` guard
 so a move can never double-book; **no computed clinical or operational judgment** (no no-show risk, no computed
 priority or duration); **no money on this page** unless it goes through the billing engine.
+
+---
+
+## 9. Progress
+
+**APPT.P1 (done)** — the page, route (`GET /scheduling/appointments/{appointment}`, `appointment.manage`,
+FIX.1 string-id → cross-tenant 404), day-board drill link, hero (TRUE status across ALL EIGHT states · real
+source · the service's own duration · ref), resources (real fields only — the capability chips are OMITTED,
+not hardcoded), patient (name/MRN/DOB/age/recorded allergies/360 link) and the timeline (real audit +
+reminder rows, channel labelled as recorded [email — never a claimed SMS], real provenance [patient/system
+attribution, never a fabricated reply], honest empty state). No computed judgment, no money, no actions.
+D-155; `tests/Feature/Scheduling/AppointmentDetailTest.php` (7) + route smoke.
+
+**REMAINING:** **APPT.P2** the action row rendered from the REAL `LEGAL_TRANSITIONS` (incl. the
+`booked → arrived` decision — recommendation (c): keep the existing server-side confirm→arrive compose, which
+walks two legal edges and audits both) · **APPT.P3** the reschedule modal over the REAL `AvailableSlotFinder`
++ `reschedule()` overlap guard · **P4/P5** the do-not-fabricate items (resource capabilities, preferred-
+practitioner slot filtering) only if a real backend is built for them.

@@ -31,6 +31,7 @@ use Modules\Platform\Services\TenantContext;
 use Modules\Radiology\Models\RadiologyOrder;
 use Modules\Radiology\Services\RadiologyCatalogService;
 use Modules\Radiology\Services\RadiologyOrderService;
+use Modules\Scheduling\Models\Appointment;
 use Modules\Surgery\Services\SurgicalCaseService;
 use Modules\Surgery\Services\TheatreSchedulingService;
 
@@ -124,7 +125,11 @@ function smokeSeed(object $test): array
     $radExam = app(RadiologyCatalogService::class)->authorExam($admin, 'SMK-RAD', 'Smoke CXR', 'X-ray', 'Chest', false);
     $radOrder = app(RadiologyOrderService::class)->place($admin, $patient, $radExam, RadiologyOrder::PRIORITY_ROUTINE)['radiologyOrder'];
 
-    return compact('tenant', 'users', 'invoice', 'creditNote', 'payment', 'patient', 'encounter', 'note', 'batch', 'stay', 'surgicalCase', 'edVisit', 'labOrder', 'radOrder');
+    // APPT.P1: the demo seeder books real appointments — take one so the new Appointment Detail
+    // drill-in (a C-1-class request-time surface) is driven through the real stack.
+    $appointment = Appointment::query()->orderBy('starts_at')->firstOrFail();
+
+    return compact('tenant', 'users', 'invoice', 'creditNote', 'payment', 'patient', 'encounter', 'note', 'batch', 'stay', 'surgicalCase', 'edVisit', 'labOrder', 'radOrder', 'appointment');
 }
 
 /** One request through the real stack with NO ambient tenant context (the C-1 condition). */
@@ -182,6 +187,9 @@ test('every major staff route is reachable through the real middleware stack (20
         'encounter.show' => '/clinical/encounters/'.$fx['encounter']->id,
         'note.show' => '/clinical/notes/'.$fx['note']->id,
         'note.edit' => '/clinical/notes/'.$fx['note']->id.'/edit',
+        // APPT.P1 — the new Appointment Detail drill-in, driven through the real middleware stack so a
+        // request-time 500 on it can never ship green (the C-1 class).
+        'scheduling.appointment (C-1)' => '/scheduling/appointments/'.$fx['appointment']->id,
         'invoice.show (C-1)' => '/billing/invoices/'.$fx['invoice']->id,
         'invoice.pdf' => '/billing/invoices/'.$fx['invoice']->id.'/pdf',
         'credit-note.show (C-1)' => '/billing/credit-notes/'.$fx['creditNote']->id,
