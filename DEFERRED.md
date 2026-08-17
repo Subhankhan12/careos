@@ -8,9 +8,10 @@ Deliberately deferred work. Not forgotten — parked until the right phase.
 > 1. **A certified-partner seam** — wired as a null-object so a partner can drop in; never a homemade engine.
 > 2. **A permanent medical-device NON-GOAL** — do not build the homemade version, ever, at any trigger.
 > 3. **Demand-driven parked work** — build it when its stated TRIGGER fires, not before.
-> 4. **⚠️ An open PRODUCT DECISION.** Three are outstanding, none of them a defect or a build task — each needs
->    a decision from the product owner: **the password policy** (see the wireframe-parity section) and the
->    **two Operator Mode decisions** that block OPMODE.G2+ (see the Operator Mode section at the end).
+> 4. **⚠️ An open PRODUCT DECISION.** Two are outstanding, neither a defect nor a build task — each needs a
+>    decision from the product owner: **the password policy** (see the wireframe-parity section) and **whether
+>    Operator Mode is in scope for the first deployment** (see the Operator Mode section at the end). The
+>    `configuration`-tier decision is now SETTLED (D-162).
 >
 > **The primary TRACK is DEPLOYMENT to the paying customers, plus partnership integrations.**
 > If asked "what's next?", the answer is DEPLOY — not a new vertical and not a new parity page.
@@ -19,9 +20,9 @@ Deliberately deferred work. Not forgotten — parked until the right phase.
 > **OPMODE.G1 has landed** (D-161): it closed a **live containment gap** — `Gate::before` and
 > `PermissionService::has()` both returned an unconditional `true` for any super-admin, and the only thing
 > containing them was never being given a tenant context. A super-admin now reaches tenant data only through an
-> ACTIVE, UNEXPIRED, IN-TIER, IN-SCOPE `OperatorGrant`, regression-guarded. **G2+ (request flow, owner
-> approval, sessions, screens) is BLOCKED on the two product decisions below — do not issue G2 until they are
-> answered.**
+> ACTIVE, UNEXPIRED, IN-TIER, IN-SCOPE `OperatorGrant`, regression-guarded. **OPMODE.G2 then added the request
+> flow** (D-162): asking grants NOTHING for the owner-gated tiers. **G3+ (owner approval, sessions, screens) is
+> BLOCKED on the one remaining product decision below.** There is still no route and no UI.
 
 - Migrate/validate DEV database to **MySQL 8** before production (MariaDB 10.4 is EOL; prod
   target is MySQL 8).
@@ -328,25 +329,27 @@ These are permanent non-goals for CareOS-authored code; only a certified partner
   ops/admin lane (draft-until-approved, autonomy-capped). **TRIGGER for all of the above: none for a homemade
   version (do not build).** A certified partner device is a separate commercial/regulatory decision.
 
-## Operator Mode — the chain after G1 (BLOCKED on product decisions)
+## Operator Mode — the chain after G2
 
-**OPMODE.G1 (the security core) is DONE** — see D-161 and `docs/features/OPERATOR-MODE-MAP.md`. It was built
-first precisely because it closes a gap that exists whether or not the feature ever ships.
+**OPMODE.G1 (the security core) and OPMODE.G2 (the request flow) are DONE** — see D-161 and D-162, and
+`docs/features/OPERATOR-MODE-MAP.md`. G1 was built first precisely because it closes a gap that exists whether
+or not the feature ever ships; G2 added the entry point where an operator asks, and proved that **asking grants
+nothing** for the owner-gated tiers.
 
-**⚠️ TWO BLOCKING PRODUCT DECISIONS — no further gate may be issued until these are answered:**
-1. **Is Operator Mode in scope for the first deployment at all, or a later feature?** It is a large, security-
-   critical subsystem (G2–G11) and the primary track is DEPLOYMENT. *Map recommendation: not in the first
-   deployment — and the reason to build G1 anyway was that the super-admin bypass existed regardless, which is
-   now fixed.*
-2. **Does the self-granted `configuration` WRITE tier stand?** As the wireframes draw it, an operator can change
-   a live clinic's settings and agent configuration with **no owner approval**. This is the weakest point in the
-   design. Options: require approval · notify-in-real-time + per-write audit + reversibility · drop the tier.
-   *Until this is answered, `configuration` exists in the model and the tier table but there is no path to
-   obtain one — G1 ships no request flow at all.*
+**✅ SETTLED (D-162) — the `configuration` tier decision.** It is a WRITE tier (clinic settings + agent config),
+so it now **REQUIRES the tenant owner's approval**; the wireframes drew it self-granted, which the map had
+flagged as the design's weakest point. Only **`read_only` self-grants**, and only because it is non-PHI reads —
+the tier allow-list refuses every PHI ability, so self-granting it cannot expose a record.
 
-**Parked until those are answered (each its own gate, per the map's §5 plan):**
-- **G2 — the request flow** (operator requests: reason, tier, record-id scope, session TTL, request TTL). Must
-  grant nothing.
+**⚠️ STILL BLOCKING — one decision remains before G3+:**
+1. **Is Operator Mode in scope for the first deployment at all, or a later feature?** It is a large,
+   security-critical subsystem (G3–G11) and the primary track is DEPLOYMENT. *Map recommendation: not in the
+   first deployment — and the reason to build G1/G2 anyway was that G1 closed a live bypass that existed
+   regardless, and G2 pinned the requesting-is-not-granting property while the design was fresh. Note that
+   there is still **no route and no UI**, so nothing is reachable over HTTP.*
+
+**Parked until that is answered (each its own gate, per the map's §5 plan):**
+- ~~**G2 — the request flow.**~~ **DONE** (D-162).
 - **G3 — owner notification + the decision** (approve / approve-read-only-instead / decline) + request expiry.
   Only a tenant owner of that tenant, never the requester (the T6 rule is already enforced in the issuing
   service).

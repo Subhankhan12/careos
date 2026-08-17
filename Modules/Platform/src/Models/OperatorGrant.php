@@ -39,6 +39,9 @@ use RuntimeException;
  * @property Carbon|null $expires_at
  * @property Carbon|null $revoked_at
  * @property int|null $revoked_by
+ * @property Carbon|null $requested_at
+ * @property Carbon|null $request_expires_at
+ * @property int|null $requested_ttl_minutes
  */
 class OperatorGrant extends Model
 {
@@ -55,8 +58,18 @@ class OperatorGrant extends Model
 
     public const TIERS = [self::TIER_READ_ONLY, self::TIER_CONFIGURATION, self::TIER_FULL_SUPPORT];
 
-    /** The tiers a tenant owner must approve before they may become active (enforced in G3). */
-    public const TIERS_REQUIRING_APPROVAL = [self::TIER_FULL_SUPPORT];
+    /**
+     * The tiers a tenant owner must approve before they may become active.
+     *
+     * SETTLED PRODUCT DECISION (OPMODE.G2, D-162): `configuration` joined `full_support`
+     * here. It is a WRITE tier — it changes a live clinic's settings and agent
+     * configuration — and the map flagged self-granting it as the weakest point in the
+     * design. Only `read_only` (non-PHI reads) self-grants now.
+     */
+    public const TIERS_REQUIRING_APPROVAL = [self::TIER_CONFIGURATION, self::TIER_FULL_SUPPORT];
+
+    /** The only self-granting tier: non-PHI reads, and nothing else. */
+    public const TIERS_SELF_GRANTED = [self::TIER_READ_ONLY];
 
     public const STATUS_PENDING = 'pending';
 
@@ -72,18 +85,34 @@ class OperatorGrant extends Model
     public const ACTOR_TYPE = 'operator';
 
     /**
-     * The grant facts. Once the row exists these can never change — a different tier,
-     * scope, tenant or expiry is a different grant, requiring its own decision.
+     * The grant facts. Once the row exists these can NEVER change — a different tier,
+     * scope, tenant or justification is a different request, requiring its own decision.
      *
      * @var list<string>
      */
-    private const IMMUTABLE = ['operator_id', 'tenant_id', 'tier', 'scope', 'expires_at', 'granted_at', 'reason'];
+    private const IMMUTABLE = [
+        'operator_id', 'tenant_id', 'tier', 'scope', 'reason',
+        'requested_at', 'request_expires_at', 'requested_ttl_minutes',
+    ];
+
+    /**
+     * The session clock. Immutable ONCE SET, but allowed to go null -> value exactly
+     * once, because a PENDING request has no session yet: the clock starts when an owner
+     * approves (G3). This is a narrowing of G1's rule, not a loosening — before, these
+     * could never move at all, which the pending->active transition requires; now they
+     * can only ever be filled in from null, and never rewritten afterwards. A session
+     * can therefore never be silently extended by re-pointing the column.
+     *
+     * @var list<string>
+     */
+    private const SET_ONCE = ['granted_at', 'expires_at'];
 
     protected $table = 'operator_access_grants';
 
     protected $fillable = [
         'operator_id', 'tenant_id', 'tier', 'scope', 'reason',
         'status', 'granted_at', 'expires_at', 'revoked_at', 'revoked_by',
+        'requested_at', 'request_expires_at', 'requested_ttl_minutes',
     ];
 
     protected $casts = [
@@ -91,6 +120,9 @@ class OperatorGrant extends Model
         'granted_at' => 'datetime',
         'expires_at' => 'datetime',
         'revoked_at' => 'datetime',
+        'requested_at' => 'datetime',
+        'request_expires_at' => 'datetime',
+        'requested_ttl_minutes' => 'integer',
     ];
 
     protected static function booted(): void
@@ -103,6 +135,15 @@ class OperatorGrant extends Model
                 if ($grant->isDirty($column)) {
                     throw new RuntimeException(
                         "operator_access_grants.$column is immutable — issue a new grant instead."
+                    );
+                }
+            }
+
+            // Set-once: fillable from null when the session starts, never rewritten.
+            foreach (self::SET_ONCE as $column) {
+                if ($grant->isDirty($column) && $grant->getOriginal($column) !== null) {
+                    throw new RuntimeException(
+                        "operator_access_grants.$column is already set — a session is never re-clocked."
                     );
                 }
             }
@@ -146,6 +187,38 @@ class OperatorGrant extends Model
         }
 
         return $this->expires_at->greaterThan($moment);
+    }
+
+    /** Does this tier need a tenant owner's decision before it can ever open anything? */
+    public function requiresApproval(): bool
+    {
+        return in_array($this->tier, self::TIERS_REQUIRING_APPROVAL, true);
+    }
+
+    /**
+     * Has the ASK lapsed? This is the REQUEST clock, and it is not the session clock:
+     * a lapsed request opens nothing and never did — it is the absence of a decision,
+     * not the end of one. Kept separate from {@see isActiveAt()} on purpose.
+     */
+    public function isRequestExpiredAt(?Carbon $moment = null): bool
+    {
+        if ($this->request_expires_at === null) {
+            return false;                       // never was a request with a clock
+        }
+
+        return $this->request_expires_at->lessThanOrEqualTo($moment ?? Carbon::now());
+    }
+
+    /**
+     * Could an owner decision still turn this into a live session?
+     *
+     * Fail-closed: only a row that is STILL PENDING and whose request clock has NOT run
+     * out. G3's approve() must gate on this — which is why the rule lives on the model
+     * now rather than being invented alongside the endpoint later.
+     */
+    public function isAwaitingDecisionAt(?Carbon $moment = null): bool
+    {
+        return $this->status === self::STATUS_PENDING && ! $this->isRequestExpiredAt($moment);
     }
 
     /**

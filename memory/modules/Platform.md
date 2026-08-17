@@ -368,9 +368,57 @@ have left the invariant trivially sidesteppable.
   *"bypasses all checks"* test was RENAMED to say "at PLATFORM level" (its assertions unchanged — they always
   ran with no tenant context) and a second test pins the in-tenant denial.
 
-**G1 builds NO request flow, NO owner approval and NO route** — there is no HTTP path to any of this yet
-(G2/G3). The map's open product decisions (does Operator Mode ship at all; does the self-granted
-`configuration` WRITE tier stand) are untouched. See `docs/features/OPERATOR-MODE-MAP.md`.
+
+### OPMODE.G2 — the request flow: requesting is NOT granting (D-162)
+
+**TWO SETTLED PRODUCT DECISIONS.** `configuration` now **requires the tenant owner's approval** (it is a WRITE
+tier — clinic settings + agent config — and the map flagged self-granting it as the design's weakest point), so
+`TIERS_REQUIRING_APPROVAL = [configuration, full_support]`. Only `read_only` **self-grants**, and only because
+it is non-PHI reads: the tier allow-list gives it exactly billing/reporting/audit **view** and refuses every PHI
+ability, so self-granting it cannot expose a record.
+
+**`OperatorGrantService::request()`** is the operator-facing entry point (tier · minimised scope · justification ·
+session TTL · request TTL):
+
+- **approval tiers → PENDING, opening NOTHING.** No `granted_at`, no `expires_at` — there is no session to be
+  active with, so G1's invariant (which requires `status === active`) denies **every** ability, including the
+  records the request names. This is precisely what BreakGlass does not do: its `request()` sets
+  `activated => true`, so asking IS receiving.
+- **`read_only` → ACTIVE at once**, session clock started, still non-PHI-only.
+- **No self-approval path exists.** Only `issue()` produces an active approval-tier grant, and it demands an
+  approver who belongs to the target tenant and is not the operator (T6). A test also pins the ABSENCE of any
+  `approve`/`selfApprove`/`activate`/`grant` verb on the service.
+
+**THE TWO CLOCKS ARE SEPARATE COLUMNS** (the classic bug in this shape of flow):
+`request_expires_at` = how long the ASK stays open; lapsing **grants nothing**.
+`expires_at` = how long an approved session lives; lapsing **ends access**.
+`isAwaitingDecisionAt()` refuses an out-of-time row and `assertActivatable()` — the guard **G3's approve() must
+call**, written here so the rule cannot be re-invented later — throws. `expireDueRequests()` is housekeeping that
+makes a lapse visible and auditable; it is never what keeps access closed.
+
+**SCOPE MINIMISATION.** `full_support` must NAME its records. No wildcard exists — `*`, `all`, `ALL`, `any`, `%`,
+empty lists and blank ids are all refused. Whether an "all patient records" scope should exist is still an open
+product decision, so until it is answered the only way to reach a record is to have named it: fail-closed by
+omission, not by a flag someone could flip.
+
+**ONE NARROWING OF A G1 RULE.** `granted_at`/`expires_at` were absolutely immutable, which the pending→active
+transition cannot satisfy. They are now **SET-ONCE** — fillable from null exactly once, never rewritten — which is
+stricter where it matters (an existing session can never be silently re-clocked or extended). The request facts
+(`requested_at`, `request_expires_at`, `requested_ttl_minutes`) join the strictly-immutable set.
+
+**AUDIT:** `operator.access_requested` / `operator.self_granted` / `operator.request_expired` into the target
+tenant's hash-chained ledger as `actor_type = 'operator'`, carrying `grants_access_now` and
+`awaiting_owner_decision` so a row states plainly whether it granted anything.
+
+Locked by `tests/Feature/Platform/OperatorRequestFlowTest.php` (12). **Still NO owner approval, NO notification,
+NO session mechanics beyond G1, NO route and NO UI** — the flow is service-level only, so there is still no HTTP
+path to Operator Mode.
+
+**Where the chain stands after G2:** the request flow exists (G2) but **owner approval does not** (G3), and there
+is still **no route and no UI** — so there is no HTTP path to Operator Mode at all. Of the map's two blocking
+product decisions, the `configuration` one is **SETTLED** (it requires owner approval — D-162); **whether
+Operator Mode ships in the first deployment is still open**, as are who counts as an "owner" and whether an
+"all patient records" scope is permitted. See `docs/features/OPERATOR-MODE-MAP.md`.
 
 
 ## Open items

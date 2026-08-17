@@ -2882,3 +2882,55 @@ references the old ID.
   whether the self-granted `configuration` WRITE tier stands. G1 deliberately builds no request flow, no owner
   approval and no route — there is no HTTP path to any of this yet. See [[Platform]],
   `docs/features/OPERATOR-MODE-MAP.md`, [[LOG]].
+
+- **D-162 — Requesting is not granting, and `configuration` joins the owner-gated tiers (OPMODE.G2).**
+  G1 shipped a grant that was already decided. G2 adds the entry point where an operator ASKS — and the whole
+  point of the gate is what that ask does NOT do.
+  **TWO PRODUCT DECISIONS, NOW SETTLED (they were the map's §7 blockers):**
+  **(1) `configuration` REQUIRES the tenant owner's approval.** The wireframes drew it as self-granted, and the
+  map flagged that as the weakest point in the design: it is a WRITE tier that changes a live clinic's settings
+  and agent configuration. `OperatorGrant::TIERS_REQUIRING_APPROVAL` is now `[configuration, full_support]`.
+  **(2) `read_only` self-grants**, because it is non-PHI reads only — the tier allow-list gives it exactly
+  billing/reporting/audit **view** and refuses every PHI ability outright, so self-granting it cannot expose a
+  patient record. That is what makes the exception defensible rather than a hole.
+  **THE CORE PROPERTY — this is why BreakGlass was the wrong model to extend.** There,
+  `BreakGlassService::request()` sets `activated => true`: asking IS receiving. Here, an approval-tier request
+  creates a **PENDING** row with **no `granted_at` and no `expires_at`** — there is no session to be active
+  with — so G1's invariant (which requires `status === active`) denies **every** ability, including the very
+  records the request names. Proven by driving all twelve tier abilities against a pending full_support request
+  and getting `false` from each.
+  **NO SELF-APPROVAL PATH EXISTS.** Nothing an operator can call moves their own pending request to active. The
+  only method producing an active approval-tier grant is `issue()`, which demands an approver who belongs to
+  the target tenant and is not the operator (T6, from G1). A test also asserts the service has no
+  `approve`/`selfApprove`/`activate`/`grant` verb at all — the absence is pinned, not just currently true.
+  **THE TWO CLOCKS ARE SEPARATE COLUMNS, deliberately.** `request_expires_at` is how long the ASK stays open
+  and **grants nothing** when it lapses; `expires_at` (G1) is how long an approved session lives and **ends
+  access** when it lapses. Conflating them is the classic bug in this shape of flow. An expired request can
+  never be approved — `isAwaitingDecisionAt()` refuses an out-of-time row and `assertActivatable()` (the guard
+  G3's approve() must call, written here so the rule cannot be re-invented later) throws. The sweeper
+  `expireDueRequests()` is housekeeping that makes the lapse visible and auditable; it is never what keeps
+  access closed.
+  **SCOPE MINIMISATION.** A `full_support` request must NAME its records — the map's "3 records tied to a
+  ticket, not your whole database". There is deliberately **no wildcard**: `*`, `all`, `ALL`, `any` and `%` are
+  all refused, as are empty lists and blank ids. Whether an "all patient records" grant should exist is still an
+  open product decision, so until it is answered the only way to reach a record is to have named it — fail-closed
+  by omission rather than by a flag someone could flip.
+  **ONE NARROWING OF A G1 RULE, recorded honestly.** G1 made `granted_at`/`expires_at` absolutely immutable,
+  which the pending→active transition cannot satisfy: a pending request has no clock, and approval must start
+  one. They are now **set-once** — fillable from null exactly once, never rewritten. This is stricter where it
+  matters (an existing session can never be silently re-clocked or extended by re-pointing the column) and is
+  the minimum needed for G3. The request facts themselves (`requested_at`, `request_expires_at`,
+  `requested_ttl_minutes`) join the strictly-immutable set.
+  **ONE FLAGGED CONTRACT CHANGE.** G1's *"a configuration grant adds config writes but still refuses PHI"* now
+  passes an approver, because decision (1) made `configuration` owner-gated. Its **assertions are unchanged** —
+  what the tier permits and refuses is identical; only how it comes into existence got stricter. No other
+  existing test was modified.
+  **AUDIT.** A request writes `operator.access_requested` (or `operator.self_granted` for read_only) into the
+  TARGET TENANT's append-only hash-chained ledger as `actor_type = 'operator'`, carrying `grants_access_now` and
+  `awaiting_owner_decision` so the row states plainly that it is an audit of a REQUEST, not of an access. A
+  lapse writes `operator.request_expired` with `granted_access: false`.
+  **NOT IN THIS GATE:** no owner approval, no notification, no session mechanics beyond G1, no route and no UI —
+  the request flow is service-level only, so there is still no HTTP path to Operator Mode. The remaining open
+  decisions (is Operator Mode in scope for the first deployment; who counts as an "owner"; whether an
+  "all patient records" scope is permitted) are untouched. See [[Platform]],
+  `docs/features/OPERATOR-MODE-MAP.md`, [[LOG]].

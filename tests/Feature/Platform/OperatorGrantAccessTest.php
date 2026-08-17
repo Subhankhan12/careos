@@ -137,8 +137,14 @@ test('a configuration grant adds config writes but still refuses PHI (T5)', func
     $tenant = opgTenant();
     $operator = opgOperator();
 
+    // FLAGGED CONTRACT CHANGE (OPMODE.G2, D-162): `configuration` is a WRITE tier and now
+    // REQUIRES the tenant owner's approval, so issuing one takes an approver. The
+    // ASSERTIONS below are unchanged — what the tier permits and refuses is identical;
+    // only the way it comes into existence got stricter.
+    $owner = User::factory()->forTenant($tenant)->create();
+
     opgGrants()->issue($operator, $tenant, OperatorGrant::TIER_CONFIGURATION, [],
-        'Config request — correcting the agent autonomy ceiling.', 30);
+        'Config request — correcting the agent autonomy ceiling.', 30, $owner);
 
     opgCtx()->set($tenant);
 
@@ -335,6 +341,7 @@ test('THE AGENT EXCLUSION: no agent path can reach an operator grant (T9)', func
         // NAMES the invariant in a comment explaining why it clears a super-admin's
         // context. Nothing else in Modules/ or app/ can reach an operator grant.
         'Modules/Platform/database/migrations/2026_08_31_000001_create_operator_access_grants_table.php',
+        'Modules/Platform/database/migrations/2026_09_01_000001_add_request_columns_to_operator_access_grants.php',
         'Modules/Platform/src/Http/Middleware/IdentifyTenantFromUser.php',
         'Modules/Platform/src/Models/OperatorGrant.php',
         'Modules/Platform/src/Providers/PlatformServiceProvider.php',

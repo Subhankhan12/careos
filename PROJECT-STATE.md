@@ -260,10 +260,19 @@ and `configuration` can never reach PHI; PHI needs `full_support` plus the recor
 checked at access time; expiry and revoke bite on the very next check; every transition is audited into the
 **target tenant's** hash-chained ledger as `actor_type = 'operator'`; the agent can never hold a grant. D-161.
 
-**G1 built NO request flow, NO owner approval, NO route and NO UI** — there is still no HTTP path to Operator
-Mode. **The MAP's two BLOCKING product decisions are STILL OPEN and gate G2+:** (1) is Operator Mode in scope
-for the first deployment at all, and (2) does the self-granted `configuration` WRITE tier stand? Do not issue
-G2 until they are answered.
+**OPMODE.G2 is DONE too** — the operator REQUEST flow, whose defining property is that **requesting is not
+granting**. An approval-tier request creates a PENDING row with no session clock at all, so G1's invariant denies
+**every** ability while it waits, including the records the request names; `read_only` self-grants but reaches
+only non-PHI reads; there is **no self-approval path** (asserted by the absence of the verb); the **request
+clock** is a separate column from the session clock and grants nothing when it lapses; and `full_support` must
+NAME its records — no wildcard exists. D-162.
+
+**ONE OF THE TWO BLOCKING DECISIONS IS SETTLED:** `configuration` **requires owner approval** (it is a WRITE
+tier), and `read_only` self-grants because it is non-PHI only. **STILL OPEN: is Operator Mode in scope for the
+first deployment at all?** — plus who counts as an "owner" and whether an "all patient records" scope is
+permitted.
+
+**Still NO owner approval (G3), NO route and NO UI** — there is no HTTP path to Operator Mode.
 
 ---
 
