@@ -15,7 +15,11 @@ wireframe without weakening a single enforced gate). See §5.
 > required reject-reason, the AutonomyPolicy ceiling, approve = re-authorise + re-ground + still-pending); never
 > regress a "correctly-more-real" item; RBAC is reflect-only (server Gate stays authoritative); surface-don't-
 > fabricate (every permission/ceiling/source shown is REAL or an honest absence — no faked control/count/copy).**
-> **Where each page stands (SEVEN pages COMPLETE):** Admin Settings (SETTINGS.P1–P6, `e7cabf0`) ·
+> **Where each page stands — ALL NINE COMPLETE; the pass is CLOSED (AUTH-VIS, `8a9a867`).** Beyond the seven
+> listed here, **Appointment Detail** core (APPT.P1–P3, `ca90273`; the real APPT.P2 tip is the CI-fix `27fa22c`)
+> and **Auth Screens** (AUTH-SEC.1 `4334017` + AUTH-SEC.2 `39c0413` + AUTH-VIS `8a9a867`) closed it.
+> **No parity page remains — do not invent one.** The seven:
+> Admin Settings (SETTINGS.P1–P6, `e7cabf0`) ·
 > Approval Queue (APPROVAL.P1–P7, `ea0e9b3`) · Branches (BRANCH.P1–P5, `a865a31`) · Agent & Tool Config (AGENT.P1–P6,
 > `d0199e3`) · Allergy Alert **safe-part** (ALLERGY.P1, `46e45d1` — record-display only; computed drug-allergy checking
 > is a certified-partner MEDICAL-DEVICE non-goal, NOT built) · **Billing & AR (BILLAR.P1–P7, `aa82ea0`)** · **AR Account
@@ -60,19 +64,26 @@ wireframe without weakening a single enforced gate). See §5.
 1. **`AGENTS.md`** — single source of truth: project, stack, hard rules, workflow, module map, MEMORY PROTOCOL.
 2. **`PROJECT-STATE.md`** — authoritative "where we are" snapshot (BUILD COMPLETE · eight verticals · all hospital
    phases · focus = deploy + partnerships · latest commit + suite counts).
-3. **`DECISIONS.md`** — architecture decision log, **D-001 → D-159** (append-only; never edit past entries; **D-149**
-   = the wireframe-parity discipline, **D-150** = the Billing & AR reconcile extension + engine-computed reporting,
-   **D-151** = AR Account Detail read-only-over-the-engine + the agent-never-commits-money / never-escalates-Betreibung line,
-   **D-152** = the AR record-payment gate WIRES the guarded `PaymentService` rather than becoming a second payment path,
-   **D-153** = payment plans SCHEDULE money against a real balance and never create or move it,
-   **D-154** = Betreibung is a human legal act — operator-only on a dedicated narrower permission, eligibility-gated,
-   append-only, and agent-excluded BY CONSTRUCTION).
+3. **`DECISIONS.md`** — architecture decision log, **D-001 → D-160**, verified with **no gaps and no duplicates**
+   (append-only; never edit past entries). **D-149** = the wireframe-parity discipline, **D-150** = the Billing & AR
+   reconcile extension + engine-computed reporting, **D-151** = AR Account Detail read-only-over-the-engine + the
+   agent-never-commits-money / never-escalates-Betreibung line, **D-152** = the AR record-payment gate WIRES the
+   guarded `PaymentService` rather than becoming a second payment path, **D-153** = payment plans SCHEDULE money
+   against a real balance and never create or move it, **D-154** = Betreibung is a human legal act — operator-only
+   on a dedicated narrower permission, eligibility-gated, append-only, and agent-excluded BY CONSTRUCTION,
+   **D-155/156/157** = the Appointment Detail chain (real display · the real `LEGAL_TRANSITIONS` action row · the
+   real slot-finder + overlap guard), **D-158** = remember-me must not bypass 2FA, **D-159** = public pages are
+   smoked because an unauthenticated 500 is the worst kind, **D-160** = the enrolment fallback shows the user's
+   OWN real secret or nothing (and closes the pass).
 4. **`DEFERRED.md`** — the parked backlog, each item with its pull-forward TRIGGER (the certified-partner seams +
    medical-device non-goals + earlier parked items).
 5. **`memory/LOG.md`** — one line per completed gate; the full build history (Phases 0/A–G · P0P · CLINIC.W1–W10 ·
    FIX.1–5 · POLISH.1–3 · UI.F1–2 · DENTAL.G1–9 · HOSPITAL.G1–7 · PHARMACY.G1–5 · SURGERY.G1–5 · ED.G1–6 ·
    LAB.G1–6 · RAD.G1–5 · A11Y.1 · the WIREFRAME-PARITY gates [SETTINGS.P1–6 · APPROVAL.P1–7 · BRANCH.P1–5 ·
-   AGENT.P1–6 · ALLERGY.P1 · BILLAR.P1–7 · ARDETAIL.P1–6 · APPT.P1–3] · the reconciliation entries).
+   AGENT.P1–6 · ALLERGY.P1 · BILLAR.P1–7 · ARDETAIL.P1–6 · APPT.P1–3 · **AUTH-SEC.1 · AUTH-SEC.2 · AUTH-VIS**] ·
+   the reconciliation entries). **212 entries, and as of this reconciliation EVERY ONE carries a real, resolvable
+   commit hash** — the 185 stale `(pending)` markers (written before their commit existed and never backfilled)
+   were resolved against `git log`, so a LOG line now maps to the commit that shipped it.
 6. **`memory/modules/*.md`** — per-module deep notes (20): Platform, Audit, AiCore, People, Patients, Scheduling,
    Clinical, Billing, Comms, FrontDesk, Nursing, Reporting, Import, **Dental, Hospital, Pharmacy, Surgery, ED,
    Lab, Radiology**.
@@ -86,13 +97,17 @@ wireframe without weakening a single enforced gate). See §5.
 11. **The audit reports** — `docs/QA-AUDIT-REPORT.md` (live-browser QA + FIX.1–5), `docs/DEEP-AUDIT-REPORT.md`,
     `docs/FULL-EXERCISE-AUDIT-REPORT.md` (all-roles exercise). Plus `docs/ONBOARDING-REHEARSAL-REPORT.md`,
     `docs/DISCOVERY.md`, `docs/SCREENS.md`, `docs/AGENT-EVALS.md`, `docs/DEPLOY-RUNBOOK.md`.
-14. **`docs/wireframe-parity/*.md`** — the wireframe-parity pass (D-149/D-150/D-151): per-page audit/diff reports +
-    per-part progress. SEVEN docs: `ADMIN-SETTINGS-DIFF.md`, `APPROVAL-QUEUE-DIFF.md`, `BRANCHES-DIFF.md`,
-    `AGENT-TOOL-CONFIG-DIFF.md`, `ALLERGY-ALERT-DIFF.md`, `BILLING-AR-DIFF.md` (all COMPLETE/RESOLVED), and
-    `AR-ACCOUNT-DETAIL-DIFF.md` (**COMPLETE — every punch-list item RESOLVED across ARDETAIL.P1–P6**; the only
-    remaining notes are two HONEST BACKEND GAPS, not parity failures: the real Swiss QR-bill [IBAN/reference] and
-    send-QR-bill/reminder-from-the-page, which stays inside the existing DunningService + agent-cap path). The decoded wireframes live in the **gitignored** `resources/prototype/`
-    (regenerate by decoding the bundle, never committed).
+14. **`docs/wireframe-parity/*.md`** — the wireframe-parity pass (D-149 → D-160): per-page audit/diff reports +
+    per-part progress. **NINE docs, ALL COMPLETE/RESOLVED — the pass is CLOSED:** `ADMIN-SETTINGS-DIFF.md`,
+    `APPROVAL-QUEUE-DIFF.md`, `BRANCHES-DIFF.md`, `AGENT-TOOL-CONFIG-DIFF.md`, `ALLERGY-ALERT-DIFF.md`,
+    `BILLING-AR-DIFF.md`, `AR-ACCOUNT-DETAIL-DIFF.md` (every punch-list item RESOLVED across ARDETAIL.P1–P6),
+    `APPOINTMENT-DETAIL-DIFF.md` (core RESOLVED across APPT.P1–P3), and `AUTH-SCREENS-DIFF.md` (§4.1/§4.2 resolved
+    by the AUTH-SEC security sprint, §3 by AUTH-VIS). The remaining notes across the pass are **HONEST BACKEND
+    GAPS, not parity failures** — the real Swiss QR-bill [IBAN/reference], send-QR-bill/reminder-from-the-page
+    (sending stays inside the existing `DunningService` + agent-cap path), the two optional Appointment follow-ons
+    (APPT.P4 room-capability, APPT.P5 preferred-practitioner) — plus the ONE open product decision, the password
+    policy. The decoded wireframes live in the **gitignored** `resources/prototype/` (regenerate by decoding the
+    bundle, never committed).
 12. **The scoping doc** (`careos-hospital-expansion-scoping.md`) — **NOT in-repo** (external); the hospital build is
     captured in the six HOSPITAL-PHASE maps above.
 13. **this file** (`docs/ONBOARDING.md`).
@@ -127,19 +142,23 @@ four run manually (none is wired into `DatabaseSeeder`). **NOTE:** the QA audits
 
 **Quality gates (must be green before commit):**
 ```
-composer check          # = lint (Pint) ; analyse (PHPStan L5) ; test (Pest). Runs ~30 min — RUN IN BACKGROUND.
+composer check          # = lint (Pint) ; analyse (PHPStan L5) ; test (Pest). ~45-60 min — RUN IN BACKGROUND.
 composer test:mysql     # migrate:fresh --force + migrate:status + Pest — the MySQL-parity run (WIPES data)
-composer test:smoke     # php artisan test tests/Feature/Smoke — route-reachability (FIX.5), fast
+composer test:smoke     # php artisan test tests/Feature/Smoke — route-reachability (FIX.5), fast.
+                        #   4 tests: staff routes · per-role RBAC · GUEST routes (AUTH-SEC.2) · portal.
 composer eval           # Pest Evals suite (the AI electric-fence eval locks)
 composer fix            # Pint auto-fix
 ```
-> **`composer check` runs ~30 min (exceeds the tool timeout) — always run it in the BACKGROUND, and VERIFY the
-> actual Pint/PHPStan/Pest text from the log tail. The exit code has LIED before (a Pint style failure returned
-> exit 0).** Pint runs FIRST and halts the chain on any style nit — a new test/controller file commonly trips
+> **`composer check` now runs ~45–60 min (far exceeds the tool timeout) — always run it in the BACKGROUND, and
+> VERIFY the actual Pint/PHPStan/Pest text from the log. The exit code has LIED more than once** (a Pint style
+> failure returned exit 0; a wrapper returned exit 0 while the log said `error code 1` with 2 tests failed).
+> **Never report a gate green on the exit code alone — read the log text, then confirm the CI check-run.**
+> Pint runs FIRST and halts the chain on any style nit — a new test/controller file commonly trips
 > `fully_qualified_strict_types` / `ordered_imports` / `no_unused_imports`; auto-fix with `composer fix` (or
-> `pint <files>`) then re-run. **Current baseline: Pest 1146 passed / 15,159 assertions** (as of ARDETAIL.P3,
-> `9c95246`; earlier reference: 953 at the pre-parity build), plus **Vitest `npm run test:unit` 29 passed**; PHPStan
-> L5 `[OK]`; Pint clean.
+> `pint <files>`) then re-run.
+> **Current baseline (verified at `8a9a867`, AUTH-VIS): Pest 1209 passed / 16,080 assertions · PHPStan L5
+> `[OK] No errors` · Pint `passed` · `composer test:smoke` 4/4 · Vitest `npm run test:unit` 29 passed (5 files) ·
+> `npm run build` green.** (Earlier reference points: 1146 at ARDETAIL.P3 `9c95246`; 953 at the pre-parity build.)
 
 **Frontend:**
 ```
@@ -227,16 +246,42 @@ factory TOTP secret is the fixed **`JBSWY3DPEHPK3PXP`** — derive the current O
   `app/AppServiceProvider` so verticals stay free of Audit models. Peer verticals never import each other (a
   shared pattern is COPIED, not imported; a cross-vertical link is a SOFT app-layer id).
 - **i18n keys only** in the UI; string-id route params, not model binding (FIX.1/D-090). **Date-only values**
-  render via the shared `formatDateOnly` helper — never `new Date(dateOnly)` (M-2/FIX.3).
+  render via the shared `formatDateOnly` helper — never `new Date(dateOnly)` (M-2/FIX.3). **vue-i18n treats `.`
+  as a path separator** — never a dotted key segment as data (store the underscore form and map it; APPT.P1).
+- **THE AGENT IS A GOVERNED CONTAINER (AGENT.P1–P6, D-140s).** Effective autonomy =
+  **MIN(configured, tool ceiling, role RBAC ceiling)** — **configuration can only ever NARROW, never widen**, and a
+  forged higher level is clamped by the resolver, not by the UI. The fence is **toggle-free**. The agent **DRAFTS**
+  (suggest-only, through the ApprovalQueue) and a **HUMAN commits** anything consequential: **the agent never
+  auto-sends, never commits money, and never escalates to legal debt-enforcement/Betreibung** — the last is
+  **agent-EXCLUDED BY CONSTRUCTION** (no `AiTool` capability, no AiCore reference, and the only files reaching the
+  service are the service, the model and the operator-gated controller, asserted as an exact list; so "0
+  auto-escalated" is structural, not a displayed number). A limit may only STOP the agent, never widen it. The
+  uncertainty escalation is **always-on and un-removable**. **Every metric is real-or-honestly-absent** — never a
+  fabricated number; if the backend cannot produce it, OMIT it and say so rather than inventing a plausible value.
+- **2FA IS MANDATORY AND LOCKED for staff (SETTINGS.P4) — no skip, postpone or disable path exists**, and a test
+  asserts the route table contains none. A session restored from the **remember-me recaller is RE-CHALLENGED**
+  (AUTH-SEC.1/D-158): the password factor stays remembered, the second factor never does. The challenge-passed
+  proof is written in exactly two places, both requiring a valid code. **Never add an auth affordance weaker than
+  the enforced gate** — no skip-2FA, no 2FA-bypassing "trust this device", no weakened reset, no SSO button
+  without an SSO backend. Guest pages (`/login`, `/forgot-password`, `/reset-password/{token}`, `/invite/{token}`)
+  are covered by the guest-route smoke (AUTH-SEC.2/D-159) because every other smoke authenticates first.
+- **Never assert on serialised JSON text.** `json_decode` an audit context and assert its MEANING. A raw-JSON
+  substring passes on dev MariaDB 10.4 and FAILS on CI MySQL 8, which normalises and re-serialises JSON columns
+  (space after the colon, keys reordered). This shipped CI-red once — APPT.P2, fixed in `27fa22c` (D-156).
 
 ---
 
 ## 4. Gate workflow discipline
 
 - **Execute ONLY the pasted gate.** Several gates may arrive in one message — do the FIRST, then STOP.
-- **MAP-FIRST for a new vertical.** Every new vertical/phase starts with a reconciliation/scope MAP before code —
-  the "don't force the wrong abstraction" analysis. The net-new entities each earned their own model (`Bed`/`Stay`,
-  `TheatreSlot`, `EdVisit`, `Specimen`, `ImagingStudy`) while orders/results/notes were REUSED from Clinical.
+- **VERIFY FROM REPO REALITY BEFORE BUILDING.** If a pasted gate's precondition commit is **not** HEAD, or the
+  work it describes **already exists**, **STOP and say so** — do not build it twice and do not quietly adapt.
+  The repo is ground truth; a gate description can be stale.
+- **MAP-FIRST for a new vertical — but there are NONE left.** Every new vertical/phase started with a
+  reconciliation/scope MAP before code (the "don't force the wrong abstraction" analysis; net-new entities each
+  earned their own model — `Bed`/`Stay`, `TheatreSlot`, `EdVisit`, `Specimen`, `ImagingStudy` — while
+  orders/results/notes were REUSED from Clinical). **All eight verticals and all six hospital phases are built:
+  do NOT invent a new vertical, and do NOT invent a new wireframe-parity page — that pass is closed.**
 - **Open every gate with `git log --oneline -1`** (state it) + confirm CI green for that commit. **Close with
   `git log --oneline -2`** (confirm your gate is on top). *(The open/close git-log bookend is the anti-skip guard.)*
 - **End state per gate:** `composer check` FULLY green (verified from the log text, not the exit code) + `composer
@@ -252,8 +297,11 @@ factory TOTP secret is the fixed **`JBSWY3DPEHPK3PXP`** — derive the current O
   browser-verified, not just unit-tested.
 - **Adversarial-grep rule.** After billing/clinical work, grep to PROVE no pricing/charge/VAT math (and no
   AI/CV/finding/CAD/suggestion/severity/risk/acuity logic) leaked into the module.
-- **Commits:** Git Bash heredoc for the message (a PowerShell here-string once corrupted a commit); end with
-  `Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>`. Never rewrite pushed history on `main`.
+- **Commits:** Git Bash heredoc for the message (a PowerShell here-string once corrupted a commit); end with the
+  `Co-Authored-By:` trailer your running environment specifies — the history carries `Claude Opus 4.8 (1M context)`
+  on earlier commits and `Claude Opus 5 (1M context)` from AUTH-VIS on, so take it from your own instructions
+  rather than copying a pinned version from this file. **Never rewrite pushed history on `main`** (force-push is
+  blocked — get the commit right the first time).
 
 ---
 
@@ -308,16 +356,41 @@ eight verticals (record-not-judge, often declared in the UI), billing reconciles
 composite ED→inpatient episode, RBAC is airtight per-vertical, append-only holds, the kiosk leaks no PHI. The only
 findings were 2 Low a11y items, **both fixed (D-148)**. There are **no more verticals to build.** The outpatient
 verticals (clinic/dental/home-care) target **2–3 prospective paying customers** (DONE, NOT deployed); the hospital
-build was driven by a **committed mid-size general-hospital buyer** (now complete). The only remaining progress:
-1. **DEPLOY** the built verticals to the paying customers — staging deploy → smoke-test → onboard: to a Linux host,
-   wire real email + LiveKit, import via the P.6 CSV tool. Ready: `docs/DEPLOY-RUNBOOK.md` (audited against the
-   8-vertical code — the accrual cron + all 17 role templates fixed), `docs/DEPLOY-ENV.production.template` (71 keys,
-   placeholders + a MUST-FILL list), and the rehearsed onboarding (4 programmatic steps).
-2. **PARTNERSHIP/INTEGRATION** work that fills the certified-partner seams — drug-safety (pharmacy), HL7/FHIR
-   (lab), PACS/DICOM (radiology), anaesthesia device-data (surgery). Business conversations with long lead times,
-   not gates.
+build was driven by a **committed mid-size general-hospital buyer** (now complete).
 
-**Do NOT invent a new vertical.** If asked to build, the honest answer is: the remaining value is DEPLOYMENT +
-PARTNERSHIPS. A new gate is only justified when a specific customer/partner need pulls a concrete feature forward
-(e.g. a demo seeder for a hospital pilot, the CH/KVG billing pack once a Spitex coordinator confirms the model, a
-certified-partner adapter once a partner is signed).
+**🏁 AND THE NINE-PAGE WIREFRAME-PARITY PASS IS COMPLETE TOO (closed by AUTH-VIS, `8a9a867`, 2026-08-17).**
+Admin Settings · Approval Queue · Branches · Agent & Tool Config · Billing & AR · Allergy Alert (safe part) ·
+AR Account Detail · Appointment Detail (core) · Auth Screens. It ran under one rule — **match the visual, but
+surface the real thing or nothing, and never weaken an enforced gate** — and it earned its keep: auditing the
+auth screens against their wireframe exposed **TWO High LIVE SECURITY DEFECTS**, both since fixed and both
+STRENGTHENING the floor: **AUTH-SEC.1** (a session restored from the remember-me cookie reached the app with no
+2FA challenge — a standing second-factor bypass, now re-challenged; D-158) and **AUTH-SEC.2**
+(`/forgot-password` + `/reset-password/{token}` returned **HTTP 500** with no Fortify view bound, so a locked-out
+user had no self-service recovery — **plus the coverage gap that let it ship green**: every route smoke
+authenticated first, so no PUBLIC page had ever been requested; the smoke now drives guest routes; D-159).
+**AUTH-VIS** then closed the last visual item (the enrolment "Can't scan?" fallback, rendering the user's OWN
+real secret — never the wireframe's demo literal; D-160). **There is NO parity work left.**
+
+**THE ONE REMAINING TRACK — and the answer to "what's next?" — is DEPLOYMENT:**
+1. **DEPLOY** the built verticals to the paying customers — staging deploy → smoke-test → onboard: to a Linux host,
+   wire real email + LiveKit, import via the P0P.G6 CSV tool. Ready: `docs/DEPLOY-RUNBOOK.md` (audited against the
+   8-vertical code — the accrual cron + all 17 role templates fixed), `docs/DEPLOY-ENV.production.template` (71 keys,
+   placeholders + a MUST-FILL list; `SESSION_SECURE_COOKIE=true` verified present), the rehearsed onboarding
+   (4 programmatic steps), and four demo seeders for pilot/sales tenants.
+   **⚠️ KNOWN AND UNRESOLVED: a staging error was hit earlier and never debugged.** It is not diagnosed and not
+   written up — expect to reproduce it as the first real step, and do not assume the deploy path is clean just
+   because the suite and CI are green.
+2. **PARTNERSHIP/INTEGRATION** work that fills the certified-partner seams — drug-safety (pharmacy), HL7/FHIR
+   (lab), PACS/DICOM (radiology), anaesthesia device-data (surgery), triage acuity (ED). Business conversations
+   with long lead times, not gates.
+
+**⚠️ ONE OPEN PRODUCT DECISION (not a defect, not a build task):** the password policy is `Password::default()` —
+min 8 characters, no `Password::defaults()` configured, so **no mixed-case/digit/symbol/breach check**. The reset
+flow enforces whatever is configured; choosing what it *should* be needs the product owner. Deliberately not
+slipped into a security sprint.
+
+**Do NOT invent a new vertical, and do NOT invent a new parity page.** If asked to build, the honest answer is:
+the remaining value is DEPLOYMENT + PARTNERSHIPS. A new gate is only justified when a specific customer/partner
+need pulls a concrete feature forward (e.g. the CH/KVG billing pack once a Spitex coordinator confirms the model,
+a certified-partner adapter once a partner is signed, or one of the triggered items in `DEFERRED.md`).
+**Wait for the pasted gate.**

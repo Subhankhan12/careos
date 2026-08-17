@@ -34,14 +34,19 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
 
 ## STATUS: BUILD COMPLETE + AUDITED (3 audits, ZERO must-fix) · EIGHT VERTICALS · DEMOABLE HOSPITAL TENANT · CURRENT STAGE = DEPLOYMENT · WIREFRAME-PARITY PASS **COMPLETE — ALL 9 PAGES** ( Admin Settings · Approval Queue P1→P7 · Branches P1→P5 · Agent&Tool Config P1→P6 COMPLETE · Billing & AR P1→P7 COMPLETE · Allergy Alert safe-part [ALLERGY.P1] · Billing&AR audit + BILLAR.P1 write-off/adjustment ledger + BILLAR.P2 AR roll-forward + BILLAR.P3 DSO/collection-rate + BILLAR.P4 by-payer + BILLAR.P5 charged-vs-collected trend + BILLAR.P6 management-report grid + BILLAR.P7 top-overdue+drill — Billing & AR PARITY COMPLETE · AR Account Detail COMPLETE: ARDETAIL.P1 per-account running-balance ledger + P2 dunning timeline + P3 hero/Swiss-format/links + P4 record-payment through the guarded PaymentService + P5 payment-plan model + P6 Betreibung escalation [operator-only, agent-excluded by construction] · Appointment Detail APPT.P1->P3 CORE COMPLETE · Auth Screens: AUTH-SEC.1+.2 security fixes + AUTH-VIS enrolment manual-secret fallback — PASS COMPLETE)
 
-> **RECONCILED (this pass — eight verticals built + audited; at the DEPLOY stage; a page-by-page wireframe-parity
-> pass now in progress).** CareOS is a multi-tenant agentic healthcare-operations platform (EU-first). **Stack:**
-> Laravel 12, Inertia v2 + Vue 3 + TS + Tailwind v4 (Eucalyptus Glow) + a separate offline Nurse PWA; dev MariaDB
-> 10.4 @3306, prod+CI MySQL 8 + Redis 7 + Node 22; Horizon via Memurai locally. **Latest commit:** `aac95c8`
-> (APPROVAL.P3 — the Approval Queue approve-contract caption), after the Admin Settings parity chain (→ `e7cabf0`),
-> DemoHospitalSeeder (D-147), the full-system QA audit + re-audit, and A11Y.1. **Suite:** `composer check` green —
-> Pest **1146 passed** (+2 from ARDETAIL.P3; +4 Vitest), PHPStan L5 `[OK]`, Pint clean; npm build + `test:unit` green; `composer test:smoke`
-> green; CI green on MySQL 8; the FIX.5 route-smoke guards against request-time 500s. (Latest commit: ARDETAIL.P3 — the AR Account Detail hero + Swiss CHF format + chart/PDF links; drill-in: P1 ledger + P2 dunning timeline + P3 visual done.)
+> **RECONCILED as of `8a9a867` (AUTH-VIS, 2026-08-17) — the build, the three QA audits, the deploy-prep and the
+> NINE-PAGE wireframe-parity pass are ALL COMPLETE. The single remaining track is DEPLOYMENT + partnerships.**
+> CareOS is a multi-tenant, agentic, EU-first healthcare-operations SaaS. **Stack:** Laravel 12, Inertia v2 +
+> Vue 3 + TS + Tailwind v4 (Eucalyptus Glow) + a separate offline Nurse PWA; dev MariaDB 10.4 @3306, prod+CI
+> MySQL 8 + Redis 7 + Node 22; Horizon via Memurai locally. **20 modules on disk, all PSR-4-registered**
+> (`Interop` is the only planned placeholder, deliberately not built).
+>
+> **HEAD:** `8a9a867` — AUTH-VIS, which closed the parity pass. Preceded by AUTH-SEC.2 `39c0413`, AUTH-SEC.1
+> `4334017`, the auth audit `e9b5783`, and APPT.P3 `ca90273`.
+> **Suite (verified from the log text, not the wrapper's exit code — it has lied):** `composer check` green —
+> **Pest 1209 passed / 16080 assertions**, PHPStan L5 `[OK] No errors`, Pint passed. `composer test:smoke`
+> green (**4/4**, now including the GUEST-route smoke). Vitest **29 passed** (5 files). `npm run build` green.
+> **CI green on MySQL 8**, verified for HEAD via the GitHub check-runs API (`check -> completed / success`).
 >
 > **WIREFRAME-PARITY PASS (COMPLETE — all 9 pages) — the discipline that ran it:** each app page is matched to its decoded wireframe in
 > the gitignored `resources/prototype/` (decode the bundler-shell HTML → AUDIT/diff into `docs/wireframe-parity/*.md`
@@ -51,7 +56,11 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
 >
 > **CURRENT PARITY STATUS (authoritative — the per-page bullets further down are historical detail; where one
 > still reads "IN PROGRESS" it was completed in a later gate, per this summary + the header):**
-> **SIX pages COMPLETE** — Admin Settings (SETTINGS.P1–P6, `e7cabf0`) · Approval Queue (APPROVAL.P1–P7, `ea0e9b3`) ·
+> **ALL NINE PAGES COMPLETE — the pass is CLOSED (AUTH-VIS, `8a9a867`).** The six listed immediately below were the
+> first six; **Appointment Detail** (core, APPT.P1–P3, `ca90273` — the real APPT.P2 tip is the CI-fix `27fa22c`) and
+> **Auth Screens** (AUTH-SEC.1 `4334017` + AUTH-SEC.2 `39c0413` + AUTH-VIS `8a9a867`) close it, with **AR Account
+> Detail** (ARDETAIL.P1–P6, `3ddc7ab`) as the seventh. **No parity page remains; do not invent one.**
+> The first six — Admin Settings (SETTINGS.P1–P6, `e7cabf0`) · Approval Queue (APPROVAL.P1–P7, `ea0e9b3`) ·
 > Branches (BRANCH.P1–P5, `a865a31`) · Agent & Tool Config (AGENT.P1–P6, `d0199e3`) · Allergy Alert **safe-part**
 > (ALLERGY.P1 record-display + display-only seam; computed drug-allergy checking is a certified-partner MEDICAL-DEVICE
 > non-goal, NOT built, `46e45d1`) · **Billing & AR (BILLAR.P1–P7, `aa82ea0`)** — write-offs/adjustments as
@@ -230,6 +239,51 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
 > display; the resource-availability admin screen; a broader dense-grid keyboard/ARIA a11y sweep + a
 > realistic-volume load test; the optional radiology uploaded-still (dental DocumentService).
 > New session onboarding: read **`docs/ONBOARDING.md`** first.
+
+---
+
+## THE ONE REMAINING TRACK — DEPLOYMENT (authoritative; everything below this section is history)
+
+**There is no build work queued. No verticals remain, no hospital phases remain, and no wireframe-parity pages
+remain.** If asked "what's next?", the honest answer is **DEPLOY** — not a new vertical, not a new parity page.
+
+**1. DEPLOYMENT to the paying customers — the real next unit of value.** The assets are ready and rehearsed:
+the deployment runbook (`docs/DEPLOY-RUNBOOK.md`), the audited deploy-readiness reconciliation against the
+eight-vertical code (`e9f9247`), the production `.env` template with placeholders only and no secrets
+(`f74a318`), the rehearsed per-customer onboarding (`docs/ONBOARDING-REHEARSAL-REPORT.md`), and four demo
+seeders (Clinic · Spitex · Dental · Hospital) for sales/demo tenants. **Still to do:** stand up a Linux host,
+wire a real email transport, supply a production LiveKit key/secret and production config/secrets, then import
+each customer's data via the P0P.G6 CSV tool and onboard.
+**⚠️ KNOWN, UNRESOLVED:** a **staging error was hit earlier and never debugged**. It is not diagnosed and not
+written up — expect to reproduce it as the first real step of the deployment track, and do not assume the
+deploy path is clean merely because the suite and CI are green.
+
+**2. PARTNERSHIP integrations — everything "smart" that CareOS deliberately does NOT compute.** Each is already
+threaded through the built code as a null-object seam, so the wiring is proven and a certified partner drops
+in; a homemade version is a permanent non-goal, not a backlog item:
+`MedicationSafetyProvider` (drug interaction/dose/contraindication) · `LabConnectivity` (HL7/FHIR transmission
++ result ingestion) · `ImagingConnectivity` (PACS/DICOM + diagnostic viewer) · the intra-op anaesthesia
+device-data feed · `TriageAcuityProvider`. See `DEFERRED.md` for each trigger.
+
+**⚠️ THE ONE OPEN PRODUCT DECISION (not a defect, not a build task):** the password policy is
+`Password::default()` — minimum 8 characters, with no `Password::defaults()` configured, so no mixed-case,
+digit, symbol or breach check. The reset flow correctly enforces whatever is configured; choosing what it
+*should* be needs a decision from the product owner. Deliberately not slipped into the AUTH-SEC security sprint.
+
+**Also open, non-blocking** (all in `DEFERRED.md` with triggers): the dense-grid keyboard/ARIA a11y sweep, a
+realistic-volume load test, full per-widget timezone display, the resource-availability admin screen, the real
+Swiss QR-bill, the finer Swiss payer taxonomy, the two OPTIONAL Appointment follow-ons (APPT.P4 room-capability
+field, APPT.P5 preferred-practitioner slot filter), and the AGENT.P6 confidence threshold (deferred because no
+confidence signal exists to threshold against — the escalation floor itself is always-on and un-removable).
+
+---
+
+> ## ⚠️ EVERYTHING BELOW THIS LINE IS HISTORICAL AND SUPERSEDED
+>
+> The sections below are an append-only record of earlier snapshots, kept for provenance. **They describe
+> states that are no longer true** — several still call verticals "remaining" that are now built, and the
+> final "Next action" at the very bottom of this file is a stale 2026-era note from the Phase-5 era. **The
+> authoritative current state is the top of this file plus the DEPLOYMENT section immediately above.**
 
 ## (historical) STATUS: BACKEND FEATURE-COMPLETE · SEVEN VERTICALS (ED / Phase 6 COMPLETE) · CURRENT FOCUS = DEPLOY (not building)
 
@@ -512,9 +566,11 @@ consumables/implants → billing.)
   theatre+surgical-case inline, so those request-time surfaces are covered without a standing seeder.
 - **Deploy-ready status:** MySQL 8 parity proven (`docs/DB-PARITY.md`); **NOT yet deployed**. Still needed:
   real email transport, a production LiveKit key/secret, production config/secrets. **Documented
-  follow-ups (in DEFERRED.md):** full per-widget timezone *display* (W8b stores/normalizes tz; per-widget
-  rendering pending) · the resource-availability admin screen (flagged in W8c) · inpatient/pharmacy/surgery
-  demo seeders (a `DemoHospitalSeeder`) · dental long-poles (live imaging capture/DICOM/3D overlay, licensed
+  follow-ups (all now genuinely listed in DEFERRED.md — two of them were referenced here but missing from
+  that file until this reconciliation):** full per-widget timezone *display* (W8b stores/normalizes tz;
+  per-widget rendering pending) · the resource-availability admin screen (flagged in W8c) ·
+  ~~inpatient/pharmacy/surgery demo seeders~~ (**BUILT** — `DemoHospitalSeeder`, one of four demo seeders) ·
+  dental long-poles (live imaging capture/DICOM/3D overlay, licensed
   code sets, chair-view/sterilization/ortho later gates). **The certified-partner SEAMS that gate the "smart"
   hospital features** (each a null-object today, advisory + human-owned, incapable of auto-blocking):
   `MedicationSafetyProvider` (drug interaction/dose/contraindication — pharmacy), `ManualLabConnectivity`
@@ -1964,3 +2020,11 @@ consumables/implants → billing.)
   forward only by a customer need (the `docs/HOSPITAL-PHASE5-SURGERY-MAP.md` discipline). The DISCOVERY track
   still stands (the CH/KVG billing model must be confirmed with Spitex coordinators before the CH statutory pack
   is committed).
+
+---
+
+> **⚠️ END OF THE HISTORICAL RECORD — the "Next action" above is STALE.** It dates from the Phase-5 era and
+> names Phases 3 (lab), 4 (radiology) and 6 (ED) as remaining; **all three have since been built**
+> (LAB.G1–G6, RAD.G1–G5, ED.G1–G6), as has the entire nine-page wireframe-parity pass.
+> **For the real current state and next action, go back to the top of this file** — the reconciled block and
+> the "THE ONE REMAINING TRACK — DEPLOYMENT" section. The answer to "what's next?" is **DEPLOY**.

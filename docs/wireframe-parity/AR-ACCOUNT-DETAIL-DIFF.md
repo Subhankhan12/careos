@@ -271,9 +271,10 @@ and the P3 hero already surface the account-wide balance from the engine, so no 
   idempotent `DunningService` (and any agent draft rides the AGENT.P1–P6 cap + ApprovalQueue). No new auto-send
   was introduced here.
 
-**This is the SEVENTH page of the wireframe-parity pass to reach parity** (Admin Settings · Approval Queue ·
-Branches · Agent & Tool Config · Allergy Alert safe-part · Billing & AR · **AR Account Detail**). Remaining
-decoded pages: **Appointment Detail · Auth Screens.**
+**This was the SEVENTH page of the wireframe-parity pass to reach parity** (Admin Settings · Approval Queue ·
+Branches · Agent & Tool Config · Allergy Alert safe-part · Billing & AR · **AR Account Detail**). The two that
+then remained — **Appointment Detail** (core, APPT.P1–P3) and **Auth Screens** (AUTH-SEC.1 + AUTH-SEC.2 +
+AUTH-VIS) — have since shipped: **the nine-page pass is COMPLETE and no decoded page remains.**
 
 **The fences that held throughout:** every displayed figure is engine-computed and ties δ=0 (no page-side money
 math anywhere in the chain); every money movement goes through the guarded, append-only, reconciling

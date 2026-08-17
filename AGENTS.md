@@ -14,6 +14,11 @@ Market packs:
 - **Pack #1 — EU-Generic billing** (first).
 - **Pack #2 — US / EVV lane** (second).
 
+> **STATE IN ONE LINE (as of `8a9a867`, 2026-08-17):** the BUILD is COMPLETE — eight verticals, all six hospital
+> phases, three clean QA audits — and the **nine-page wireframe-parity pass is CLOSED**. **The single remaining
+> track is DEPLOYMENT + partnership integrations.** Do NOT invent a vertical, a hospital phase, or a parity page;
+> wait for the pasted gate. Full detail in `PROJECT-STATE.md`; parked work + triggers in `DEFERRED.md`.
+
 ## Stack
 
 - **Framework/PHP:** Laravel 12 on XAMPP's existing **PHP 8.2** (`C:\xampp\php`) — **no Herd**.
@@ -24,24 +29,47 @@ Market packs:
   (`DB_CONNECTION=mysql`). Other databases on 3306 stay untouched.
 - **PROD target + CI = MySQL 8.** Write **portable SQL** that runs on both MariaDB 10.4 and
   MySQL 8. Validate/migrate to MySQL 8 before production (MariaDB 10.4 is EOL).
-- **Frontend:** Inertia v2 + Vue 3 + TypeScript + Tailwind v4 + vue-i18n. Nurse PWA is a
-  separate SPA (later phase).
-- **Cache/queue/session:** Laravel 12 **defaults (database)** now. **Redis + Horizon** later
-  (Memurai or WSL2; client = `predis` on Windows).
-- **AI/agent layer (later):** a custom provider-agnostic **LlmManager**-style HTTP layer
-  (Anthropic primary) with cost ledger, budget gate, circuit breaker, versioned prompt registry
-  — NOT a framework AI SDK.
+- **Frontend:** Inertia v2 + Vue 3 + TypeScript + Tailwind v4 + vue-i18n. The **Nurse PWA is BUILT**
+  — a separate offline-first SPA under `nurse-pwa/` (`npm run build:pwa`), P0E.G5–G7.
+- **Cache/queue/session:** **Redis + Horizon are BUILT and in use** (P0C.G0; `QUEUE_CONNECTION=redis`,
+  `REDIS_CLIENT=predis`, Memurai locally on Windows).
+- **AI/agent layer: BUILT** (P0C.G7 + AGENT.P1–P6) — a custom provider-agnostic **LlmManager**-style HTTP
+  layer (Anthropic primary) with cost ledger, budget gate, circuit breaker, versioned prompt registry —
+  NOT a framework AI SDK.
 - **Tests:** Pest. **Static analysis:** PHPStan (larastan) level 5 minimum. **Style:** Pint.
 
 ## HARD RULES (never violate)
 
-- **ELECTRIC FENCE:** no diagnosis, no triage, no symptom assessment, no dosing logic — anywhere
-  in code, prompts, or AI features. Ever.
+- **ELECTRIC FENCE — RECORD, NEVER JUDGE.** No diagnosis, triage, symptom assessment or dosing logic
+  anywhere in code, prompts, or AI features. Ever. As the build widened, the fence hardened into one
+  rule with many faces — CareOS **records** clinical facts and **never computes a clinical judgment**:
+  no acuity/severity/EWS/early-warning score, no surgical-risk or ASA computation, no lab abnormal-flag,
+  no imaging finding or CAD, no drug-allergy cross-reactivity or interaction checking. Concretely:
+  **checklists RECORD, they do not ENFORCE** (no case-gating); **reference ranges are DISPLAYED, never
+  FLAGGED**; **reports, acuity and ASA are AUTHORED/ASSIGNED by a clinician, never computed**.
+  Every clinical-safety judgment is a **certified-partner null-object seam** — advisory, human-owned,
+  and structurally incapable of auto-blocking. **A homemade version is a permanent NON-GOAL**, not a
+  backlog item: it would make CareOS a medical device.
+- **GOVERNANCE:** agent autonomy = **MIN(configured, tool ceiling, role RBAC ceiling)**; configuration can
+  only ever NARROW, never widen. The fence is toggle-free. The agent **DRAFTS** (suggest-only, through the
+  ApprovalQueue) and a **HUMAN commits** anything consequential: the agent never auto-sends, never commits
+  money, and never escalates to legal debt-enforcement/Betreibung. Every displayed metric is
+  **real-or-honestly-absent** — never a fabricated number.
+- **2FA is MANDATORY and LOCKED** for staff (no skip/disable path), including a re-challenge when a session
+  is restored from the remember-me recaller (AUTH-SEC.1).
 - **Fail-closed tenancy:** every tenant-owned row carries `tenant_id`; queries without an
   established tenant context must **throw**. Never widen tenant scope for cross-tenant features —
   use **explicit share objects** only.
-- **Money is integers in minor units.** Never floats.
-- **Append-only:** `audit_events`, `ai_interactions`, and financial ledgers are append-only.
+- **Money is integers in minor units.** Never floats. **ALL money math lives in the billing engine** —
+  a page/report never sums or derives a figure it displays. Every movement (charges, invoices, payments,
+  credit notes, write-offs, contractual adjustments, payment-plan installments) must
+  **reconcile-to-the-unit, δ=0**, proven by test.
+- **Append-only:** `audit_events`, `ai_interactions`, and financial ledgers are append-only — enforced by
+  ORM guards **and DB triggers**, not by convention.
+- **Concurrency idiom:** `lockResource` → `assertNoOverlap` inside one transaction for anything that can
+  double-book or double-spend (beds, theatres, slots, stock).
+- **Portability:** use `dateTime()` (not `timestamp()`) for mutable moments (P0P.G15), and never assert on
+  serialised JSON text — `json_decode` and assert the meaning (MySQL 8 re-serialises JSON columns).
 - **AI is draft-until-approved**, visibly labeled, and logged.
 - **i18n keys only** — no hardcoded UI strings.
 - **Cross-module contact goes through services + domain events, never cross-module Eloquent.**
@@ -73,22 +101,29 @@ later. This rule keeps that swap a re-skin, not a rewrite.
   "while I'm at it" extras.
 - Every UI gate inherits the standing **UI rule**: Vue components are presentational, while
   authorization, validation, state transitions, and behavior tests live server-side.
-- **One gate = one commit**, message format `P<phase>.G<n>: ...` (e.g. `P0A.G4: ...`).
+- **One gate = one commit**, prefixed with the gate id: `P<phase>.G<n>: ...` for build gates
+  (`P0A.G4:`), the gate's own name for later chains (`SETTINGS.P6:`, `APPT.P2:`, `AUTH-VIS:`).
   Consolidation at each phase end (`P<phase>.C: ...`).
-- **Verify from repo reality** — never state a result you did not observe in actual output.
-- Run **`composer check`** (lint + analyse + test) green **before every commit**.
+- **Verify from repo reality** — never state a result you did not observe in actual output. Open with
+  `git log --oneline -1` and close with `git log --oneline -2`. **If a pasted gate's precondition commit
+  is not HEAD, or the work already exists, STOP and say so** rather than building it twice.
+- Run **`composer check`** (lint + analyse + test) green **before every commit** — it takes ~45–60 min, so
+  run it in the background, and **read the log text**: the wrapper's exit code has lied.
+- **Local-green is NOT CI-green.** Verify every gate against the GitHub **check-runs API** after pushing
+  (dev is MariaDB 10.4; CI and prod are MySQL 8, and they differ).
 - Never run destructive commands or install system-level software without asking.
 - **STOP after each gate** — end with `composer check` green, the specified GATE REPORT, and
-  exactly one commit.
+  exactly one commit. Never start the next gate unprompted.
 
 ## Module map
 
-Platform · Audit · People · Patients · Scheduling · Clinical · Nursing · Billing · Comms ·
-AiCore · Dental · Interop.
+**20 modules are built and PSR-4-registered** (verified on disk):
 
-> **On-disk note:** 14 modules are built and PSR-4-registered — every name above **except `Interop`**,
-> which remains a *planned placeholder* (the deferred lab-HL7/FHIR + claims lane, not on disk). `Dental`
-> IS built (DENTAL.G1–G9). See `docs/MASTER-STATUS-REPORT.md` for the authoritative map.
+AiCore · Audit · Billing · Clinical · Comms · Dental · ED · FrontDesk · Hospital · Import ·
+Lab · Nursing · Patients · People · Pharmacy · Platform · Radiology · Reporting · Scheduling · Surgery.
+
+> **`Interop` is the ONLY planned placeholder** — the deferred HL7/FHIR + claims lane, deliberately not on
+> disk (a certified-partner seam, see `DEFERRED.md`). See `docs/MASTER-STATUS-REPORT.md` for the full map.
 
 **Boundary rule:** cross-module contact goes through **services + domain events**, never
 cross-module Eloquent. Where two modules must be composed (e.g. Audit needs the Platform tenant

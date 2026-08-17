@@ -277,6 +277,11 @@ Both legal; neither weakens the machine.
 A forged illegal POST is refused by `assertLegal` with the record untouched; every accepted move writes the real
 `appointment.<status>` audit row attributed to the operator. Locked by the APPT.P2 half of
 `tests/Feature/Scheduling/AppointmentDetailTest.php` (13 total); browser-verified.
+**THE REAL APPT.P2 TIP IS `27fa22c`, NOT `8874313`** — the gate shipped CI-RED and the fix is part of it. A test
+asserted the audit context by matching the raw JSON substring `'"from_status":"booked"'`; that passes on dev
+MariaDB 10.4 (which stores the JSON text as written) and FAILS on CI MySQL 8, which normalises a JSON column and
+re-serialises it — space after the colon, keys reordered. **Standing rule: assert the MEANING of an audit context
+by `json_decode`-ing it, never the serialised text** (APPT.P3 follows it). Local-green is not CI-green.
 
 ## Appointment Detail — reschedule (APPT.P3 — real finder + real overlap guard; core parity complete)
 
@@ -299,6 +304,14 @@ Locked by the APPT.P3 half of `tests/Feature/Scheduling/AppointmentDetailTest.ph
 
 ## Open items
 
+- **Appointment Detail parity is CORE-COMPLETE (P1→P3). Two OPTIONAL backend follow-ons stay queued — both are
+  real backend gaps the page honestly OMITS rather than fakes, and neither blocks anything:**
+  - **APPT.P4 — a room-capability field.** The wireframe drew "scanner · X-ray" capability chips on resources;
+    `Resource` has no capability field, so the page exposes only `{id,name,type}`. Adding the chips without the
+    field would fabricate a backend.
+  - **APPT.P5 — a preferred-practitioner slot filter.** The wireframe drew a "Dr. Weber only" toggle;
+    `AvailableSlotFinder` takes no preferred-resource parameter, so offering it would fabricate a filter the
+    engine cannot honour.
 - Later gates add realtime day-board refresh and UI surfaces for agent proposals.
 - (POLISH.1, D-110) The recurring-series **end** action is now surfaced on the day-board (an
   "active recurring series" panel -> the existing `scheduling.series.end` route; `DayBoardController`

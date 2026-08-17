@@ -258,6 +258,7 @@ any UI, and neither is faked today:
 Also still honestly labelled rather than fabricated: the reminder channel (email only — SMS/WhatsApp drivers are
 deferred) and the confirmation provenance (the real recorded actor, not an inbound "replied JA").
 
-**EIGHT pages of the parity pass now have their core complete** (Admin Settings · Approval Queue · Branches ·
-Agent & Tool Config · Allergy safe-part · Billing & AR · AR Account Detail · **Appointment Detail**). **Only Auth
-Screens remains.**
+**EIGHT pages of the parity pass had their core complete at this point** (Admin Settings · Approval Queue ·
+Branches · Agent & Tool Config · Allergy safe-part · Billing & AR · AR Account Detail · **Appointment Detail**),
+with only Auth Screens remaining. **Auth Screens has since shipped** (AUTH-SEC.1 + AUTH-SEC.2 + AUTH-VIS), so
+**the nine-page pass is COMPLETE and no decoded page remains.**

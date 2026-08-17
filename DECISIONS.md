@@ -2721,7 +2721,14 @@ references the old ID.
      overlap guard, and belongs to APPT.P3.
   Proven: a forged illegal POST (arrive/complete/start from booked, or any move on a terminal appointment) is
   refused by `assertLegal` with the record untouched, and every accepted move writes the real
-  `appointment.<status>` audit row attributed to the operator. See [[Scheduling]],
+  `appointment.<status>` audit row attributed to the operator.
+  **A CROSS-ENGINE TEST LESSON BELONGS TO THIS DECISION (the gate shipped RED and was fixed in `27fa22c`, which
+  is the real APPT.P2 tip — `8874313` is the pre-fix commit).** A test asserted the audit context by matching the
+  raw JSON substring `'"from_status":"booked"'`. That passes on dev MariaDB 10.4, which stores the JSON text
+  as written, and FAILS on CI MySQL 8, which normalises a JSON column and re-serialises it — space after the
+  colon, keys reordered. **The rule now: assert the MEANING of an audit context by `json_decode`-ing it, never
+  the serialised text.** More generally: local-green is not CI-green, and every gate must be verified against the
+  CI check-run, not the local suite alone. See [[Scheduling]],
   `docs/wireframe-parity/APPOINTMENT-DETAIL-DIFF.md`, [[LOG]].
 
 - **D-157 — The reschedule modal is a caller of the real slot finder and the real reschedule(); it computes no

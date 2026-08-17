@@ -2,6 +2,18 @@
 
 Deliberately deferred work. Not forgotten — parked until the right phase.
 
+> **READ THIS FIRST (state as of `8a9a867`, AUTH-VIS, 2026-08-17).** The BUILD is complete — eight verticals,
+> all six hospital phases, three clean QA audits — and the **nine-page wireframe-parity pass is CLOSED**.
+> **Nothing in this file is queued work.** Every item here is one of four things:
+> 1. **A certified-partner seam** — wired as a null-object so a partner can drop in; never a homemade engine.
+> 2. **A permanent medical-device NON-GOAL** — do not build the homemade version, ever, at any trigger.
+> 3. **Demand-driven parked work** — build it when its stated TRIGGER fires, not before.
+> 4. **⚠️ ONE open PRODUCT DECISION — the password policy** (see the wireframe-parity section). It is not a
+>    defect and not a build task; it needs a decision from the product owner.
+>
+> **The single remaining TRACK is DEPLOYMENT to the paying customers, plus partnership integrations.**
+> If asked "what's next?", the answer is DEPLOY — not a new vertical and not a new parity page.
+
 - Migrate/validate DEV database to **MySQL 8** before production (MariaDB 10.4 is EOL; prod
   target is MySQL 8).
 - Upgrade to **Laravel 13 / PHP 8.3+** when convenient (PHP 8.2 security support ends
@@ -15,6 +27,21 @@ Deliberately deferred work. Not forgotten — parked until the right phase.
 - **Realistic-volume load / performance test — non-blocking, from the QA re-audit.** The audits ran on
   modest demo volume (no N+1 symptom observable, but not a load assessment). **Trigger:** before onboarding
   a high-volume customer, or the first sign of a slow board/worklist under real data.
+- **Full per-widget timezone *display*.** W8b stores and normalizes the tenant/branch timezone; per-widget
+  rendering in that timezone is still pending (dates use the shared `formatDateOnly` local-midnight helper —
+  FIX.3/D-091 — so no date-only shift, but times are not per-widget tz-rendered).
+  **TRIGGER:** a customer operating across more than one timezone.
+  *(Previously referenced by PROJECT-STATE as "in DEFERRED.md" without actually being listed here.)*
+- **Resource-availability admin screen.** Flagged in CLINIC.W8c: rooms/chairs/resources have CRUD, but editing
+  their availability windows has no admin UI (seeded/managed at the data layer).
+  **TRIGGER:** a customer needs to self-manage resource availability.
+  *(Previously referenced by PROJECT-STATE as "in DEFERRED.md" without actually being listed here.)*
+- ~~**Inpatient/pharmacy/surgery demo seeders (a `DemoHospitalSeeder`).**~~ **BUILT** — `DemoHospitalSeeder`
+  (Klinik Bergblick) ships a coherent, reconciling dataset for the six hospital verticals including the composite
+  ED→inpatient episode. FOUR demo seeders now exist: Clinic, Spitex, Dental, Hospital. No longer deferred.
+- **Staff rostering / shift planning.** Not built and not planned: CareOS schedules APPOINTMENTS and home-care
+  VISITS, not staff shifts. `ResourceAvailability` + branch opening hours cover who/what is bookable when.
+  **TRIGGER:** a customer needs real shift rostering — treat it as a new vertical and map it first.
 - **Voice receptionist.**
 - **Route optimization** (OR-tools).
 - ~~**MAR** (medication administration record).~~ **BUILT** as the eMAR in **PHARMACY.G3** (append-only
@@ -157,13 +184,17 @@ The general-dentist feature set (DENTAL.G1–G8) is built. The following are par
 
 ## Hospital verticals — remaining phases + certified-partner seams + medical-device non-goals
 
-The phased hospital build (for a committed mid-size general-hospital buyer) has shipped **Phase 1
-(inpatient/ADT, HOSPITAL.G1–G7)**, **Phase 2 (pharmacy, PHARMACY.G1–G5)**, and **Phase 5 (OR/surgery,
-SURGERY.G1–G5)**. Each vertical was MAP-FIRST (a reconciliation/scope map before code:
-`docs/HOSPITAL-PHASE1-ADT-MAP.md`, `-PHASE2-PHARMACY-MAP.md`, `-PHASE5-SURGERY-MAP.md`). What remains is
-increasingly PARTNER/INTEGRATION-gated, not code-gated.
+The phased hospital build (for a committed mid-size general-hospital buyer) is **COMPLETE — ALL SIX phases
+have shipped**: **Phase 1** (inpatient/ADT, HOSPITAL.G1–G7) · **Phase 2** (pharmacy, PHARMACY.G1–G5) ·
+**Phase 3** (lab/LIS, LAB.G1–G6) · **Phase 4** (radiology/RIS, RAD.G1–G5) · **Phase 5** (OR/surgery,
+SURGERY.G1–G5) · **Phase 6** (ED, ED.G1–G6). Each vertical was MAP-FIRST (a reconciliation/scope map before
+code: `docs/HOSPITAL-PHASE1-ADT-MAP.md`, `-PHASE2-PHARMACY-MAP.md`, `-PHASE3-LAB-MAP.md`,
+`-PHASE4-RADIOLOGY-MAP.md`, `-PHASE5-SURGERY-MAP.md`, `-PHASE6-ED-MAP.md`).
 
-**Remaining hospital phases (parked — map-first when pulled forward):**
+**THERE ARE NO HOSPITAL PHASES LEFT TO BUILD, and no verticals left to build anywhere.** What remains below
+is PARTNER/INTEGRATION-gated or a permanent non-goal — never code-gated.
+
+**The phases, and the certified-partner feed each still lacks:**
 - **Lab (Phase 3) — BUILT (LAB.G1–G6).** The manual LIS shell is built end-to-end: tenant-authored test
   catalog, lab order (reuses the Clinical `Order`), specimen tracking (net-new), manual result entry (reuses
   `OrderResult`; reference range DISPLAYED, no computed abnormal flag), review worklist, billing (reconciles).
@@ -180,11 +211,13 @@ increasingly PARTNER/INTEGRATION-gated, not code-gated.
   viewer is a vendor product, not a CareOS feature). The radiologist authors the report; the system records it;
   AI radiology/CAD = HARD non-goal. Also deferred: the optional uploaded still (dental `DocumentService` — a
   limited manual export). **TRIGGER:** a customer with a PACS AND a funded DICOM integration.
-- **ED / Emergency Department (Phase 6).** A buildable ED board (arrivals, bays, disposition) over the
-  existing scheduling/ADT/clinical spine. **The fence line is TRIAGE: acuity is a clinician-ASSIGNED value
-  (record-not-judge), never a CareOS-computed triage score** (no homemade ESI/CTAS/MTS algorithm — a
-  computed triage acuity is a medical-device non-goal). **TRIGGER:** a hospital customer whose ED workflow
-  needs it (map-first).
+- **ED / Emergency Department (Phase 6) — BUILT (ED.G1–G6).** The ED board is built end-to-end over the
+  existing scheduling/ADT/clinical spine: the `EdVisit` flow entity + ED RBAC, triage (nurse-assigned acuity
+  + raw vitals), the tracking board (flow facts), ED clinical documentation (reuses Clinical, Encounter
+  unmodified), disposition + the ED→ADT handoff (admit reuses `AdmissionService` → an inpatient `Stay`,
+  atomic), and ED billing (reconciles; the composite emergency→inpatient episode). **The fence line held at
+  TRIAGE: acuity is a clinician-ASSIGNED value (record-not-judge), never a CareOS-computed triage score** —
+  the triage-acuity seam stays empty and no homemade ESI/CTAS/MTS algorithm exists. Nothing remains here.
 
 **Certified-partner SEAMS (null-object today; advisory + human-owned; incapable of auto-blocking by design).**
 Each is threaded through the built code as a Null implementation so the wiring is proven and a certified
@@ -215,31 +248,61 @@ partner can drop in later — never a homemade clinical/safety engine:
   (`FenceRefusalException` is a subclass of `AiCoreException`; the eval is untouched). The stat strip's fence count +
   the resolved `fence_refused` category now count real records. (A pre-draft clinical refusal still writes a
   `refused` ledger row + handoff and creates no action — a different, already-ledgered path, not double-counted.)
-- **Wireframe-parity pass — SIX pages COMPLETE.** Admin Settings (SETTINGS.P1–P6) · Approval Queue (APPROVAL.P1–P7,
-  incl. P7 bulk-approve — low-risk only, clinical+financial excluded server-side) · Branches (BRANCH.P1–P5) · Agent &
-  Tool Config (AGENT.P1–P6) · Allergy Alert **safe-part** (ALLERGY.P1 — record-display + display-only seam; the
-  computed drug-allergy checking is a certified-partner medical-device NON-GOAL, not built) · **Billing & AR
-  (BILLAR.P1–P7)**. Each has a resolved `docs/wireframe-parity/<PAGE>-DIFF.md`.
-- **AR Account Detail — IN PROGRESS (the Billing & AR drill-in), remaining parts DEFERRED as their own gates.**
-  ARDETAIL.P1 (per-account running-balance ledger) · P2 (dunning timeline, read-only) · P3 (hero + Swiss CHF format +
-  status/dunning pills + patient-chart & invoice-PDF links) are DONE. **Remaining:**
-  - **P4 — record payment on the account.** Must go through the guarded `PaymentService` (over-allocation refused;
-    append-only; reconciles) — never a page-side balance write. **Trigger:** the parity pass reaches P4.
-  - **P5 — payment plan.** Wireframe-new; NO installment-plan model exists. A modeled construct (its own gate); no
-    page-side money math. **Trigger:** the parity pass reaches P5 (or a customer needs installment plans).
-  - **P6 — Betreibung / debt-enforcement escalation.** NO escalation model/action exists. MUST be built
-    human-operator-only, **agent-EXCLUDED by construction**, audited + append-only (never an auto-escalation path);
-    the agent may only DRAFT a reminder through the existing cap/ApprovalQueue path. **Trigger:** the parity pass
-    reaches P6 (a legally-sensitive gate — design the operator gate + agent exclusion + audit first).
-  - **Real Swiss QR-bill (IBAN + structured reference payment part).** There is NO QR-bill/IBAN renderer today
-    (`InvoicePdfRenderer` emits a stub invoice PDF); P3 surfaced the existing invoice PDF honestly. A real Swiss
-    QR-bill is a backend build. **Trigger:** a Swiss customer needs real QR-bill payment slips.
+- **🏁 THE WIREFRAME-PARITY PASS IS COMPLETE — ALL NINE pages, nothing queued.** Admin Settings (SETTINGS.P1–P6) ·
+  Approval Queue (APPROVAL.P1–P7, incl. P7 bulk-approve — low-risk only, clinical+financial excluded server-side) ·
+  Branches (BRANCH.P1–P5) · Agent & Tool Config (AGENT.P1–P6) · Allergy Alert **safe-part** (ALLERGY.P1 —
+  record-display + display-only seam; the computed drug-allergy checking is a certified-partner medical-device
+  NON-GOAL, not built) · Billing & AR (BILLAR.P1–P7) · AR Account Detail (ARDETAIL.P1–P6) · Appointment Detail core
+  (APPT.P1–P3) · Auth Screens (AUTH-SEC.1 + AUTH-SEC.2 + AUTH-VIS). Each has a resolved
+  `docs/wireframe-parity/<PAGE>-DIFF.md`. **Do NOT invent a further parity page.**
+- **AR Account Detail — COMPLETE (ARDETAIL.P1–P6).** The three parts once parked here all shipped: **P4** record
+  payment through the guarded `PaymentService` (over-allocation refused, append-only, reconciles δ=0 — never a
+  page-side balance write) · **P5** the payment-plan model (installments tie to the real outstanding, δ=0;
+  operator-created; paid through P4's guarded service) · **P6** Betreibung/debt-enforcement escalation
+  (human-operator-only, **agent-EXCLUDED by construction**, eligibility-gated, audited + append-only; the
+  `billing.escalate` permission is deliberately NARROWER than `billing.manage`). Nothing remains.
+- **Real Swiss QR-bill (IBAN + structured reference payment part) — STILL DEFERRED.** There is NO QR-bill/IBAN
+  renderer today (`InvoicePdfRenderer` emits a stub invoice PDF); ARDETAIL.P3 surfaced the existing invoice PDF
+  honestly rather than faking a payment part. A real Swiss QR-bill is a backend build.
+  **TRIGGER:** a Swiss customer needs real QR-bill payment slips. (Adjacent to the CH/KVG billing pack.)
+- **Send-QR-bill / send-reminder FROM the AR account page — STILL DEFERRED (an honest gap, not a parity failure).**
+  Sending stays inside the existing idempotent `DunningService` + the agent-cap/ApprovalQueue path; the page does
+  not grow its own send button. **TRIGGER:** a customer workflow needs page-initiated sending — design the
+  idempotency + the agent cap first.
+- **Appointment Detail — CORE COMPLETE (APPT.P1–P3); TWO OPTIONAL BACKEND FOLLOW-ONS PARKED.** Both exist because
+  the page honestly OMITTED something the wireframe drew rather than fabricating a backend; neither blocks anything:
+  - **APPT.P4 — a room-capability field.** The wireframe drew "scanner · X-ray" capability chips; `Resource` has no
+    capability field, so the page exposes only `{id,name,type}`. **TRIGGER:** a customer needs capability-based
+    room selection (then model the capability dimension).
+  - **APPT.P5 — a preferred-practitioner slot filter.** The wireframe drew a "Dr. Weber only" toggle;
+    `AvailableSlotFinder` takes NO preferred-resource parameter, so offering it would fabricate a filter the engine
+    cannot honour. **TRIGGER:** a customer needs to book against a preferred practitioner (then extend the finder).
+- **Auth screens — the parity items are RESOLVED; the pass's two High LIVE SECURITY DEFECTS are FIXED.** The auth
+  audit is the pass earning its keep: **AUTH-SEC.1** closed a standing second-factor bypass (a session restored
+  from the remember-me recaller reached the app with no 2FA challenge — it is now re-challenged; D-158) and
+  **AUTH-SEC.2** fixed `/forgot-password` + `/reset-password/{token}` returning HTTP 500 with no view bound,
+  **plus the coverage gap that hid it** — every route smoke authenticated first, so no PUBLIC page had ever been
+  requested; the smoke now drives guest routes (D-159). **AUTH-VIS** then added the enrolment manual-secret
+  fallback rendering the user's OWN real secret (D-160). Nothing auth-related is queued.
+- **⚠️ OPEN PRODUCT DECISION — the password policy (NOT a defect; awaiting an explicit decision).** The effective
+  policy is `Password::default()`: a minimum of **8 characters**, with no `Password::defaults()` configured
+  anywhere — so **no mixed-case, digit, symbol or breach check**. The reset flow correctly enforces whatever is
+  configured; deciding what it *should* be is a product call and was deliberately NOT slipped into a security
+  sprint. **TRIGGER: a decision from the product owner** (or a customer/procurement password requirement). This is
+  the ONE item the nine-page pass deliberately left open.
+- **The escalate-below-confidence THRESHOLD (AGENT.P6) — honestly deferred, deliberately not faked.** The
+  uncertainty escalation itself is **ALWAYS-ON and un-removable** (no disable route; a forged
+  `disable_escalation`/`confidence_threshold` body is dropped because the agent has no such attribute). A NUMERIC
+  threshold is deferred because **the codebase has no confidence/uncertainty signal at all** (grep-confirmed) — a
+  threshold control would be a phantom, so the UI shows it as "planned" rather than wiring a lie. A threshold could
+  only ever tune WHEN the escalation fires, never remove the floor. **TRIGGER:** a real confidence/uncertainty
+  signal exists to threshold against.
 - **Finer Swiss payer taxonomy (BILLAR.P4 gap).** `arByPayer` groups over the REAL modeled `payer_type` (self_pay /
   private_insurance). The wireframe's finer 4-way Swiss split (supplementary / accident SUVA-UVG / social-municipal)
   + an insurer entity are NOT modeled and NOT fabricated. **Trigger:** a customer needs the finer split (then model
   the payer dimension). Adjacent to the CH/KVG billing pack.
-- **The remaining decoded wireframe pages (after AR Account Detail): Appointment Detail · Auth Screens.** Same
-  decode → audit → per-part-fix loop. **Trigger:** the page-by-page parity pass reaches each page.
+- ~~**The remaining decoded wireframe pages (after AR Account Detail): Appointment Detail · Auth Screens.**~~
+  **DONE — both shipped (APPT.P1–P3, AUTH-SEC.1/.2 + AUTH-VIS). No decoded page remains; the pass is closed.**
 
 **Medical-device NON-GOALS (never build the homemade version — regulated-device territory, electric fence).**
 These are permanent non-goals for CareOS-authored code; only a certified partner product may provide them:
