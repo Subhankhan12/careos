@@ -242,10 +242,37 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
 
 ---
 
-## THE ONE REMAINING TRACK — DEPLOYMENT (authoritative; everything below this section is history)
+## OPERATOR MODE — IN PROGRESS (the security core has landed)
 
-**There is no build work queued. No verticals remain, no hospital phases remain, and no wireframe-parity pages
-remain.** If asked "what's next?", the honest answer is **DEPLOY** — not a new vertical, not a new parity page.
+**A second track opened on 2026-08-17: the OPERATOR MODE subsystem** (`docs/features/OPERATOR-MODE-MAP.md` —
+14 states, 2 arms, mapped in full before any code). **OPMODE.G1 is DONE**, and it did something independent of
+the feature: it **closed a live containment gap**. `Gate::before` returned `true` unconditionally for every
+super-admin, and `PermissionService::has()` did the same for `hasPermission()`; the only thing keeping a
+super-admin out of a clinic's data was never being given a tenant context, so `TenantScope` threw —
+**containment by accident, not by decision**, and Operator Mode's core action is precisely to give an operator
+a tenant context.
+
+A super-admin now reaches tenant data ONLY through an `OperatorGrant` for that tenant that is **ACTIVE,
+UNEXPIRED, IN-TIER and IN-SCOPE** — fail-closed, server-side, at both bypass points, with a **regression guard**
+that the blanket bypass cannot return. The rule is **context-sensitive, not a removal**: platform-level work
+(the `/admin` console, the tenant list, cron, system jobs) is unchanged. Tiers are an allow-list; `read_only`
+and `configuration` can never reach PHI; PHI needs `full_support` plus the record id in the grant's scope,
+checked at access time; expiry and revoke bite on the very next check; every transition is audited into the
+**target tenant's** hash-chained ledger as `actor_type = 'operator'`; the agent can never hold a grant. D-161.
+
+**G1 built NO request flow, NO owner approval, NO route and NO UI** — there is still no HTTP path to Operator
+Mode. **The MAP's two BLOCKING product decisions are STILL OPEN and gate G2+:** (1) is Operator Mode in scope
+for the first deployment at all, and (2) does the self-granted `configuration` WRITE tier stand? Do not issue
+G2 until they are answered.
+
+---
+
+## DEPLOYMENT — the primary track (authoritative; everything below this section is history)
+
+**No verticals remain, no hospital phases remain, and no wireframe-parity pages remain.** The only build work
+that exists is the **Operator Mode chain above (G2+), and it is BLOCKED on two product decisions.** So if asked
+"what's next?", the honest answer is still **DEPLOY** — not a new vertical, not a new parity page, and not G2
+until those decisions are made.
 
 **1. DEPLOYMENT to the paying customers — the real next unit of value.** The assets are ready and rehearsed:
 the deployment runbook (`docs/DEPLOY-RUNBOOK.md`), the audited deploy-readiness reconciliation against the

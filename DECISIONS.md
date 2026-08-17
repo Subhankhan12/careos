@@ -2828,3 +2828,57 @@ references the old ID.
   enrolment routes cannot drift. Locked by `tests/Feature/Auth/TwoFactorSecretFallbackTest.php` (5).
   **This gate closes the nine-page wireframe-parity pass.** See [[Platform]],
   `docs/wireframe-parity/AUTH-SCREENS-DIFF.md` §9, [[LOG]].
+
+- **D-161 — A super-admin's tenant-data access is an EXPLICIT, grant-gated decision, not an emergent side
+  effect (OPMODE.G1).** The Operator Mode map found a live containment gap that had nothing to do with the
+  feature: `Gate::before` returned `true` **unconditionally** for any super-admin (`tenant_id === null`), and
+  `PermissionService::has()` did the same for `hasPermission()`. The only thing keeping a super-admin out of a
+  clinic's data was that `IdentifyTenantFromUser` never gave them a tenant context, so `TenantScope` threw.
+  **That is containment by accident.** Operator Mode's core action is precisely to give an operator a tenant
+  context, so on the old code the first line of G2 would have converted the accident into unlimited, unscoped,
+  untimed, unaudited access to every record in that clinic. The security core therefore lands FIRST, before any
+  request flow, any approval and any screen.
+  **THE INVARIANT:** a platform operator may reach a tenant's data ONLY through an `OperatorGrant` for THAT
+  tenant that is **ACTIVE, UNEXPIRED, IN-TIER and IN-SCOPE**. Without one they have nothing. Enforced
+  server-side at BOTH bypass points — `Gate::before` and `PermissionService::has()` — because `hasPermission()`
+  reaches the latter directly and leaving it would have made the whole thing trivially sidesteppable.
+  **THE SHAPE OF THE FIX — context-sensitive, not a removal.** With **no tenant context** the super-admin
+  bypass stands: that is genuine PLATFORM-level work (the `/admin` console, the tenant list, cron and system
+  jobs), and no tenant row is reachable there anyway because `TenantScope` throws. With a **tenant context
+  set** the blanket bypass is gone and only a grant permits anything. This is what makes the change surgical:
+  every legitimate super-admin path keeps working, and the gap closes exactly where it was.
+  **FAIL-CLOSED BY CONSTRUCTION.** Tiers are an **allow-list**, never a deny-list — an ability no tier names is
+  denied, so a permission added to the catalog tomorrow is outside every operator tier until someone
+  deliberately places it. `read_only` (billing/reporting/audit **view**) and `configuration` (+ admin/ai/comms
+  **manage**) can never reach PHI at all; the six PHI abilities require `full_support` **and** the specific
+  record id in the grant's scope, re-checked **at access time** rather than once at session start. A grant with
+  no expiry is invalid, not eternal. Status, expiry and revocation are re-read on **every** check, so an
+  expired or revoked grant stops working on the very next call — no cache to bust, no session to invalidate.
+  **NOT THE BREAKGLASS MODEL.** `BreakGlassService::request()` creates its grant with `activated => true`:
+  requesting IS granting. That is the one property Operator Mode must not have, so this is a separate model,
+  not an extension. What IS reused is BreakGlass's *audit* discipline — a required reason and an append-only
+  hash-chained row per transition — and its layering: `OperatorGrantService` lives in `app/` so it may compose
+  the Platform model with the Audit write path without either module depending on the other (D-017).
+  **STRUCTURAL EXCLUSIONS.** An operator can never approve their own grant, and the approver must be a user of
+  the target tenant (T6) — enforced in the issuing service, not in a UI. The agent can never hold or use a
+  grant (T9): a test asserts the EXACT list of files in `Modules/` + `app/` that reference the grant, and that
+  no AiCore/AiTool code and nothing scheduled touches it — the ARDETAIL.P6 Betreibung pattern. The grant FACTS
+  (operator, tenant, tier, scope, expiry, reason) are immutable once written; a wider grant is a new decision.
+  Every transition is written to the **TARGET TENANT's** ledger under a new `actor_type = 'operator'`, so the
+  clinic can single out platform activity in its own audit view.
+  **A FLAGGED TEST CORRECTION, NOT A WEAKENING.** `RbacTest`'s *"a super-admin bypasses all checks via
+  Gate::before"* documented the old blanket behaviour. Its assertions were left **unchanged** (they always ran
+  at platform level, which is still a bypass); it was renamed to say so, and a second test pins the in-tenant
+  denial. Nothing else was modified.
+  **A CONSEQUENCE WORTH RECORDING — the empty context is now ENFORCED, not assumed.** `TenantContext` is a
+  request/job singleton, and `IdentifyTenantFromUser` previously achieved "super-admin -> no context" merely by
+  declining to set one. That was fine while a super-admin's abilities did not depend on it; after this gate they
+  do, so an INHERITED context would silently decide them. `composer check` caught exactly that: the Horizon guard
+  went red in a test that drives a staff request and then a super-admin request through the same container. The
+  middleware now explicitly `forget()`s the context for a non-tenant-staff user. Note the direction of the
+  failure — a stale context can only ever DENY a super-admin, never widen them — so this was fail-closed working
+  correctly, and the fix went into the middleware rather than into the test.
+  **STILL OPEN (the map's §7 product decisions), untouched here:** whether Operator Mode ships at all, and
+  whether the self-granted `configuration` WRITE tier stands. G1 deliberately builds no request flow, no owner
+  approval and no route — there is no HTTP path to any of this yet. See [[Platform]],
+  `docs/features/OPERATOR-MODE-MAP.md`, [[LOG]].

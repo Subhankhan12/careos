@@ -22,9 +22,21 @@ class PermissionService
      */
     public function has(User $user, string $key, ?string $branchId = null): bool
     {
-        // Platform super-admin can do anything (also short-circuited in Gate::before).
+        // OPMODE.G1 — the SECOND bypass point, closed with the same rule as Gate::before.
+        // `User::hasPermission()` calls this directly, so leaving an unconditional
+        // `return true` here would have left the whole invariant trivially sidesteppable.
+        //
+        // Platform level (no tenant context) is unchanged; inside a tenant a super-admin
+        // is permitted only by an active, unexpired, in-tier, in-scope OperatorGrant.
         if ($user->isSuperAdmin()) {
-            return true;
+            $context = app(TenantContext::class);
+
+            if (! $context->has()) {
+                return true;
+            }
+
+            return app(OperatorAccessService::class)
+                ->allows($user, (string) $context->id(), $key, $branchId !== null ? ['branch_id' => $branchId] : []);
         }
 
         $assignments = RoleAssignment::query()

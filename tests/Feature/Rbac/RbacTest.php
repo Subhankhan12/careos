@@ -97,15 +97,36 @@ test('an all-branches assignment grants regardless of the branch asked about', f
         ->and($user->hasPermission('patient.view', $branch->id))->toBeTrue();
 });
 
-// (c) super-admin bypass ------------------------------------------------------
+// (c) super-admin: platform-level bypass, but NOT inside a tenant ---------------
+//
+// FLAGGED SECURITY CORRECTION (OPMODE.G1). This test previously asserted an
+// UNCONDITIONAL bypass ("a super-admin bypasses all checks via Gate::before"). That
+// was true, and it was the live containment gap: the only thing keeping a super-admin
+// out of tenant data was never being given a tenant context. The assertions below are
+// unchanged — they always ran at PLATFORM level, which is still a bypass — and the
+// second test adds the half that was missing. Nothing was weakened; the name was made
+// honest and the in-tenant case is now pinned.
 
-test('a super-admin bypasses all checks via Gate::before', function () {
+test('a super-admin bypasses all checks at PLATFORM level (no tenant context)', function () {
     $admin = User::factory()->create(); // tenant_id null
 
-    expect($admin->isSuperAdmin())->toBeTrue()
+    expect(app(TenantContext::class)->has())->toBeFalse()
+        ->and($admin->isSuperAdmin())->toBeTrue()
         ->and($admin->hasPermission('anything.at.all'))->toBeTrue()
         ->and(Gate::forUser($admin)->allows('billing.view'))->toBeTrue()
         ->and(Gate::forUser($admin)->allows('patient.edit', ['branch_id' => 'nonexistent']))->toBeTrue();
+});
+
+test('a super-admin INSIDE a tenant is denied without an OperatorGrant (OPMODE.G1)', function () {
+    $tenant = rbacTenant('alpha');
+    $admin = User::factory()->create(); // tenant_id null
+    rbacCtx()->set($tenant);
+
+    // The blanket bypass is gone where it mattered — see
+    // tests/Feature/Platform/OperatorGrantAccessTest.php for the full invariant.
+    expect(Gate::forUser($admin)->allows('billing.view'))->toBeFalse()
+        ->and(Gate::forUser($admin)->allows('patient.view', ['patient_id' => 'PT-1']))->toBeFalse()
+        ->and($admin->hasPermission('anything.at.all'))->toBeFalse();
 });
 
 test('a tenant user is NOT bypassed and is denied an unheld permission', function () {
