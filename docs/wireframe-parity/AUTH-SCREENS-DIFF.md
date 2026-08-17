@@ -6,6 +6,14 @@ fields · controls · styling · states · copy) **AND** the auth-gate semantics
 remember-me/session floor, the password policy, and no fabricated SSO. **This is an audit. No app code was
 changed.** The LAST decoded page of the wireframe-parity pass (eight pages' core already complete).
 
+> **🏁 WIREFRAME-PARITY PASS COMPLETE (AUTH-VIS).** With §9 below, this ninth and final page is done and the
+> nine-page pass closes. Every decoded wireframe has been audited against the live app and its parity work
+> carried out. Two High **live security defects** the audits exposed were fixed along the way (AUTH-SEC.1
+> remember-me/2FA, AUTH-SEC.2 the 500-ing reset pages + the guest-route smoke gap). Nothing decorative was
+> fabricated and no gate was weakened anywhere in the pass: where the wireframe drew something the real system
+> does not know, the page surfaced the real thing or nothing. The one item deliberately left open across the
+> whole pass is the password-policy **product** decision (§8).
+
 - **Date:** 2026-08-16 · **HEAD:** `ca90273` (APPT.P3) · **CI:** green. **Env:** `migrate:fresh --seed` +
   `DemoClinicSeeder`, MariaDB dev, `php artisan serve`. **Drivers:** org_admin
   `andrea.lindenhof@praxis-lindenhof.test` / `demo-password` / 2FA `JBSWY3DPEHPK3PXP`, plus a purpose-made
@@ -44,7 +52,7 @@ changed.** The LAST decoded page of the wireframe-parity pass (eight pages' core
 |---|---|---|---|---|
 | **Login** | CareOS wordmark · "Sign in" · "Staff and administrator access." · Email · Password · **Remember me** · Sign in. Caption: no self-registration, no reset link, suspended-tenant looks like bad credentials | **Identical field set** — Email, Password, Remember me checkbox, Sign in; no forgot link, no sign-up, no SSO. Suspended-tenant rejection confirmed in code | (c) matches / **(b) see §4.1** | Low visual · **High gate** |
 | **2FA challenge** | "Two-factor check" · "Enter the 6-digit code…" · **six segment inputs** · Verify · "Use a recovery code instead" | Same: 6 inputs, Verify, "Use a recovery code instead" | (c) matches | Low |
-| **2FA enrolment** | "Set up two-factor authentication" · "Required for every CareOS account before first use." · **3 numbered steps**: QR + **"Can't scan? Enter the secret: JBSW·Y3DP·EHPK·3PXP"** · 8 recovery codes (selectable text) · 6-digit confirm → "Confirm & finish" | 3 steps, QR, **8 recovery codes as selectable text**, 6-digit confirm, "Confirm and finish". **The manual-secret fallback is ABSENT** | (a) visual gap | **Med** |
+| **2FA enrolment** | "Set up two-factor authentication" · "Required for every CareOS account before first use." · **3 numbered steps**: QR + **"Can't scan? Enter the secret: JBSW·Y3DP·EHPK·3PXP"** · 8 recovery codes (selectable text) · 6-digit confirm → "Confirm & finish" | 3 steps, QR, **8 recovery codes as selectable text**, 6-digit confirm, "Confirm and finish". **The manual-secret fallback is ABSENT** | (a) visual gap — ✅ **RESOLVED (AUTH-VIS), see §9** | **Med** |
 | **Password reset** | Not drawn; caption says "reset routes exist server-side, unlinked" | **BOTH GET pages return HTTP 500** — no Fortify view bound. The POSTs work (302) | **(d) live defect** | **High** |
 | **Accept invite** | **Absent from the wireframe entirely** | Exists and works — honest invalid/expired state: *"This invitation is no longer valid…"* | (c) correctly-more-real | — |
 | **States** | Generic credential error ("These credentials don't match our records."), throttle shows the same line, field errors icon+text, "Signing in…" processing, recovery-code mode | "Signing in…" observed; generic-error and throttle behaviour confirmed in code (`authenticateUsing` returns `null` for both bad credentials and suspended tenant) | (c) matches | Low |
@@ -55,7 +63,7 @@ changed.** The LAST decoded page of the wireframe-parity pass (eight pages' core
 
 ## 3. Visual deltas
 
-1. **The enrolment manual-secret fallback (Med).** The wireframe offers *"Can't scan? Enter the secret:
+1. **The enrolment manual-secret fallback (Med).** — ✅ **RESOLVED (AUTH-VIS), see §9.** The wireframe offers *"Can't scan? Enter the secret:
    `JBSW·Y3DP·EHPK·3PXP`"*; the live screen shows only the QR. This is an accessibility/usability gap (a user
    on the same device, or with a camera-less setup, cannot enrol), and the backend already supports it — Fortify's
    `user/two-factor-secret-key` endpoint is even in `EnsureTwoFactorEnabled`'s exemption list. **Safe to add**;
@@ -180,9 +188,10 @@ the app has no SSO backend (SSO/SAML is parked in `DEFERRED.md`). Nothing to bui
    default.
 
 **Visual parity (safe, small):**
-4. *(Med)* **Add the enrolment manual-secret fallback** ("Can't scan? Enter the secret"), rendering the user's own
-   server-provided secret via the existing Fortify endpoint.
-5. *(Low)* Confirm the error/processing/recovery-code states match the wireframe's copy exactly.
+4. *(Med)* ✅ **DONE (AUTH-VIS, §9)** — **Add the enrolment manual-secret fallback** ("Can't scan? Enter the
+   secret"), rendering the user's own server-provided secret via the existing Fortify endpoint.
+5. *(Low)* ✅ **DONE (AUTH-VIS, §9)** — Confirm the error/processing/recovery-code states match the wireframe's
+   copy exactly.
 
 **Keep as-is:**
 6. Accept-invite (correctly-more-real), mandatory locked 2FA, no self-registration, no reset link on the login
@@ -229,6 +238,42 @@ by `tests/Feature/Auth/PasswordResetTest.php` (5) + the guest smoke.
 symbol or breach check). The reset enforces whatever is configured; deciding what it *should* be is a product
 call, not a security fix to slip into this sprint.
 
-**Remaining on this page (visual only, a later gate):** the enrollment manual-secret fallback ("Can't scan?
-Enter the secret"), rendering the user's own server-provided secret via the existing Fortify endpoint, plus the
-small state/copy polish in §3.
+**Remaining on this page (visual only, a later gate):** ✅ **DONE — see §9.**
+
+---
+
+## 9. RESOLVED — the enrolment manual-secret fallback (AUTH-VIS)
+
+§3.1 is closed, and with it the last item on this page. The enrolment screen now offers *"Can't scan the code?"*
+beneath the QR; revealing it prints **the user's own real provisioning secret** as selectable text, grouped into
+four-character blocks exactly as the wireframe draws it.
+
+**Real, never a literal.** The value comes from Fortify's existing `GET /user/two-factor-secret-key`, which
+decrypts `$request->user()->two_factor_secret` — so it is the authenticated user's own key by construction, and
+there is no id parameter to point at anyone else's. The wireframe's printed `JBSW·Y3DP·EHPK·3PXP` is the fixed
+demo secret and is **not** used; nothing is generated page-side. The only page-side transform is chunking the
+string into blocks for readability — display formatting, never a new value.
+
+**No new exposure path.** The secret is shown on the user's own enrolment screen, in the same authenticated
+context that is already rendering them the QR that encodes the very same key. The endpoint was already in
+`EnsureTwoFactorEnabled`'s exemption list. It is kept behind a reveal so it is not sitting on screen by default.
+
+**Browser-verified end to end.** On a live enrolment the revealed secret matched the decrypted database value
+character for character *and* matched what the QR provisioning URI encodes; enrolment was then completed using a
+TOTP derived from the **displayed** secret, which is the strongest available proof that the fallback is the real
+provisioning key and not a decorative string. `/forgot-password`, `/reset-password/{token}` and `/login` were
+re-checked at 200, and password alone still lands on enrolment rather than the workspace.
+
+**Nothing was weakened.** 2FA remains mandatory and locked (SETTINGS.P4) — no skip, postpone or disable route
+was added, and a test asserts the route table contains none. AUTH-SEC.1's re-challenge and AUTH-SEC.2's reset
+bindings and guest smoke are untouched and still green.
+
+**Also in this gate (the §3.2 state/copy polish):** the enrolment card no longer renders blank while the QR,
+recovery codes and secret are in flight — it says what is happening, claiming nothing about the outcome; and the
+recovery codes are marked selectable, matching the wireframe's "selectable text".
+
+Locked by `tests/Feature/Auth/TwoFactorSecretFallbackTest.php` (5): the endpoint returns the user's real secret
+and not the demo literal; the QR carries the same secret the fallback shows; the answer is scoped to the
+authenticated user; a guest gets nothing; and 2FA stays mandatory with no skip/disable path.
+
+**Still open, unchanged:** the password-policy product decision above.

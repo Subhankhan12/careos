@@ -2793,3 +2793,31 @@ references the old ID.
   mixed case, digit, symbol or breach check. The reset correctly enforces whatever is configured; choosing what
   that should be is a product decision, not a security fix to slip in. See [[Platform]],
   `docs/wireframe-parity/AUTH-SCREENS-DIFF.md` §4.2/§7, [[LOG]].
+
+- **D-160 — The manual-secret fallback shows the user's OWN real secret, or it shows nothing (AUTH-VIS).**
+  The wireframe's 2FA enrolment step offers *"Can't scan? Enter the secret: `JBSW·Y3DP·EHPK·3PXP`"* — the
+  accessibility escape hatch for someone with no camera, or authenticating on the same device they are
+  enrolling from. The live screen had only the QR. Adding it raised the one question worth deciding: **where
+  does the string come from?** Three answers were possible and only one is acceptable. Printing the
+  wireframe's literal would put a fixed demo secret on a real enrolment screen — a fabricated credential, the
+  exact class of thing the parity rule forbids. Generating or deriving anything page-side would mean the
+  browser inventing key material the server never agreed to. **The value therefore comes from the server, from
+  Fortify's already-existing `GET /user/two-factor-secret-key`, which decrypts `$request->user()->
+  two_factor_secret`** — the authenticated user's own key by construction, with no id parameter that could
+  point at anyone else's. The only page-side transform is chunking the string into four-character blocks for
+  readability: **display formatting, never a new value.**
+  **This opens no new exposure path.** It is the user's own secret, on their own enrolment screen, in the same
+  authenticated context that is already rendering them the QR *that encodes the very same key* — the endpoint
+  was already in `EnsureTwoFactorEnabled`'s exemption list precisely because enrolment must be reachable
+  before the gate is satisfied. It is kept behind a reveal so it is not sitting on screen by default.
+  **Nothing was weakened.** 2FA remains mandatory and locked (SETTINGS.P4): no skip, postpone or disable route
+  was added, and a test asserts the route table contains none. AUTH-SEC.1's re-challenge and AUTH-SEC.2's
+  reset bindings + guest smoke are untouched and green. The fallback is an alternative way to *complete*
+  enrolment, never a way to avoid it.
+  **The verification worth recording:** matching the displayed string against the database would only prove
+  the page echoes a column. Enrolment was instead completed in a browser using a TOTP derived from the
+  **displayed** secret — which proves the fallback IS the real provisioning key, since a wrong one cannot
+  produce an accepted code. It was also confirmed to match what the QR's provisioning URI encodes, so the two
+  enrolment routes cannot drift. Locked by `tests/Feature/Auth/TwoFactorSecretFallbackTest.php` (5).
+  **This gate closes the nine-page wireframe-parity pass.** See [[Platform]],
+  `docs/wireframe-parity/AUTH-SCREENS-DIFF.md` §9, [[LOG]].

@@ -7,7 +7,7 @@ hospital phases are built.** The next progress is **deployment + certified-partn
 AND, running alongside deploy prep, a page-by-page **WIREFRAME-PARITY PASS** (bring each app page up to its designed
 wireframe without weakening a single enforced gate). See §5.
 
-> **WIREFRAME-PARITY PASS (in progress — D-149).** The loop, per page: **decode** the self-unpacking "bundler-shell"
+> **WIREFRAME-PARITY PASS — COMPLETE, all NINE pages (D-149 → D-160).** The loop that ran it, per page: **decode** the self-unpacking "bundler-shell"
 > wireframe HTML → readable HTML in the **gitignored** `resources/prototype/` (no app change, no commit) → **AUDIT**
 > the live page against it into `docs/wireframe-parity/<PAGE>-DIFF.md` (report-only commit) → **FIX** per-part as
 > `P0D.GU` gates, **one part = one commit + STOP**, GATE REPORT + CI-green each. **The discipline (non-negotiable):
@@ -30,18 +30,21 @@ wireframe without weakening a single enforced gate). See §5.
 > eligibility = the real dunning machine exhausted at its terminal level, fail-closed; an EXPLICIT operator
 > confirmation + recorded reason; append-only + audited; **AGENT-EXCLUDED BY CONSTRUCTION** — no AiTool, no AiCore
 > reference, and the only files reaching the service are the service, the model and the operator-gated controller,
-> asserted as an exact list, so "0 auto-escalated" is structural; D-154). Then the remaining decoded pages:
-> **Appointment Detail CORE COMPLETE (APPT.P1–P3) · Auth Screens (the last page).** Do NOT start the next part unprompted — each is its own re-issued gate.
+> asserted as an exact list, so "0 auto-escalated" is structural; D-154). **NO decoded pages remain:** Appointment
+> Detail CORE COMPLETE (APPT.P1–P3) and Auth Screens COMPLETE (AUTH-SEC.1 + AUTH-SEC.2 security fixes, then AUTH-VIS
+> — the enrolment manual-secret fallback rendering the user OWN real secret; D-160) closed the pass. Along the way the
+> audits found and fixed TWO High **live security defects**, which is the pass earning its keep. The one item left
+> open on purpose is the password-policy **product** decision. Do NOT invent a new page or gate.
 
 > **One-liner to paste at the start of a new session:**
 > *"CareOS is a multi-tenant, agentic healthcare-operations SaaS (Laravel 12 · Inertia/Vue 3 · Eucalyptus Glow ·
 > offline Nurse PWA). THE BUILD IS COMPLETE — EIGHT built + green verticals on one platform: CLINIC (delivered +
 > admin), DENTAL (G1–G9), HOME-CARE/SPITEX, INPATIENT/ADT (Hospital P1), PHARMACY (P2), LAB/LIS (P3), RADIOLOGY/RIS
 > (P4), SURGERY/OR (P5), ED (P6) — ALL hospital phases built. Current focus is DEPLOY + PARTNERSHIPS, NOT building
-> (there are no more verticals to build); a page-by-page WIREFRAME-PARITY pass also runs alongside (SEVEN pages done —
+> (there are no more verticals to build); the page-by-page WIREFRAME-PARITY pass is now COMPLETE (all NINE pages —
 > Admin Settings · Approval Queue · Branches · Agent&Tool Config · Allergy safe-part · Billing & AR · AR Account
 > Detail [P1 ledger → P2 dunning → P3 visual → P4 record-payment → P5 payment-plan → P6 Betreibung, operator-only +
-> agent-excluded by construction]; remaining Appointment Detail · Auth Screens — match the visual, NEVER weaken a gate, surface-don't-fabricate, one
+> agent-excluded by construction] · Appointment Detail P1-P3 · Auth Screens [AUTH-SEC.1/.2 + AUTH-VIS] — NOTHING REMAINS; the rule was: match the visual, NEVER weaken a gate, surface-don't-fabricate, one
 > part = one commit; D-149/D-150/D-151 + docs/wireframe-parity/). Read docs/ONBOARDING.md → AGENTS.md → PROJECT-STATE.md → DECISIONS.md →
 > DEFERRED.md → memory/LOG.md first. HARD RULES: electric fence (record-not-judge; no AI in the clinical-decision
 > path; checklists RECORD not ENFORCE; ranges/results DISPLAYED not FLAGGED; reports/acuity/ASA AUTHORED/ASSIGNED

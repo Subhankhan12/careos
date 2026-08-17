@@ -283,6 +283,40 @@ running shows up as an absence rather than as nothing at all.
   **The full arc P1→P6 makes the Admin Settings page wireframe-parity complete.** Deferred (non-blocking): a real
   SMS provider (P5's seam is inert).
 
+
+## Auth surfaces — the AUTH sprint (wireframe-parity pass, final page)
+
+- **AUTH-SEC.1 (D-158) — remember-me no longer bypasses 2FA.** `EnsureTwoFactorEnabled` used to assert only that
+  the user had ENROLLED, so a session restored from the ~400-day `remember_web_*` recaller reached `/app` with no
+  password and no challenge. It now turns a recaller-restored session back into a PENDING two-factor login (signs
+  the guard out, seeds `login.id`/`login.remember`, redirects to the challenge). The challenge-passed proof
+  (`EnsureTwoFactorEnabled::CHALLENGE_PASSED_KEY`) is written in exactly TWO places, both requiring a valid code:
+  `App\Http\Responses\TwoFactorPassedResponse` (bound to Fortify’s `TwoFactorLoginResponse`) and a
+  `TwoFactorAuthenticationConfirmed` listener. **The password factor stays remembered; the second factor never
+  is.** The recaller check asks the WEB guard behind `hasSession()` + `instanceof SessionGuard` — `Auth::
+  viaRemember()` proxies to the DEFAULT guard, which for Sanctum API requests is a `RequestGuard` without that
+  method (a first attempt broke all 17 Nurse PWA tests). Locked by `tests/Feature/Auth/RememberMeTwoFactorTest.php`.
+
+- **AUTH-SEC.2 (D-159) — the reset pages render, and GUEST routes are smoked.** `resetPasswords()` was enabled so
+  `/forgot-password` + `/reset-password/{token}` were registered, but no Fortify view was bound: both GET pages
+  were **HTTP 500** and a locked-out user had no self-service recovery. Views bound; no auth rule changed. **The
+  real fix is the coverage** — every prior route smoke authenticated first, so no PUBLIC page had ever been
+  requested. The FIX.5 smoke now drives the guest routes as a genuine anonymous visitor (proven by temporarily
+  removing the bindings). Locked by `tests/Feature/Auth/PasswordResetTest.php` + the guest smoke.
+
+- **AUTH-VIS (D-160) — the enrolment manual-secret fallback.** The 2FA enrolment screen offers "Can’t scan the
+  code?"; revealing it prints **the user’s own real provisioning secret** as selectable text, from Fortify’s
+  existing `GET /user/two-factor-secret-key` (which decrypts that user’s `two_factor_secret` — their own key by
+  construction, no id parameter). The wireframe’s demo literal is NOT used and nothing is generated page-side; the
+  only page-side transform is chunking into four-character blocks. No new exposure path (same auth context that
+  already renders the QR encoding the same key; the endpoint was already in the middleware’s exemption list), kept
+  behind a reveal. **2FA stays mandatory-locked — no skip/postpone/disable route, asserted against the route
+  table.** Browser-proven by completing enrolment with a TOTP derived from the DISPLAYED secret. Locked by
+  `tests/Feature/Auth/TwoFactorSecretFallbackTest.php`.
+
+- **STILL OPEN, a PRODUCT decision (not a defect):** the effective password policy is `Password::default()` —
+  min 8 characters, no `Password::defaults()` configured, so no mixed-case/digit/symbol/breach check.
+
 ## Open items
 
 - ABAC condition evaluation (`abac_conditions`) not yet implemented (Phase B, needs patients/audit).

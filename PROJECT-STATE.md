@@ -12,9 +12,27 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
 > render instead of returning HTTP 500 (a locked-out user had no self-service recovery), and the FIX.5 smoke now
 > drives GUEST routes so a public 500 can never ship green again — the coverage gap that hid it (D-159).
 > **STILL OPEN, a product decision:** the password policy is `Password::default()` (min 8 chars, nothing more).
-> **Auth VISUAL parity remains a later gate** (the enrolment manual-secret fallback + small state/copy polish).
 
-## STATUS: BUILD COMPLETE + AUDITED (3 audits, ZERO must-fix) · EIGHT VERTICALS · DEMOABLE HOSPITAL TENANT · CURRENT STAGE = DEPLOYMENT · WIREFRAME-PARITY PASS (8 PAGES CORE-DONE: Admin Settings · Approval Queue P1→P7 · Branches P1→P5 · Agent&Tool Config P1→P6 COMPLETE · Billing & AR P1→P7 COMPLETE · Allergy Alert safe-part [ALLERGY.P1] · Billing&AR audit + BILLAR.P1 write-off/adjustment ledger + BILLAR.P2 AR roll-forward + BILLAR.P3 DSO/collection-rate + BILLAR.P4 by-payer + BILLAR.P5 charged-vs-collected trend + BILLAR.P6 management-report grid + BILLAR.P7 top-overdue+drill — Billing & AR PARITY COMPLETE · AR Account Detail COMPLETE: ARDETAIL.P1 per-account running-balance ledger + P2 dunning timeline + P3 hero/Swiss-format/links + P4 record-payment through the guarded PaymentService + P5 payment-plan model + P6 Betreibung escalation [operator-only, agent-excluded by construction])
+> **🏁 WIREFRAME-PARITY PASS COMPLETE (2026-08-17, AUTH-VIS) — all NINE decoded pages audited and their parity
+> work done.** The final gate closed Auth's last visual item: the 2FA enrolment screen now offers *"Can't scan the
+> code?"*, revealing **the user's own real provisioning secret** as selectable text (from Fortify's existing
+> `/user/two-factor-secret-key`, which decrypts that user's `two_factor_secret`) — never the wireframe's demo
+> literal, never a page-side fabrication; the only page-side transform is chunking it into four-character blocks
+> for readability. No new exposure path: it is the user's own key, on their own enrolment screen, in the same auth
+> context already rendering the QR that encodes it, kept behind a reveal. **Browser-verified** — the revealed
+> secret matched the decrypted DB value *and* the QR's provisioning URI, and enrolment was completed with a TOTP
+> derived from the **displayed** secret. Plus the §3 polish: a real pending state instead of a blank card while the
+> QR/codes/secret load, and selectable recovery codes. **Nothing weakened** — 2FA stays mandatory-locked
+> (SETTINGS.P4) with no skip/postpone/disable route (asserted against the route table), and AUTH-SEC.1 + AUTH-SEC.2
+> are untouched and green. Locked by `tests/Feature/Auth/TwoFactorSecretFallbackTest.php` (5). D-160.
+>
+> **The pass in one line:** nine pages — Admin Settings · Approval Queue · Branches · Agent&Tool Config ·
+> Billing&AR · Allergy Alert (safe part) · AR Account Detail · Appointment Detail · Auth Screens — matched to
+> their wireframes under one rule: *surface the real thing or nothing; never weaken an enforced gate.* Along the
+> way the audits exposed and fixed two High live security defects (AUTH-SEC.1, AUTH-SEC.2). Items deliberately
+> left open are recorded as honest gaps, not silently filled.
+
+## STATUS: BUILD COMPLETE + AUDITED (3 audits, ZERO must-fix) · EIGHT VERTICALS · DEMOABLE HOSPITAL TENANT · CURRENT STAGE = DEPLOYMENT · WIREFRAME-PARITY PASS **COMPLETE — ALL 9 PAGES** ( Admin Settings · Approval Queue P1→P7 · Branches P1→P5 · Agent&Tool Config P1→P6 COMPLETE · Billing & AR P1→P7 COMPLETE · Allergy Alert safe-part [ALLERGY.P1] · Billing&AR audit + BILLAR.P1 write-off/adjustment ledger + BILLAR.P2 AR roll-forward + BILLAR.P3 DSO/collection-rate + BILLAR.P4 by-payer + BILLAR.P5 charged-vs-collected trend + BILLAR.P6 management-report grid + BILLAR.P7 top-overdue+drill — Billing & AR PARITY COMPLETE · AR Account Detail COMPLETE: ARDETAIL.P1 per-account running-balance ledger + P2 dunning timeline + P3 hero/Swiss-format/links + P4 record-payment through the guarded PaymentService + P5 payment-plan model + P6 Betreibung escalation [operator-only, agent-excluded by construction] · Appointment Detail APPT.P1->P3 CORE COMPLETE · Auth Screens: AUTH-SEC.1+.2 security fixes + AUTH-VIS enrolment manual-secret fallback — PASS COMPLETE)
 
 > **RECONCILED (this pass — eight verticals built + audited; at the DEPLOY stage; a page-by-page wireframe-parity
 > pass now in progress).** CareOS is a multi-tenant agentic healthcare-operations platform (EU-first). **Stack:**
@@ -25,7 +43,7 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
 > Pest **1146 passed** (+2 from ARDETAIL.P3; +4 Vitest), PHPStan L5 `[OK]`, Pint clean; npm build + `test:unit` green; `composer test:smoke`
 > green; CI green on MySQL 8; the FIX.5 route-smoke guards against request-time 500s. (Latest commit: ARDETAIL.P3 — the AR Account Detail hero + Swiss CHF format + chart/PDF links; drill-in: P1 ledger + P2 dunning timeline + P3 visual done.)
 >
-> **WIREFRAME-PARITY PASS (in progress) — the discipline:** each app page is matched to its decoded wireframe in
+> **WIREFRAME-PARITY PASS (COMPLETE — all 9 pages) — the discipline that ran it:** each app page is matched to its decoded wireframe in
 > the gitignored `resources/prototype/` (decode the bundler-shell HTML → AUDIT/diff into `docs/wireframe-parity/*.md`
 > → FIX per-part, one gate = one commit). **The rule: match the LOCKED/CAPPED visual, but NEVER weaken a real,
 > enforced server gate, and NEVER regress a "correctly-more-real" item; every surfaced governance element must be
@@ -61,10 +79,10 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
 > and the ONLY files reaching the service are the service, the model and the operator-gated controller [asserted
 > as an exact list], so "0 auto-escalated" is structural, not displayed; D-154) — **done**.
 > **AR ACCOUNT DETAIL WIREFRAME PARITY IS COMPLETE (P1→P6) — the SEVENTH page of the pass.**
-> **REMAINING decoded pages: Appointment Detail [audited + APPT.P1 built — the page/hero/resources/patient/timeline over the real backend, true status across all 8 states, no fabricated capability chips or SMS claim; D-155. APPT.P2 action row = the real LEGAL_TRANSITIONS for the true status [new read accessor legalTransitionsFrom(); booked offers Confirm not Mark-arrived — the (a) reconciliation; the day-board keeps its option-(c) confirm-then-arrive compose, a recorded divergence; forged illegal POST refused; D-156]. APPT.P3 reschedule via the REAL AvailableSlotFinder + reschedule() overlap guard [slots merged from the finder, never page-computed; confirm re-checks availability and uses the finder resources; cannot double-book; the "Dr. Weber only" toggle OMITTED — no backend; D-157]. **APPOINTMENT DETAIL CORE PARITY COMPLETE (P1-P3)** — only optional backend follow-ons remain (P4 room-capability field, P5 preferred-practitioner filter)] · Auth Screens.** Two honest backend gaps stay flagged on this
+> **DECODED PAGES — NONE REMAINING (pass complete).** Appointment Detail [audited + APPT.P1 built — the page/hero/resources/patient/timeline over the real backend, true status across all 8 states, no fabricated capability chips or SMS claim; D-155. APPT.P2 action row = the real LEGAL_TRANSITIONS for the true status [new read accessor legalTransitionsFrom(); booked offers Confirm not Mark-arrived — the (a) reconciliation; the day-board keeps its option-(c) confirm-then-arrive compose, a recorded divergence; forged illegal POST refused; D-156]. APPT.P3 reschedule via the REAL AvailableSlotFinder + reschedule() overlap guard [slots merged from the finder, never page-computed; confirm re-checks availability and uses the finder resources; cannot double-book; the "Dr. Weber only" toggle OMITTED — no backend; D-157]. **APPOINTMENT DETAIL CORE PARITY COMPLETE (P1-P3)** — only optional backend follow-ons remain (P4 room-capability field, P5 preferred-practitioner filter)] · Auth Screens [audited; AUTH-SEC.1 remember-me/2FA + AUTH-SEC.2 reset-views/guest-smoke security fixes, then AUTH-VIS: the enrolment manual-secret fallback rendering the user OWN real secret + the pending-state/selectable-codes polish; 2FA stays mandatory-locked, no skip path; D-160. **AUTH PARITY COMPLETE**].** Two honest backend gaps stay flagged on this
 > page (not faked): the real Swiss QR-bill (IBAN/reference payment part) and send-QR-bill/reminder-from-the-page
 > (sending stays inside the existing idempotent `DunningService` + the agent-cap/ApprovalQueue path).
-> **REMAINING decoded pages after AR Account Detail:** Appointment Detail · Auth Screens.
+> **REMAINING decoded pages after AR Account Detail:** Appointment Detail · Auth Screens — both now COMPLETE; the pass is closed.
 > Page status (historical per-page detail):
 > - **Admin Settings — COMPLETE** (SETTINGS.P1 glass → P2 Agents/AutonomyPolicy cap → P3 Scheduling/honest buffer →
 >   P4 Security/2FA-locked → P5 Notifications/email-prefs + SMS-seam + attention-flag-locked → P6 staff-invite +

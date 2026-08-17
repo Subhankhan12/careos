@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { Head, router } from '@inertiajs/vue3';
 import axios from 'axios';
-import { onMounted, ref } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import GuestLayout from '@/Layouts/GuestLayout.vue';
 import Card from '@/Components/Card.vue';
@@ -16,14 +16,32 @@ const code = ref('');
 const error = ref('');
 const ready = ref(false);
 
+/*
+ * AUTH-VIS — the "Can't scan?" manual fallback.
+ *
+ * This is the SAME secret the QR above already encodes, read from the user's own Fortify endpoint
+ * (`/user/two-factor-secret-key`, which decrypts `$request->user()->two_factor_secret`). Nothing is
+ * generated here and no other user's secret is reachable: it is the authenticated user's own key, on
+ * their own enrolment screen, in the same auth context that is already showing them the QR. It exists
+ * so someone who cannot scan — no camera, or authenticating on the same device — can still enrol.
+ * Kept behind a reveal so it is not sitting on screen by default.
+ */
+const secretKey = ref('');
+const secretShown = ref(false);
+
+/** Group the REAL secret into four-character blocks — display formatting only, never a new value. */
+const groupedSecret = computed(() => (secretKey.value.match(/.{1,4}/g) ?? []).join(' · '));
+
 async function startEnrollment(): Promise<void> {
     await axios.post('/user/two-factor-authentication');
-    const [qr, codes] = await Promise.all([
+    const [qr, codes, secret] = await Promise.all([
         axios.get('/user/two-factor-qr-code'),
         axios.get('/user/two-factor-recovery-codes'),
+        axios.get('/user/two-factor-secret-key'),
     ]);
     qrSvg.value = qr.data.svg;
     recoveryCodes.value = codes.data;
+    secretKey.value = secret.data.secretKey;
     ready.value = true;
 }
 
@@ -51,6 +69,24 @@ onMounted(startEnrollment);
                     <div class="flex-1">
                         <h2 class="text-sm font-semibold text-ink">{{ t('auth.twoFactor.enrollStep1') }}</h2>
                         <div class="mt-3 inline-block rounded-xl border border-line bg-surface p-3" v-html="qrSvg" />
+
+                        <!-- The manual fallback: the SAME secret the QR encodes, as selectable text
+                             (never an image), for anyone who cannot scan it. -->
+                        <div class="mt-3">
+                            <button
+                                v-if="!secretShown"
+                                type="button"
+                                class="text-xs font-semibold text-euca-700 underline-offset-2 transition hover:text-euca-900 hover:underline"
+                                @click="secretShown = true"
+                            >
+                                {{ t('auth.twoFactor.cantScan') }}
+                            </button>
+                            <div v-else>
+                                <p class="text-xs text-ink-muted">{{ t('auth.twoFactor.secretLabel') }}</p>
+                                <p class="mt-1 select-all font-mono text-sm tracking-wide text-ink">{{ groupedSecret }}</p>
+                                <p class="mt-1 text-xs text-ink-subtle">{{ t('auth.twoFactor.secretHint') }}</p>
+                            </div>
+                        </div>
                     </div>
                 </section>
 
@@ -68,7 +104,7 @@ onMounted(startEnrollment);
                                 {{ t('auth.twoFactor.recoveryCodesHint') }}
                             </p>
                             <ul class="mt-3 grid grid-cols-2 gap-1 font-mono text-sm text-ink">
-                                <li v-for="rc in recoveryCodes" :key="rc">{{ rc }}</li>
+                                <li v-for="rc in recoveryCodes" :key="rc" class="select-all">{{ rc }}</li>
                             </ul>
                         </div>
                     </div>
@@ -89,6 +125,10 @@ onMounted(startEnrollment);
                     </form>
                 </section>
             </div>
+
+            <!-- Until the QR, codes and secret have arrived the card was simply blank. Say what is
+                 happening instead — no claim about the outcome, just the pending state. -->
+            <p v-else class="text-sm text-ink-muted">{{ t('auth.twoFactor.preparing') }}</p>
         </Card>
     </GuestLayout>
 </template>
