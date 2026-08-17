@@ -4,8 +4,10 @@ namespace App\Providers;
 
 use App\Actions\Fortify\ResetUserPassword;
 use App\Http\Responses\RoleBasedLoginResponse;
+use App\Http\Responses\TwoFactorPassedResponse;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
@@ -14,7 +16,9 @@ use Inertia\Inertia;
 use Laravel\Fortify\Actions\RedirectIfTwoFactorAuthenticatable;
 use Laravel\Fortify\Contracts\LoginResponse;
 use Laravel\Fortify\Contracts\TwoFactorLoginResponse;
+use Laravel\Fortify\Events\TwoFactorAuthenticationConfirmed;
 use Laravel\Fortify\Fortify;
+use Modules\Platform\Http\Middleware\EnsureTwoFactorEnabled;
 use Modules\Platform\Models\Tenant;
 use Modules\Platform\Models\User;
 
@@ -24,13 +28,23 @@ class FortifyServiceProvider extends ServiceProvider
     {
         // Role-based redirect after login and after the 2FA challenge.
         $this->app->singleton(LoginResponse::class, RoleBasedLoginResponse::class);
-        $this->app->singleton(TwoFactorLoginResponse::class, RoleBasedLoginResponse::class);
+        // AUTH-SEC.1 — the two-factor response ALSO records that this session satisfied the second
+        // factor (it still redirects via RoleBasedLoginResponse). EnsureTwoFactorEnabled requires that
+        // record, which is what stops a remember-me cookie from standing in for the challenge.
+        $this->app->singleton(TwoFactorLoginResponse::class, TwoFactorPassedResponse::class);
     }
 
     public function boot(): void
     {
         Fortify::resetUserPasswordsUsing(ResetUserPassword::class);
         Fortify::redirectUserForTwoFactorAuthenticationUsing(RedirectIfTwoFactorAuthenticatable::class);
+
+        // AUTH-SEC.1 — confirming enrollment requires a valid TOTP code, so it is a genuine
+        // second-factor proof for this session: record it, exactly as a passed challenge would. Without
+        // this a user would finish enrollment and immediately be bounced to a challenge.
+        Event::listen(TwoFactorAuthenticationConfirmed::class, function (): void {
+            session()->put(EnsureTwoFactorEnabled::CHALLENGE_PASSED_KEY, now()->toDateTimeString());
+        });
 
         // Inertia pages for the headless Fortify auth flow (login + 2FA challenge).
         Fortify::loginView(fn () => Inertia::render('Auth/Login', [
