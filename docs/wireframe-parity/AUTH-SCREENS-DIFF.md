@@ -68,7 +68,7 @@ changed.** The LAST decoded page of the wireframe-parity pass (eight pages' core
 
 ## 4. THE SECURITY-GATE VERIFICATION (the crux)
 
-### 4.1 "Remember me" — **MUST-NOT-WEAKEN · the wireframe is safe, the LIVE behaviour is not** — **High**
+### 4.1 "Remember me" — ✅ **RESOLVED (AUTH-SEC.1, D-158)** — was High · see §8
 
 The wireframe merely draws a "Remember me" checkbox, which is unremarkable. The live implementation is the
 problem, and it exists **today, independent of this parity work**:
@@ -101,7 +101,7 @@ display-only or is removed); (b) require a fresh 2FA challenge whenever authenti
 (c) bound the remember lifetime to something far below 400 days and re-challenge on expiry. **Do not build a
 "trust this device" affordance on top of this** — that would deepen the bypass.
 
-### 4.2 Password reset — **live defect, not a wireframe issue** — **High**
+### 4.2 Password reset — ✅ **RESOLVED (AUTH-SEC.2, D-159)** — was High · see §8
 
 `GET /forgot-password` and `GET /reset-password/{token}` both return **HTTP 500**:
 `BindingResolutionException: Target [Laravel\Fortify\Contracts\RequestPasswordResetLinkViewResponse] is not
@@ -191,3 +191,44 @@ the app has no SSO backend (SSO/SAML is parked in `DEFERRED.md`). Nothing to bui
 **The standing rule for this page:** match the visual, but **never** ship an auth affordance that is weaker than
 the enforced gate — no skip-2FA, no 2FA-bypassing "remember"/"trust this device", no weakened reset, no SSO
 button without an SSO backend.
+
+---
+
+## 8. RESOLVED — the AUTH-SEC security sprint
+
+Both High findings above are fixed. **Neither was a parity change; both STRENGTHEN the auth floor.** The visual
+parity work (§3) is untouched and still queued.
+
+**① Remember-me no longer bypasses 2FA (AUTH-SEC.1, D-158).** `EnsureTwoFactorEnabled` now turns a
+recaller-restored session back into a PENDING two-factor login — the guard is signed out, `login.id` /
+`login.remember` are seeded, and the user is sent to the challenge; completing it re-issues a fresh recaller, so
+the PASSWORD factor stays remembered and the SECOND factor never is. The proof is written only by a real second
+factor (the challenge response, or enrollment confirmation — both require a valid code); being authenticated,
+enrolled or remembered never writes it. **The audit's exact repro was re-run in a browser: the remember cookie
+alone now lands on `/two-factor-challenge` instead of `/app`,** and completing that challenge reaches the
+workspace. Scope is narrow by design — conditioned on the session having been restored from the recaller, and
+the check asks the WEB guard behind a `hasSession()` test, because `Auth::viaRemember()` proxies to the *default*
+guard, which for Sanctum token requests is a `RequestGuard` without that method (a first attempt did exactly
+that and broke all 17 Nurse PWA API tests). Locked by `tests/Feature/Auth/RememberMeTwoFactorTest.php` (7).
+
+**② The reset pages render, and guest routes are now smoked (AUTH-SEC.2, D-159).** Fortify's
+`requestPasswordResetLinkView` / `resetPasswordView` are bound to Inertia pages, so `/forgot-password` and
+`/reset-password/{token}` return 200 instead of 500 and a locked-out user has self-service recovery again. No
+auth rule changed: the POST flow, the signed-token check and the application password policy are untouched, and
+a reset leaves mandatory 2FA intact (tested). **The real fix is the coverage:** the FIX.5 smoke now drives the
+GUEST routes (`/login`, `/forgot-password`, `/reset-password/{token}`, `/invite/{token}`) as a genuine anonymous
+visitor — the gap that let a public 500 ship green. Verified by temporarily removing the new bindings, which
+makes the guest smoke fail with exactly `guest.forgot-password -> 500` and `guest.reset-password -> 500`. Locked
+by `tests/Feature/Auth/PasswordResetTest.php` (5) + the guest smoke.
+
+**Verified, not changed:** `SESSION_SECURE_COOKIE=true` is already present in
+`docs/DEPLOY-ENV.production.template` (line 77).
+
+**STILL OPEN — an explicit product decision, deliberately NOT made here:** the effective password policy is
+`Password::default()` (minimum 8 characters; no `Password::defaults()` configured, so no mixed case, digit,
+symbol or breach check). The reset enforces whatever is configured; deciding what it *should* be is a product
+call, not a security fix to slip into this sprint.
+
+**Remaining on this page (visual only, a later gate):** the enrollment manual-secret fallback ("Can't scan?
+Enter the secret"), rendering the user's own server-provided secret via the existing Fortify endpoint, plus the
+small state/copy polish in §3.

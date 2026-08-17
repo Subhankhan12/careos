@@ -52,6 +52,19 @@ class FortifyServiceProvider extends ServiceProvider
         ]));
         Fortify::twoFactorChallengeView(fn () => Inertia::render('Auth/TwoFactorChallenge'));
 
+        // AUTH-SEC.2 — the password-reset views. Fortify's resetPasswords() feature was enabled (so
+        // the routes existed) but no view was bound, which made both GET pages throw a
+        // BindingResolutionException — a public 500 that left a locked-out user with no self-service
+        // recovery. Binding them changes no auth rule: the POST flow, the signed token check and the
+        // application's password policy are all unchanged.
+        Fortify::requestPasswordResetLinkView(fn () => Inertia::render('Auth/ForgotPassword', [
+            'status' => session('status'),
+        ]));
+        Fortify::resetPasswordView(fn (Request $request) => Inertia::render('Auth/ResetPassword', [
+            'token' => $request->route('token'),
+            'email' => $request->query('email', ''),
+        ]));
+
         // Credential check + fail-closed rejection of suspended-tenant staff at login.
         Fortify::authenticateUsing(function (Request $request) {
             $user = User::where('email', $request->input(Fortify::username()))->first();

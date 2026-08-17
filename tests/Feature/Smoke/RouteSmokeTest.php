@@ -719,6 +719,44 @@ test('per-role RBAC smoke: each role reaches its pages (200) and is denied other
     expect(implode("\n", $failures))->toBe('');
 });
 
+/*
+ * AUTH-SEC.2 — GUEST routes, driven as an anonymous visitor.
+ *
+ * THE COVERAGE GAP THIS CLOSES: every smoke above authenticates first, so no PUBLIC page was ever
+ * requested. That is why /forgot-password and /reset-password/{token} sat returning HTTP 500 —
+ * registered by Fortify but with no view bound — without a single test noticing. These are the pages
+ * an unauthenticated person actually meets, including someone locked out of their account, so a 500
+ * here is worse than on a staff page: there is no way around it. A public route that stops rendering
+ * now fails the smoke.
+ */
+test('every GUEST route renders for an anonymous visitor (200, never a request-time 500)', function () {
+    $fx = smokeSeed($this);
+
+    // A valid-SHAPED reset token: the page must render regardless of whether the token still resolves
+    // (an invalid one is refused on POST, by Fortify, not by failing to draw the form).
+    $token = hash('sha256', 'smoke-reset-token');
+
+    $guestRoutes = [
+        'login' => '/login',
+        'forgot-password' => '/forgot-password',
+        'reset-password' => '/reset-password/'.$token.'?email='.urlencode($fx['users']['billing']->email),
+        // SETTINGS.P6 staff invite: an unknown token must still render its honest "no longer valid"
+        // page rather than erroring.
+        'staff-invite.accept' => '/invite/'.$token,
+    ];
+
+    $failures = [];
+    foreach ($guestRoutes as $label => $url) {
+        smokeCtx()->forget();
+        $status = $this->get($url)->status();   // NO actingAs — a real anonymous visitor
+        if ($status !== 200) {
+            $failures[] = "guest.{$label} [{$url}] -> {$status}";
+        }
+    }
+
+    expect(implode("\n", $failures))->toBe('');
+});
+
 test('a portal patient reaches every portal page through the real stack (200)', function () {
     $fx = smokeSeed($this);
 

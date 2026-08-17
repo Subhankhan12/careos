@@ -1376,6 +1376,24 @@
             "recoveryCodesHint": "Store these codes somewhere safe. Each can be used once if you lose your device.",
             "enable": "Begin setup",
             "confirm": "Confirm and finish"
+        },
+        "forgot": {
+            "title": "Reset your password",
+            "subtitle": "We will email you a link to choose a new one.",
+            "email": "Email",
+            "submit": "Email a reset link",
+            "submitting": "Sending…",
+            "hint": "If an account exists for that address, a link is on its way. The link expires, and two-factor authentication is still required when you sign in."
+        },
+        "reset": {
+            "title": "Choose a new password",
+            "subtitle": "Set the password for your CareOS account.",
+            "email": "Email",
+            "password": "New password",
+            "confirm": "Confirm new password",
+            "submit": "Save new password",
+            "submitting": "Saving…",
+            "hint": "Your password must meet the practice password policy. Two-factor authentication is unchanged — you will still be asked for a code when you sign in."
         }
     },
     "shell": {

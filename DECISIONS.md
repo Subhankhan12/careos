@@ -2751,3 +2751,45 @@ references the old ID.
   reschedule); only the two optional backend follow-ons remain (a room-capability field for the chips; a
   preferred-practitioner filter for the toggle). See [[Scheduling]],
   `docs/wireframe-parity/APPOINTMENT-DETAIL-DIFF.md`, [[LOG]].
+
+- **D-158 — A remembered browser still has to prove the second factor (AUTH-SEC.1).** The auth audit
+  reproduced a standing 2FA bypass: after a password + 2FA login with "Remember me", the ~400-day
+  `remember_web_*` cookie ALONE re-opened the app with no password and no challenge, because
+  `EnsureTwoFactorEnabled` asked whether the user had ENROLLED, never whether *this session* had passed a
+  challenge. The recaller legitimately remembers the PASSWORD factor; it must never stand in for the SECOND
+  one. The middleware now turns a recaller-restored session back into a PENDING two-factor login — signing the
+  guard out (dropping the authenticated session and the recaller), seeding `login.id`/`login.remember`, and
+  redirecting to the challenge — so the remembered browser enters a code and leaves with a fresh recaller.
+  **The proof is written in exactly two places, both requiring a valid code in that session:** the app-layer
+  `TwoFactorPassedResponse` (bound to Fortify's `TwoFactorLoginResponse`, so it runs only after a TOTP or
+  recovery code validates) and a `TwoFactorAuthenticationConfirmed` listener (enrollment confirmation, which
+  also requires a code — without it a freshly enrolled user would be bounced straight to a challenge). Being
+  authenticated, enrolled or remembered never writes it.
+  **Two scoping decisions, both deliberate.** (1) The re-challenge is conditioned on the session having been
+  restored FROM THE RECALLER, not on "every session must carry the flag": every other path to being
+  authenticated either already involved the second factor or is caught by the enrollment check, and a universal
+  rule would reject test-authenticated sessions — papering over that in the harness would have hidden the very
+  bypass being closed. (2) The recaller check asks the WEB guard behind a `hasSession()` test, because
+  `Auth::viaRemember()` proxies to the *default* guard — which for Sanctum token requests is a `RequestGuard`
+  with no such method. A first attempt did exactly that and broke all 17 Nurse PWA API tests; the recaller is a
+  session-guard concept and a token request has neither. Nothing is weakened: 2FA stays mandatory with no
+  skip/disable path, interactive login, enrollment enforcement, the login throttle and the suspended-tenant
+  rejection are untouched, and `SESSION_SECURE_COOKIE=true` was verified already present in the production env
+  template. See [[Platform]], `docs/wireframe-parity/AUTH-SCREENS-DIFF.md` §4.1, [[LOG]].
+
+- **D-159 — Public pages are smoked, because an unauthenticated 500 is the worst kind (AUTH-SEC.2).** Fortify's
+  `resetPasswords()` feature was enabled — so `/forgot-password` and `/reset-password/{token}` were registered —
+  but no view was ever bound, and both GET pages threw `BindingResolutionException` (HTTP 500). A locked-out
+  user therefore had no self-service recovery at all. Binding the two Inertia views fixes the symptom and
+  changes no auth rule: the POST flow, the signed-token check and the application password policy
+  (`ResetUserPassword` → `PasswordValidationRules`) are untouched, and a reset leaves mandatory 2FA intact.
+  **The disease was the coverage gap:** every existing route smoke authenticates first, so no PUBLIC page had
+  ever been requested — which is exactly why a 500 on the pages an anonymous visitor meets could ship green.
+  The FIX.5 smoke now drives the guest routes (`/login`, `/forgot-password`, `/reset-password/{token}`,
+  `/invite/{token}`) as a real anonymous visitor. This was verified by temporarily removing the new bindings:
+  the guest smoke fails with precisely `guest.forgot-password -> 500` and `guest.reset-password -> 500`.
+  **FLAGGED FOR AN EXPLICIT DECISION, deliberately NOT changed here:** the effective password policy is
+  `Password::default()` — a minimum of 8 characters, with no `Password::defaults()` configured anywhere, so no
+  mixed case, digit, symbol or breach check. The reset correctly enforces whatever is configured; choosing what
+  that should be is a product decision, not a security fix to slip in. See [[Platform]],
+  `docs/wireframe-parity/AUTH-SCREENS-DIFF.md` §4.2/§7, [[LOG]].

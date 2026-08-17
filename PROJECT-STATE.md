@@ -3,6 +3,17 @@
 Short, factual snapshot of where the project stands. Updated at consolidations and after gates
 (per the MEMORY PROTOCOL in AGENTS.md).
 
+> **AUTH-SEC SECURITY SPRINT (2026-08-17) — two High live defects found by the auth audit are FIXED, and both
+> STRENGTHEN the auth floor (nothing weakened).** (1) **AUTH-SEC.1** — "Remember me" no longer bypasses the 2FA
+> challenge: a recaller-restored session is turned back into a pending two-factor login and re-challenged, and the
+> second-factor proof is written only by a real code (challenge pass / enrolment confirmation). The audit repro now
+> lands on the challenge instead of the workspace. 2FA stays mandatory; interactive login unchanged (D-158).
+> (2) **AUTH-SEC.2** — the password-reset views are bound so `/forgot-password` and `/reset-password/{token}`
+> render instead of returning HTTP 500 (a locked-out user had no self-service recovery), and the FIX.5 smoke now
+> drives GUEST routes so a public 500 can never ship green again — the coverage gap that hid it (D-159).
+> **STILL OPEN, a product decision:** the password policy is `Password::default()` (min 8 chars, nothing more).
+> **Auth VISUAL parity remains a later gate** (the enrolment manual-secret fallback + small state/copy polish).
+
 ## STATUS: BUILD COMPLETE + AUDITED (3 audits, ZERO must-fix) · EIGHT VERTICALS · DEMOABLE HOSPITAL TENANT · CURRENT STAGE = DEPLOYMENT · WIREFRAME-PARITY PASS (8 PAGES CORE-DONE: Admin Settings · Approval Queue P1→P7 · Branches P1→P5 · Agent&Tool Config P1→P6 COMPLETE · Billing & AR P1→P7 COMPLETE · Allergy Alert safe-part [ALLERGY.P1] · Billing&AR audit + BILLAR.P1 write-off/adjustment ledger + BILLAR.P2 AR roll-forward + BILLAR.P3 DSO/collection-rate + BILLAR.P4 by-payer + BILLAR.P5 charged-vs-collected trend + BILLAR.P6 management-report grid + BILLAR.P7 top-overdue+drill — Billing & AR PARITY COMPLETE · AR Account Detail COMPLETE: ARDETAIL.P1 per-account running-balance ledger + P2 dunning timeline + P3 hero/Swiss-format/links + P4 record-payment through the guarded PaymentService + P5 payment-plan model + P6 Betreibung escalation [operator-only, agent-excluded by construction])
 
 > **RECONCILED (this pass — eight verticals built + audited; at the DEPLOY stage; a page-by-page wireframe-parity

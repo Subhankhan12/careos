@@ -57,7 +57,7 @@ wireframe without weakening a single enforced gate). See §5.
 1. **`AGENTS.md`** — single source of truth: project, stack, hard rules, workflow, module map, MEMORY PROTOCOL.
 2. **`PROJECT-STATE.md`** — authoritative "where we are" snapshot (BUILD COMPLETE · eight verticals · all hospital
    phases · focus = deploy + partnerships · latest commit + suite counts).
-3. **`DECISIONS.md`** — architecture decision log, **D-001 → D-157** (append-only; never edit past entries; **D-149**
+3. **`DECISIONS.md`** — architecture decision log, **D-001 → D-159** (append-only; never edit past entries; **D-149**
    = the wireframe-parity discipline, **D-150** = the Billing & AR reconcile extension + engine-computed reporting,
    **D-151** = AR Account Detail read-only-over-the-engine + the agent-never-commits-money / never-escalates-Betreibung line,
    **D-152** = the AR record-payment gate WIRES the guarded `PaymentService` rather than becoming a second payment path,
