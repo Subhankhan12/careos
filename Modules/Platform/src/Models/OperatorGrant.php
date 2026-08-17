@@ -42,6 +42,10 @@ use RuntimeException;
  * @property Carbon|null $requested_at
  * @property Carbon|null $request_expires_at
  * @property int|null $requested_ttl_minutes
+ * @property Carbon|null $decided_at
+ * @property int|null $decided_by
+ * @property string|null $decision_note
+ * @property string|null $supersedes_id
  */
 class OperatorGrant extends Model
 {
@@ -70,6 +74,22 @@ class OperatorGrant extends Model
 
     /** The only self-granting tier: non-PHI reads, and nothing else. */
     public const TIERS_SELF_GRANTED = [self::TIER_READ_ONLY];
+
+    /**
+     * How much each tier opens, as a rank. Used ONLY to enforce that an owner's decision
+     * can narrow and never widen (OPMODE.G3): a granted tier's rank must be <= the rank
+     * of the tier that was asked for.
+     *
+     * @var array<string, int>
+     */
+    public const TIER_RANK = [
+        self::TIER_READ_ONLY => 0,
+        self::TIER_CONFIGURATION => 1,
+        self::TIER_FULL_SUPPORT => 2,
+    ];
+
+    /** The tenant role whose holders may decide an operator's request (D-163). */
+    public const OWNER_ROLE_KEY = 'org_admin';
 
     public const STATUS_PENDING = 'pending';
 
@@ -113,6 +133,7 @@ class OperatorGrant extends Model
         'operator_id', 'tenant_id', 'tier', 'scope', 'reason',
         'status', 'granted_at', 'expires_at', 'revoked_at', 'revoked_by',
         'requested_at', 'request_expires_at', 'requested_ttl_minutes',
+        'decided_at', 'decided_by', 'decision_note', 'supersedes_id',
     ];
 
     protected $casts = [
@@ -123,6 +144,7 @@ class OperatorGrant extends Model
         'requested_at' => 'datetime',
         'request_expires_at' => 'datetime',
         'requested_ttl_minutes' => 'integer',
+        'decided_at' => 'datetime',
     ];
 
     protected static function booted(): void
@@ -187,6 +209,51 @@ class OperatorGrant extends Model
         }
 
         return $this->expires_at->greaterThan($moment);
+    }
+
+    /** The request this grant was issued in answer to (a downgrade only). */
+    public function supersedes(): BelongsTo
+    {
+        return $this->belongsTo(self::class, 'supersedes_id');
+    }
+
+    /**
+     * Would granting $tier over $scope be NARROWER-OR-EQUAL to what this request asked
+     * for? An owner may hand back less than was requested, never more (OPMODE.G3).
+     *
+     * Fail-closed on both axes:
+     *  - TIER: the granted rank must be <= the requested rank.
+     *  - SCOPE: every granted id must already appear in the request, per kind. A kind the
+     *    request never mentioned cannot be introduced by the decision.
+     *
+     * @param  array<string, mixed>  $scope
+     */
+    public function isNarrowerOrEqual(string $tier, array $scope): bool
+    {
+        $grantedRank = self::TIER_RANK[$tier] ?? null;
+        $requestedRank = self::TIER_RANK[$this->tier] ?? null;
+
+        if ($grantedRank === null || $requestedRank === null || $grantedRank > $requestedRank) {
+            return false;
+        }
+
+        $requested = $this->scope ?? [];
+
+        foreach ($scope as $kind => $ids) {
+            if (! is_array($ids)) {
+                return false;
+            }
+
+            $allowed = is_array($requested[$kind] ?? null) ? array_map('strval', $requested[$kind]) : [];
+
+            foreach ($ids as $id) {
+                if (! in_array((string) $id, $allowed, true)) {
+                    return false;       // a record the operator never asked for
+                }
+            }
+        }
+
+        return true;
     }
 
     /** Does this tier need a tenant owner's decision before it can ever open anything? */

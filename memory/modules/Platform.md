@@ -414,11 +414,49 @@ Locked by `tests/Feature/Platform/OperatorRequestFlowTest.php` (12). **Still NO 
 NO session mechanics beyond G1, NO route and NO UI** — the flow is service-level only, so there is still no HTTP
 path to Operator Mode.
 
-**Where the chain stands after G2:** the request flow exists (G2) but **owner approval does not** (G3), and there
-is still **no route and no UI** — so there is no HTTP path to Operator Mode at all. Of the map's two blocking
-product decisions, the `configuration` one is **SETTLED** (it requires owner approval — D-162); **whether
-Operator Mode ships in the first deployment is still open**, as are who counts as an "owner" and whether an
-"all patient records" scope is permitted. See `docs/features/OPERATOR-MODE-MAP.md`.
+
+### OPMODE.G3 — the owner is the gate: notification + approve/downgrade/decline (D-163)
+
+**SETTLED PRODUCT DECISION: the "owner" IS the tenant's `org_admin`** (`OperatorGrant::OWNER_ROLE_KEY`). No new
+role — `org_admin` already means "runs this clinic", and a parallel owner concept would have been a second,
+weaker path to the same authority. A tenant may hold several, so the wireframes' "+1 other owner can approve"
+falls out for free.
+
+- **`ownersFor()` / `isOwnerOf()`** resolve org_admins in system mode but constrained EXPLICITLY to that tenant
+  on both the assignment and the role, so they can never drift into another tenant's admins. (The assignment
+  table is `role_user`, not `role_assignments` — qualify columns accordingly.)
+- **ONLY a target-tenant org_admin may decide.** `isOwnerOf()` refuses a super-admin outright (the operator can
+  never decide their own request), an org_admin of another tenant, and a tenant user without the role. Every
+  refusal leaves the request pending and opens nothing.
+- **APPROVAL IS THE ONLY pending→active PATH**, asserted structurally: exactly two files may name
+  `OperatorGrant::STATUS_ACTIVE`, and the grant service contains exactly four writes, each accounted for.
+- **A DOWNGRADE SUPERSEDES, IT NEVER MUTATES.** Grant facts stay permanently immutable (G1/G2), so granting less
+  closes the request as `declined` and creates a NEW active grant at the narrower tier/scope with
+  `supersedes_id` pointing back — the ARDETAIL.P6 recipe, and exactly what the wireframe shows ("YOU REQUESTED
+  Full support / INSTEAD OWNER GRANTED Read-only").
+- **An owner may only NARROW.** `isNarrowerOrEqual()` checks both axes: tier rank must not rise
+  (`read_only` 0 < `configuration` 1 < `full_support` 2), and every granted id must already appear in the
+  request, per kind — a kind the request never mentioned cannot be introduced by the decision.
+- **Decline/expiry activate nothing**, and `assertActivatable()` (written in G2 for this moment) makes a decided
+  or lapsed request permanently undecidable — no second bite, no silent re-clocking of a live session.
+- **The owner is notified and cannot be muted.** Every org_admin of the target tenant receives the request with
+  operator, tier, named records, justification and request expiry. The template is deliberately NOT in
+  `NotificationPreferenceService::MANAGEABLE`, and only MANAGEABLE keys are ever written, so it is always ON.
+  **HONEST ABOUT THE CHANNEL: only EMAIL exists** (the standing SETTINGS.P5 seam) — in-app and push are not
+  built and are not claimed. **No owner ⇒ fail-closed:** `operator.owner_unreachable` is logged and the request
+  waits and lapses; it never self-approves for want of someone to ask.
+- **Two-sided audit:** `operator.request_approved` / `_downgraded` / `_declined` are recorded with the **OWNER**
+  as actor (`actor_type = 'user'`), not the operator — the clinic's ledger showing its own admin deciding.
+
+Locked by `tests/Feature/Platform/OperatorOwnerDecisionTest.php` (13). **Still NO session mechanics beyond G1's
+invariant (G4), NO route and NO UI (G6+)** — there is no HTTP path to Operator Mode.
+
+**Where the chain stands after G3:** the request (G2) and the owner decision (G3) both exist, but there is still
+**no session machinery beyond G1's invariant (G4), no route and no UI (G6+)** — so there is no HTTP path to
+Operator Mode at all. Two of the map's open questions are now SETTLED: the `configuration` tier requires owner
+approval (D-162), and the owner IS the tenant's `org_admin` (D-163). **STILL OPEN: whether Operator Mode ships
+in the first deployment at all**, and whether an "all patient records" scope is ever permitted.
+See `docs/features/OPERATOR-MODE-MAP.md`.
 
 
 ## Open items

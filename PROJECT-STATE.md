@@ -267,12 +267,20 @@ only non-PHI reads; there is **no self-approval path** (asserted by the absence 
 clock** is a separate column from the session clock and grants nothing when it lapses; and `full_support` must
 NAME its records — no wildcard exists. D-162.
 
-**ONE OF THE TWO BLOCKING DECISIONS IS SETTLED:** `configuration` **requires owner approval** (it is a WRITE
-tier), and `read_only` self-grants because it is non-PHI only. **STILL OPEN: is Operator Mode in scope for the
-first deployment at all?** — plus who counts as an "owner" and whether an "all patient records" scope is
-permitted.
+**OPMODE.G3 is DONE as well** — **the owner is the gate**. A pending request routes to every `org_admin` of the
+target tenant (the settled definition of "owner" — no new role was invented), who may **APPROVE** (the only
+pending→active path, asserted structurally), **DOWNGRADE** (grant LESS — tier may not rise and scope may not
+reach beyond what was asked; the request is *superseded*, never mutated, so both "what was asked" and "what was
+granted" survive) or **DECLINE** (activates nothing, terminal). Only a target-tenant org_admin can decide — the
+operator can't, another tenant's admin can't, plain staff can't. The decision is audited with the **owner** as
+actor, which is the two-sided part. D-163.
 
-**Still NO owner approval (G3), NO route and NO UI** — there is no HTTP path to Operator Mode.
+**TWO DECISIONS SETTLED:** `configuration` requires owner approval (D-162, it is a WRITE tier); the owner IS the
+tenant's `org_admin` (D-163). **STILL OPEN: is Operator Mode in scope for the first deployment at all?** — plus
+whether an "all patient records" scope is ever permitted.
+
+**Still NO session machinery beyond G1 (G4), NO route and NO UI** — there is no HTTP path to Operator Mode.
+Note the notification is **email only**; in-app and push do not exist (the standing SETTINGS.P5 seam).
 
 ---
 

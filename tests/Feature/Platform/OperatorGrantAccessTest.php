@@ -342,6 +342,7 @@ test('THE AGENT EXCLUSION: no agent path can reach an operator grant (T9)', func
         // context. Nothing else in Modules/ or app/ can reach an operator grant.
         'Modules/Platform/database/migrations/2026_08_31_000001_create_operator_access_grants_table.php',
         'Modules/Platform/database/migrations/2026_09_01_000001_add_request_columns_to_operator_access_grants.php',
+        'Modules/Platform/database/migrations/2026_09_02_000001_add_decision_columns_to_operator_access_grants.php',
         'Modules/Platform/src/Http/Middleware/IdentifyTenantFromUser.php',
         'Modules/Platform/src/Models/OperatorGrant.php',
         'Modules/Platform/src/Providers/PlatformServiceProvider.php',

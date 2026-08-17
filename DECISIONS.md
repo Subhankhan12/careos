@@ -2934,3 +2934,52 @@ references the old ID.
   decisions (is Operator Mode in scope for the first deployment; who counts as an "owner"; whether an
   "all patient records" scope is permitted) are untouched. See [[Platform]],
   `docs/features/OPERATOR-MODE-MAP.md`, [[LOG]].
+
+- **D-163 — The owner is the tenant's org_admin, and approval is the only way in (OPMODE.G3).**
+  G2 left pending requests with nobody able to decide them. G3 adds the decision, and with it the two-party
+  model the map describes: the platform asks, **the clinic decides**.
+  **SETTLED PRODUCT DECISION: the "owner" IS the tenant's `org_admin`.** No new role was invented. `org_admin`
+  already means "runs this clinic", and a parallel owner concept would have created a second, weaker path to the
+  same authority — two things to keep in sync, and a new way to get it wrong. The wireframes' "+1 other owner can
+  approve" falls out for free, because a tenant may hold several org_admins and all of them are notified and all
+  of them may decide.
+  **ONLY A TARGET-TENANT org_admin MAY DECIDE — fail-closed, server-side.** `isOwnerOf()` refuses a super-admin
+  outright (so the operator can never decide their own request — the G2 rule, now enforced from the other side
+  too), refuses an org_admin of a DIFFERENT tenant, and refuses a tenant user without the role. Every refusal
+  leaves the request pending and opens nothing.
+  **APPROVAL IS THE ONLY pending→active PATH**, asserted structurally: exactly two files in `Modules/` + `app/`
+  may even name `OperatorGrant::STATUS_ACTIVE`, and within the grant service there are exactly four writes, each
+  accounted for (the self-granted `read_only` request, `approve()` in place, `approve()`'s downgraded grant, and
+  `issue()`). No controller, job, command, agent or model callback can activate a grant.
+  **A DOWNGRADE SUPERSEDES; IT NEVER MUTATES.** G1/G2 make a grant's facts permanently immutable, and that rule
+  is not bent here. When an owner grants LESS than was asked, the request row is closed as `declined` and a NEW
+  active grant is created at the narrower tier/scope with `supersedes_id` pointing back at it — the ARDETAIL.P6
+  withdrawal recipe. Both facts survive permanently, which is also exactly what the wireframe shows the operator:
+  *"YOU REQUESTED Full support / INSTEAD OWNER GRANTED Read-only"*.
+  **AN OWNER MAY ONLY EVER NARROW.** `isNarrowerOrEqual()` enforces both axes: the granted tier's rank must be
+  ≤ the requested tier's (`read_only` 0 < `configuration` 1 < `full_support` 2), and every granted id must
+  already appear in the request, per kind — a kind the request never mentioned cannot be introduced by the
+  decision. A "downgrade" that tried to widen is refused outright, and the request stays pending.
+  **DECLINE AND EXPIRY ACTIVATE NOTHING.** A decline is terminal, so `assertActivatable()` (written in G2 for
+  exactly this moment) refuses it from then on — no second bite in either direction, and an already-approved
+  request cannot be re-decided or silently re-clocked. An expired request cannot be approved at all.
+  **THE OWNER IS NOTIFIED, AND CANNOT BE MUTED.** The request routes to every org_admin of the target tenant via
+  the existing `NotificationService`, carrying the operator, tier, the named records, the justification and the
+  request expiry — the two-party transparency the map describes. The template is deliberately absent from
+  `NotificationPreferenceService::MANAGEABLE`, and since only MANAGEABLE keys are ever written as preferences, a
+  governance request is always ON and no admin screen can switch it off.
+  **HONEST ABOUT THE CHANNEL:** the map draws in-app + email + push. **Only email exists** (the standing
+  SETTINGS.P5 seam), so only email is sent and only email is claimed. In-app and push remain unbuilt.
+  **NO OWNER, FAIL-CLOSED:** a tenant with no org_admin gets `operator.owner_unreachable` in its ledger and the
+  request simply waits and lapses. It never self-approves for want of someone to ask.
+  **TWO-SIDED AUDIT:** the decision is recorded with the **OWNER as actor** (`actor_type = 'user'`), not the
+  operator — the clinic's own ledger showing its own admin deciding, beside the operator's request.
+  **ONE FLAGGED CONTRACT CHANGE.** G2's no-self-approval test asserted that NO `approve` verb existed, which was
+  true while nothing could decide. G3 adds `approve()`, so the assertion became the stronger one it was always
+  reaching for: the operator still cannot activate their own request, now because the decision demands a
+  target-tenant org_admin. `selfApprove`/`activate`/`grant` still do not exist. No other existing test was
+  modified.
+  **NOT IN THIS GATE:** no elevated-session mechanics beyond G1's invariant (G4), no route and no UI (G6+) — so
+  there is still no HTTP path to Operator Mode. **Still open:** whether Operator Mode ships in the first
+  deployment at all, and whether an "all patient records" scope is ever permitted. See [[Platform]],
+  `docs/features/OPERATOR-MODE-MAP.md`, [[LOG]].

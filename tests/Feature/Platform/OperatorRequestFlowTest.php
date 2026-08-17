@@ -180,9 +180,18 @@ test('NO SELF-APPROVAL: an operator cannot turn their own pending request active
     orfCtx()->set($tenant);
     expect(Gate::forUser($operator)->allows('patient.view', ['patient_id' => 'PT-4471']))->toBeFalse();
 
-    // And there is no self-approval verb on the service at all.
+    // FLAGGED CONTRACT CHANGE (OPMODE.G3, D-163): this originally asserted that NO
+    // `approve` verb existed at all, which was true while nothing could decide a request.
+    // G3 adds `approve()` — but it is OWNER-gated, so the property being pinned here is
+    // unchanged and in fact stronger: the operator still cannot activate their own
+    // request, now because the decision demands a target-tenant org_admin.
+    expect(fn () => app(OperatorGrantService::class)->approve($grant, $operator))
+        ->toThrow(InvalidArgumentException::class)
+        ->and($grant->refresh()->status)->toBe(OperatorGrant::STATUS_PENDING);
+
+    // The verbs that would let an operator self-serve still do not exist.
     $methods = get_class_methods(OperatorGrantService::class);
-    foreach (['approve', 'selfApprove', 'activate', 'grant'] as $forbidden) {
+    foreach (['selfApprove', 'activate', 'grant'] as $forbidden) {
         expect(in_array($forbidden, $methods, true))->toBeFalse();
     }
 });

@@ -21,8 +21,10 @@ Deliberately deferred work. Not forgotten — parked until the right phase.
 > `PermissionService::has()` both returned an unconditional `true` for any super-admin, and the only thing
 > containing them was never being given a tenant context. A super-admin now reaches tenant data only through an
 > ACTIVE, UNEXPIRED, IN-TIER, IN-SCOPE `OperatorGrant`, regression-guarded. **OPMODE.G2 then added the request
-> flow** (D-162): asking grants NOTHING for the owner-gated tiers. **G3+ (owner approval, sessions, screens) is
-> BLOCKED on the one remaining product decision below.** There is still no route and no UI.
+> flow** (D-162): asking grants NOTHING for the owner-gated tiers. **OPMODE.G3 added the owner decision**
+> (D-163): only a target-tenant `org_admin` may approve / downgrade / decline, and approval is the ONLY
+> pending->active path. **G4+ (sessions, revoke, screens) is BLOCKED on the one remaining product decision
+> below.** There is still no route and no UI.
 
 - Migrate/validate DEV database to **MySQL 8** before production (MariaDB 10.4 is EOL; prod
   target is MySQL 8).
@@ -329,9 +331,9 @@ These are permanent non-goals for CareOS-authored code; only a certified partner
   ops/admin lane (draft-until-approved, autonomy-capped). **TRIGGER for all of the above: none for a homemade
   version (do not build).** A certified partner device is a separate commercial/regulatory decision.
 
-## Operator Mode — the chain after G2
+## Operator Mode — the chain after G3
 
-**OPMODE.G1 (the security core) and OPMODE.G2 (the request flow) are DONE** — see D-161 and D-162, and
+**OPMODE.G1 (security core), G2 (request flow) and G3 (owner decision) are DONE** — see D-161, D-162, D-163 and
 `docs/features/OPERATOR-MODE-MAP.md`. G1 was built first precisely because it closes a gap that exists whether
 or not the feature ever ships; G2 added the entry point where an operator asks, and proved that **asking grants
 nothing** for the owner-gated tiers.
@@ -341,18 +343,20 @@ so it now **REQUIRES the tenant owner's approval**; the wireframes drew it self-
 flagged as the design's weakest point. Only **`read_only` self-grants**, and only because it is non-PHI reads —
 the tier allow-list refuses every PHI ability, so self-granting it cannot expose a record.
 
-**⚠️ STILL BLOCKING — one decision remains before G3+:**
+**✅ ALSO SETTLED (D-163) — the OWNER is the tenant’s `org_admin`.** No new role was invented; a tenant may
+hold several, and all of them are notified and all may decide. **Honest about the channel: only EMAIL exists**
+(the standing SETTINGS.P5 seam) — in-app and push are not built and are not claimed.
+
+**⚠️ STILL BLOCKING — one decision remains before G4+:**
 1. **Is Operator Mode in scope for the first deployment at all, or a later feature?** It is a large,
-   security-critical subsystem (G3–G11) and the primary track is DEPLOYMENT. *Map recommendation: not in the
-   first deployment — and the reason to build G1/G2 anyway was that G1 closed a live bypass that existed
-   regardless, and G2 pinned the requesting-is-not-granting property while the design was fresh. Note that
-   there is still **no route and no UI**, so nothing is reachable over HTTP.*
+   security-critical subsystem (G4–G11) and the primary track is DEPLOYMENT. *Map recommendation: not in the
+   first deployment — the reason to build G1–G3 anyway was that G1 closed a live bypass that existed
+   regardless, and G2/G3 pinned the requesting-is-not-granting and owner-is-the-gate properties while the
+   design was fresh. Note that there is still **no route and no UI**, so nothing is reachable over HTTP.*
 
 **Parked until that is answered (each its own gate, per the map's §5 plan):**
 - ~~**G2 — the request flow.**~~ **DONE** (D-162).
-- **G3 — owner notification + the decision** (approve / approve-read-only-instead / decline) + request expiry.
-  Only a tenant owner of that tenant, never the requester (the T6 rule is already enforced in the issuing
-  service).
+- ~~**G3 — owner notification + the decision.**~~ **DONE** (D-163).
 - **G4 — the elevated session**: grant-derived tenant context, per-record scope checks, per-access audit rows.
 - **G5 — instant revoke + expiry sweep + the session receipt** (pages viewed, a real `0 changes` determination).
 - **G6–G11 — the screens**, each purely a display of proven server state (console · enter-confirm/active/ended ·

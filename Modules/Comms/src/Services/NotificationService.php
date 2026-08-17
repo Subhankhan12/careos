@@ -77,6 +77,20 @@ class NotificationService
             'subject' => 'Your video consultation',
             'body' => "Your care team has set up a video consultation.\nJoin here: {{join_url}}",
         ],
+        // OPMODE.G3: a platform operator is asking this tenant's owner for access. The
+        // recipient is STAFF (an org_admin), so it is never consent-gated, and the key is
+        // deliberately absent from NotificationPreferenceService::MANAGEABLE — a
+        // governance request must not be switchable off, and only MANAGEABLE keys are ever
+        // written as preferences, so this one is always ON.
+        'operator.access_requested' => [
+            'channel' => NotificationTemplate::CHANNEL_EMAIL,
+            'category' => NotificationTemplate::CATEGORY_TRANSACTIONAL,
+            'subject' => 'Support access request needs your approval',
+            'body' => "CareOS platform support is asking for temporary access to your clinic.\n"
+                ."Requested by: {{operator}}\nAccess level: {{tier}}\nScope: {{scope}}\n"
+                ."Why: {{justification}}\nThe request expires at: {{request_expires_at}}\n"
+                .'Nothing is accessible to them unless you approve.',
+        ],
     ];
 
     /**
