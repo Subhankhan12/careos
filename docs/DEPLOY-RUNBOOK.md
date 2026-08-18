@@ -29,7 +29,7 @@
 > | # | Section | Finding | Fix |
 > |---|---------|---------|-----|
 > | A | §7 scheduler | **BLOCKER** — `hospital:accrue-bed-days` (daily 05:30, inpatient per-diem accrual) was missing, and the table said "all eight" when [routes/console.php](../routes/console.php) defines **nine**. Without this cron, inpatient bed-day charges never accrue → hospital billing is incomplete. | Added the ninth row; corrected the count. |
-> | B | §11 step 3 | **DRIFT** — only the 6 clinic-era role templates were listed; [RbacProvisioner.php](../Modules/Platform/src/Services/RbacProvisioner.php) now seeds **17** (the hospital roles landed after this doc was drafted). A hospital customer could not be staffed from the runbook. | Listed all 17 templates, grouped by vertical. |
+> | B | §11 step 3 | **DRIFT** — only the 6 clinic-era role templates were listed; [RbacProvisioner.php](../Modules/Platform/src/Services/RbacProvisioner.php) seeds **26** (counted at DEPLOY.PROV; an earlier fix said 17 and was itself overtaken). A hospital customer could not be staffed from the runbook. | Listed the templates grouped by vertical. |
 > | C | §4 `.env` | **GAP** — the AiCore/LLM env block was absent; [config/aicore.php](../config/aicore.php) reads `ANTHROPIC_API_KEY` (no default) + `AICORE_*`. Without the key the front-desk agent + KB grounding silently fail (the AiCore CircuitBreaker degrades — the app still boots, but the AI features are dead). | Added an AiCore block (optional; graceful-degrade + the `AICORE_REGION=eu` data-residency note). |
 >
 > Re-verified STILL-CORRECT against current code: `LIVEKIT_HOST`/`LIVEKIT_API_KEY`/`LIVEKIT_API_SECRET` ([config/telehealth.php:15-20](../config/telehealth.php#L15-L20)); both asset builds ([package.json:5-6](../package.json#L5-L6)); `QUEUE_CONNECTION`/`CACHE_STORE`/`SESSION_DRIVER` all default to a NON-redis store, so the redis overrides are load-bearing; PHI on the private `local` disk (root `storage/app/private`, 10× `Storage::disk('local')`, **zero** public-URL leak on any PHI path); the Horizon dashboard gate = super-admin (`viewHorizon` → `isSuperAdmin`); **all 194 module migrations** are covered by `migrate --force` (every one of the 19 modules calls `loadMigrationsFrom` in its `src/Providers/*ServiceProvider.php`); `utf8mb4_unicode_ci`; and the demo-seeder class names (namespace `Database\Seeders`, so the short `--class=` name resolves).
@@ -210,6 +210,52 @@ ANTHROPIC_API_KEY=CHANGE_ME_ANTHROPIC_KEY   # no default in code — AI features
 
 ---
 
+### 4a — THE MUST-FILL LIST (DEPLOY.PROV)
+
+**Every key below was checked against the real default in `config/*.php`.** "Failure mode" is what actually
+happens if you leave it at that default — several of them fail **silently**, which is why this list exists.
+
+#### REQUIRED — a real value, or the app is wrong (not merely degraded)
+
+| Key | Set it to | Code default | Failure mode if defaulted/wrong |
+|---|---|---|---|
+| `APP_KEY` | `php artisan key:generate` | *(none)* | **Boot failure**, and every encrypted value — including each user's `two_factor_secret` — is unreadable. Never reuse a key across environments. |
+| `APP_ENV` | `production` | `production` | Non-production behaviour and debug affordances. |
+| `APP_DEBUG` | `false` | `true` in `.env.example` | 🔴 **Stack traces, config and PHI leak to the public.** |
+| `APP_URL` | the real HTTPS URL | `http://localhost` | Broken links in every email (password reset, 2FA, portal, staff invite), wrong asset URLs, and Sanctum's stateful-domain default derives from it. |
+| `DB_CONNECTION` | `mysql` | **`sqlite`** | 🔴 The app silently targets SQLite — **not** the MySQL 8 you just provisioned. |
+| `DB_HOST` `DB_PORT` `DB_DATABASE` `DB_USERNAME` `DB_PASSWORD` | real values | `laravel` / `root` / blank | Connection failure, or connecting to the wrong database as root. Use a least-privilege app user. |
+| `QUEUE_CONNECTION` | `redis` | **`database`** | 🔴 **The classic silent failure.** Horizon consumes only `redis`. Left at `database`, **Horizon reports healthy and processes nothing** — appointment reminders and every notification never send. |
+| `CACHE_STORE` | `redis` | `database` | Works, but slow, and it wastes the Redis you provisioned. |
+| `SESSION_DRIVER` | `redis` | `database` | Same. |
+| `REDIS_HOST` `REDIS_PORT` `REDIS_CLIENT` | real values | `127.0.0.1` / `6379` / `phpredis` | With `REDIS_CLIENT=phpredis` the `php8.2-redis` extension **must** be installed or the app fails at runtime. Use `predis` to avoid the extension. |
+| `SESSION_SECURE_COOKIE` | `true` | **no default at all → `null`** | 🔴 The session cookie is **not** marked `Secure`, so it can travel in plaintext. The AUTH-SEC remember-me/2FA work assumes an HTTPS-only session floor. |
+| `MAIL_MAILER` + `MAIL_HOST` `MAIL_PORT` `MAIL_USERNAME` `MAIL_PASSWORD` `MAIL_FROM_ADDRESS` | real SMTP | **`log`** | 🔴 **Every message is written to the log and nothing is delivered.** Breaks password reset, staff invites, appointment reminders, dunning, portal messages — and the **operator owner-approval notification**, which is email-only. |
+
+#### REQUIRED-IF-USED
+
+| Key | Default | Failure mode |
+|---|---|---|
+| `LIVEKIT_HOST` `LIVEKIT_API_KEY` `LIVEKIT_API_SECRET` | **`https://livekit.invalid`** / `''` / `''` | Telehealth fails to connect. **The code reads `LIVEKIT_HOST` — `LIVEKIT_URL` is NOT read**, so setting that leaves the host at `.invalid` and telehealth fails silently. Omit the block entirely if telehealth is not sold. |
+| `MAIL_SCHEME` | *(none)* | Laravel 12 uses `MAIL_SCHEME`, **not** `MAIL_ENCRYPTION`. Leave unset for port 587 (STARTTLS); set `smtps` **with** `MAIL_PORT=465`. |
+| `MYSQL_ATTR_SSL_CA` | *(none)* | Only for a managed MySQL that requires TLS. |
+
+#### OPTIONAL — degrades gracefully, and honestly
+
+| Key | Default | Behaviour if absent |
+|---|---|---|
+| `ANTHROPIC_API_KEY` | *(none)* | ✅ **The app boots normally.** The AiCore circuit breaker degrades every AI call; agents stay draft-until-approved and never enter the clinical-decision path. Only the front-desk agent and KB answers stop working. Safe to omit for a non-AI customer. |
+| `AICORE_REGION` | `eu` | Keep `eu` for EU data residency. |
+| `AICORE_DEFAULT_MONTHLY_BUDGET_MINOR` | `5000` | Per-tenant AI spend cap. |
+| `SANCTUM_STATEFUL_DOMAINS` | derives from `APP_URL` | Set only for a split API/SPA domain. |
+| `HORIZON_PATH` / `_DOMAIN` / `_NAME` | `horizon` | Cosmetic; `/horizon` is already gated to super-admins. |
+| `LOG_*`, `SESSION_LIFETIME`, `SESSION_SAME_SITE`, `FILESYSTEM_DISK` | safe | `FILESYSTEM_DISK=local` selects the **private** disk. PHI paths hardcode `disk('local')` regardless, so PHI stays private either way. |
+
+> **Read three lines back before moving on:** `APP_DEBUG=false`, `QUEUE_CONNECTION=redis`,
+> `SESSION_SECURE_COOKIE=true`. Those three are the ones that bite hardest and each fails quietly.
+
+---
+
 ## 5 — App key + storage
 
 ```bash
@@ -238,6 +284,13 @@ php artisan migrate --force
 
 # Confirm zero pending
 php artisan migrate:status      # every migration should read "Ran"
+
+# Seed the PRODUCTION catalogs (permissions + plans). REQUIRED, and safe to re-run.
+# DatabaseSeeder calls ONLY the catalogs — it contains no demo seeder, so this can never
+# create a fake clinic. Skipping it leaves the plans table EMPTY, and a tenant with no plan
+# has EVERY feature silently OFF (FeatureService returns false) — telehealth, EVV, ai_drafting.
+php artisan db:seed --force
+php artisan plans:seed          # equivalent, idempotent, and explicit about what it does
 
 # Cache config, routes, views, events (production performance)
 php artisan config:cache
@@ -424,9 +477,31 @@ php artisan db:seed --class=DemoDentalSeeder     # zahnarztpraxis-morgenstern (C
 
 Once the platform is live, bring each paying customer online. Same sequence per customer:
 
-1. **Create their tenant** (their practice), set locale/currency (CHF for the Swiss clinic; the dentist's currency), and the practice profile (W8b) — branches, opening hours, timezone. (Branch CRUD + 7-day opening-hours editor + timezone exist under `admin.branches.*` / `settings.*`.)
+1. **Create their tenant and its first administrator — two commands, no Tinker** (DEPLOY.PROV):
+
+   ```bash
+   # The tenant. Fires RbacProvisioner, seeding all 26 starter role templates.
+   # Refuses a duplicate slug rather than half-creating. Give it a plan: a tenant
+   # with NO plan has every feature silently OFF (FeatureService returns false).
+   php artisan tenant:create "Praxis Example" \
+       --slug=praxis-example --plan=eu_pro \
+       --currency=CHF --locale=de --timezone=Europe/Zurich
+
+   # The FIRST org_admin. This is the one bootstrap that needs no existing user —
+   # the in-app invite flow cannot create it, because inviting requires an admin.
+   # Prints a one-time temporary password; deliver it out of band.
+   php artisan tenant:add-admin praxis-example \
+       --email=owner@praxis-example.test --name="Dr Anna Vogt"
+   ```
+
+   On first login that administrator is **required to enrol two-factor authentication** before reaching the
+   app — 2FA is mandatory and has no skip path. Every subsequent staff member is created through the normal
+   in-app invite flow, not these commands (`tenant:add-admin` refuses a second admin on purpose).
+
+   Then set the practice profile (W8b) — branches, opening hours, timezone — in the app. (Branch CRUD + the
+   7-day opening-hours editor + timezone live under `admin.branches.*` / `settings.*`.)
 2. **Set up their branch(es) + resources** (W8b/W8c): rooms/chairs via `admin.resources.*`. **⚠️ Availability windows have no admin screen yet** (the W8c availability UI is a documented deferred follow-up) — a resource's availability rows must be **seeded programmatically** today. This matters: **until a resource has availability rows, the slot finder returns zero bookable slots for it.** Plan to seed availability as part of onboarding, or scheduling will appear empty.
-3. **Assign roles** (W8): create their users and assign the built role templates. `RbacProvisioner` now seeds **17** templates (the hospital roles landed after the first draft) — assign only the ones the customer's vertical needs:
+3. **Assign roles** (W8): create their users and assign the built role templates. `RbacProvisioner` seeds **26** templates (verified against the code at DEPLOY.PROV; an earlier draft said 17, before nine more hospital roles landed) — assign only the ones the customer's vertical needs:
    - **Clinic / shared:** `org_admin`, `coordinator`, `doctor`, `nurse`, `reception`, `billing`.
    - **Inpatient / ADT:** `ward_nurse`, `charge_nurse`.
    - **Pharmacy:** `pharmacist`.
@@ -459,6 +534,21 @@ php artisan horizon:terminate        # Supervisor restarts Horizon on new queued
 php artisan up
 ```
 Then re-run the step-9 verification (at least: 404-not-stacktrace, Horizon running + consuming redis, scheduler firing, a smoke click-through, fail-closed 404).
+
+---
+
+## Three things that are easy to skip and always hurt
+
+1. **Build BOTH bundles ON THE SERVER, every release.** `public/build` and `public/nurse-pwa` are
+   **gitignored**, so they never arrive with `git pull`. Missing `public/build/manifest.json` means every
+   Inertia page fails to boot; a stale one serves old JS against new server props. `npm run build` and
+   `npm run build:pwa` produce DISJOINT outputs — the main build never contains the PWA.
+2. **Horizon and the scheduler are both daemons, and both are required.** Green tests do not run them.
+   Without Horizon nothing queued ever runs (reminders, notifications). Without the scheduler cron all nine
+   scheduled commands stop — bed-day accrual silently ceases, the reconcile alarm never fires, held
+   waitlist slots never release, and the nursing visit horizon empties the dispatcher board.
+3. **Seed the catalogs (§6).** Skipping `db:seed --force` / `plans:seed` leaves the plans table empty, and a
+   tenant with no plan has every feature silently OFF.
 
 ---
 

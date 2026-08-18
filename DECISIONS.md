@@ -3012,3 +3012,50 @@ references the old ID.
   wildcard exists in any form, so the only way to reach a record is to have named it. The other settled
   decisions (configuration requires owner approval; owner = the tenant's `org_admin`) already hold.
   See [[OperatorMode]], `docs/features/OPERATOR-MODE-MAP.md`, [[LOG]].
+
+- **D-165 — First-customer provisioning is a real, refusing, repeatable command path (DEPLOY.PROV).**
+  The pre-deploy readiness check found that the thing blocking the first paying customer was not the
+  application but the **absence of any way to create one**: `Tenant::create` existed only inside the three demo
+  seeders — no route, no controller, no command — so the runbook's "Create their tenant" step had nothing
+  behind it, and there was **no `User::create` in production code at all** outside `StaffInviteService`, which
+  requires an already-authenticated admin to send an invite. The first administrator of a new tenant therefore
+  could not be invited by anyone. Both gaps were closable only by undocumented Tinker, which is not a
+  provisioning process.
+  **THREE COMMANDS, and deliberately no HTTP surface.** `tenant:create` makes a REAL, MINIMAL tenant — name,
+  slug, region, plan, and the locale/currency/timezone settings — and seeds no patients, staff or money; it is
+  not a demo seeder. `tenant:add-admin` creates the FIRST org_admin. `plans:seed` seeds the real subscription
+  plans. Provisioning is an operator action on the box, not a public endpoint, so none of them is reachable
+  over the wire.
+  **THE ROLE TEMPLATES ARE NOT RE-IMPLEMENTED.** `tenant:create` relies on the existing `Tenant::created` hook
+  firing `RbacProvisioner::provisionTenant()`, which syncs the permission catalog and seeds every starter role.
+  The command then **verifies the hook actually fired and reports the count**, rather than assuming it — a
+  tenant with no roles cannot be administered, and that is exactly the kind of thing discovered expensively and
+  late.
+  **REFUSAL IS THE DESIGN.** A duplicate slug is refused *before* anything is written, so a re-run can never
+  half-create a tenant or silently attach to an existing customer. An unknown plan is refused with the list of
+  real ones (and, when the table is empty, with the command to fix it) — again before any write. And
+  `tenant:add-admin` **refuses when the tenant already has an org_admin**: once one exists there is somebody who
+  can invite the next, so the bootstrap steps aside rather than becoming a permanent second path to user
+  creation. It is the ONE bootstrap that needs no existing user, and it stays that way.
+  **NOTHING IS WEAKENED. Mandatory 2FA still applies to the bootstrapped admin** — the command creates no
+  `two_factor_secret`, so `EnsureTwoFactorEnabled` sends them to enrolment on first login and they cannot reach
+  the app until they enrol; there is no skip path and this creates none (asserted by test). Tenancy stays
+  fail-closed: the tenant-scoped writes run inside an explicitly set context that is **restored afterwards**, so
+  a caller's context is never clobbered. The RBAC grant goes through the real `RoleAssignment::create` (which
+  fires the audited `role.assigned`) with `branch_id = null`, because a branch-scoped assignment does not answer
+  gate checks that pass no branch.
+  **THE SILENT FAILURE M3 FIXED AT THE ROOT.** `tenants.plan_id` is nullable and `FeatureService` falls through
+  to `false` for every feature when a tenant has no plan — so on a fresh production database, where the runbook
+  never ran `db:seed`, telehealth/EVV/ai_drafting were all quietly OFF with nothing to indicate why. The
+  release sequence now seeds the catalogs, `plans:seed` makes the step explicit and idempotent, and
+  `tenant:create` takes a plan and warns loudly when asked for none.
+  **THE PRODUCTION SEED PATH STAYS DEMO-FREE**, and that is now pinned by a test rather than left to
+  convention: `DatabaseSeeder` calls only the permission and plan catalogs, so `db:seed --force` is both safe
+  and REQUIRED in production, and a demo tenant can only appear if someone explicitly types `--class=Demo…`.
+  **A DOCUMENTATION DRIFT CAUGHT BY RUNNING THE THING.** The live run reported **26** starter role templates,
+  not the **17** claimed by the runbook — and by the readiness check, which had inherited the figure from the
+  runbook instead of counting. Nine hospital roles had landed since. Both documents are corrected, and the test
+  asserts `count(RbacProvisioner::ROLE_TEMPLATES)` so the number can never drift again.
+  **The pre-deploy verdict moves from 🟡 CONDITIONAL GO to 🟢 GO.** M1–M4 are resolved; the two SHOULD-FIXes
+  (S1 unscheduled audit partitions — which degrade rather than fail, and S2 unguarded demo seeders) remain open
+  and non-blocking. See [[Platform]], `docs/DEPLOY-READINESS-CHECK.md`, `docs/DEPLOY-RUNBOOK.md`, [[LOG]].

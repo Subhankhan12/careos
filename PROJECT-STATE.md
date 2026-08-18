@@ -334,6 +334,14 @@ two optional Appointment follow-ons · (e) the open password-policy decision · 
 **If asked "what's next?", the answer is DEPLOY** — not a new vertical, not a new parity page, and not G4. The
 security-critical work that was worth doing ahead of deployment is **done**.
 
+**✅ FIRST-CUSTOMER PROVISIONING NOW EXISTS (DEPLOY.PROV, D-165).** The pre-deploy readiness check found
+that what blocked the first customer was not the app but the absence of any way to create one. Three
+commands close it — **`plans:seed`**, **`tenant:create`** and **`tenant:add-admin`** (the first-org_admin
+bootstrap the invite flow structurally cannot do). All refuse rather than half-create; mandatory 2FA still
+applies to the bootstrapped admin; the production seed path stays demo-free. **The readiness verdict moved
+from 🟡 CONDITIONAL GO to 🟢 GO** — see `docs/DEPLOY-READINESS-CHECK.md`. The runbook now carries a
+MUST-FILL `.env` section, seeds the catalogs in its release sequence, and documents both commands.
+
 **1. DEPLOYMENT to the paying customers — the real next unit of value.** The assets are ready and rehearsed:
 the deployment runbook (`docs/DEPLOY-RUNBOOK.md`), the audited deploy-readiness reconciliation against the
 eight-vertical code (`e9f9247`), the production `.env` template with placeholders only and no secrets

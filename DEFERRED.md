@@ -10,7 +10,7 @@ Deliberately deferred work. Not forgotten — parked until the right phase.
 >
 > | # | Track | State |
 > |---|---|---|
-> | **(a)** | **DEPLOYMENT to the paying customers** | **THE REAL NEXT VALUE.** Runbook + `.env` template + rehearsed onboarding all ready. ⚠️ An **undiagnosed staging error** is still parked — expect to reproduce it first. |
+> | **(a)** | **DEPLOYMENT to the paying customers** | **THE REAL NEXT VALUE.** Runbook + `.env` template + rehearsed onboarding ready, and **first-customer provisioning now exists** (`plans:seed` / `tenant:create` / `tenant:add-admin`, D-165) — the readiness verdict is **🟢 GO**. ⚠️ An **undiagnosed staging error** is still parked — expect to reproduce it first. |
 > | **(b)** | **Waitlist Management** | AUDITED (`docs/wireframe-parity/WAITLIST-MANAGEMENT-DIFF.md`), **fix chain NOT started**. Blocker: nothing can add anyone to the waitlist today. |
 > | **(c)** | **Operator Mode G4–G11** | **DELIBERATELY DEFERRED to post-first-customer (D-164)** — operator convenience UI. Backend inert, no HTTP surface. **NOT unfinished by accident.** |
 > | **(d)** | Two optional Appointment follow-ons | APPT.P4 room-capability field · APPT.P5 preferred-practitioner filter. Real backend gaps the page honestly omits. |
@@ -405,3 +405,20 @@ Decoded alongside Waitlist Management and determined **not** to be a parity page
 word "approval" with the completed Approval Queue — zero overlap on every substantive marker (no `agent`, no
 `✦` AI badge, no suggest/ceiling/re-authorise/re-ground/fence). **Folded into the Operator Mode MAP** as part of
 G6–G11; it is not a separate backlog item.
+
+## Pre-deploy SHOULD-FIXes (from DEPLOY-READINESS-CHECK.md — non-blocking)
+
+The four BLOCKERS (M1–M4) were closed by DEPLOY.PROV (D-165). These two remain, deliberately:
+
+- **S1 — `audit:ensure-partitions` is not scheduled.** `audit_events` is RANGE-partitioned monthly, but the
+  maintenance command that extends the partitions is absent from `routes/console.php`. **It degrades rather
+  than fails:** a `p_max VALUES LESS THAN (MAXVALUE)` catch-all absorbs every row past the last real partition,
+  so inserts keep working — what is lost is the monthly partitioning benefit (pruning, retention by partition,
+  query locality), which silently accumulates into one growing partition.
+  **TRIGGER:** before go-live, or the first time audit retention/pruning matters. One scheduler line.
+- **S2 — the four demo seeders carry no production guard.** No `App::environment()` check, no abort.
+  **Mitigated:** they are NOT in `DatabaseSeeder` (pinned by a test in `ProvisioningCommandsTest`), so
+  `db:seed --force` is safe and required in production; a demo tenant can only appear if someone explicitly
+  types `--class=Demo…`. The residual risk is human error — copying the runbook's §10 demo line onto a
+  customer host. **TRIGGER:** cheap hardening whenever convenient — add an
+  `app()->environment('production')` refusal to each demo seeder.

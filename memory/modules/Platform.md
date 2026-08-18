@@ -459,6 +459,38 @@ in the first deployment at all**, and whether an "all patient records" scope is 
 See `docs/features/OPERATOR-MODE-MAP.md`.
 
 
+
+## First-customer provisioning (DEPLOY.PROV, D-165)
+
+**Three artisan commands, no HTTP surface** — provisioning is an operator action on the box, not an endpoint.
+They closed the pre-deploy blockers M1-M4: before them `Tenant::create` existed ONLY in the demo seeders and
+there was NO `User::create` in production code outside `StaffInviteService` (which needs an authenticated
+admin to invite), so the first customer could only be made by undocumented Tinker.
+
+- **`plans:seed`** - the real subscription plans, idempotent (`updateOrCreate` on `key`), demo-free. Without
+  it the `plans` table is empty, and since `tenants.plan_id` is nullable and `FeatureService` returns
+  `false` with no plan, **every feature is silently OFF** (telehealth/EVV/ai_drafting). That was M3.
+- **`tenant:create`** - a REAL, MINIMAL tenant (name/slug/region/plan + locale/currency/timezone settings);
+  seeds no patients, staff or money. Relies on the existing `Tenant::created` -> `provisionTenant()` hook for
+  the starter roles and then **VERIFIES the hook fired**, reporting the count. **REFUSES a duplicate slug**
+  and an unknown plan BEFORE any write, so a re-run can never half-create.
+- **`tenant:add-admin`** - the FIRST org_admin; the one bootstrap needing no existing user. **REFUSES a
+  second admin** (once one exists they can invite the next), refuses a duplicate email. Uses the real paths:
+  `User::create` (password hash-cast) + `RoleAssignment::create` (fires the audited `role.assigned`) with
+  `branch_id = null`, because a branch-scoped assignment does not answer gate checks that pass no branch.
+
+**Nothing weakened.** Mandatory 2FA still applies to the bootstrapped admin (no `two_factor_secret` is
+created, so `EnsureTwoFactorEnabled` forces enrolment on first login - asserted by test). Tenant-scoped
+writes run in an explicitly set context that is **restored afterwards**. Console writes audit as
+`actor_type = service` (no authenticated user), which is honest for an operator-run command.
+
+**COUNT CORRECTION:** `RbacProvisioner::ROLE_TEMPLATES` holds **26** templates, not the 17 the runbook and
+the readiness check both claimed - caught by running the command. The test asserts
+`count(RbacProvisioner::ROLE_TEMPLATES)` so it cannot drift again.
+
+Locked by `tests/Feature/Platform/ProvisioningCommandsTest.php` (9), which also pins that
+**`DatabaseSeeder` contains no demo seeder** - so `db:seed --force` is safe AND required in production.
+
 ## Open items
 
 - ABAC condition evaluation (`abac_conditions`) not yet implemented (Phase B, needs patients/audit).

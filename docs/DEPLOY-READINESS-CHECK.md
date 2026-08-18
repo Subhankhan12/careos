@@ -10,7 +10,16 @@ box against the repo at `30ceeee`, CI green, tree clean.
 
 ---
 
-## VERDICT: 🟡 **CONDITIONAL GO**
+> **UPDATE — DEPLOY.PROV (2026-08-18): M1, M2, M3 and M4 are RESOLVED. The verdict is now 🟢 GO.**
+> `tenant:create`, `tenant:add-admin` and `plans:seed` exist and are tested; the runbook has a MUST-FILL
+> section, runs the production catalog seed in its release sequence, and documents the two provisioning
+> commands in place of the old "create their tenant" hand-wave. The two SHOULD-FIXes (S1 unscheduled
+> partitions, S2 unguarded demo seeders) remain open and are still non-blocking.
+> **One correction this gate surfaced: the role-template count is 26, not the 17 stated below and in the
+> runbook — counted from `RbacProvisioner::ROLE_TEMPLATES`. Both documents are now fixed.**
+> The original audit is preserved unedited below, since it is what the fixes were built against.
+
+## VERDICT: 🟡 **CONDITIONAL GO** → 🟢 **GO** (see the update above)
 
 **The application is deploy-ready. The gaps are in PROVISIONING and the RUNBOOK, not in the code.**
 
@@ -25,10 +34,10 @@ process/documentation, and each is small.
 
 | | Finding | Severity |
 |---|---|---|
-| **M1** | **No tenant-creation path exists.** `Tenant::create` appears ONLY in the three demo seeders — no route, no controller, no artisan command. Runbook §11.1 says "Create their tenant" without a mechanism. | 🔴 **BLOCKER** |
-| **M2** | **No first-user bootstrap.** There is no `User::create` anywhere in production code outside `StaffInviteService`, which itself requires an already-authenticated admin. Chicken-and-egg for the first org_admin. | 🔴 **BLOCKER** |
-| **M3** | **Plans are never seeded.** The runbook's release sequence (§6) runs `migrate --force` but **never `db:seed`**; the only `db:seed` in the document seeds *demo tenants* (§10). `tenants.plan_id` is nullable, and `FeatureService` falls through to `false` when a tenant has no plan — so **every plan-gated feature (telehealth, EVV, ai_drafting) is silently OFF**. | 🔴 **BLOCKER** (silent) |
-| **M4** | The `.env` MUST-FILL set (§2) — 13 keys with no safe default. | 🔴 **BLOCKER** |
+| **M1** ✅ **RESOLVED (DEPLOY.PROV)** | **No tenant-creation path exists.** `Tenant::create` appears ONLY in the three demo seeders — no route, no controller, no artisan command. Runbook §11.1 says "Create their tenant" without a mechanism. | 🔴 **BLOCKER** |
+| **M2** ✅ **RESOLVED (DEPLOY.PROV)** | **No first-user bootstrap.** There is no `User::create` anywhere in production code outside `StaffInviteService`, which itself requires an already-authenticated admin. Chicken-and-egg for the first org_admin. | 🔴 **BLOCKER** |
+| **M3** ✅ **RESOLVED (DEPLOY.PROV)** | **Plans are never seeded.** The runbook's release sequence (§6) runs `migrate --force` but **never `db:seed`**; the only `db:seed` in the document seeds *demo tenants* (§10). `tenants.plan_id` is nullable, and `FeatureService` falls through to `false` when a tenant has no plan — so **every plan-gated feature (telehealth, EVV, ai_drafting) is silently OFF**. | 🔴 **BLOCKER** (silent) |
+| **M4** ✅ **RESOLVED (DEPLOY.PROV)** | The `.env` MUST-FILL set (§2) — 13 keys with no safe default. Now a section in the runbook. | 🔴 **BLOCKER** |
 | **S1** | `audit:ensure-partitions` exists but is **not scheduled**. Degrades rather than fails (a `p_max` MAXVALUE catch-all absorbs everything), but monthly partitioning/retention is lost. | 🟠 Should-fix |
 | **S2** | The four demo seeders carry **no production guard** — no `App::environment()` check, no abort. | 🟠 Should-fix |
 
@@ -242,16 +251,16 @@ hook). There is **no route, no controller and no artisan command**. The `/admin`
 and `resources/js/pages/Admin/` contains only *tenant-scoped* admin screens (Branches, Roles, Settings…) — the
 Super-Admin **Tenants** console is an Operator Mode screen (G6+), deliberately not built.
 
-**The only working mechanism today is tinker.** The good news: it is a genuinely complete path, because
+**The only working mechanism at the time of this audit was tinker** (SUPERSEDED by `tenant:create` in DEPLOY.PROV — use the command, not this). The good news: it is a genuinely complete path, because
 `Tenant::created` fires `RbacProvisioner::provisionTenant()`, which **calls `syncPermissionCatalog()` first** —
-so the permission catalog self-heals and all **17 role templates** are seeded for the new tenant automatically.
+so the permission catalog self-heals and all **26 role templates** are seeded for the new tenant automatically. *(Counted at DEPLOY.PROV; this document originally said 17, inherited from the runbook rather than counted.)*
 
 ```bash
 php artisan tinker
 >>> $t = \Modules\Platform\Models\Tenant::create([
 ...   'name' => 'Praxis Example', 'slug' => 'praxis-example',
 ...   'region' => 'eu', 'status' => 'active',
-... ]);                                    # fires RbacProvisioner -> 17 role templates
+... ]);                                    # fires RbacProvisioner -> 26 role templates
 >>> $t->plan_id = \Modules\Platform\Models\Plan::where('key','eu_pro')->value('id');  # M3 — do NOT skip
 >>> $t->save();
 ```
