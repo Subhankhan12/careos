@@ -2983,3 +2983,32 @@ references the old ID.
   there is still no HTTP path to Operator Mode. **Still open:** whether Operator Mode ships in the first
   deployment at all, and whether an "all patient records" scope is ever permitted. See [[Platform]],
   `docs/features/OPERATOR-MODE-MAP.md`, [[LOG]].
+
+- **D-164 — Operator Mode is PAUSED after its security core, deliberately, with no HTTP surface.**
+  The Operator Mode chain (`docs/features/OPERATOR-MODE-MAP.md`, G1–G11) stops after **G3**. This is an
+  explicit product decision, recorded so no future session mistakes it for unfinished work.
+  **WHAT IS DONE AND WHY IT WAS WORTH DOING FIRST.** The MAP found a **live containment gap that existed
+  whether or not the feature ever shipped**: `Gate::before` returned `true` unconditionally for any super-admin
+  and `PermissionService::has()` did the same, so the only thing keeping a platform operator out of a clinic's
+  PHI was never being handed a tenant context — containment by accident, not by decision. **G1 closed it**
+  (D-161): a super-admin now reaches tenant data only through an ACTIVE, UNEXPIRED, IN-SCOPE, IN-TIER,
+  owner-approved grant, fail-closed at both former bypass points and regression-guarded. **G2** (D-162) then
+  pinned *requesting is not granting*, and **G3** (D-163) pinned *the owner is the gate* — the two properties
+  most easily got wrong once screens exist, fixed while the design was fresh. That work is COMPLETE.
+  **WHAT IS DEFERRED, AND WHAT IT IS.** G4 (elevated-session mechanics), G5 (mid-session revoke + expiry +
+  the session receipt) and G6–G11 (the ~7 operator/owner screens) are **operator-facing convenience UI**, to be
+  built **after the first customer is live**. They add no safety property that G1–G3 do not already enforce —
+  the invariant, the request flow and the owner decision are what make the feature safe, and they are done.
+  **THE RESTING STATE IS SAFE, NOT HALF-BUILT.** There is **no HTTP route, no controller and no UI**; nothing
+  can reach Operator Mode over the wire. The backend is inert but correct and tested (40 tests). Nothing
+  operator-related is scheduled either, which is deliberate: with no surface there are no live requests to
+  sweep. A feature that cannot be invoked cannot be exploited, so pausing here costs nothing in risk.
+  **WHY PAUSE RATHER THAN FINISH.** The single highest-value track is DEPLOYMENT to the paying customers. The
+  part of Operator Mode that was genuinely urgent was the part that fixed a live defect; the rest is workflow
+  convenience for a platform team that does not yet have a live customer to support. Finishing it first would
+  have spent security-critical attention on screens.
+  **HOW TO RESUME:** read the MAP, then start at **G4**. Answer the one open scope question first if the answer
+  might be "yes": **is an "all patient records" scope ever permitted?** It is currently FAIL-CLOSED — no
+  wildcard exists in any form, so the only way to reach a record is to have named it. The other settled
+  decisions (configuration requires owner approval; owner = the tenant's `org_admin`) already hold.
+  See [[OperatorMode]], `docs/features/OPERATOR-MODE-MAP.md`, [[LOG]].

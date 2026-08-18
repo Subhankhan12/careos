@@ -242,11 +242,19 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
 
 ---
 
-## OPERATOR MODE — IN PROGRESS (the security core has landed)
+## OPERATOR MODE — ⏸️ PAUSED AFTER ITS SECURITY CORE (G1–G3 done; G4–G11 DELIBERATELY DEFERRED)
 
-**A second track opened on 2026-08-17: the OPERATOR MODE subsystem** (`docs/features/OPERATOR-MODE-MAP.md` —
-14 states, 2 arms, mapped in full before any code). **OPMODE.G1 is DONE**, and it did something independent of
-the feature: it **closed a live containment gap**. `Gate::before` returned `true` unconditionally for every
+> **THE STATE IS DELIBERATE — read this before assuming anything is unfinished.**
+> **G1–G3 are DONE and LIVE-SAFE**, and they shipped a **real security fix**: the live super-admin containment
+> gap is **CLOSED**. **G4–G11 are DEFERRED by an explicit product decision (D-164)** — they are *not*
+> unfinished by accident and they do *not* need finishing before deployment.
+> **There is NO HTTP route and NO UI**: Operator Mode is **backend-only and inert**, unreachable over the wire
+> until G4+ wires a surface. A feature that cannot be invoked cannot be exploited, so this is a safe resting
+> state. Per-feature detail: `memory/modules/OperatorMode.md`; the plan: `docs/features/OPERATOR-MODE-MAP.md`.
+
+**Opened 2026-08-17: the OPERATOR MODE subsystem** (`docs/features/OPERATOR-MODE-MAP.md` — 14 states, 2 arms,
+mapped in full before any code). **OPMODE.G1 is DONE**, and it did something independent of the feature: it
+**closed a live containment gap**. `Gate::before` returned `true` unconditionally for every
 super-admin, and `PermissionService::has()` did the same for `hasPermission()`; the only thing keeping a
 super-admin out of a clinic's data was never being given a tenant context, so `TenantScope` threw —
 **containment by accident, not by decision**, and Operator Mode's core action is precisely to give an operator
@@ -275,21 +283,56 @@ granted" survive) or **DECLINE** (activates nothing, terminal). Only a target-te
 operator can't, another tenant's admin can't, plain staff can't. The decision is audited with the **owner** as
 actor, which is the two-sided part. D-163.
 
-**TWO DECISIONS SETTLED:** `configuration` requires owner approval (D-162, it is a WRITE tier); the owner IS the
-tenant's `org_admin` (D-163). **STILL OPEN: is Operator Mode in scope for the first deployment at all?** — plus
-whether an "all patient records" scope is ever permitted.
+**⏸️ AND THERE THE CHAIN STOPS, ON PURPOSE (D-164).** The remaining gates are **operator-facing convenience
+UI**, to be built **after the first customer is live**: **G4** elevated-session mechanics · **G5** mid-session
+revoke + expiry + the session receipt · **G6–G11** the ~7 operator/owner screens. They add **no safety property
+that G1–G3 do not already enforce** — the invariant, the request flow and the owner decision are what make the
+feature safe, and they are complete and tested (40 tests). The part that was genuinely urgent was the part that
+fixed a live defect; the rest is workflow convenience for a platform team that does not yet have a live
+customer to support.
 
-**Still NO session machinery beyond G1 (G4), NO route and NO UI** — there is no HTTP path to Operator Mode.
-Note the notification is **email only**; in-app and push do not exist (the standing SETTINGS.P5 seam).
+**Consequences of the pause, stated plainly:** no HTTP route, no controller, no UI; the backend is **inert but
+correct**; nothing operator-related is scheduled (deliberate — with no surface there are no live requests to
+sweep). The notification is **email only** (in-app and push do not exist — the standing SETTINGS.P5 seam).
+
+**DECISIONS SETTLED:** `configuration` requires owner approval (D-162, it is a WRITE tier); the owner IS the
+tenant's `org_admin` (D-163); the chain pauses after G3 (D-164).
+**STILL OPEN — answer before G4 if it might be "yes": is an "all patient records" scope ever permitted?**
+Currently **FAIL-CLOSED — no wildcard exists in any form**, so the only way to reach a record is to have named
+it. **To resume: read the MAP, start at G4.**
+
+---
+
+## TWO WIREFRAMES TRIAGED AFTER THE PARITY PASS CLOSED (2026-08-17)
+
+Two further wireframes were decoded from the design pack and triaged. **Neither reopens the nine-page pass.**
+
+- **WAITING ON APPROVAL — *not* a parity page.** It turned out to be **one screen of the ~13-screen Operator
+  Mode family** (a platform operator waiting on a tenant owner's decision), sharing only the word "approval"
+  with the completed Approval Queue — zero overlap on markers (no `agent`, no `✦` AI badge, no
+  suggest/ceiling/re-authorise/re-ground/fence). It was **folded into the Operator Mode MAP**, not treated as a
+  page.
+- **WAITLIST MANAGEMENT — a genuine parity page, AUDITED, fix chain NOT STARTED.** Audit written up at
+  `docs/wireframe-parity/WAITLIST-MANAGEMENT-DIFF.md` (a tenth page, triaged separately). ~70% of it renders an
+  already-rich backend (entries, offers, ranking, expiry, consent gate, agent tool, no-double-book accept).
+  **Decided scope when a chain is issued:** build the page **+ the add-to-waitlist WRITE PATH — the blocker**
+  (`WaitlistService::create()` has exactly one caller in the repo: `DemoClinicSeeder`, so nothing can get onto
+  the list today). **OMIT the auto-send tier** (the tool ceiling is `APPROVE`; the agent never auto-sends) and
+  **SMS/phone** (email-only — the SETTINGS.P5 seam). **Record as a gap:** the richer preference model
+  (preferred days, time bands, earliest date, short-notice, per-entry channels, note).
 
 ---
 
 ## DEPLOYMENT — the primary track (authoritative; everything below this section is history)
 
-**No verticals remain, no hospital phases remain, and no wireframe-parity pages remain.** The only build work
-that exists is the **Operator Mode chain above (G2+), and it is BLOCKED on two product decisions.** So if asked
-"what's next?", the honest answer is still **DEPLOY** — not a new vertical, not a new parity page, and not G2
-until those decisions are made.
+**No verticals remain, no hospital phases remain, and no wireframe-parity pages from the nine-page pass
+remain.** The buildable work that exists is, in priority order: **(a) DEPLOYMENT** · **(b) Waitlist Management**
+(audited, not started) · **(c) Operator Mode G4–G11** (deliberately deferred to post-first-customer) · (d) the
+two optional Appointment follow-ons · (e) the open password-policy decision · (f) the certified-partner seams ·
+(g) the earlier parked items. Full list with triggers in `DEFERRED.md`.
+
+**If asked "what's next?", the answer is DEPLOY** — not a new vertical, not a new parity page, and not G4. The
+security-critical work that was worth doing ahead of deployment is **done**.
 
 **1. DEPLOYMENT to the paying customers — the real next unit of value.** The assets are ready and rehearsed:
 the deployment runbook (`docs/DEPLOY-RUNBOOK.md`), the audited deploy-readiness reconciliation against the

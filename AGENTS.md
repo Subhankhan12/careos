@@ -14,10 +14,16 @@ Market packs:
 - **Pack #1 — EU-Generic billing** (first).
 - **Pack #2 — US / EVV lane** (second).
 
-> **STATE IN ONE LINE (as of `8a9a867`, 2026-08-17):** the BUILD is COMPLETE — eight verticals, all six hospital
-> phases, three clean QA audits — and the **nine-page wireframe-parity pass is CLOSED**. **The single remaining
-> track is DEPLOYMENT + partnership integrations.** Do NOT invent a vertical, a hospital phase, or a parity page;
-> wait for the pasted gate. Full detail in `PROJECT-STATE.md`; parked work + triggers in `DEFERRED.md`.
+> **STATE IN ONE LINE (as of `c086de5`, 2026-08-17):** the BUILD is COMPLETE — eight verticals, all six hospital
+> phases, three clean QA audits — the **nine-page wireframe-parity pass is CLOSED**, and the **Operator Mode
+> SECURITY CORE (G1–G3) is DONE**, which closed a live super-admin containment gap. **The highest-value track is
+> DEPLOYMENT + partnership integrations.** Do NOT invent a vertical, a hospital phase, or a parity page; wait for
+> the pasted gate. Full detail in `PROJECT-STATE.md`; parked work + triggers in `DEFERRED.md`.
+>
+> **⏸️ Two things are DELIBERATELY parked — neither is unfinished by accident:** **Operator Mode G4–G11**
+> (operator-convenience UI; backend inert with **no HTTP route or UI** — see `memory/modules/OperatorMode.md`)
+> and **Waitlist Management** (audited in `docs/wireframe-parity/WAITLIST-MANAGEMENT-DIFF.md`, chain not
+> started). Do not "finish" either unprompted.
 
 ## Stack
 

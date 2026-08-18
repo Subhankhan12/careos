@@ -40,6 +40,32 @@ wireframe without weakening a single enforced gate). See §5.
 > audits found and fixed TWO High **live security defects**, which is the pass earning its keep. The one item left
 > open on purpose is the password-policy **product** decision. Do NOT invent a new page or gate.
 
+> **⏸️ OPERATOR MODE — PAUSED AFTER ITS SECURITY CORE. READ THIS BEFORE ASSUMING ANYTHING IS UNFINISHED.**
+> A second track opened and stopped **on purpose** (D-164; detail in `memory/modules/OperatorMode.md`, plan in
+> `docs/features/OPERATOR-MODE-MAP.md`).
+> **DONE + LIVE-SAFE — G1–G3**, which shipped a **real security fix**: `Gate::before` and
+> `PermissionService::has()` both returned an unconditional `true` for any super-admin, and the only thing
+> keeping one out of a clinic's PHI was never being handed a tenant context — **containment by accident, not by
+> decision**. A super-admin now reaches tenant data ONLY through an ACTIVE, UNEXPIRED, IN-SCOPE, IN-TIER,
+> owner-approved `OperatorGrant`, fail-closed at both former bypass points and **regression-guarded** (D-161);
+> **requesting is not granting** (D-162); **the owner — the tenant's `org_admin` — is the gate**, and approval
+> is the only activation path (D-163). 40 tests.
+> **DELIBERATELY DEFERRED — G4–G11** (elevated-session mechanics · mid-session revoke + expiry + receipt · the
+> ~7 operator/owner screens). They are **operator-facing convenience UI**, to be built **after the first
+> customer is live**, and they add **no safety property G1–G3 do not already enforce**.
+> **There is NO HTTP route and NO UI — Operator Mode is backend-only and inert**, unreachable over the wire.
+> **Do NOT treat it as unfinished work blocking deploy, and do NOT "finish" it unprompted.** To resume: read
+> the MAP and start at **G4**. One question to answer first if it might be "yes": *is an "all patient records"
+> scope ever permitted?* — currently **fail-closed, no wildcard exists**.
+
+> **📋 WAITLIST MANAGEMENT — AUDITED, NOT BUILT.** A tenth wireframe, decoded and audited after the nine-page
+> pass closed (it does **not** reopen that pass): `docs/wireframe-parity/WAITLIST-MANAGEMENT-DIFF.md`. ~70% of
+> it renders an already-rich backend; the **blocker** is that nothing can add anyone to the waitlist today
+> (`WaitlistService::create()` has one caller in the repo — `DemoClinicSeeder`). The **auto-send tier must be
+> omitted** (the agent's ceiling is APPROVE) and SMS/phone are a seam (email only). **No fix chain has been
+> issued.** Priority: below DEPLOY. *(The other decoded wireframe, "Waiting On Approval", turned out **not** to
+> be a parity page — it is one screen of the Operator Mode family and was folded into that MAP.)*
+
 > **One-liner to paste at the start of a new session:**
 > *"CareOS is a multi-tenant, agentic healthcare-operations SaaS (Laravel 12 · Inertia/Vue 3 · Eucalyptus Glow ·
 > offline Nurse PWA). THE BUILD IS COMPLETE — EIGHT built + green verticals on one platform: CLINIC (delivered +
@@ -64,7 +90,7 @@ wireframe without weakening a single enforced gate). See §5.
 1. **`AGENTS.md`** — single source of truth: project, stack, hard rules, workflow, module map, MEMORY PROTOCOL.
 2. **`PROJECT-STATE.md`** — authoritative "where we are" snapshot (BUILD COMPLETE · eight verticals · all hospital
    phases · focus = deploy + partnerships · latest commit + suite counts).
-3. **`DECISIONS.md`** — architecture decision log, **D-001 → D-160**, verified with **no gaps and no duplicates**
+3. **`DECISIONS.md`** — architecture decision log, **D-001 → D-164**, verified with **no gaps and no duplicates**
    (append-only; never edit past entries). **D-149** = the wireframe-parity discipline, **D-150** = the Billing & AR
    reconcile extension + engine-computed reporting, **D-151** = AR Account Detail read-only-over-the-engine + the
    agent-never-commits-money / never-escalates-Betreibung line, **D-152** = the AR record-payment gate WIRES the
@@ -74,7 +100,10 @@ wireframe without weakening a single enforced gate). See §5.
    **D-155/156/157** = the Appointment Detail chain (real display · the real `LEGAL_TRANSITIONS` action row · the
    real slot-finder + overlap guard), **D-158** = remember-me must not bypass 2FA, **D-159** = public pages are
    smoked because an unauthenticated 500 is the worst kind, **D-160** = the enrolment fallback shows the user's
-   OWN real secret or nothing (and closes the pass).
+   OWN real secret or nothing (and closes the pass), **D-161/162/163** = the Operator Mode chain (the
+   fail-closed grant-gated super-admin containment replacing the emergent bypass · requesting-is-not-granting ·
+   owner=org_admin and approval-is-the-only-activation-path), **D-164** = Operator Mode is **PAUSED after its
+   security core, deliberately**, with no HTTP surface.
 4. **`DEFERRED.md`** — the parked backlog, each item with its pull-forward TRIGGER (the certified-partner seams +
    medical-device non-goals + earlier parked items).
 5. **`memory/LOG.md`** — one line per completed gate; the full build history (Phases 0/A–G · P0P · CLINIC.W1–W10 ·
@@ -84,7 +113,8 @@ wireframe without weakening a single enforced gate). See §5.
    the reconciliation entries). **212 entries, and as of this reconciliation EVERY ONE carries a real, resolvable
    commit hash** — the 185 stale `(pending)` markers (written before their commit existed and never backfilled)
    were resolved against `git log`, so a LOG line now maps to the commit that shipped it.
-6. **`memory/modules/*.md`** — per-module deep notes (20): Platform, Audit, AiCore, People, Patients, Scheduling,
+6. **`memory/modules/*.md`** — per-module deep notes (21, incl. the cross-module **`OperatorMode.md`** — read it
+   before touching anything operator-related): Platform, Audit, AiCore, People, Patients, Scheduling,
    Clinical, Billing, Comms, FrontDesk, Nursing, Reporting, Import, **Dental, Hospital, Pharmacy, Surgery, ED,
    Lab, Radiology**.
 7. **The vertical MAPS** (each vertical is MAP-FIRST — a reconciliation/scope map before code):
@@ -371,7 +401,13 @@ authenticated first, so no PUBLIC page had ever been requested; the smoke now dr
 **AUTH-VIS** then closed the last visual item (the enrolment "Can't scan?" fallback, rendering the user's OWN
 real secret — never the wireframe's demo literal; D-160). **There is NO parity work left.**
 
-**THE ONE REMAINING TRACK — and the answer to "what's next?" — is DEPLOYMENT:**
+**THE HIGHEST-VALUE TRACK — and the answer to "what's next?" — is DEPLOYMENT.** The buildable work, in priority
+order: **(a) DEPLOYMENT** · **(b) Waitlist Management** (audited, chain not started) · **(c) Operator Mode
+G4–G11** (deliberately deferred to post-first-customer — see the banner at the top of this file) · (d) the two
+optional Appointment follow-ons · (e) the password-policy decision · (f) the certified-partner seams · (g) the
+earlier parked items. Full list with triggers in `DEFERRED.md`. **The security-critical work that was worth
+doing ahead of deployment is DONE** (the Operator Mode security core closed a live containment gap).
+
 1. **DEPLOY** the built verticals to the paying customers — staging deploy → smoke-test → onboard: to a Linux host,
    wire real email + LiveKit, import via the P0P.G6 CSV tool. Ready: `docs/DEPLOY-RUNBOOK.md` (audited against the
    8-vertical code — the accrual cron + all 17 role templates fixed), `docs/DEPLOY-ENV.production.template` (71 keys,

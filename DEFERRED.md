@@ -2,29 +2,33 @@
 
 Deliberately deferred work. Not forgotten — parked until the right phase.
 
-> **READ THIS FIRST (state as of `8a9a867`, AUTH-VIS, 2026-08-17).** The BUILD is complete — eight verticals,
-> all six hospital phases, three clean QA audits — and the **nine-page wireframe-parity pass is CLOSED**.
-> **Nothing in this file is queued work.** Every item here is one of four things:
+> **READ THIS FIRST (state as of `c086de5`, OPMODE.G3, 2026-08-17).** The BUILD is complete — eight verticals,
+> all six hospital phases, three clean QA audits — the **nine-page wireframe-parity pass is CLOSED**, and the
+> **Operator Mode SECURITY CORE (G1–G3) is DONE**, which closed a live super-admin containment gap.
+>
+> **THE BUILDABLE WORK, IN PRIORITY ORDER:**
+>
+> | # | Track | State |
+> |---|---|---|
+> | **(a)** | **DEPLOYMENT to the paying customers** | **THE REAL NEXT VALUE.** Runbook + `.env` template + rehearsed onboarding all ready. ⚠️ An **undiagnosed staging error** is still parked — expect to reproduce it first. |
+> | **(b)** | **Waitlist Management** | AUDITED (`docs/wireframe-parity/WAITLIST-MANAGEMENT-DIFF.md`), **fix chain NOT started**. Blocker: nothing can add anyone to the waitlist today. |
+> | **(c)** | **Operator Mode G4–G11** | **DELIBERATELY DEFERRED to post-first-customer (D-164)** — operator convenience UI. Backend inert, no HTTP surface. **NOT unfinished by accident.** |
+> | **(d)** | Two optional Appointment follow-ons | APPT.P4 room-capability field · APPT.P5 preferred-practitioner filter. Real backend gaps the page honestly omits. |
+> | **(e)** | ⚠️ The password-policy **decision** | Not a defect and not a build task — needs the product owner. |
+> | **(f)** | The certified-partner seams | Drug-safety · HL7/FHIR · PACS/DICOM · anaesthesia device-data · triage acuity. Business conversations, not gates. |
+> | **(g)** | The earlier parked items | Everything below, each with its TRIGGER. |
+>
+> **If asked "what's next?", the answer is DEPLOY.** The security-critical work that was worth doing ahead of
+> deployment is done. Do not invent a vertical or a parity page.
+>
+> **Nothing else in this file is queued work.** Every remaining item is one of four things:
 > 1. **A certified-partner seam** — wired as a null-object so a partner can drop in; never a homemade engine.
 > 2. **A permanent medical-device NON-GOAL** — do not build the homemade version, ever, at any trigger.
 > 3. **Demand-driven parked work** — build it when its stated TRIGGER fires, not before.
-> 4. **⚠️ An open PRODUCT DECISION.** Two are outstanding, neither a defect nor a build task — each needs a
->    decision from the product owner: **the password policy** (see the wireframe-parity section) and **whether
->    Operator Mode is in scope for the first deployment** (see the Operator Mode section at the end). The
->    `configuration`-tier decision is now SETTLED (D-162).
->
-> **The primary TRACK is DEPLOYMENT to the paying customers, plus partnership integrations.**
-> If asked "what's next?", the answer is DEPLOY — not a new vertical and not a new parity page.
->
-> **⚙️ ONE EXCEPTION, opened 2026-08-17 — the OPERATOR MODE chain** (`docs/features/OPERATOR-MODE-MAP.md`).
-> **OPMODE.G1 has landed** (D-161): it closed a **live containment gap** — `Gate::before` and
-> `PermissionService::has()` both returned an unconditional `true` for any super-admin, and the only thing
-> containing them was never being given a tenant context. A super-admin now reaches tenant data only through an
-> ACTIVE, UNEXPIRED, IN-TIER, IN-SCOPE `OperatorGrant`, regression-guarded. **OPMODE.G2 then added the request
-> flow** (D-162): asking grants NOTHING for the owner-gated tiers. **OPMODE.G3 added the owner decision**
-> (D-163): only a target-tenant `org_admin` may approve / downgrade / decline, and approval is the ONLY
-> pending->active path. **G4+ (sessions, revoke, screens) is BLOCKED on the one remaining product decision
-> below.** There is still no route and no UI.
+> 4. **⚠️ An open PRODUCT DECISION.** Two are outstanding, neither a defect nor a build task: **the password
+>    policy** (see the wireframe-parity section) and **whether an "all patient records" operator scope is ever
+>    permitted** (see the Operator Mode section at the end; currently fail-closed — no wildcard exists).
+
 
 - Migrate/validate DEV database to **MySQL 8** before production (MariaDB 10.4 is EOL; prod
   target is MySQL 8).
@@ -331,40 +335,73 @@ These are permanent non-goals for CareOS-authored code; only a certified partner
   ops/admin lane (draft-until-approved, autonomy-capped). **TRIGGER for all of the above: none for a homemade
   version (do not build).** A certified partner device is a separate commercial/regulatory decision.
 
-## Operator Mode — the chain after G3
 
-**OPMODE.G1 (security core), G2 (request flow) and G3 (owner decision) are DONE** — see D-161, D-162, D-163 and
-`docs/features/OPERATOR-MODE-MAP.md`. G1 was built first precisely because it closes a gap that exists whether
-or not the feature ever ships; G2 added the entry point where an operator asks, and proved that **asking grants
-nothing** for the owner-gated tiers.
+## (b) Waitlist Management — AUDITED, fix chain NOT STARTED
 
-**✅ SETTLED (D-162) — the `configuration` tier decision.** It is a WRITE tier (clinic settings + agent config),
-so it now **REQUIRES the tenant owner's approval**; the wireframes drew it self-granted, which the map had
-flagged as the design's weakest point. Only **`read_only` self-grants**, and only because it is non-PHI reads —
-the tier allow-list refuses every PHI ability, so self-granting it cannot expose a record.
+A genuine parity page, decoded and triaged **after** the nine-page pass closed (a tenth page, triaged
+separately — it does not reopen that pass). Audit: `docs/wireframe-parity/WAITLIST-MANAGEMENT-DIFF.md`.
 
-**✅ ALSO SETTLED (D-163) — the OWNER is the tenant’s `org_admin`.** No new role was invented; a tenant may
-hold several, and all of them are notified and all may decide. **Honest about the channel: only EMAIL exists**
-(the standing SETTINGS.P5 seam) — in-app and push are not built and are not claimed.
+**~70% of it renders an already-rich backend** — `waitlist_entries` + `waitlist_offers`, ranking
+(priority then longest-waiting, exactly the wireframe's sort), offer expiry + the scheduled sweeper, the
+consent gate, the agent tool, and an accept path that goes through the real no-double-book
+`lockResource`/`assertNoOverlap`.
 
-**⚠️ STILL BLOCKING — one decision remains before G4+:**
-1. **Is Operator Mode in scope for the first deployment at all, or a later feature?** It is a large,
-   security-critical subsystem (G4–G11) and the primary track is DEPLOYMENT. *Map recommendation: not in the
-   first deployment — the reason to build G1–G3 anyway was that G1 closed a live bypass that existed
-   regardless, and G2/G3 pinned the requesting-is-not-granting and owner-is-the-gate properties while the
-   design was fresh. Note that there is still **no route and no UI**, so nothing is reachable over HTTP.*
+**DECIDED SCOPE when a chain is issued:**
+- **BUILD** the standing waitlist page (patient-first pool + the freed-slot focal card + the five states).
+- **BUILD the add-to-waitlist WRITE PATH — 🔴 THE BLOCKER.** `WaitlistService::create()` has **exactly one
+  caller in the entire repo: `DemoClinicSeeder`**. No route, no controller, no UI, no portal self-waitlist.
+  Without this the page is a viewer for seeded rows.
+- **OMIT the auto-send tier.** The wireframe claims *"routine offers can go automatically"*; the real tool
+  ceiling is `AutonomyPolicy::APPROVE` — `AUTO` is unreachable. **The agent never auto-sends.**
+- **OMIT / seam SMS + phone.** `waitlist.offer` is `CHANNEL_EMAIL` only (the standing SETTINGS.P5 seam).
+- **RECORD AS A GAP:** the richer preference model — preferred days, time-of-day bands, earliest acceptable
+  date, short-notice flag, per-entry channel selection, note. None are modelled; until they are, the table's
+  "WILL ACCEPT" column can only show what the backend really holds.
 
-**Parked until that is answered (each its own gate, per the map's §5 plan):**
-- ~~**G2 — the request flow.**~~ **DONE** (D-162).
-- ~~**G3 — owner notification + the decision.**~~ **DONE** (D-163).
-- **G4 — the elevated session**: grant-derived tenant context, per-record scope checks, per-access audit rows.
-- **G5 — instant revoke + expiry sweep + the session receipt** (pages viewed, a real `0 changes` determination).
-- **G6–G11 — the screens**, each purely a display of proven server state (console · enter-confirm/active/ended ·
-  request/waiting/owner-notification · decision/granted-read-only/declined/expired · elevated/extension/revoked ·
+**TRIGGER:** after deployment, or a customer whose reception workflow needs it. **Priority: below DEPLOY** — it
+is workflow convenience, not a security or correctness gap.
+
+## (c) Operator Mode — G4–G11 DELIBERATELY DEFERRED (post-first-customer)
+
+**⏸️ PAUSED ON PURPOSE (D-164) — not unfinished by accident, and not blocking deployment.**
+Per-feature detail: `memory/modules/OperatorMode.md`. Plan: `docs/features/OPERATOR-MODE-MAP.md`.
+
+**DONE and LIVE-SAFE — G1–G3**, which shipped a **real security fix**: `Gate::before` and
+`PermissionService::has()` both returned an unconditional `true` for any super-admin, and the only thing
+containing them was never being given a tenant context — **containment by accident**. A super-admin now reaches
+tenant data only through an ACTIVE, UNEXPIRED, IN-SCOPE, IN-TIER, owner-approved `OperatorGrant`, fail-closed at
+both former bypass points and regression-guarded (D-161). **G2** pinned *requesting is not granting* (D-162);
+**G3** pinned *the owner is the gate* (D-163). 40 tests.
+
+**DEFERRED — operator-facing convenience UI, to be built after the first customer is live:**
+- **G4** — elevated-session mechanics (grant-derived tenant context, per-record scope checks at access time,
+  per-access audit rows, the banner's server-supplied countdown).
+- **G5** — mid-session revoke (instant) + the expiry sweep + the session receipt (pages viewed, a real
+  "0 changes" determination).
+- **G6–G11** — the ~7 operator/owner screens (console · enter-confirm/active/ended · request + waiting-on-
+  approval + owner notification · decision/granted-read-only/declined/expired · elevated/extension/revoked ·
   the tenant-side Patient Access Log operator rows).
 
-**Also still open from the map (non-blocking):** who counts as an "owner" (no `owner` role exists — only
-`org_admin`, and the design implies several owners may approve) · who may be an operator (today: any user with
-`tenant_id = null`) · the request/session windows and any extension cap · whether `All patient records` scope is
-permitted at all · an emergency no-owner-reachable path (and if not, say so explicitly so nobody improvises
-one) · whether `BreakGlassGrant` keeps its own self-grant model.
+**They add no safety property G1–G3 do not already enforce.** Consequences of the pause, stated plainly:
+**no HTTP route, no controller, no UI** — the backend is inert but correct and tested; nothing operator-related
+is scheduled (deliberate: with no surface there are no live requests to sweep). A feature that cannot be invoked
+cannot be exploited.
+
+**SETTLED:** `configuration` requires owner approval (D-162) · the owner IS the tenant's `org_admin` (D-163) ·
+the chain pauses after G3 (D-164).
+**⚠️ STILL OPEN — answer before G4 if it might be "yes": is an "all patient records" scope ever permitted?**
+Currently **FAIL-CLOSED — no wildcard exists in any form** (`*`, `all`, `ALL`, `any`, `%`, empty lists and blank
+ids are all refused), so the only way to reach a record is to have named it.
+**Also open (non-blocking):** who may be an operator (today: any user with `tenant_id = null`) · the
+request/session windows and any extension cap · an emergency no-owner-reachable path (and if there is to be
+none, say so explicitly so nobody improvises one) · whether `BreakGlassGrant` keeps its own self-grant model.
+
+**TRIGGER: the first customer is live** — then resume at **G4**, reading the MAP first.
+
+## Waiting On Approval — NOT a parity page (triaged, folded in)
+
+Decoded alongside Waitlist Management and determined **not** to be a parity page: it is **one screen of the
+~13-screen Operator Mode family** (a platform operator waiting on a tenant owner's decision). It shares only the
+word "approval" with the completed Approval Queue — zero overlap on every substantive marker (no `agent`, no
+`✦` AI badge, no suggest/ceiling/re-authorise/re-ground/fence). **Folded into the Operator Mode MAP** as part of
+G6–G11; it is not a separate backlog item.
