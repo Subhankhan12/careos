@@ -3508,5 +3508,23 @@
             "total": "Total",
             "openInvoice": "Open invoice"
         }
+    },
+    "perioGrid": {
+        "hint": "Enter probing depth in mm. Arrow keys move between sites and teeth; Enter moves down.",
+        "site": "Site",
+        "buccal": "Buccal aspect",
+        "lingual": "Lingual aspect",
+        "archLabel": "Arch",
+        "upper": "Upper",
+        "lower": "Lower",
+        "perTooth": "Per tooth",
+        "bopShort": "BoP",
+        "prior": "prev {value}",
+        "priorCaption": "Previous readings shown from the exam of {date}.",
+        "cellLabel": "Tooth {tooth}, {site}, probing depth in mm",
+        "bopLabel": "Tooth {tooth}, {site}, bleeding on probing",
+        "mobilityLabel": "Tooth {tooth}, mobility",
+        "furcationLabel": "Tooth {tooth}, furcation",
+        "entered": "{count} site entered | {count} sites entered"
     }
 }

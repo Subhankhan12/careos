@@ -50,6 +50,12 @@ class PerioChartController
                 'name' => trim($record->first_name.' '.$record->last_name),
             ],
             'exams' => $exams->map(fn (PerioExam $exam): array => $this->presentExam($exam))->values()->all(),
+            // The most recent exam's RAW readings, keyed tooth → site, so the entry grid can
+            // print the previous recorded number beside the one being probed (DENTAL-B.P3).
+            // It is the RECORDED VALUE and nothing else: no delta, no direction, no label.
+            // Deriving "▼ from 3.1" or "deepened" from this pair is the judgment the fence
+            // forbids — printing both numbers is the record.
+            'previous' => $this->previousReadings($exams->first()),
             // The tooth universe + the 6 probing sites come from the domain, so NO tooth/site
             // logic lives in the component (P0D.GU).
             'teeth' => [
@@ -95,6 +101,32 @@ class PerioChartController
         }
 
         return redirect()->route('dental.perio', $record->id)->with('status', 'charted');
+    }
+
+    /**
+     * The previous exam's raw pocket depths, keyed tooth → site.
+     *
+     * A LOOKUP, not a comparison. It returns the number the clinician recorded last time so the
+     * grid can show it next to today's reading. Nothing here subtracts, ranks, or characterises
+     * the pair — that is the dentist's reading to make.
+     *
+     * @return array<string, mixed>
+     */
+    private function previousReadings(?PerioExam $exam): array
+    {
+        if ($exam === null) {
+            return [];
+        }
+
+        $readings = [];
+        foreach ($exam->measurements as $measurement) {
+            $readings[$measurement->tooth][$measurement->site] = $measurement->pocket_depth_mm;
+        }
+
+        return [
+            'exam_date' => $exam->exam_date->toDateString(),
+            'pocket_depth_mm' => $readings,
+        ];
     }
 
     /**

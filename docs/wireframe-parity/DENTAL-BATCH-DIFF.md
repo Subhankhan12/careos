@@ -215,7 +215,7 @@ customer need — **not** as parity work.
 |---|---|---|
 | ~~**DENTAL-B.P1**~~ ✅ **DONE** | **Shared components** — S1 patient clinical header, S3 specialty tab strip, S4 stat-tile **shell**, S5 procedure/phase card. Extract S2 tooth-arch from `Odontogram.vue` into a reusable component. | Purely presentational (P0D.GU); every existing dental test stays green; the tile shell carries **no** computed value. |
 | ~~**DENTAL-B.P2**~~ ✅ **DONE** | **Odontogram visual parity** — Read/Chart toggle, per-tooth detail rail with history, US-notation cross-reference, chart-key polish. **DMFT/finding-count/flag stay omitted.** | The fence assertions still pass; the omissions are re-asserted, not quietly reintroduced. |
-| **DENTAL-B.P3** | **Perio visual parity** — grid ergonomics, entry flow, raw value-over-time. **No indices, no trend labels, no colour bands, no site-to-watch.** | A recursive no-judgment assertion over the page payload, as DENTAL.G6 does today. |
+| ~~**DENTAL-B.P3**~~ ✅ **DONE** | **Perio visual parity** — grid ergonomics, entry flow, raw value-over-time. **No indices, no trend labels, no colour bands, no site-to-watch.** | A recursive no-judgment assertion over the page payload, as DENTAL.G6 does today. |
 | **DENTAL-B.P4** | **Treatment Plan parity** — phase timeline, goal narrative, consent + provenance rail, payment-plan link. All money engine-supplied. | Estimate/billed figures tie to the engine **δ=0**; no page-side arithmetic (adversarial grep). |
 | **DENTAL-B.P5** | **Fee Schedule parity (visual half)** — category grouping, active/retired status, layout. **B2 versioning is a separate decision.** | The catalog stays tenant-authored; the agent still cannot edit it. |
 | **DENTAL-B.P6** | **Scan Library / Upload parity over the 2D backend** — filters, selection, viewer polish. **No coverage flagging, no live capture.** | The imaging fence test still passes; no `ai/finding/confidence` key appears. |
@@ -274,6 +274,26 @@ state, so none is shown.
 - **B1 (mixed dentition) untouched**, as scoped. The S1 allergy chip is left unused — sourcing Clinical
   allergies into the dental payload is a new cross-module read and belongs to a later gate.
 
+### P3 outcome (2026-08-20)
+
+The full-arch 6-point grid (`Components/Dental/PerioSiteGrid.vue`): a column per tooth, a row per site split
+into the buccal three and the lingual three, arrow-key movement across teeth and down sites, an upper/lower
+arch toggle and a per-tooth mobility/furcation row — all over the UNCHANGED recording path. Prior readings
+print as raw numbers ("prev 6"), never a delta. The demo data holds a genuinely deepened site (16 disto-buccal
+4 → 6 mm) — exactly the mock's "one site to watch · ▲ from 4" — and it renders as two plain numbers.
+**No stat tile again**: every perio figure the mock puts in a tile is an index (the D-168 reasoning). The only
+count on the page is "3 sites entered", the clinician's own data-entry progress.
+
+**A SEVERITY RAMP NEEDS NO JUDGMENT WORD** — the key finding of this gate. A mutation
+`cellTint(mm) => mm >= 6 ? "bg-danger" : mm >= 4 ? "bg-warning" : ""` passed every lexical scan: no banned
+token, and a threshold regex keyed to `pocket_depth_mm` misses a parameter simply named `mm`. The rule now
+lives where the breach must surface — in the STYLING. No `:class`/`:style` binding may reference a measurement
+or compare against a number, and the grid component bans the danger/warning/success tone classes outright
+(every cell is drawn identically, so a tone there could only be a ramp; the page keeps its tones because its
+flash message is legitimately one). Browser-proof of the same property: **all 96 depth cells report exactly one
+distinct computed style.**
+
+---
 **A P2 mutation exposed a real hole in the P1 fence scan**: a camelCase `siteToWatch` identifier passed both
 suites, because `\bwatch\b` does not match inside `sitetowatch`. Both suites now also scan a
 non-alphanumeric-stripped copy of the source for compound §5.1 phrases. Bare `watch` stays permitted — it is

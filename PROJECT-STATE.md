@@ -345,7 +345,16 @@ Two further wireframes were decoded from the design pack and triaged. **Neither 
     all 52 teeth, computed in the domain), and chart-key polish. **NO stat tile was added, deliberately** —
     the only counts available are counts over clinical findings, i.e. the "1 finding" chip §5.1 rules out.
     DMFT/finding-count/site-to-watch stay ABSENT and are re-asserted by mutation-checked tests.
-  - **P3–P6 open** (Perio · Treatment Plan · Fee Schedule visual half · Scan Library/Upload over
+  - **DENTAL-B.P3 — DONE.** Perio grid ergonomics: the full-arch 6-point grid (a column per tooth, a row
+    per site, arrow-key entry across teeth and down sites, upper/lower toggle, per-tooth mobility/furcation)
+    over the UNCHANGED recording path, plus prior readings printed as RAW NUMBERS ("prev 6") with no delta,
+    arrow or direction word. **The mock ENTIRE computed rail stays ABSENT** — no BOP %, sites-over-4mm count,
+    mean depth, plaque score, trend, site-to-watch, severity colour band or bitewing finding.
+    **Key finding: a severity ramp needs no judgment word** — a `cellTint(mm)` returning bg-danger/bg-warning
+    passed every lexical scan, so the rule now lives in the STYLING (no class/style binding may reference a
+    measurement or compare to a number; the grid bans tone classes outright). All 96 depth cells render with
+    exactly ONE distinct computed style.
+  - **P4–P6 open** (Treatment Plan · Fee Schedule visual half · Scan Library/Upload over
     the 2D backend), + two optional (B3 structured procedure records; **B4 `Resource` capability field — one
     field closes this batch's chair gap AND the recorded APPT.P4 gap**).
   - **Recommended to stay deferred:** the 4 no-live-page screens (Scan Comparison, Ortho Progress, Chair

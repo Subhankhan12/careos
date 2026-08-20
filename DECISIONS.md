@@ -3122,3 +3122,31 @@ references the old ID.
   tenants. Browser verification must be re-seeded and must run AFTER the last test run — the gate's "verify by
   querying, not by trusting the seeder's exit code" instruction is what caught it. See [[Dental]],
   `docs/wireframe-parity/DENTAL-BATCH-DIFF.md` §5.1, [[LOG]].
+
+- **D-169 — A severity ramp needs no judgment word, so the fence assertion has to live in the STYLING, not the
+  vocabulary (DENTAL-B.P3).** Perio is the most computed screen in the dental pack after Endo: the mock's entire
+  right rail is BOP %, "sites ≥ 4 mm", mean pocket depth, a plaque score, trend arrows, "one site to watch", a
+  depth-keyed colour band and a bitewing "bone loss confirmed". All of it stays unbuilt, and this gate re-asserted
+  that. The interesting part is HOW.
+  Every fence test up to here scanned for VOCABULARY — `severity`, `trend`, `sitetowatch`. A mutation written as
+  `function cellTint(mm) { return mm >= 6 ? 'bg-danger' : mm >= 4 ? 'bg-warning' : '' }` passed all of them: it
+  contains no banned token, and the threshold regex was keyed to `pocket_depth_mm`, which misses a parameter
+  simply named `mm`. **A colour ramp is the one fence breach that can be written entirely in neutral words** —
+  and it is the single most likely one on a perio chart, because every clinical UI in the world tints deep
+  pockets red.
+  So the rule was moved to where the breach MUST surface — the styling itself. **No `:class`/`:style` binding in
+  the perio surfaces may reference a measurement (`depth`, `_mm`, `tint`, `band`, `colour`, `shade`, `heat`) or
+  compare against a number**, and inside `PerioSiteGrid.vue` the tone classes
+  (`bg-`/`text-`/`border-`/`ring-`/`fill-` × `danger`/`warning`/`success`/`critical`/`alarm`) are **banned
+  outright**: every cell in that grid is drawn identically whatever number it holds, so a tone there could only
+  ever be a ramp. The ban is scoped to the grid rather than the page, because the page's flash message is
+  legitimately a success tone — the same "don't ban a legitimate primitive" reasoning that kept `baseline` (D-166)
+  and Vue's `watch` (D-168) permitted. Both a tone-class ramp and a neutral-palette ramp wired through a binding
+  now turn the suite red, and the browser confirms the property directly: **all 96 depth cells report exactly one
+  distinct computed style.**
+  Corollary on what a test can and cannot prove: `v-for="site in group.value"` rendered ZERO inputs (template
+  refs are auto-unwrapped, so `.value` was undefined) while the whole suite stayed green — the payload was
+  correct and the source scans passed, but the grid was empty on screen. **Source and payload assertions cannot
+  see an empty UI; only the browser check caught it.** Likewise a helper named `ppCtx()` collided with
+  `PerformProcedureTest`'s and was invisible until the whole-directory run. Run the directory, then open the
+  page. See [[Dental]], `docs/wireframe-parity/DENTAL-BATCH-DIFF.md` §5.1, [[LOG]].

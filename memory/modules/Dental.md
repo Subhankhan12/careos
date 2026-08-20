@@ -392,3 +392,65 @@ scan a **non-alphanumeric-stripped** copy of the source for compound §5.1 phras
 (`sitetowatch`, `cariesindex`, `findingcount`, `severityramp`, `trendarrow`, …). Bare `watch` is
 deliberately still permitted — it is Vue's own reactive primitive, and banning a framework API
 teaches the next author to weaken the scan. Re-running the mutation now turns both suites red.
+
+## DENTAL-B.P3 — Perio grid ergonomics + raw values over time (2026-08-20, `<pending>`)
+
+Third gate of the **DENTAL-B chain**. Layout + entry ergonomics over the EXISTING raw-measurement
+backend. **P0D.GU** — nothing computed, nothing fabricated.
+
+**The real raw measurement model** (what the grid can show): `PerioExam` = patient · examined_by ·
+exam_date · note, append-only (model + DB trigger; a re-exam is a NEW exam). `PerioMeasurement` =
+one row per (tooth, site) with **pocket_depth_mm (0–15) · recession_mm (−15…30) ·
+bleeding_on_probing (bool) · mobility (Miller 0–3, per tooth) · furcation (Glickman 0–4)**, the six
+sites being `mesio_buccal, buccal, disto_buccal, mesio_lingual, lingual, disto_lingual`. Range
+checks are data-entry plausibility guards, explicitly NOT grades. `PerioChartService::siteHistory()`
+already returns raw numbers in sequence "with NO band, flag, or worsening label".
+**The existing fence assertion** is `pcAssertNoJudgment` in `PerioChartTest.php` (DENTAL.G6/D-104),
+forbidding the keys stage/staging/grade/severity/risk/flag/classification/abnormal/worsening/
+improving/trend/status/priority/recommendation/interpretation/diagnosis/alert/watch/normal/score/
+rating. **Not modified by this gate — extended alongside.**
+
+**BUILT:**
+
+- **`Components/Dental/PerioSiteGrid.vue`** — the full-arch 6-point grid: one column per tooth, one
+  row per site, split into the buccal three and the lingual three (ANATOMY, not a ranking). Arrow
+  keys move left/right between teeth and up/down between sites, Enter behaves like down, so a whole
+  arch is probed without the mouse. Upper/lower arch toggle. Per-tooth mobility/furcation row.
+- **Prior readings as RAW NUMBERS.** The controller adds `previous` = `{exam_date, pocket_depth_mm}`
+  keyed tooth → site from the most recent exam, and the grid prints it under the cell as
+  "prev 6". **No delta, no arrow, no direction word.** The demo data contains a genuinely deepened
+  site (16 disto-buccal 4 → 6 mm) — precisely the "one site to watch · ▲ from 4" the mock draws —
+  and it renders as two plain numbers.
+- **S1 adopted** for the patient header; S3 tab strip already in place.
+
+**NO STAT TILE, again** (the P2/D-168 reasoning): every perio figure the mock puts in a tile is an
+index. The only count on the page is **"3 sites entered"** — the clinician's own data-entry
+progress, which says nothing about the patient.
+
+**THE FENCE — the whole computed rail is ABSENT:** no BOP %, no "sites ≥ 4 mm" count, no mean/average
+pocket depth, no plaque score, no trend arrow/delta/direction label, no "site to watch", no severity
+colour band, no bitewing finding. Browser-verified across the rendered page; the only "flagged" on
+screen is the existing fence note ("Nothing here is staged, graded, scored, or flagged").
+
+**A SEVERITY RAMP NEEDS NO JUDGMENT WORD — the assertion had to be rebuilt around that.** A mutation
+of the form `function cellTint(mm) { return mm >= 6 ? 'bg-danger' : mm >= 4 ? 'bg-warning' : '' }`
+**passed every lexical check**: no banned token, and a threshold regex keyed to `pocket_depth_mm`
+misses a parameter simply named `mm`. The rule is now expressed where the breach must surface —
+**in the styling**: no `:class`/`:style` binding may reference a measurement (`depth`, `_mm`, `tint`,
+`band`, `colour`, `shade`, `heat`) or compare against a number, and inside the grid component the
+tone classes (`bg-/text-/border-/ring-/fill-` × `danger/warning/success/critical/alarm`) are banned
+outright — every cell is drawn identically, so a tone there could only be a ramp. The page keeps its
+tones (its flash message is legitimately a success tone), which is why the ban is scoped to the grid.
+**Browser-proof of the same property:** all 96 depth cells report exactly ONE distinct computed style.
+
+**Tests added** — `tests/Feature/Dental/PerioParityTest.php` (4 tests, 398 assertions): recording
+writes the same raw rows through the same path; the previous exam is offered as raw numbers with the
+payload's keys asserted to be exactly `[exam_date, pocket_depth_mm]`; and two re-assertions (payload
++ components). **Mutation-checked four ways** — a `bop_percent`/`mean` payload key, a `trendArrow`,
+a tone-class ramp, and a neutral-palette ramp wired through a `:class` binding all turn the suite red.
+
+**Two of my own bugs, both caught by verifying rather than assuming:** the helper `ppCtx()` collided
+with `PerformProcedureTest`'s (invisible when the file ran alone — only the whole-directory run
+exposed it), renamed to `pgd*`; and `v-for="site in group.value"` rendered ZERO inputs because
+template refs are auto-unwrapped, so `.value` was undefined — the suite was green while the grid was
+empty on screen. **Only the browser check caught that one.**

@@ -1,11 +1,14 @@
 <script setup lang="ts">
 import { Head, router, usePage } from '@inertiajs/vue3';
-import { computed, reactive, ref } from 'vue';
+import { computed, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import DentalSectionNav from '@/Components/DentalSectionNav.vue';
+import PatientClinicalHeader from '@/Components/Dental/PatientClinicalHeader.vue';
+import PerioSiteGrid from '@/Components/Dental/PerioSiteGrid.vue';
 import Button from '@/Components/Button.vue';
 import Card from '@/Components/Card.vue';
+import { formatDateOnly } from '@/lib/date';
 
 const { t } = useI18n();
 const page = usePage();
@@ -33,81 +36,106 @@ const props = defineProps<{
     exams: Exam[];
     teeth: { permanent: string[]; primary: string[] };
     sites: string[];
+    /** The previous exam's RAW readings (tooth → site → mm). No delta is derived from these. */
+    previous: { exam_date?: string; pocket_depth_mm?: Record<string, Record<string, number | null>> };
     actions: { can_chart: boolean; store_url: string };
 }>();
 
 const flash = computed(() => (page.props.flash as { status?: string } | undefined)?.status);
 
-// ---- New exam (staged locally, then recorded in one append-only action) --------------------
-interface StagedSite {
-    site: string;
+// ---- New exam: a full-arch 6-point grid, recorded in one append-only action ----------------
+//
+// The grid is LAYOUT + ENTRY ERGONOMICS over the unchanged recording path: what gets POSTed is
+// still one flat row per (tooth, site) carrying the same raw fields the server has always
+// accepted. Nothing is summarised on the way out.
+interface SiteEntry {
     pocket_depth_mm: string;
     recession_mm: string;
     bleeding_on_probing: boolean;
 }
-type StagedForm = { tooth: string; mobility: string; furcation: string; sites: StagedSite[] };
 
-function freshForm(): StagedForm {
-    return {
-        tooth: '',
-        mobility: '',
-        furcation: '',
-        sites: props.sites.map((site) => ({ site, pocket_depth_mm: '', recession_mm: '', bleeding_on_probing: false })),
-    };
+/** Which arch is being probed. Purely which columns are on screen. */
+const arch = ref<'upper' | 'lower'>('upper');
+
+const archTeeth = computed(() => {
+    // Anatomical order across the arch: patient's right descending, then left ascending —
+    // the same reading order as the odontogram.
+    const quadrants = arch.value === 'upper' ? [1, 2] : [4, 3];
+    const right = props.teeth.permanent.filter((t) => Number(t[0]) === quadrants[0]).slice().sort((a, b) => Number(b[1]) - Number(a[1]));
+    const left = props.teeth.permanent.filter((t) => Number(t[0]) === quadrants[1]).slice().sort((a, b) => Number(a[1]) - Number(b[1]));
+    return [...right, ...left];
+});
+
+function freshEntry(): Record<string, Record<string, SiteEntry>> {
+    const grid: Record<string, Record<string, SiteEntry>> = {};
+    for (const tooth of [...props.teeth.permanent, ...props.teeth.primary]) {
+        grid[tooth] = {};
+        for (const site of props.sites) {
+            grid[tooth][site] = { pocket_depth_mm: '', recession_mm: '', bleeding_on_probing: false };
+        }
+    }
+    return grid;
+}
+
+function freshPerTooth(): Record<string, { mobility: string; furcation: string }> {
+    const perTooth: Record<string, { mobility: string; furcation: string }> = {};
+    for (const tooth of [...props.teeth.permanent, ...props.teeth.primary]) {
+        perTooth[tooth] = { mobility: '', furcation: '' };
+    }
+    return perTooth;
 }
 
 const examDate = ref(new Date().toISOString().slice(0, 10));
 const examNote = ref('');
-const entry = reactive<StagedForm>(freshForm());
-// Staged measurements: one flat row per (tooth, site). The tooth's mobility/furcation are raw
-// per-tooth values, carried on each of its site rows for a simple, queryable record.
-const staged = ref<Array<Omit<Measurement, 'id'>>>([]);
-
-const stagedByTooth = computed(() => {
-    const groups: Record<string, Array<Omit<Measurement, 'id'>>> = {};
-    for (const m of staged.value) {
-        (groups[m.tooth] ??= []).push(m);
-    }
-    return groups;
-});
+const entry = ref(freshEntry());
+const perTooth = ref(freshPerTooth());
 
 function numOrNull(v: string): number | null {
     return v === '' ? null : Number(v);
 }
 
-function addTooth(): void {
-    if (!entry.tooth) return;
-    const mobility = numOrNull(entry.mobility);
-    const furcation = numOrNull(entry.furcation);
-    for (const s of entry.sites) {
-        staged.value.push({
-            tooth: entry.tooth,
-            site: s.site,
-            pocket_depth_mm: numOrNull(s.pocket_depth_mm),
-            recession_mm: numOrNull(s.recession_mm),
-            bleeding_on_probing: s.bleeding_on_probing,
-            mobility,
-            furcation,
-        });
+/**
+ * The rows to record: every site the clinician actually entered something for. A site left
+ * blank was not probed, so it is simply not recorded — an untouched cell is not a zero.
+ */
+const measurements = computed<Array<Omit<Measurement, 'id'>>>(() => {
+    const rows: Array<Omit<Measurement, 'id'>> = [];
+    for (const [tooth, sites] of Object.entries(entry.value)) {
+        for (const [site, values] of Object.entries(sites)) {
+            const probed = values.pocket_depth_mm !== '' || values.recession_mm !== '' || values.bleeding_on_probing;
+            if (!probed) continue;
+            rows.push({
+                tooth,
+                site,
+                pocket_depth_mm: numOrNull(values.pocket_depth_mm),
+                recession_mm: numOrNull(values.recession_mm),
+                bleeding_on_probing: values.bleeding_on_probing,
+                mobility: numOrNull(perTooth.value[tooth]?.mobility ?? ''),
+                furcation: numOrNull(perTooth.value[tooth]?.furcation ?? ''),
+            });
+        }
     }
-    Object.assign(entry, freshForm());
-}
+    return rows;
+});
 
-function removeTooth(tooth: string): void {
-    staged.value = staged.value.filter((m) => m.tooth !== tooth);
-}
+// How many SITES have been entered. A count of the clinician's own data-entry progress — it
+// says nothing about the patient, and is not a count over findings.
+const enteredSiteCount = computed(() => measurements.value.length);
+
+const previousReadings = computed(() => props.previous?.pocket_depth_mm ?? {});
+const previousExamDate = computed(() => (props.previous?.exam_date ? formatDateOnly(props.previous.exam_date) : null));
 
 function recordExam(): void {
-    if (!staged.value.length) return;
+    if (!measurements.value.length) return;
     router.post(
         props.actions.store_url,
-        { exam_date: examDate.value, note: examNote.value, measurements: staged.value },
+        { exam_date: examDate.value, note: examNote.value, measurements: measurements.value },
         {
             preserveScroll: true,
             onSuccess: () => {
-                staged.value = [];
+                entry.value = freshEntry();
+                perTooth.value = freshPerTooth();
                 examNote.value = '';
-                Object.assign(entry, freshForm());
             },
         },
     );
@@ -135,12 +163,12 @@ function dash(v: number | null | undefined): string {
     <AppLayout>
         <Head :title="t('perio.title')" />
         <div class="space-y-6">
-            <div>
-                <p class="text-xs font-semibold uppercase tracking-[0.14em] text-euca-700">{{ t('perio.eyebrow') }}</p>
-                <h1 class="mt-1 text-2xl font-semibold tracking-tight text-ink">{{ t('perio.title') }}</h1>
-                <p class="mt-1 text-sm text-ink-muted">{{ patient.name }} · <span class="font-mono">{{ patient.mrn }}</span></p>
-                <p class="mt-1 max-w-2xl text-sm text-ink-subtle">{{ t('perio.subtitle') }}</p>
-            </div>
+            <!-- P1's shared S1 header (DENTAL-B.P3 adoption). -->
+            <PatientClinicalHeader
+                :patient="{ name: patient.name, mrn: patient.mrn }"
+                :eyebrow="t('perio.eyebrow')"
+                :context="t('perio.subtitle')"
+            />
 
             <DentalSectionNav :patient-id="patient.id" active="perio" />
 
@@ -161,60 +189,74 @@ function dash(v: number | null | undefined): string {
                     </label>
                 </div>
 
-                <!-- Per-tooth 6-site entry: raw numbers only, no colours/flags. -->
+                <!-- The full-arch 6-point grid: raw numbers only, every cell styled alike. -->
                 <div class="mt-4 rounded-2xl border border-line p-4">
-                    <div class="flex flex-wrap items-end gap-3">
-                        <label class="text-sm">
-                            <span class="mb-1 block font-medium text-ink-muted">{{ t('perio.newExam.tooth') }}</span>
-                            <select v-model="entry.tooth" class="rounded-md border border-line bg-surface px-2 py-2 text-sm text-ink">
-                                <option value="" disabled>{{ t('perio.newExam.chooseTooth') }}</option>
-                                <optgroup :label="t('perio.dentition.permanent')">
-                                    <option v-for="tn in teeth.permanent" :key="tn" :value="tn">{{ tn }}</option>
-                                </optgroup>
-                                <optgroup :label="t('perio.dentition.primary')">
-                                    <option v-for="tn in teeth.primary" :key="tn" :value="tn">{{ tn }}</option>
-                                </optgroup>
-                            </select>
-                        </label>
-                        <label class="text-sm">
-                            <span class="mb-1 block font-medium text-ink-muted">{{ t('perio.fields.mobility') }}</span>
-                            <input v-model="entry.mobility" type="number" min="0" max="3" class="w-20 rounded-md border border-line bg-surface px-2 py-2 text-sm text-ink" />
-                        </label>
-                        <label class="text-sm">
-                            <span class="mb-1 block font-medium text-ink-muted">{{ t('perio.fields.furcation') }}</span>
-                            <input v-model="entry.furcation" type="number" min="0" max="4" class="w-20 rounded-md border border-line bg-surface px-2 py-2 text-sm text-ink" />
-                        </label>
+                    <div class="inline-flex rounded-xl border border-line bg-surface p-1" role="group" :aria-label="t('perioGrid.archLabel')">
+                        <button
+                            v-for="a in (['upper', 'lower'] as const)"
+                            :key="a"
+                            type="button"
+                            class="rounded-lg px-3 py-1.5 text-sm font-semibold"
+                            :class="arch === a ? 'bg-euca-700 text-white' : 'text-ink-muted hover:text-ink'"
+                            :aria-pressed="arch === a"
+                            @click="arch = a"
+                        >
+                            {{ t(`perioGrid.${a}`) }}
+                        </button>
                     </div>
 
-                    <table v-if="entry.tooth" class="mt-3 w-full text-left text-sm">
-                        <thead>
-                            <tr class="text-xs uppercase tracking-wide text-ink-subtle">
-                                <th class="py-1 pr-3 font-medium">{{ t('perio.table.site') }}</th>
-                                <th class="py-1 pr-3 font-medium">{{ t('perio.fields.pocket_depth_mm') }}</th>
-                                <th class="py-1 pr-3 font-medium">{{ t('perio.fields.recession_mm') }}</th>
-                                <th class="py-1 font-medium">{{ t('perio.fields.bleeding_on_probing') }}</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr v-for="s in entry.sites" :key="s.site" class="border-t border-line/60">
-                                <td class="py-1 pr-3 text-ink-muted">{{ t(`perio.sites.${s.site}`) }}</td>
-                                <td class="py-1 pr-3"><input v-model="s.pocket_depth_mm" type="number" min="0" max="15" class="w-16 rounded-md border border-line bg-surface px-2 py-1 text-sm text-ink" /></td>
-                                <td class="py-1 pr-3"><input v-model="s.recession_mm" type="number" min="-15" max="30" class="w-16 rounded-md border border-line bg-surface px-2 py-1 text-sm text-ink" /></td>
-                                <td class="py-1"><input v-model="s.bleeding_on_probing" type="checkbox" class="h-4 w-4 rounded border-line text-euca-600" /></td>
-                            </tr>
-                        </tbody>
-                    </table>
-                    <Button v-if="entry.tooth" class="mt-3" :block="false" @click="addTooth">{{ t('perio.newExam.addTooth') }}</Button>
+                    <div class="mt-3">
+                        <PerioSiteGrid
+                            :teeth="archTeeth"
+                            :sites="sites"
+                            :entry="entry"
+                            :prior="previousReadings"
+                            :prior-label="previousExamDate"
+                        />
+                    </div>
+
+                    <!-- Per-tooth raw indices for the teeth on screen (Miller mobility, Glickman
+                         furcation) — recorded scales the clinician reads off, not computed. -->
+                    <div class="mt-4 overflow-x-auto border-t border-line pt-3">
+                        <p class="text-[0.65rem] font-semibold uppercase tracking-[0.12em] text-ink-subtle">{{ t('perioGrid.perTooth') }}</p>
+                        <table class="mt-2 text-sm">
+                            <tbody>
+                                <tr>
+                                    <th scope="row" class="whitespace-nowrap py-1 pr-3 text-left text-xs font-medium text-ink-muted">{{ t('perio.fields.mobility') }}</th>
+                                    <td v-for="tooth in archTeeth" :key="tooth" class="px-0.5 py-0.5">
+                                        <input
+                                            v-model="perTooth[tooth].mobility"
+                                            type="number"
+                                            min="0"
+                                            max="3"
+                                            :aria-label="t('perioGrid.mobilityLabel', { tooth })"
+                                            class="h-7 w-11 rounded-md border border-line bg-surface text-center font-mono text-xs text-ink"
+                                        />
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <th scope="row" class="whitespace-nowrap py-1 pr-3 text-left text-xs font-medium text-ink-muted">{{ t('perio.fields.furcation') }}</th>
+                                    <td v-for="tooth in archTeeth" :key="tooth" class="px-0.5 py-0.5">
+                                        <input
+                                            v-model="perTooth[tooth].furcation"
+                                            type="number"
+                                            min="0"
+                                            max="4"
+                                            :aria-label="t('perioGrid.furcationLabel', { tooth })"
+                                            class="h-7 w-11 rounded-md border border-line bg-surface text-center font-mono text-xs text-ink"
+                                        />
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
 
-                <!-- Staged teeth for this exam. -->
-                <div v-if="staged.length" class="mt-4 space-y-2">
-                    <p class="text-sm font-semibold text-ink">{{ t('perio.newExam.staged') }}</p>
-                    <div v-for="(rows, tooth) in stagedByTooth" :key="tooth" class="flex items-center justify-between rounded-xl border border-line px-3 py-2 text-sm">
-                        <span class="text-ink">{{ t('perio.table.tooth') }} {{ tooth }} · {{ rows.length }} {{ t('perio.newExam.sitesLabel') }}</span>
-                        <button type="button" class="text-xs font-semibold text-ink-subtle hover:text-danger" @click="removeTooth(String(tooth))">✕</button>
-                    </div>
-                    <Button :block="false" :disabled="!staged.length" @click="recordExam">{{ t('perio.newExam.save') }}</Button>
+                <!-- Record. The count is the clinician's own data-entry progress, not a
+                     statement about the patient. -->
+                <div class="mt-4 flex flex-wrap items-center gap-3">
+                    <Button :block="false" :disabled="!enteredSiteCount" @click="recordExam">{{ t('perio.newExam.save') }}</Button>
+                    <p class="text-xs text-ink-subtle">{{ t('perioGrid.entered', { count: enteredSiteCount }, enteredSiteCount) }}</p>
                 </div>
             </Card>
 
