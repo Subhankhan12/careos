@@ -48,6 +48,13 @@ class OdontogramController
         $chart = $charts->currentChart($actor, $record);
         $history = $charts->history($actor, $record);
 
+        // Who charted each record, resolved for DISPLAY only (DENTAL-B.P2's per-tooth rail).
+        // `charted_by` is already recorded on every row; this only turns that id into the name
+        // the rail shows, in one query. No new fact is created and nothing is inferred.
+        $charterNames = User::query()
+            ->whereIn('id', $chart->pluck('charted_by')->merge($history->pluck('charted_by'))->unique()->all())
+            ->pluck('name', 'id');
+
         // Performing (clinical record + charge, DENTAL.G4) needs BOTH the clinical gate and
         // the billing gate — the dentist-owner (org_admin) holds them. The procedure catalog
         // is only surfaced when the user can actually perform.
@@ -61,8 +68,8 @@ class OdontogramController
                 'date_of_birth' => $record->date_of_birth->toDateString(),
                 'sex' => $record->sex,
             ],
-            'chart' => $chart->map(fn (ToothRecord $r): array => $this->present($r))->values()->all(),
-            'history' => $history->map(fn (ToothRecord $r): array => $this->present($r, withReason: true))->values()->all(),
+            'chart' => $chart->map(fn (ToothRecord $r): array => $this->present($r, charterNames: $charterNames->all()))->values()->all(),
+            'history' => $history->map(fn (ToothRecord $r): array => $this->present($r, withReason: true, charterNames: $charterNames->all()))->values()->all(),
             // The tooth UNIVERSE + surfaces + condition vocabulary all come from the domain,
             // so NO tooth/surface/condition logic lives in the component (P0D.GU).
             'teeth' => [
@@ -70,6 +77,9 @@ class OdontogramController
                 'primary' => ToothNotation::primary(),
             ],
             'surfaces' => ToothNotation::SURFACES,
+            // FDI → US Universal cross-reference (DENTAL-B.P2). A deterministic notation
+            // lookup computed in the domain, so the component maps nothing itself.
+            'universal' => ToothNotation::universalMap(),
             'conditions' => [
                 'wholeTooth' => ToothRecord::WHOLE_TOOTH_CONDITIONS,
                 'surface' => ToothRecord::SURFACE_CONDITIONS,
@@ -182,9 +192,10 @@ class OdontogramController
     /**
      * A charted record as FACTS only — no severity/score/grade/risk/flag anywhere.
      *
+     * @param  array<int|string, string>  $charterNames  display-only id → name lookup
      * @return array<string, mixed>
      */
-    private function present(ToothRecord $record, bool $withReason = false): array
+    private function present(ToothRecord $record, bool $withReason = false, array $charterNames = []): array
     {
         $data = [
             'id' => $record->id,
@@ -194,6 +205,8 @@ class OdontogramController
             'note' => $record->note,
             'charted_at' => $record->charted_at->toIso8601String(),
             'charted_by' => $record->charted_by,
+            // Display-only resolution of the ALREADY-RECORDED charted_by id.
+            'charted_by_name' => $charterNames[$record->charted_by] ?? null,
         ];
 
         if ($withReason) {

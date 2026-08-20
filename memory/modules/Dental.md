@@ -325,3 +325,70 @@ be what trips the scan. **The assertions were mutation-checked**: adding a `tren
 **§5.1 stays out and §6 stays in:** no DMFT, no finding count, no site-to-watch, no index, no trend, no colour
 band, no AI finding was reintroduced — asserted for both the page and the widget, plus the on-screen chart-key
 note ("not its severity") is re-asserted.
+
+## DENTAL-B.P2 — Odontogram visual parity (2026-08-20, `<pending>`)
+
+Second gate of the **DENTAL-B chain**. Visual parity for the odontogram over the EXISTING
+tooth-chart backend. **P0D.GU** — no new clinical computation, no fabricated per-tooth field.
+
+**What per-tooth history the backend actually has** (stated up front, because the rail can only
+show what exists): `tooth_records` carries `tooth` (FDI) · `surface` (null = whole tooth) ·
+`charted_condition` · `note` · `reason` (a correction's justification) · `charted_by` ·
+`charted_at`. Append-only at model AND DB-trigger level; **current = latest per (tooth, surface)**,
+**history = every row**. Alongside it, `performed_procedures` gives per-tooth code/name/note/
+performed_at. There is **NO** per-tooth findings count, severity, imaging link, probing depth
+(perio is its own surface) or eruption state — so the rail shows exactly the above and nothing else.
+
+**BUILT:**
+
+- **Read / Chart mode toggle** — a **UI MODE, NOT A PERMISSION**. Read mode hides the charting
+  affordances so a dentist reviewing a chart cannot record by accident; it grants nothing and
+  gates nothing. The server still authorises every write on `dental.chart` exactly as before, the
+  client never sends a mode the server reads, and the toggle is only offered to a user who can
+  already chart (for anyone else the page was read-only already, by the gate).
+- **Per-tooth detail rail** — the selected tooth's REAL rows: current charted conditions per
+  surface, then the append-only trail newest-first with **who charted it** (the recorded
+  `charted_by` resolved to a name for display only, in one query), when, the clinician's note and,
+  for a correction, **their own stated reason**. Honest empty state for an uncharted tooth
+  ("Nothing charted yet." / "No charting history for this tooth.") — no placeholder row invented.
+- **US-notation cross-reference** — `ToothNotation::universal()` + `universalMap()`: a
+  deterministic, total FDI→Universal lookup with the ADA definition documented in-code (permanent
+  1–32 walking from the upper-right third molar; primary A–T on the same walk). Verified a
+  **bijection over all 52 teeth**. Computed in the DOMAIN and passed down, so the component maps
+  nothing. Shown in the rail header and on every tooth's `title`/`aria-label`.
+- **Chart-key polish** — the key now labels the server's two vocabularies ("Charted on a surface" /
+  "Charted on the whole tooth") in a calmer grid. Still UNORDERED within each group, still carrying
+  the on-screen note verbatim. **Grouping by SCOPE (where a condition can be charted) is not a
+  ranking** — that distinction is the whole point and is commented in place.
+- **S1 adopted**: the inline header tile became `PatientClinicalHeader`, with DOB formatted and age
+  computed by the page through the shared `formatDateOnly`/`ageFromDateOnly` helpers (D-091 local
+  midnight) and passed down as STRINGS — the component still parses and computes nothing.
+
+**NO STAT TILE WAS ADDED — deliberately.** The gate allowed S4 "if any factual count is shown".
+The only counts available on this page are counts over clinical findings, which is precisely the
+"1 finding" chip §5.1 rules MUST-NOT-BUILD. An empty tile is better than a fence breach, so the
+page ships without one.
+
+**THE FENCE RE-ASSERTED, not reopened:** no DMFT/dmft, no finding count, no "Flagged / site to
+watch", no severity ramp, no trend, no AI finding — absent from the payload AND the components.
+Browser-verified: the only occurrence of "flagged" anywhere on the rendered page is inside the §6
+note itself ("Nothing here is scored, graded, or flagged").
+
+**NO mixed dentition** (B1 stays a backend gap). **No allergy chip on the header** — S1 supports
+one, but sourcing Clinical allergies into the dental payload is a new cross-module read, not this
+gate's scope; recorded as a candidate for a later gate.
+
+**Tests added** — `tests/Feature/Dental/OdontogramParityTest.php` (6 tests, 356 assertions): the
+rail equals the recorded rows (ids, condition, note, reason, charter name) with the correction
+trail intact; the honest empty state invents nothing; the notation map is deterministic, total and
+bijective with 16 known anchors; **read mode is not a permission** (a forged `mode` parameter
+changes nothing in either direction — a permitted write still succeeds, reception is still
+refused); and the recursive absence re-assertion over payload and components.
+
+**A MUTATION EXPOSED A REAL HOLE IN THE P1 SCAN.** Injecting a camelCase `siteToWatch` computed
+into `ToothArch.vue` passed BOTH the new and the P1 fence tests: `\bwatch\b` does not match inside
+`sitetowatch`, and the phrase `site to watch` does not match an identifier. Both suites now also
+scan a **non-alphanumeric-stripped** copy of the source for compound §5.1 phrases
+(`sitetowatch`, `cariesindex`, `findingcount`, `severityramp`, `trendarrow`, …). Bare `watch` is
+deliberately still permitted — it is Vue's own reactive primitive, and banning a framework API
+teaches the next author to weaken the scan. Re-running the mutation now turns both suites red.

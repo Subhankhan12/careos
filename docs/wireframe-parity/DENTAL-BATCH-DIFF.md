@@ -214,7 +214,7 @@ customer need — **not** as parity work.
 | Gate | Builds | Proves |
 |---|---|---|
 | ~~**DENTAL-B.P1**~~ ✅ **DONE** | **Shared components** — S1 patient clinical header, S3 specialty tab strip, S4 stat-tile **shell**, S5 procedure/phase card. Extract S2 tooth-arch from `Odontogram.vue` into a reusable component. | Purely presentational (P0D.GU); every existing dental test stays green; the tile shell carries **no** computed value. |
-| **DENTAL-B.P2** | **Odontogram visual parity** — Read/Chart toggle, per-tooth detail rail with history, US-notation cross-reference, chart-key polish. **DMFT/finding-count/flag stay omitted.** | The fence assertions still pass; the omissions are re-asserted, not quietly reintroduced. |
+| ~~**DENTAL-B.P2**~~ ✅ **DONE** | **Odontogram visual parity** — Read/Chart toggle, per-tooth detail rail with history, US-notation cross-reference, chart-key polish. **DMFT/finding-count/flag stay omitted.** | The fence assertions still pass; the omissions are re-asserted, not quietly reintroduced. |
 | **DENTAL-B.P3** | **Perio visual parity** — grid ergonomics, entry flow, raw value-over-time. **No indices, no trend labels, no colour bands, no site-to-watch.** | A recursive no-judgment assertion over the page payload, as DENTAL.G6 does today. |
 | **DENTAL-B.P4** | **Treatment Plan parity** — phase timeline, goal narrative, consent + provenance rail, payment-plan link. All money engine-supplied. | Estimate/billed figures tie to the engine **δ=0**; no page-side arithmetic (adversarial grep). |
 | **DENTAL-B.P5** | **Fee Schedule parity (visual half)** — category grouping, active/retired status, layout. **B2 versioning is a separate decision.** | The catalog stays tenant-authored; the agent still cannot edit it. |
@@ -252,6 +252,32 @@ mark, with full-page text identical. The existing Odontogram tests were not modi
 tiles as where the fence gets breached. `tests/Feature/Dental/SharedComponentsTest.php` asserts that absence
 structurally, and the assertions were mutation-checked (adding a `trend` prop and a `Number(value) / 100`
 both fail the suite).
+
+### P2 outcome (2026-08-20)
+
+Read/Chart toggle, per-tooth detail rail, US-notation cross-reference and chart-key polish, all over the
+existing backend. **What the rail can show is bounded by what `tooth_records` holds**: tooth, surface,
+charted condition, note, correction reason, charted-by and charted-at (append-only; current = latest per
+tooth+surface). There is no per-tooth findings count, severity, imaging link, probing depth or eruption
+state, so none is shown.
+
+- **Read mode is a UI mode, not a permission.** The server still authorises every write on `dental.chart`,
+  the client sends no mode the server reads, and a test proves a forged `mode` parameter changes nothing in
+  either direction.
+- **`ToothNotation::universal()`** is a deterministic, total FDI→Universal lookup with the ADA definition
+  documented in-code, verified a bijection over all 52 teeth and computed in the domain.
+- **No stat tile was added, deliberately.** The gate permitted S4 "if any factual count is shown" — but the
+  only counts available on this page are counts over clinical findings, i.e. the "1 finding" chip §5.1 rules
+  out. An empty tile beats a fence breach.
+- **§5.1 re-asserted:** browser-verified that the only occurrence of "flagged" on the rendered page is inside
+  the §6 note itself.
+- **B1 (mixed dentition) untouched**, as scoped. The S1 allergy chip is left unused — sourcing Clinical
+  allergies into the dental payload is a new cross-module read and belongs to a later gate.
+
+**A P2 mutation exposed a real hole in the P1 fence scan**: a camelCase `siteToWatch` identifier passed both
+suites, because `\bwatch\b` does not match inside `sitetowatch`. Both suites now also scan a
+non-alphanumeric-stripped copy of the source for compound §5.1 phrases. Bare `watch` stays permitted — it is
+Vue's own reactive primitive.
 
 **Explicitly NOT in the chain:** every §5.1 item; B5 (3D/mesh, partner-gated); B6 (reprocessing subsystem); the
 Swiss SSO point-value tariff (licensed).

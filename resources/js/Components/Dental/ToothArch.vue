@@ -36,6 +36,12 @@ const props = defineProps<{
     conditions: { wholeTooth: string[]; surface: string[] };
     /** The currently selected tooth, owned by the caller. */
     selected?: string | null;
+    /**
+     * Optional FDI → US Universal cross-reference, computed in the domain. When supplied,
+     * each tooth carries both names in its accessible label — a NOTATION lookup, never a
+     * clinical statement about the tooth.
+     */
+    universal?: Record<string, string>;
 }>();
 
 const emit = defineEmits<{ (e: 'select', tooth: string): void }>();
@@ -70,6 +76,24 @@ function archRow(upper: boolean): { right: string[]; left: string[] } {
 }
 const upperArch = computed(() => archRow(true));
 const lowerArch = computed(() => archRow(false));
+
+// The chart key, split by the SERVER's two condition vocabularies (surface vs whole-tooth).
+// This is a grouping by SCOPE — where a condition can be charted — not a ranking. Order
+// within each group is the server's own, untouched.
+const legendGroups = computed(() => [
+    { key: 'surface', conditions: props.conditions.surface },
+    { key: 'wholeTooth', conditions: props.conditions.wholeTooth },
+]);
+
+// The US Universal cross-reference for a tooth, when the caller supplies the map.
+function universalOf(tooth: string): string | null {
+    return props.universal?.[tooth] ?? null;
+}
+
+function toothTitle(tooth: string): string {
+    const universal = universalOf(tooth);
+    return universal === null ? tooth : t('dental.notation.cross', { fdi: tooth, universal });
+}
 </script>
 
 <template>
@@ -82,6 +106,8 @@ const lowerArch = computed(() => archRow(false));
                     :key="tth"
                     type="button"
                     class="tooth"
+                    :title="toothTitle(tth)"
+                    :aria-label="toothTitle(tth)"
                     :class="{ 'tooth-selected': selected === tth, 'tooth-missing': byTooth[tth]?.whole === 'missing' }"
                     @click="emit('select', tth)"
                 >
@@ -103,6 +129,8 @@ const lowerArch = computed(() => archRow(false));
                     :key="tth"
                     type="button"
                     class="tooth"
+                    :title="toothTitle(tth)"
+                    :aria-label="toothTitle(tth)"
                     :class="{ 'tooth-selected': selected === tth, 'tooth-missing': byTooth[tth]?.whole === 'missing' }"
                     @click="emit('select', tth)"
                 >
@@ -120,15 +148,24 @@ const lowerArch = computed(() => archRow(false));
         </div>
     </div>
 
-    <!-- Chart key: a FACTUAL legend of charted conditions, not a severity scale. -->
-    <div class="border-t border-line pt-4">
+    <!-- Chart key: a FACTUAL legend of charted conditions, not a severity scale.
+         DENTAL-B.P2 polish — the two vocabularies are labelled and the swatches sit in a
+         calmer grid. The key is still UNORDERED within each group and still carries the
+         on-screen note that colour is not severity: presentation changed, meaning did not. -->
+    <div class="rounded-2xl border border-line bg-surface-2/60 p-4">
         <p class="text-xs font-semibold uppercase tracking-wide text-ink-muted">{{ t('dental.legend.title') }}</p>
         <p class="mt-0.5 text-xs text-ink-subtle">{{ t('dental.legend.note') }}</p>
-        <div class="mt-2 flex flex-wrap gap-x-4 gap-y-1.5">
-            <span v-for="c in [...conditions.surface, ...conditions.wholeTooth]" :key="c" class="inline-flex items-center gap-1.5 text-xs text-ink">
-                <span class="inline-block h-3 w-3 rounded-sm border border-line" :style="{ backgroundColor: colour(c) }"></span>
-                {{ t(`dental.conditions.${c}`) }}
-            </span>
+
+        <div class="mt-3 grid gap-3 sm:grid-cols-2">
+            <div v-for="group in legendGroups" :key="group.key">
+                <p class="text-[0.65rem] font-semibold uppercase tracking-[0.12em] text-ink-subtle">{{ t(`dental.legend.${group.key}`) }}</p>
+                <div class="mt-1.5 flex flex-wrap gap-x-4 gap-y-1.5">
+                    <span v-for="c in group.conditions" :key="c" class="inline-flex items-center gap-1.5 text-xs text-ink">
+                        <span class="inline-block h-3 w-3 rounded-sm border border-line" :style="{ backgroundColor: colour(c) }"></span>
+                        {{ t(`dental.conditions.${c}`) }}
+                    </span>
+                </div>
+            </div>
         </div>
     </div>
 </template>

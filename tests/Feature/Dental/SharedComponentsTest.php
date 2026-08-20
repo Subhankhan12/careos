@@ -230,6 +230,20 @@ test('the shared dental components introduce NO computed-judgment affordance (DE
                 ->toBe(0, "judgment affordance '{$token}' appears in {$name}");
         }
 
+        /*
+         * The compound §5.1 phrases again, with all non-alphanumerics stripped (added at
+         * DENTAL-B.P2, where a mutation proved the gap). A word-boundary scan reads
+         * "site to watch" but MISSES `siteToWatch` — which is how an identifier would
+         * actually be spelled. Normalising collapses both to the same string.
+         *
+         * Only COMPOUND phrases go through this pass: Vue's `watch`/`watchEffect` is a
+         * legitimate primitive, so bare "watch" stays permitted.
+         */
+        $squashed = preg_replace('~[^a-z0-9]~', '', $code) ?? $code;
+        foreach (['sitetowatch', 'cariesindex', 'dmftindex', 'findingcount', 'severityramp', 'severityscale', 'trendarrow', 'watchlist'] as $compound) {
+            expect(str_contains($squashed, $compound))->toBeFalse("compound judgment phrase '{$compound}' appears in {$name}");
+        }
+
         // The narrow allowance, asserted as a rule rather than left implicit.
         if ($name !== 'PatientClinicalHeader.vue') {
             expect(preg_match('~\bseverity\b~', $code))->toBe(0, "'severity' appears in {$name}");

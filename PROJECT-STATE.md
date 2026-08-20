@@ -338,7 +338,14 @@ Two further wireframes were decoded from the design pack and triaged. **Neither 
     strings only). Only Odontogram was rewired; S1/S4/S5 await P2–P6. **S3 was already built**
     (`DentalSectionNav.vue`, DENTAL.G9) — the audit was corrected, not duplicated; its per-tab role-gating was
     examined and deliberately left alone (all five targets are gated identically at `patient.view`).
-  - **P2–P6 open** (Odontogram · Perio · Treatment Plan · Fee Schedule visual half · Scan Library/Upload over
+  - **DENTAL-B.P2 — DONE.** Odontogram visual parity: Read/Chart toggle (a UI MODE, not a permission —
+    server authorisation unchanged), a per-tooth detail rail showing the REAL recorded rows (conditions,
+    the append-only correction trail, who charted it and their own stated reason) with an honest empty
+    state, a deterministic FDI→US notation cross-reference (`ToothNotation::universal()`, a bijection over
+    all 52 teeth, computed in the domain), and chart-key polish. **NO stat tile was added, deliberately** —
+    the only counts available are counts over clinical findings, i.e. the "1 finding" chip §5.1 rules out.
+    DMFT/finding-count/site-to-watch stay ABSENT and are re-asserted by mutation-checked tests.
+  - **P3–P6 open** (Perio · Treatment Plan · Fee Schedule visual half · Scan Library/Upload over
     the 2D backend), + two optional (B3 structured procedure records; **B4 `Resource` capability field — one
     field closes this batch's chair gap AND the recorded APPT.P4 gap**).
   - **Recommended to stay deferred:** the 4 no-live-page screens (Scan Comparison, Ortho Progress, Chair

@@ -5,7 +5,9 @@ import { useI18n } from 'vue-i18n';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import DentalSectionNav from '@/Components/DentalSectionNav.vue';
 import ToothArch from '@/Components/Dental/ToothArch.vue';
+import PatientClinicalHeader from '@/Components/Dental/PatientClinicalHeader.vue';
 import { colour } from '@/Components/Dental/toothConditionColour';
+import { ageFromDateOnly, formatDateOnly } from '@/lib/date';
 
 const { t } = useI18n();
 const page = usePage();
@@ -19,6 +21,7 @@ interface Record {
     reason?: string | null;
     charted_at: string;
     charted_by: number;
+    charted_by_name: string | null;
 }
 
 interface Performed {
@@ -37,6 +40,8 @@ const props = defineProps<{
     history: Record[];
     teeth: { permanent: string[]; primary: string[] };
     surfaces: string[];
+    /** FDI → US Universal cross-reference, computed in the domain (DENTAL-B.P2). */
+    universal: Record<string, string>;
     conditions: { wholeTooth: string[]; surface: string[] };
     procedures: Array<{ id: string; code: string | null; name: string | null; tooth_scoped: boolean }>;
     branches: Array<{ id: string; name: string }>;
@@ -53,6 +58,39 @@ const flash = computed(() => (page.props.flash as { status?: string } | undefine
 
 const dentition = ref<'permanent' | 'primary'>('permanent');
 const selectedTooth = ref<string | null>(null);
+
+/*
+ * READ / CHART mode (DENTAL-B.P2) — a UI MODE, NOT A PERMISSION.
+ *
+ * Read mode hides the charting affordances so a dentist reviewing a chart cannot record by
+ * accident. It grants nothing and gates nothing: the server authorises every write exactly as
+ * it did before (`dental.chart` on store/perform), so a forged request in read mode is refused
+ * by the same gate as always. A user who cannot chart is put in read mode and cannot leave it,
+ * because for them there is no charting mode to enter.
+ */
+const mode = ref<'read' | 'chart'>(props.actions.can_chart ? 'chart' : 'read');
+const charting = computed(() => mode.value === 'chart' && props.actions.can_chart);
+
+// The US Universal cross-reference for a tooth — a straight lookup into the server-supplied
+// notation map (no mapping logic in the component).
+function universalOf(tooth: string | null): string | null {
+    return tooth === null ? null : (props.universal[tooth] ?? null);
+}
+
+const patientHeader = computed(() => {
+    const age = ageFromDateOnly(props.patient.date_of_birth);
+
+    return {
+        name: props.patient.name,
+        mrn: props.patient.mrn,
+        // Formatted HERE with the shared local-midnight helpers (D-091) and passed to the
+        // header as strings — the shared component parses and computes nothing.
+        dateOfBirth: formatDateOnly(props.patient.date_of_birth),
+        // vue-i18n needs the count as the plural choice AND as a named value.
+        age: age === null ? null : t('dental.ageYears', { count: age }, age),
+        sex: props.patient.sex,
+    };
+});
 
 // Group the SERVER-provided current chart by tooth (pure presentation — no domain logic).
 const byTooth = computed(() => {
@@ -122,35 +160,48 @@ function dateTime(iso: string): string {
     <AppLayout>
         <Head :title="t('dental.title')" />
         <div class="space-y-6">
-            <!-- Patient header tile. -->
-            <div class="euca-tile-dark rounded-2xl p-5 text-white">
-                <p class="text-xs font-semibold uppercase tracking-[0.14em] text-white/70">{{ t('dental.eyebrow') }}</p>
-                <div class="mt-1 flex flex-wrap items-baseline gap-x-3 gap-y-1">
-                    <h1 class="text-2xl font-semibold tracking-tight">{{ patient.name }}</h1>
-                    <span class="font-mono text-sm text-white/70">{{ patient.mrn }}</span>
-                </div>
-                <p class="mt-1 text-sm text-white/70">{{ t('dental.dob') }}: {{ patient.date_of_birth }}</p>
-            </div>
+            <!-- Patient header: P1's shared S1 component (DENTAL-B.P2 adoption). -->
+            <PatientClinicalHeader :patient="patientHeader" :eyebrow="t('dental.eyebrow')" />
 
             <DentalSectionNav :patient-id="patient.id" active="chart" />
 
             <p v-if="flash === 'charted'" class="rounded-2xl border border-success/30 bg-success-soft p-4 text-sm text-success">{{ t('dental.flash.charted') }}</p>
 
-            <!-- Dentition toggle + fence note. -->
+            <!-- Dentition toggle · read/chart mode · fence note. -->
             <div class="flex flex-wrap items-center justify-between gap-3">
-                <div class="inline-flex rounded-xl border border-line bg-surface p-1">
-                    <button
-                        v-for="d in (['permanent', 'primary'] as const)"
-                        :key="d"
-                        type="button"
-                        class="rounded-lg px-3 py-1.5 text-sm font-semibold"
-                        :class="dentition === d ? 'bg-euca-700 text-white' : 'text-ink-muted hover:text-ink'"
-                        @click="dentition = d"
-                    >
-                        {{ t(`dental.dentition.${d}`) }}
-                    </button>
+                <div class="flex flex-wrap items-center gap-3">
+                    <div class="inline-flex rounded-xl border border-line bg-surface p-1">
+                        <button
+                            v-for="d in (['permanent', 'primary'] as const)"
+                            :key="d"
+                            type="button"
+                            class="rounded-lg px-3 py-1.5 text-sm font-semibold"
+                            :class="dentition === d ? 'bg-euca-700 text-white' : 'text-ink-muted hover:text-ink'"
+                            @click="dentition = d"
+                        >
+                            {{ t(`dental.dentition.${d}`) }}
+                        </button>
+                    </div>
+
+                    <!-- Read / Chart mode. Only offered to a user who can actually chart —
+                         for anyone else the page is read-only already, by the server's gate. -->
+                    <div v-if="actions.can_chart" class="inline-flex rounded-xl border border-line bg-surface p-1" role="group" :aria-label="t('dental.mode.label')">
+                        <button
+                            v-for="m in (['read', 'chart'] as const)"
+                            :key="m"
+                            type="button"
+                            class="rounded-lg px-3 py-1.5 text-sm font-semibold"
+                            :class="mode === m ? 'bg-euca-700 text-white' : 'text-ink-muted hover:text-ink'"
+                            :aria-pressed="mode === m"
+                            @click="mode = m"
+                        >
+                            {{ t(`dental.mode.${m}`) }}
+                        </button>
+                    </div>
                 </div>
+
                 <p v-if="!actions.can_chart" class="text-xs text-ink-subtle">{{ t('dental.readOnly') }}</p>
+                <p v-else-if="!charting" class="text-xs text-ink-subtle">{{ t('dental.mode.readHint') }}</p>
             </div>
 
             <div class="grid gap-6 lg:grid-cols-[1fr,20rem]">
@@ -164,17 +215,28 @@ function dateTime(iso: string): string {
                         :chart="chart"
                         :conditions="conditions"
                         :selected="selectedTooth"
+                        :universal="universal"
                         @select="selectTooth"
                     />
                 </div>
 
-                <!-- Side panel: selected tooth detail, record form, history. -->
+                <!-- The per-tooth detail rail: this tooth's REAL recorded data and nothing else. -->
                 <div class="glass-card p-5">
                     <p v-if="selectedTooth === null" class="text-sm text-ink-muted">{{ t('dental.selectPrompt') }}</p>
                     <div v-else class="space-y-5">
-                        <div>
+                        <!-- Rail header: FDI (canonical) with the US Universal cross-reference. -->
+                        <div class="border-b border-line pb-4">
                             <p class="text-xs font-semibold uppercase tracking-wide text-ink-muted">{{ t('dental.tooth') }}</p>
-                            <p class="text-2xl font-semibold text-ink">{{ selectedTooth }}</p>
+                            <div class="mt-0.5 flex flex-wrap items-baseline gap-x-2">
+                                <p class="text-2xl font-semibold text-ink">{{ selectedTooth }}</p>
+                                <span class="text-xs font-semibold uppercase tracking-wide text-ink-subtle">{{ t('dental.notation.fdi') }}</span>
+                                <span v-if="universalOf(selectedTooth)" class="text-ink-subtle">·</span>
+                                <template v-if="universalOf(selectedTooth)">
+                                    <p class="text-lg font-semibold text-ink-muted">{{ universalOf(selectedTooth) }}</p>
+                                    <span class="text-xs font-semibold uppercase tracking-wide text-ink-subtle">{{ t('dental.notation.universal') }}</span>
+                                </template>
+                            </div>
+                            <p class="mt-1 text-xs text-ink-subtle">{{ t('dental.notation.note') }}</p>
                         </div>
 
                         <!-- Current charted state (facts only). -->
@@ -195,7 +257,7 @@ function dateTime(iso: string): string {
                         </div>
 
                         <!-- Record a charted condition (through the append-only service). -->
-                        <form v-if="actions.can_chart" class="space-y-3 border-t border-line pt-4" @submit.prevent="submit">
+                        <form v-if="charting" class="space-y-3 border-t border-line pt-4" @submit.prevent="submit">
                             <p class="text-xs font-semibold uppercase tracking-wide text-ink-muted">{{ t('dental.record') }}</p>
                             <label class="block">
                                 <span class="mb-1 block text-xs font-medium text-ink">{{ t('dental.scope') }}</span>
@@ -218,7 +280,7 @@ function dateTime(iso: string): string {
                         </form>
 
                         <!-- Perform a procedure (G4): records the clinical fact + charge + tooth-state, atomically. -->
-                        <form v-if="actions.can_perform" class="space-y-3 border-t border-line pt-4" @submit.prevent="submitPerform">
+                        <form v-if="charting && actions.can_perform" class="space-y-3 border-t border-line pt-4" @submit.prevent="submitPerform">
                             <p class="text-xs font-semibold uppercase tracking-wide text-ink-muted">{{ t('dental.perform.title') }}</p>
                             <label class="block">
                                 <span class="mb-1 block text-xs font-medium text-ink">{{ t('dental.perform.procedure') }}</span>
@@ -265,18 +327,27 @@ function dateTime(iso: string): string {
                             </ul>
                         </div>
 
-                        <!-- Per-tooth charting history (the append-only trail). -->
+                        <!-- Per-tooth charting history: the append-only trail, newest first.
+                             Every line is a RECORDED fact — what was charted, by whom, when, and
+                             (for a correction) the reason the clinician gave. Nothing is derived. -->
                         <div class="border-t border-line pt-4">
                             <p class="text-xs font-semibold uppercase tracking-wide text-ink-muted">{{ t('dental.history') }}</p>
-                            <ul v-if="historyForSelected.length" class="mt-2 space-y-2 text-sm">
-                                <li v-for="h in historyForSelected" :key="h.id" class="border-b border-line/60 pb-2">
+                            <ol v-if="historyForSelected.length" class="mt-2 space-y-3 text-sm">
+                                <li v-for="h in historyForSelected" :key="h.id" class="border-b border-line/60 pb-3 last:border-0 last:pb-0">
                                     <div class="flex items-center gap-2">
                                         <span class="inline-block h-2.5 w-2.5 rounded-sm border border-line" :style="{ backgroundColor: colour(h.condition) }"></span>
                                         <span class="text-ink">{{ h.surface ? t(`dental.surfaces.${h.surface}`) + ' · ' : '' }}{{ t(`dental.conditions.${h.condition}`) }}</span>
                                     </div>
-                                    <p class="text-xs text-ink-subtle">{{ dateTime(h.charted_at) }}<span v-if="h.reason"> · {{ h.reason }}</span></p>
+                                    <p class="mt-0.5 text-xs text-ink-subtle">
+                                        {{ dateTime(h.charted_at) }}
+                                        <template v-if="h.charted_by_name"> · {{ t('dental.chartedBy', { name: h.charted_by_name }) }}</template>
+                                    </p>
+                                    <p v-if="h.note" class="mt-1 text-xs text-ink-muted">{{ h.note }}</p>
+                                    <p v-if="h.reason" class="mt-1 text-xs text-ink-muted">
+                                        <span class="font-semibold">{{ t('dental.correction') }}:</span> {{ h.reason }}
+                                    </p>
                                 </li>
-                            </ul>
+                            </ol>
                             <p v-else class="mt-1 text-sm text-ink-subtle">{{ t('dental.noHistory') }}</p>
                         </div>
                     </div>

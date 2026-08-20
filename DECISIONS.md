@@ -3098,3 +3098,27 @@ references the old ID.
   never in P1's scope. **Four new components were delivered (S1/S2/S4/S5); S3 pre-existing.** Recorded in
   `DENTAL-BATCH-DIFF.md` §7 under "P1 outcome" so the chain's later gates inherit the corrected picture rather
   than the original claim. See [[Dental]], [[LOG]].
+
+- **D-168 — Read mode is a UI affordance, never a permission; and a shared-component fence scan must survive
+  camelCase (DENTAL-B.P2).** The odontogram wireframe draws a Read/Chart toggle. It is built as exactly that:
+  read mode hides the charting affordances so a dentist reviewing a chart cannot record by accident, and it
+  changes nothing on the server. `dental.chart` still authorises every write, the client sends no mode the
+  server reads, and the toggle is only offered to someone who can already chart — for anyone else the page was
+  read-only already, by the gate. A test asserts the invariant from both sides: a forged `mode=read` does not
+  block a permitted write, and a forged `mode=chart` does not grant reception one. **A UI mode that the server
+  honoured would be a permission wearing a toggle's clothes** — the two must never be confused.
+  **The gate offered a stat tile and it was declined.** P1's `ClinicalStatTile` was available and the scope
+  allowed it "if any factual count is shown". The only counts this page could produce are counts over clinical
+  findings — precisely the "1 finding" chip §5.1 rules MUST-NOT-BUILD. An empty space beats a fence breach, so
+  the odontogram ships with no tile.
+  **A mutation exposed a real hole in P1's fence scan.** Injecting a camelCase `siteToWatch` computed into
+  `ToothArch.vue` passed BOTH fence suites: `\bwatch\b` does not match inside `sitetowatch`, and the phrase
+  "site to watch" never matches an identifier — which is how the breach would actually be spelled. Both suites
+  now additionally scan a **non-alphanumeric-stripped** copy of the source for compound §5.1 phrases
+  (`sitetowatch`, `cariesindex`, `findingcount`, `severityramp`, `trendarrow`). Bare `watch` is deliberately
+  still permitted: it is Vue's own reactive primitive, and banning a framework API teaches the next author to
+  weaken the scan rather than respect it — the same reasoning that removed `baseline` at P1 (D-166).
+  Corollary worth keeping: **the Pest suite shares the dev database**, so `RefreshDatabase` wipes the demo
+  tenants. Browser verification must be re-seeded and must run AFTER the last test run — the gate's "verify by
+  querying, not by trusting the seeder's exit code" instruction is what caught it. See [[Dental]],
+  `docs/wireframe-parity/DENTAL-BATCH-DIFF.md` §5.1, [[LOG]].

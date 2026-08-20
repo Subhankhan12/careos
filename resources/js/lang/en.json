@@ -3042,7 +3042,9 @@
         },
         "legend": {
             "title": "Chart key",
-            "note": "Colour marks the condition the dentist charted — not its severity. Nothing here is scored, graded, or flagged."
+            "note": "Colour marks the condition the dentist charted — not its severity. Nothing here is scored, graded, or flagged.",
+            "surface": "Charted on a surface",
+            "wholeTooth": "Charted on the whole tooth"
         },
         "selectPrompt": "Select a tooth to see its charted conditions and history.",
         "tooth": "Tooth",
@@ -3099,6 +3101,21 @@
             "veneer": "Veneer",
             "erosion": "Erosion",
             "abrasion": "Abrasion"
+        },
+        "ageYears": "{count} yr | {count} yrs",
+        "chartedBy": "charted by {name}",
+        "correction": "Correction",
+        "mode": {
+            "label": "Chart mode",
+            "read": "Read",
+            "chart": "Chart",
+            "readHint": "Read mode — recording is hidden. Switch to Chart to record."
+        },
+        "notation": {
+            "fdi": "FDI",
+            "universal": "US",
+            "cross": "FDI {fdi} · US {universal}",
+            "note": "The same tooth in both notations. CareOS records FDI."
         }
     },
     "perio": {
