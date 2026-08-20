@@ -29,9 +29,24 @@ class FeeScheduleController
         Gate::authorize('billing.manage');
         abort_unless($request->user() instanceof User, 403);
 
+        $currency = (string) $settings->get('currency', 'EUR');
+        $procedures = $catalog->list();
+
         return Inertia::render('Dental/FeeSchedule', [
-            'procedures' => $catalog->list()->map(fn (DentalProcedure $procedure): array => $this->present($procedure))->all(),
-            'currency' => (string) $settings->get('currency', 'EUR'),
+            'procedures' => $procedures->map(fn (DentalProcedure $procedure): array => $this->present($procedure, $currency))->all(),
+            /*
+             * A plain factual count of the tenant's OWN catalog rows (DENTAL-B.P5). It counts
+             * data entry, not patients or clinical findings, and it is computed here so the
+             * page performs no arithmetic of any kind. There is deliberately no average fee,
+             * no total catalog value and no price distribution — none of those has a real
+             * meaning, and the mock does not need them.
+             */
+            'summary' => [
+                'positions' => $procedures->count(),
+                'active' => $procedures->filter(fn (DentalProcedure $p): bool => (bool) $p->tariffItem?->active)->count(),
+                'tooth_scoped' => $procedures->filter(fn (DentalProcedure $p): bool => $p->tooth_scoped)->count(),
+            ],
+            'currency' => $currency,
             'actions' => [
                 'store_url' => route('dental.fee-schedule.store'),
                 'seed_url' => route('dental.fee-schedule.seed'),
@@ -117,18 +132,31 @@ class FeeScheduleController
      *
      * @return array<string, mixed>
      */
-    private function present(DentalProcedure $procedure): array
+    private function present(DentalProcedure $procedure, string $currency): array
     {
         $item = $procedure->tariffItem;
+        $feeMinor = (int) ($item->unit_price_minor ?? 0);
+        $vatBp = (int) ($item->vat_rate_bp ?? 0);
 
         return [
             'id' => $procedure->id,
             'code' => $item?->code,
             'name' => $item?->description,
-            'fee_minor' => $item?->unit_price_minor,
-            'vat_rate_bp' => $item?->vat_rate_bp,
+            'fee_minor' => $feeMinor,
+            'vat_rate_bp' => $vatBp,
+            // DISPLAY strings and EDIT-FORM values, both produced here so the page performs
+            // no conversion of its own when rendering or when opening the edit form
+            // (DENTAL-B.P5). The fee itself is the value the DENTIST authored — nothing is
+            // computed from it: no total, no average, no point value.
+            'fee' => $currency.' '.number_format($feeMinor / 100, 2, '.', "'"),
+            'fee_input' => number_format($feeMinor / 100, 2, '.', ''),
+            'vat' => number_format($vatBp / 100, 2).'%',
+            'vat_input' => (string) ($vatBp / 100),
             'active' => $item?->active,
             'tooth_scoped' => $procedure->tooth_scoped,
+            // A REAL attribute of the tenant's own row, used to group the list. The
+            // wireframe's own category taxonomy has no backend and was NOT invented.
+            'scope' => $procedure->tooth_scoped ? 'tooth' : 'general',
             'update_url' => route('dental.fee-schedule.update', $procedure->id),
         ];
     }

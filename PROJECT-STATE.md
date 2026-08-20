@@ -321,7 +321,7 @@ Two further wireframes were decoded from the design pack and triaged. **Neither 
   **SMS/phone** (email-only — the SETTINGS.P5 seam). **Record as a gap:** the richer preference model
   (preferred days, time bands, earliest date, short-notice, per-entry channels, note).
 
-- **DENTAL BATCH — 13 screens AUDITED; the DENTAL-B chain is now STARTED (P1 done, P2–P6 open).** Audit at
+- **DENTAL BATCH — 13 screens AUDITED; the DENTAL-B chain is UNDER WAY (P1–P5 done, P6 open).** Audit at
   `docs/wireframe-parity/DENTAL-BATCH-DIFF.md`. **9 of 13 have a live page; 4 have none.** The batch's dominant
   finding is NOT visual drift: ~20 computed-clinical-judgment items across 8 screens are
   **MUST-NOT-BUILD-AS-DRAWN** (an agent-proposed endo diagnosis with a confidence level, an auto-narrowed
@@ -362,7 +362,15 @@ Two further wireframes were decoded from the design pack and triaged. **Neither 
     ARDETAIL.P5's `PaymentPlan`, which covers an account's REAL outstanding — an estimate has none), and the
     agent-drafted sequence (no dental agent tool exists; Dental has no ApprovalQueue coupling — absent by
     construction, pinned by a test). No pathway/prognosis/auto-code/urgency.
-  - **P5–P6 open** (Fee Schedule visual half · Scan Library/Upload over
+  - **DENTAL-B.P5 — DONE.** Fee Schedule visual half over the tenant-authored catalog: search, grouping by
+    a REAL attribute (per-tooth vs once — the mock's category taxonomy has no backend and was not invented),
+    status pills, three factual count tiles, and an on-screen note about what the schedule does not carry.
+    Money displayed not computed (the page's `money()` helper deleted; the rendered template has no
+    arithmetic). **THE LICENSING LINE is now a repo-wide test (D-171):** no CDT-shaped code (`D`+4 digits) and
+    no licensed tariff term anywhere in Modules/app/database/config/resources — the shipped starter template
+    is asserted generic (`^D-[A-Z]+$`). **Flagged not built:** the mock's tax-point pricing (licensed data)
+    and B2 effective-dated versioning + diff.
+  - **P6 open** (Scan Library/Upload over
     the 2D backend), + two optional (B3 structured procedure records; **B4 `Resource` capability field — one
     field closes this batch's chair gap AND the recorded APPT.P4 gap**).
   - **Recommended to stay deferred:** the 4 no-live-page screens (Scan Comparison, Ortho Progress, Chair

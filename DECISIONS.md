@@ -3175,3 +3175,27 @@ references the old ID.
   implementations in two languages can drift, so the tests pin the exact output strings. Other Billing pages
   keep the client helper; converting them was out of scope. See [[Dental]], [[Billing]],
   `docs/wireframe-parity/DENTAL-BATCH-DIFF.md` §5.2/§5.3, [[LOG]].
+- **D-171 — The fee schedule's fence is LICENSING, and it is enforced by a repo-wide scan, not by good intentions
+  (DENTAL-B.P5).** The dental fee-schedule wireframe is drawn on a Swiss tax-point tariff: positions priced as
+  tax points times a Taxpunktwert, with effective-dated versions and a version diff. That pricing data is
+  **licensed**, as are the ADA CDT procedure codes the mock's code column implies. CareOS bundles neither, and
+  P5 made that a test rather than a convention: a structural scan across `Modules`, `app`, `database`, `config`
+  and `resources/js` forbids any CDT-shaped code (`D` + exactly four digits) and any licensed tariff term
+  (taxpunkt / tarmed / uv-go / dentaltarif / ada cdt / cdt code / sso tarif). The shipped starter template is
+  asserted generic — every code matches `^D-[A-Z]+$` — so **a genuine CDT code is distinguishable from ours by
+  shape alone**, which is what makes the scan cheap and precise. Adding `D0120` or a `TAXPUNKTWERT_MINOR`
+  constant now turns the suite red.
+  **The scan reads comment-stripped source, for the third time in this chain.** `DentalCatalogService`'s docblock
+  says "NO licensed code set (ADA CDT / Swiss SSO point values) is bundled" — the sentence declaring the policy
+  would otherwise be the thing that fails the test enforcing it. Forbid the affordance, never the documentation
+  of its absence (cf. D-166, D-169).
+  **What could not be sourced was flagged on the page, not invented.** The mock groups positions by a category
+  taxonomy that has no backend field; P5 grouped by a REAL attribute instead (`tooth_scoped` → "charged per
+  tooth" / "charged once"). The tax-point column and B2's effective-dated versioning were left unbuilt and are
+  now stated in an "About this schedule" note — a user reading the screen learns what it deliberately does not
+  carry, instead of wondering why it is missing.
+  **Money stayed displayed, not computed.** The controller emits the fee string AND the edit-form value, so the
+  page divides nothing; the only arithmetic left converts what the dentist TYPED on its way to the unchanged
+  endpoint, and a test pins it to the two form transforms. No average fee, no total catalog value, no price
+  banding — and, per D-169, no row is tinted by its price. See [[Dental]], [[Billing]],
+  `docs/wireframe-parity/DENTAL-BATCH-DIFF.md` §4 (B2), [[LOG]].

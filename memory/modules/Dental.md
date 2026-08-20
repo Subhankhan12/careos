@@ -516,3 +516,60 @@ pathway/prognosis/urgency; the only "auto-suggested" text on the page is the exi
 apostrophe, and set no tenant `currency` setting so the page rendered EUR — the DISPLAY currency is
 a tenant setting, independent of the tariff item's own currency. Pint then caught a fully-qualified
 inline class reference alongside its import, and an unused `TreatmentPlan` import.
+## DENTAL-B.P5 — Fee Schedule visual parity (2026-08-20, `<pending>`)
+
+Fifth gate of the **DENTAL-B chain**. Visual half only, over the EXISTING tenant-authored
+catalog. The line here is **LICENSING, not clinical**.
+
+**WHAT THE CATALOG REALLY HOLDS.** A dental procedure IS a `TariffItem` in the tenant's own
+`dental` `TariffCatalog`, plus a thin `DentalProcedure` overlay carrying `tooth_scoped`. The row
+is: `code` · `description` · `unit_price_minor` · `vat_rate_bp` · `active` (+ `tooth_scoped`).
+`DentalCatalogService` AUTHORS this (data entry) and **computes no prices**; charging resolves and
+snapshots the fee through `ChargeCaptureService`. **Who may edit: `billing.manage` only** — NOT
+`patient.view` and NOT `dental.chart`, which is why the fee schedule is correctly absent from the
+patient-scoped `DentalSectionNav` (D-167). There is **no category field, no status beyond
+`active`, no versioning, and no point-value concept** anywhere.
+
+**BUILT (visual half):** search over the tenant's own codes/names (a text match — no ranking, no
+score); grouping by a **REAL attribute** — `tooth_scoped` → "Charged per tooth" / "Charged once" —
+because the wireframe's own category taxonomy has no backend field and was NOT invented;
+active/retired status pills; three **S4 tiles** carrying plain factual counts of the tenant's own
+rows (positions · active · per-tooth), counted SERVER-side so the page computes nothing; and an
+"About this schedule" note that states on screen what the schedule deliberately does not carry.
+
+**MONEY.** The controller now emits `fee` (display string), `fee_input` (the edit-form value),
+`vat` and `vat_input`; the page's `money()` helper and its `(vat_rate_bp / 100).toFixed(2)` are
+gone, and `startEdit` no longer divides. **The rendered template contains no arithmetic at all.**
+The ONLY arithmetic left on the surface is `toMinor`/`toBp`, converting what the DENTIST TYPED on
+its way to the unchanged endpoint — asserted to appear nowhere but the two form transforms. No
+average fee, no total catalog value, no price banding: none has a real meaning and the mock does
+not need them.
+
+**THE LICENSING LINE — the crux.** No licensed code set is bundled, seeded or hardcoded, and a
+**repo-wide structural test** now enforces it across `Modules`, `app`, `database`, `config` and
+`resources/js`: no CDT-shaped code (`D` + exactly four digits, e.g. D0120) and no licensed tariff
+term (`taxpunkt`, `tarmed`, `uv-go`, `dentaltarif`, `ada cdt`, `cdt code`, `sso tarif`). The
+shipped `STARTER` template is asserted generic — every code matches `^D-[A-Z]+$` (D-EXAM,
+D-PROPHY), so a real CDT code is distinguishable from ours **by shape alone**. Mutation-checked:
+swapping `D-EXAM` for `D0120`, or adding a `TAXPUNKTWERT_MINOR` constant, each turns the suite red.
+The scan reads **comment-stripped** source — `DentalCatalogService`'s own docblock says "NO
+licensed code set (ADA CDT / Swiss SSO point values) is bundled", and the sentence DECLARING the
+policy must not be the thing that fails the test ENFORCING it (the P1/P3 lesson again).
+
+**FLAGGED, NOT BUILT:** the mock's tax-point pricing (positions × a Taxpunktwert) — licensed data,
+never to be bundled; and **B2 effective-dated versioning + version diff** — a real backend gap. Both
+are now stated on the page itself rather than silently missing.
+
+**D-169 carried forward:** nothing is styled by its price. Browser-verified — all seven fee cells
+render with exactly ONE distinct computed style; a mutation tinting rows over CHF 500 turns the
+suite red.
+
+**Tests added** — `tests/Feature/Dental/FeeScheduleParityTest.php` (5 tests, 9332 assertions).
+**Browser-verified:** the seven tenant-authored positions render grouped 4 per-tooth / 3 once with
+server-formatted CHF fees; tiles read 7 · 7 · 4; search narrows to "Showing 1 of 7"; the edit form
+prefills "900.00" from the server; the columns are Code/Name/Fee/VAT/Status with **no point-value
+column**; and a **doctor (dental.chart, no billing.manage) gets 403** on the page.
+
+**My own slips:** two Pint failures (a fully-qualified class alongside its import; then quote/spacing
+style) and two PHPStan warnings (`?->` unnecessary on the left of `??` after I made `$item` non-null
+in practice). All fixed before green.

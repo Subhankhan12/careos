@@ -217,7 +217,7 @@ customer need — **not** as parity work.
 | ~~**DENTAL-B.P2**~~ ✅ **DONE** | **Odontogram visual parity** — Read/Chart toggle, per-tooth detail rail with history, US-notation cross-reference, chart-key polish. **DMFT/finding-count/flag stay omitted.** | The fence assertions still pass; the omissions are re-asserted, not quietly reintroduced. |
 | ~~**DENTAL-B.P3**~~ ✅ **DONE** | **Perio visual parity** — grid ergonomics, entry flow, raw value-over-time. **No indices, no trend labels, no colour bands, no site-to-watch.** | A recursive no-judgment assertion over the page payload, as DENTAL.G6 does today. |
 | ~~**DENTAL-B.P4**~~ ✅ **DONE** | **Treatment Plan parity** — phase timeline, goal narrative, consent + provenance rail, payment-plan link. All money engine-supplied. | Estimate/billed figures tie to the engine **δ=0**; no page-side arithmetic (adversarial grep). |
-| **DENTAL-B.P5** | **Fee Schedule parity (visual half)** — category grouping, active/retired status, layout. **B2 versioning is a separate decision.** | The catalog stays tenant-authored; the agent still cannot edit it. |
+| ~~**DENTAL-B.P5**~~ ✅ **DONE** | **Fee Schedule parity (visual half)** — category grouping, active/retired status, layout. **B2 versioning is a separate decision.** | The catalog stays tenant-authored; the agent still cannot edit it. |
 | **DENTAL-B.P6** | **Scan Library / Upload parity over the 2D backend** — filters, selection, viewer polish. **No coverage flagging, no live capture.** | The imaging fence test still passes; no `ai/finding/confidence` key appears. |
 | **DENTAL-B.P7** *(optional)* | **B3 structured procedure records** — per-canal endo + prep measurements as recorded facts, surfacing the RCT/Crown screens' *recordable* half only. | Values recorded, never graded; no gauged-vs-minimum verdict anywhere. |
 | **DENTAL-B.P8** *(optional, separate)* | **B4 `Resource` capability field** — closes this batch's chair gap **and** APPT.P4. | Capability match enforced **server-side** in the booking path. |
@@ -274,6 +274,31 @@ state, so none is shown.
 - **B1 (mixed dentition) untouched**, as scoped. The S1 allergy chip is left unused — sourcing Clinical
   allergies into the dental payload is a new cross-module read and belongs to a later gate.
 
+### P5 outcome (2026-08-20)
+
+The visual half over the tenant-authored catalog: search, grouping, status pills, three factual count tiles and
+an on-screen note about what the schedule does not carry. **Grouped by a REAL attribute** (`tooth_scoped` →
+"charged per tooth" / "charged once") — the mock's category taxonomy has no backend field and was not invented.
+
+**Money is displayed, never computed.** The controller emits the fee string and the edit-form value, so the
+page's `money()` helper and its VAT division are gone; the rendered template contains no arithmetic at all. The
+only arithmetic left converts what the dentist TYPED on its way to the unchanged endpoint, pinned by test to the
+two form transforms. No average fee, no total catalog value, no price banding.
+
+**THE LICENSING LINE is now a repo-wide test (D-171).** No CDT-shaped code (`D` + four digits) and no licensed
+tariff term may appear anywhere in `Modules`, `app`, `database`, `config` or `resources/js`. The shipped starter
+template is asserted generic (`^D-[A-Z]+$`), so a real CDT code differs from ours **by shape alone**. Mutations
+adding `D0120` or a `TAXPUNKTWERT_MINOR` constant turn the suite red. The scan reads comment-stripped source —
+the docblock declaring the policy must not fail the test enforcing it.
+
+**Flagged, not built:** the mock's tax-point pricing (licensed data) and **B2** effective-dated versioning +
+version diff (a real backend gap). Both are stated on the page rather than silently missing.
+
+**Browser-verified:** 7 positions grouped 4/3, CHF fees server-formatted, tiles 7 · 7 · 4, search "Showing 1 of
+7", edit prefilled "900.00", columns Code/Name/Fee/VAT/Status with no point-value column, all fee cells sharing
+one computed style, and a doctor without `billing.manage` refused with 403.
+
+---
 ### P4 outcome (2026-08-20)
 
 Plan view over the existing backend, with S1/S3/S5 adopted (the item table became `ProcedureCard`s).

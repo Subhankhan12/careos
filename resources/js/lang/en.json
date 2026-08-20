@@ -3300,6 +3300,26 @@
             "title": "Add a procedure",
             "subtitle": "Your own code and fee — a new active procedure is immediately chargeable.",
             "submit": "Add procedure"
+        },
+        "status": "Status",
+        "retired": "Retired",
+        "search": "Search code or name",
+        "noMatch": "No position matches your search.",
+        "showing": "Showing {shown} of {total}",
+        "groups": {
+            "tooth": "Charged per tooth",
+            "general": "Charged once"
+        },
+        "summary": {
+            "positions": "Positions",
+            "active": "Active",
+            "toothScoped": "Per tooth"
+        },
+        "notes": {
+            "title": "About this schedule",
+            "tenantAuthored": "Every position here is yours: you enter the code, the description and the fee. CareOS computes no prices.",
+            "noLicensedCodes": "No licensed code set is included. ADA CDT codes and Swiss SSO tax-point values are licensed data and are not bundled with CareOS — enter your own codes, or license the set you need separately.",
+            "noVersioning": "Effective-dated schedule versions and version comparison are not built yet. Editing a fee never changes a charge already captured: a charge snapshots its fee."
         }
     },
     "treatmentPlan": {
