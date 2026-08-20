@@ -354,7 +354,15 @@ Two further wireframes were decoded from the design pack and triaged. **Neither 
     passed every lexical scan, so the rule now lives in the STYLING (no class/style binding may reference a
     measurement or compare to a number; the grid bans tone classes outright). All 96 depth cells render with
     exactly ONE distinct computed style.
-  - **P4–P6 open** (Treatment Plan · Fee Schedule visual half · Scan Library/Upload over
+  - **DENTAL-B.P4 — DONE.** Treatment Plan parity: S1/S3/S5 adopted; **every money figure engine-computed
+    and merely displayed** (the page's own `money()` helper deleted — no divide-by-100 remains), ties δ=0 on
+    screen; **"N of M billed" gained a REAL engine source** (the charges captured when a planned item is
+    performed), and an un-performed item shows NO billed figure rather than a fabricated zero.
+    **Two mock items OMITTED + FLAGGED rather than faked (D-170):** the payment plan (it does not map onto
+    ARDETAIL.P5's `PaymentPlan`, which covers an account's REAL outstanding — an estimate has none), and the
+    agent-drafted sequence (no dental agent tool exists; Dental has no ApprovalQueue coupling — absent by
+    construction, pinned by a test). No pathway/prognosis/auto-code/urgency.
+  - **P5–P6 open** (Fee Schedule visual half · Scan Library/Upload over
     the 2D backend), + two optional (B3 structured procedure records; **B4 `Resource` capability field — one
     field closes this batch's chair gap AND the recorded APPT.P4 gap**).
   - **Recommended to stay deferred:** the 4 no-live-page screens (Scan Comparison, Ortho Progress, Chair

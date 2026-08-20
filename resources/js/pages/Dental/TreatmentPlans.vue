@@ -4,6 +4,8 @@ import { computed, reactive, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import DentalSectionNav from '@/Components/DentalSectionNav.vue';
+import PatientClinicalHeader from '@/Components/Dental/PatientClinicalHeader.vue';
+import ProcedureCard from '@/Components/Dental/ProcedureCard.vue';
 import Button from '@/Components/Button.vue';
 import Card from '@/Components/Card.vue';
 import Input from '@/Components/Input.vue';
@@ -18,6 +20,10 @@ interface Item {
     tooth: string | null;
     surface: string | null;
     estimate_minor: number;
+    /** ENGINE-supplied, already-formatted. The page never divides minor units. */
+    estimate: string;
+    billed_minor: number | null;
+    billed: string | null;
     done: boolean;
     perform_url: string;
 }
@@ -25,6 +31,7 @@ interface Phase {
     id: string;
     name: string;
     total_minor: number;
+    total: string;
     items: Item[];
 }
 interface Plan {
@@ -33,6 +40,9 @@ interface Plan {
     status: string;
     accepted_at: string | null;
     total_minor: number;
+    total: string;
+    billed_minor: number;
+    billed: string;
     phases: Phase[];
     phase_url: string;
     item_url: string;
@@ -49,10 +59,6 @@ const props = defineProps<{
 }>();
 
 const flash = computed(() => (page.props.flash as { status?: string } | undefined)?.status);
-
-function money(minor: number): string {
-    return `${props.currency} ${(minor / 100).toFixed(2)}`;
-}
 
 // Which lifecycle actions are legal from a given status (mirrors the server state machine; the
 // server stays authoritative — this only hides buttons that would be rejected).
@@ -106,12 +112,12 @@ function confirmPerform(item: Item): void {
     <AppLayout>
         <Head :title="t('treatmentPlan.title')" />
         <div class="space-y-6">
-            <div>
-                <p class="text-xs font-semibold uppercase tracking-[0.14em] text-euca-700">{{ t('treatmentPlan.eyebrow') }}</p>
-                <h1 class="mt-1 text-2xl font-semibold tracking-tight text-ink">{{ t('treatmentPlan.title') }}</h1>
-                <p class="mt-1 text-sm text-ink-muted">{{ patient.name }} · <span class="font-mono">{{ patient.mrn }}</span></p>
-                <p class="mt-1 max-w-2xl text-sm text-ink-subtle">{{ t('treatmentPlan.subtitle') }}</p>
-            </div>
+            <!-- P1's shared S1 header (DENTAL-B.P4 adoption). -->
+            <PatientClinicalHeader
+                :patient="{ name: patient.name, mrn: patient.mrn }"
+                :eyebrow="t('treatmentPlan.eyebrow')"
+                :context="t('treatmentPlan.subtitle')"
+            />
 
             <DentalSectionNav :patient-id="patient.id" active="plans" />
 
@@ -135,7 +141,15 @@ function confirmPerform(item: Item): void {
                             <span class="font-semibold text-ink">{{ plan.title ?? t('treatmentPlan.title') }}</span>
                             <span class="inline-flex items-center rounded-full bg-euca-50 px-2.5 py-0.5 text-xs font-semibold text-euca-700">{{ t(`treatmentPlan.status.${plan.status}`) }}</span>
                         </div>
-                        <p class="mt-0.5 text-sm text-ink-muted">{{ t('treatmentPlan.total') }}: <span class="font-semibold text-ink">{{ money(plan.total_minor) }}</span></p>
+                        <!-- Both figures come from the engine as strings: the agreed estimate,
+                             and what has actually been charged against it. No ratio, no
+                             percentage, no page-side arithmetic. -->
+                        <p class="mt-0.5 text-sm text-ink-muted">
+                            {{ t('treatmentPlan.total') }}: <span class="font-semibold text-ink">{{ plan.total }}</span>
+                        </p>
+                        <p class="mt-0.5 text-sm text-ink-muted">
+                            {{ t('treatmentPlan.billedOf', { billed: plan.billed, total: plan.total }) }}
+                        </p>
                     </div>
                     <div v-if="actions.can_manage" class="flex flex-wrap items-center gap-2">
                         <button v-for="a in actionsFor(plan.status)" :key="a" type="button" class="rounded-xl border border-line px-3 py-1.5 text-sm font-semibold text-ink hover:bg-euca-50" @click="transition(plan, a)">{{ t(`treatmentPlan.lifecycle.${a}`) }}</button>
@@ -147,33 +161,47 @@ function confirmPerform(item: Item): void {
                     <div v-for="phase in plan.phases" :key="phase.id" class="rounded-2xl border border-line p-4">
                         <div class="flex items-center justify-between">
                             <p class="font-semibold text-ink">{{ phase.name }}</p>
-                            <p class="text-sm text-ink-muted">{{ t('treatmentPlan.phaseTotal') }}: {{ money(phase.total_minor) }}</p>
+                            <p class="text-sm text-ink-muted">{{ t('treatmentPlan.phaseTotal') }}: {{ phase.total }}</p>
                         </div>
-                        <table v-if="phase.items.length" class="mt-2 w-full text-left text-sm">
-                            <tbody>
-                                <tr v-for="item in phase.items" :key="item.id" class="border-t border-line/60">
-                                    <td class="py-2 pr-3 font-mono text-ink-muted">{{ item.code }}</td>
-                                    <td class="py-2 pr-3 text-ink">{{ item.name }}<span v-if="item.tooth" class="text-ink-subtle"> · {{ item.tooth }}</span></td>
-                                    <td class="py-2 pr-3 text-ink">{{ money(item.estimate_minor) }}</td>
-                                    <td class="py-2 text-right">
-                                        <span v-if="item.done" class="inline-flex items-center rounded-full bg-success-soft px-2 py-0.5 text-xs font-semibold text-success">{{ t('treatmentPlan.item.done') }}</span>
-                                        <template v-else-if="actions.can_perform && (plan.status === 'accepted' || plan.status === 'in_progress')">
-                                            <template v-if="performingItemId === item.id">
-                                                <div class="mt-2 flex flex-wrap items-center justify-end gap-2">
-                                                    <select v-model="performForm.branch_id" class="rounded-md border border-line bg-surface px-2 py-1 text-xs text-ink">
-                                                        <option value="" disabled>{{ t('treatmentPlan.perform.branch') }}</option>
-                                                        <option v-for="b in branches" :key="b.id" :value="b.id">{{ b.name }}</option>
-                                                    </select>
-                                                    <button type="button" class="btn-glow rounded-lg px-3 py-1 text-xs font-semibold" :disabled="performForm.branch_id === ''" @click="confirmPerform(item)">{{ t('treatmentPlan.perform.submit') }}</button>
-                                                    <button type="button" class="rounded-lg border border-line px-3 py-1 text-xs font-semibold text-ink" @click="performingItemId = null">✕</button>
-                                                </div>
-                                            </template>
-                                            <button v-else type="button" class="text-sm font-semibold text-euca-700 hover:text-euca-800" @click="startPerform(item)">{{ t('treatmentPlan.item.perform') }}</button>
+
+                        <!-- Planned procedures as P1's shared S5 card. Every money value is an
+                             engine-supplied STRING; the card does no arithmetic. -->
+                        <div v-if="phase.items.length" class="mt-3 space-y-2">
+                            <ProcedureCard
+                                v-for="item in phase.items"
+                                :key="item.id"
+                                :code="item.code"
+                                :name="item.name"
+                                :tooth="item.tooth"
+                                :surface="item.surface ? t(`dental.surfaces.${item.surface}`) : null"
+                                :amount="item.estimate"
+                                :status-label="item.done ? t('treatmentPlan.item.done') : null"
+                                :done="item.done"
+                            >
+                                <template #detail>
+                                    <!-- What was actually charged when this item was performed. -->
+                                    <p v-if="item.billed" class="mt-1 text-xs text-ink-subtle">
+                                        {{ t('treatmentPlan.item.billed', { amount: item.billed }) }}
+                                    </p>
+                                </template>
+
+                                <template #actions>
+                                    <template v-if="!item.done && actions.can_perform && (plan.status === 'accepted' || plan.status === 'in_progress')">
+                                        <template v-if="performingItemId === item.id">
+                                            <div class="flex flex-wrap items-center justify-end gap-2">
+                                                <select v-model="performForm.branch_id" class="rounded-md border border-line bg-surface px-2 py-1 text-xs text-ink">
+                                                    <option value="" disabled>{{ t('treatmentPlan.perform.branch') }}</option>
+                                                    <option v-for="b in branches" :key="b.id" :value="b.id">{{ b.name }}</option>
+                                                </select>
+                                                <button type="button" class="btn-glow rounded-lg px-3 py-1 text-xs font-semibold" :disabled="performForm.branch_id === ''" @click="confirmPerform(item)">{{ t('treatmentPlan.perform.submit') }}</button>
+                                                <button type="button" class="rounded-lg border border-line px-3 py-1 text-xs font-semibold text-ink" @click="performingItemId = null">✕</button>
+                                            </div>
                                         </template>
-                                    </td>
-                                </tr>
-                            </tbody>
-                        </table>
+                                        <button v-else type="button" class="text-sm font-semibold text-euca-700 hover:text-euca-800" @click="startPerform(item)">{{ t('treatmentPlan.item.perform') }}</button>
+                                    </template>
+                                </template>
+                            </ProcedureCard>
+                        </div>
                     </div>
                 </div>
 

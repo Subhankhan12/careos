@@ -216,7 +216,7 @@ customer need — **not** as parity work.
 | ~~**DENTAL-B.P1**~~ ✅ **DONE** | **Shared components** — S1 patient clinical header, S3 specialty tab strip, S4 stat-tile **shell**, S5 procedure/phase card. Extract S2 tooth-arch from `Odontogram.vue` into a reusable component. | Purely presentational (P0D.GU); every existing dental test stays green; the tile shell carries **no** computed value. |
 | ~~**DENTAL-B.P2**~~ ✅ **DONE** | **Odontogram visual parity** — Read/Chart toggle, per-tooth detail rail with history, US-notation cross-reference, chart-key polish. **DMFT/finding-count/flag stay omitted.** | The fence assertions still pass; the omissions are re-asserted, not quietly reintroduced. |
 | ~~**DENTAL-B.P3**~~ ✅ **DONE** | **Perio visual parity** — grid ergonomics, entry flow, raw value-over-time. **No indices, no trend labels, no colour bands, no site-to-watch.** | A recursive no-judgment assertion over the page payload, as DENTAL.G6 does today. |
-| **DENTAL-B.P4** | **Treatment Plan parity** — phase timeline, goal narrative, consent + provenance rail, payment-plan link. All money engine-supplied. | Estimate/billed figures tie to the engine **δ=0**; no page-side arithmetic (adversarial grep). |
+| ~~**DENTAL-B.P4**~~ ✅ **DONE** | **Treatment Plan parity** — phase timeline, goal narrative, consent + provenance rail, payment-plan link. All money engine-supplied. | Estimate/billed figures tie to the engine **δ=0**; no page-side arithmetic (adversarial grep). |
 | **DENTAL-B.P5** | **Fee Schedule parity (visual half)** — category grouping, active/retired status, layout. **B2 versioning is a separate decision.** | The catalog stays tenant-authored; the agent still cannot edit it. |
 | **DENTAL-B.P6** | **Scan Library / Upload parity over the 2D backend** — filters, selection, viewer polish. **No coverage flagging, no live capture.** | The imaging fence test still passes; no `ai/finding/confidence` key appears. |
 | **DENTAL-B.P7** *(optional)* | **B3 structured procedure records** — per-canal endo + prep measurements as recorded facts, surfacing the RCT/Crown screens' *recordable* half only. | Values recorded, never graded; no gauged-vs-minimum verdict anywhere. |
@@ -274,6 +274,35 @@ state, so none is shown.
 - **B1 (mixed dentition) untouched**, as scoped. The S1 allergy chip is left unused — sourcing Clinical
   allergies into the dental payload is a new cross-module read and belongs to a later gate.
 
+### P4 outcome (2026-08-20)
+
+Plan view over the existing backend, with S1/S3/S5 adopted (the item table became `ProcedureCard`s).
+
+**Money.** Item estimates are the engine's snapshot (frozen at propose) or the live tariff fee; phase and plan
+totals are server-side sums of those integers. **"N of M billed" gained a real engine source**: performing a
+planned item captures a charge and stores its `charge_id`, so billed is the sum of those charges'
+`line_total_minor` (cancelled excluded) — money in the ledger, never the estimate re-labelled. An un-performed
+item carries **no** billed figure rather than a fabricated zero. **The page performs no money arithmetic at
+all**: the controller emits formatted strings and the page's `money()` helper was deleted. Browser-verified
+δ=0 on screen — CHF 150.00 + CHF 100.00 = phase CHF 250.00 = plan CHF 250.00.
+
+**Two things the mock shows were OMITTED and FLAGGED rather than faked (D-170):**
+
+- **Payment plan.** "4 × CHF 310" does not map onto the existing `PaymentPlan` (ARDETAIL.P5), which covers an
+  account's REAL outstanding balance and forbids a total above it. A treatment plan is an estimate — nothing is
+  outstanding until performed and invoiced. No parallel dental money model was built.
+- **Agent-drafted sequence.** The repo has ten agent tools, none touching dental, and `Modules\Dental` has no
+  ApprovalQueue coupling. The affordance is absent **by construction**, and a test pins that at both ends so a
+  later gate cannot add one that auto-applies.
+
+**Clinical fence:** no pathway, prognosis, auto-selected code or urgency/priority — re-asserted with the D-169
+styling rule. `done` remains permitted: a lifecycle fact, not a clinical grade.
+
+**Known trade-off:** the server money formatter duplicates the convention in `resources/js/lib/money.ts`
+(`formatSwissMoney`, ARDETAIL.P3). Verified identical output; the tests pin the exact strings. Other Billing
+pages keep the client helper.
+
+---
 ### P3 outcome (2026-08-20)
 
 The full-arch 6-point grid (`Components/Dental/PerioSiteGrid.vue`): a column per tooth, a row per site split

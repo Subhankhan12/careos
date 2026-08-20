@@ -454,3 +454,65 @@ with `PerformProcedureTest`'s (invisible when the file ran alone — only the wh
 exposed it), renamed to `pgd*`; and `v-for="site in group.value"` rendered ZERO inputs because
 template refs are auto-unwrapped, so `.value` was undefined — the suite was green while the grid was
 empty on screen. **Only the browser check caught that one.**
+
+## DENTAL-B.P4 — Treatment Plan visual parity (2026-08-20, `<pending>`)
+
+Fourth gate of the **DENTAL-B chain**. Visual parity over the EXISTING plan + billing backend,
+with **two fences** different from P2/P3: money, and the agent.
+
+**THE REAL MONEY SOURCE.** `TreatmentPlanService::itemEstimate()` returns the SNAPSHOT
+(`estimated_fee_minor`, frozen when the plan is proposed) or, while still draft, the live
+`TariffItem.unit_price_minor` — it READS the fee, never recomputes it. Phase and plan totals are
+sums of those engine integers, **server-side** (the service's own docblock calls this "the only
+arithmetic here"; there is no VAT/discount math — VAT is applied by the engine when a procedure is
+actually charged, G4). **"N of M billed" now has a REAL engine source**, added this gate:
+performing a planned item captures a charge through `ChargeCaptureService` and stores its
+`charge_id` on the `PerformedProcedure`, so billed = the sum of those charges' `line_total_minor`,
+excluding cancelled. It is **actual money in the ledger, never the estimate re-labelled**.
+
+**THE PAGE NOW DOES NO MONEY ARITHMETIC AT ALL.** The controller emits formatted strings
+(`total`, `billed`, per-phase `total`, per-item `estimate`/`billed`) alongside the `*_minor`
+integers, and `TreatmentPlans.vue`'s own `money()` helper was DELETED — not even a divide-by-100
+remains. This satisfies S5's documented contract ("an already-formatted, ENGINE-SUPPLIED money
+string"). **Deliberate trade-off, worth knowing:** the server formatter duplicates the convention
+in `resources/js/lib/money.ts` (`formatSwissMoney`, ARDETAIL.P3) — same Swiss apostrophe grouping,
+verified identical (`CHF 1'000.00`). Two implementations in two languages CAN drift; the tests pin
+the exact strings. The other Billing pages keep the client helper — not touched, out of scope.
+
+**PAYMENT PLAN — OMITTED + FLAGGED, deliberately.** The mock's "4 × CHF 310" does not map onto the
+existing `PaymentPlan` (ARDETAIL.P5), whose own docblock says it covers "an account's REAL
+outstanding balance" and that `total_minor` may never exceed the account's actual outstanding. A
+treatment plan is an ESTIMATE — nothing is outstanding until procedures are performed and invoiced.
+Creating a payment plan against an estimate would require inventing outstanding money. **No parallel
+dental money model was built.**
+
+**AGENT — OMITTED + FLAGGED, absent BY CONSTRUCTION.** The repo has ten agent tools
+(`app/AiCore/Tools/`) and **none** touches dental or treatment plans; `Modules/Dental` has no
+`ApprovalQueue` coupling whatsoever. So the mock's "agent drafts and prices a sequence" was not
+built and no tool was invented. A test pins the absence at both ends — no tool file may mention
+dental/treatment_plan, and the page may offer no agent affordance — so a later gate cannot quietly
+add one that auto-applies.
+
+**THE CLINICAL FENCE:** no recommended pathway, no prognosis, no auto-selected procedure code, no
+urgency/priority score — absent from payload and components, including the **D-169 styling rule**
+(no `:class`/`:style` keyed to a clinical or money value, or to a numeric comparison). `done` stays
+permitted: it is a LIFECYCLE fact the caller passes, not a clinical grade.
+
+**S1 + S5 adopted** (S3 already present). The item table became `ProcedureCard`s.
+
+**Tests added** — `tests/Feature/Dental/TreatmentPlanParityTest.php` (5 tests, 230 assertions):
+figures are engine-supplied and TIE δ=0; billed is the real charge (and an un-performed item has
+**no** billed figure rather than a fabricated zero); the adversarial grep proves no page-side money
+arithmetic; no agent tool touches plans; and the re-assertion incl. the styling rule.
+**Mutation-checked four ways** — a page-side `reduce(...)/100`, `billed_minor` fed from the estimate,
+a `pathway`/`urgency` payload key, and a `DraftTreatmentPlanTool` file each turn the suite red.
+
+**Browser-verified δ=0 on screen:** Beat Suter's plan renders items CHF 150.00 + CHF 100.00 = phase
+CHF 250.00 = plan total CHF 250.00, with "CHF 0.00 of CHF 250.00 billed". No %, no ratio, no
+pathway/prognosis/urgency; the only "auto-suggested" text on the page is the existing fence note
+("You author this plan — nothing is auto-suggested").
+
+**Two of my own slips:** the test asserted `CHF 1,000.00` (comma) when the format is the Swiss
+apostrophe, and set no tenant `currency` setting so the page rendered EUR — the DISPLAY currency is
+a tenant setting, independent of the tariff item's own currency. Pint then caught a fully-qualified
+inline class reference alongside its import, and an unused `TreatmentPlan` import.

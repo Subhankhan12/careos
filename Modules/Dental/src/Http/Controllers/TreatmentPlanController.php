@@ -7,6 +7,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 use Inertia\Inertia;
 use Inertia\Response;
+use Modules\Billing\Models\Charge;
 use Modules\Dental\Exceptions\DentalException;
 use Modules\Dental\Models\DentalProcedure;
 use Modules\Dental\Models\PerformedProcedure;
@@ -48,7 +49,30 @@ class TreatmentPlanController
 
         // A plan item is "done" when a performed procedure references it (derived, no stored flag).
         $itemIds = $planModels->flatMap(fn (TreatmentPlan $plan): array => $plan->items->pluck('id')->all())->all();
-        $doneItemIds = PerformedProcedure::query()->whereIn('treatment_plan_item_id', $itemIds)->pluck('treatment_plan_item_id')->all();
+        $performed = PerformedProcedure::query()->whereIn('treatment_plan_item_id', $itemIds)->get();
+        $doneItemIds = $performed->pluck('treatment_plan_item_id')->all();
+
+        /*
+         * BILLED-SO-FAR comes from REAL CHARGES, not from the plan (DENTAL-B.P4).
+         *
+         * Performing a planned item captures a charge through the billing engine (G4) and
+         * stores its `charge_id`. So "billed" is the sum of those charges' engine-computed
+         * line totals — actual money in the ledger, never the estimate re-labelled. A
+         * cancelled charge is excluded because it was un-billed. Nothing is derived in the
+         * page: the page receives the figure.
+         */
+        $chargeTotals = Charge::query()
+            ->whereIn('id', $performed->pluck('charge_id')->filter()->all())
+            ->where('status', '!=', Charge::STATUS_CANCELLED)
+            ->pluck('line_total_minor', 'id');
+
+        $billedByItem = [];
+        foreach ($performed as $row) {
+            $itemId = (string) $row->treatment_plan_item_id;
+            $billedByItem[$itemId] = ($billedByItem[$itemId] ?? 0) + (int) ($chargeTotals[$row->charge_id] ?? 0);
+        }
+
+        $currency = (string) $settings->get('currency', 'EUR');
 
         return Inertia::render('Dental/TreatmentPlans', [
             'patient' => [
@@ -56,7 +80,7 @@ class TreatmentPlanController
                 'mrn' => $record->mrn,
                 'name' => trim($record->first_name.' '.$record->last_name),
             ],
-            'plans' => $planModels->map(fn (TreatmentPlan $plan): array => $this->presentPlan($plan, $plans, $doneItemIds))->all(),
+            'plans' => $planModels->map(fn (TreatmentPlan $plan): array => $this->presentPlan($plan, $plans, $doneItemIds, $billedByItem, $currency))->all(),
             'procedures' => $canManage
                 ? $catalog->list()->map(fn (DentalProcedure $p): array => [
                     'id' => $p->id,
@@ -66,7 +90,7 @@ class TreatmentPlanController
                 ])->all()
                 : [],
             'branches' => Branch::query()->orderBy('name')->get(['id', 'name'])->map(fn (Branch $b): array => ['id' => $b->id, 'name' => $b->name])->all(),
-            'currency' => (string) $settings->get('currency', 'EUR'),
+            'currency' => $currency,
             'actions' => [
                 'can_manage' => $canManage,
                 'can_perform' => $canPerform,
@@ -194,39 +218,77 @@ class TreatmentPlanController
      * @param  list<string>  $doneItemIds
      * @return array<string, mixed>
      */
-    private function presentPlan(TreatmentPlan $plan, TreatmentPlanService $plans, array $doneItemIds): array
+    /**
+     * @param  array<int, string>  $doneItemIds
+     * @param  array<string, int>  $billedByItem
+     * @return array<string, mixed>
+     */
+    private function presentPlan(TreatmentPlan $plan, TreatmentPlanService $plans, array $doneItemIds, array $billedByItem, string $currency): array
     {
-        $phases = $plan->phases->sortBy('sequence')->map(function (TreatmentPlanPhase $phase) use ($plan, $plans, $doneItemIds): array {
+        $phases = $plan->phases->sortBy('sequence')->map(function (TreatmentPlanPhase $phase) use ($plan, $plans, $doneItemIds, $billedByItem, $currency): array {
             $items = $plan->items->where('treatment_plan_phase_id', $phase->id)->sortBy('sequence')->values();
+            $phaseTotal = $items->sum(fn (TreatmentPlanItem $i): int => $plans->itemEstimate($i));
 
             return [
                 'id' => $phase->id,
                 'name' => $phase->name,
                 // Phase total = SUM of item estimates (the only arithmetic; no VAT/discount math).
-                'total_minor' => $items->sum(fn (TreatmentPlanItem $i): int => $plans->itemEstimate($i)),
-                'items' => $items->map(fn (TreatmentPlanItem $i): array => [
-                    'id' => $i->id,
-                    'code' => $i->dentalProcedure?->tariffItem?->code,
-                    'name' => $i->dentalProcedure?->tariffItem?->description,
-                    'tooth' => $i->tooth,
-                    'surface' => $i->surface,
-                    'estimate_minor' => $plans->itemEstimate($i),
-                    'done' => in_array($i->id, $doneItemIds, true),
-                    'perform_url' => route('dental.plan-items.perform', $i->id),
-                ])->all(),
+                'total_minor' => $phaseTotal,
+                'total' => $this->money($phaseTotal, $currency),
+                'items' => $items->map(function (TreatmentPlanItem $i) use ($plans, $doneItemIds, $billedByItem, $currency): array {
+                    $estimate = $plans->itemEstimate($i);
+                    $billed = $billedByItem[$i->id] ?? null;
+
+                    return [
+                        'id' => $i->id,
+                        'code' => $i->dentalProcedure?->tariffItem?->code,
+                        'name' => $i->dentalProcedure?->tariffItem?->description,
+                        'tooth' => $i->tooth,
+                        'surface' => $i->surface,
+                        'estimate_minor' => $estimate,
+                        'estimate' => $this->money($estimate, $currency),
+                        // The REAL charge raised when this item was performed, if it was.
+                        'billed_minor' => $billed,
+                        'billed' => $billed === null ? null : $this->money($billed, $currency),
+                        'done' => in_array($i->id, $doneItemIds, true),
+                        'perform_url' => route('dental.plan-items.perform', $i->id),
+                    ];
+                })->all(),
             ];
         })->values()->all();
+
+        $planTotal = $plan->items->sum(fn (TreatmentPlanItem $i): int => $plans->itemEstimate($i));
+        $planBilled = $plan->items->sum(fn (TreatmentPlanItem $i): int => $billedByItem[$i->id] ?? 0);
 
         return [
             'id' => $plan->id,
             'title' => $plan->title,
             'status' => $plan->status,
             'accepted_at' => $plan->accepted_at?->toDateString(),
-            'total_minor' => $plan->items->sum(fn (TreatmentPlanItem $i): int => $plans->itemEstimate($i)),
+            'total_minor' => $planTotal,
+            'total' => $this->money($planTotal, $currency),
+            // "N of M billed": both sides are engine figures — real charges over the agreed
+            // estimate. The page prints them; it never divides one by the other, and there is
+            // deliberately no percentage.
+            'billed_minor' => $planBilled,
+            'billed' => $this->money($planBilled, $currency),
             'phases' => $phases,
             'phase_url' => route('dental.plans.phases', $plan->id),
             'item_url' => route('dental.plans.items', $plan->id),
             'transition_url' => route('dental.plans.transition', $plan->id),
         ];
+    }
+
+    /**
+     * Format an integer minor-unit amount for DISPLAY.
+     *
+     * The conversion happens HERE, once, so the treatment-plan page receives money as strings
+     * and performs no arithmetic of its own — not even a divide-by-100 (DENTAL-B.P4; the S5
+     * ProcedureCard contract). The value is never derived here: it arrives already computed
+     * from the engine.
+     */
+    private function money(int $minor, string $currency): string
+    {
+        return $currency.' '.number_format($minor / 100, 2, '.', "'");
     }
 }

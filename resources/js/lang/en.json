@@ -3344,7 +3344,8 @@
             "chooseSurface": "Whole tooth",
             "submit": "Add to plan",
             "done": "Done",
-            "perform": "Perform + charge"
+            "perform": "Perform + charge",
+            "billed": "Charged {amount}"
         },
         "lifecycle": {
             "propose": "Propose to patient",
@@ -3361,7 +3362,12 @@
             "submit": "Perform + charge"
         },
         "fenceNote": "You author this plan — nothing is auto-suggested. Estimates come from your fee schedule.",
-        "noProcedures": "Add procedures to your fee schedule first."
+        "noProcedures": "Add procedures to your fee schedule first.",
+        "billedOf": "{billed} of {total} billed",
+        "gaps": {
+            "paymentPlan": "A payment plan is arranged against invoiced amounts, not against an estimate.",
+            "agentDraft": "No agent drafts treatment plans. The dentist authors the plan."
+        }
     },
     "portalTreatmentPlan": {
         "eyebrow": "Your care",

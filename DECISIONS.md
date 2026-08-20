@@ -3150,3 +3150,28 @@ references the old ID.
   see an empty UI; only the browser check caught it.** Likewise a helper named `ppCtx()` collided with
   `PerformProcedureTest`'s and was invisible until the whole-directory run. Run the directory, then open the
   page. See [[Dental]], `docs/wireframe-parity/DENTAL-BATCH-DIFF.md` §5.1, [[LOG]].
+
+- **D-170 — When the mock shows money the engine cannot source, omit it; when it shows an agent that does not
+  exist, do not invent one (DENTAL-B.P4).** The Treatment Plan wireframe carries two things the live system
+  cannot honestly produce, and both were declined rather than faked.
+  **The payment plan.** The mock offers "4 × CHF 310" against the plan estimate. The existing `PaymentPlan`
+  (ARDETAIL.P5) covers *an account's REAL outstanding balance*, and its own invariant forbids a total exceeding
+  what is actually outstanding. A treatment plan is an ESTIMATE — nothing is outstanding until procedures are
+  performed and invoiced — so a payment plan against it would require inventing outstanding money, or a second,
+  dental-specific money model running alongside the real one. **Neither was built.** The gap is recorded instead.
+  **The agent-drafted sequence.** The repo has ten agent tools and none touches dental; `Modules\Dental` has no
+  ApprovalQueue coupling at all. The affordance is therefore absent BY CONSTRUCTION, and a test now pins that
+  absence at both ends — no tool file may mention dental/treatment_plan, and the page may offer no agent
+  affordance — so a later gate cannot slip in one that auto-applies. Had a tool existed, the rule would have
+  been the standing one: the agent DRAFTS into the ApprovalQueue at an APPROVE ceiling and a human commits.
+  **The money that IS real got more real.** "N of M billed" previously had no source; it now reads the actual
+  charges captured when a planned item is performed (`PerformedProcedure.charge_id` → `Charge.line_total_minor`,
+  cancelled excluded) — money in the ledger, never the estimate re-labelled. An un-performed item carries NO
+  billed figure rather than a fabricated zero.
+  **The page now does no money arithmetic whatsoever**: the controller emits formatted strings and the page's
+  own `money()` helper was deleted, satisfying the S5 contract that a card receives an already-formatted,
+  engine-supplied string. The cost is a **deliberate duplication** — the PHP formatter mirrors
+  `resources/js/lib/money.ts` (`formatSwissMoney`, ARDETAIL.P3), same Swiss apostrophe grouping. Two
+  implementations in two languages can drift, so the tests pin the exact output strings. Other Billing pages
+  keep the client helper; converting them was out of scope. See [[Dental]], [[Billing]],
+  `docs/wireframe-parity/DENTAL-BATCH-DIFF.md` §5.2/§5.3, [[LOG]].
