@@ -266,3 +266,62 @@ clinical/tenancy/RBAC logic changed, no existing behavior test modified. See [[D
   procedure/diagnosis codes (CDT/ICD licensed — tenant-authored catalogs, do NOT bundle).
 - All later gates keep the fence: build the prototype's AI-diagnosis / AI-overlay / auto-grade features
   WITHOUT the interpretation; dental agents ship draft-only with `tests/Evals/` locks.
+
+## DENTAL-B.P1 — shared dental components (2026-08-20, `<pending>`)
+
+First gate of the **DENTAL-B chain** (`docs/wireframe-parity/DENTAL-BATCH-DIFF.md` §7), the batch's leverage
+gate: build/extract the components that carry ~a third of the batch's visual surface so P2–P6 reuse them.
+**Purely presentational (P0D.GU) — no backend, no new field, no money math, no computed value.**
+
+**Shipped** under a new namespace `resources/js/Components/Dental/`:
+
+- **S1 `PatientClinicalHeader.vue`** — identity + MRN + DOB/age/sex + the RECORDED allergy chip (ALLERGY.P1) +
+  the patient-360 link. Displays only what the caller passes: **`age` and `dateOfBirth` arrive already
+  formatted**, so the component never constructs a `Date` (D-091: a date-only value parsed here shifts a day
+  for behind-UTC viewers) and never subtracts one date from another. The allergy chip's styling is
+  **constant** — recorded severity is shown as TEXT and never drives class, colour or ordering. That line —
+  *displaying* a recorded grade is record-not-judge, *applying* one is not — is the whole design.
+- **S2 `ToothArch.vue` + `toothConditionColour.ts`** — the FDI arch EXTRACTED from `Odontogram.vue`, not
+  rewritten: same anatomical ordering, same per-surface mini-diagram, same selection ring, same missing-tooth
+  strike-through, same FACTUAL chart key, same scoped styles, moved wholesale. The
+  *"FACTUAL charted-condition legend (categorical, NOT a severity ramp) … No score/grade/gradient anywhere"*
+  contract moved **verbatim** into the shared module, so all six arch-drawing screens now inherit ONE
+  categorical vocabulary. A multi-root (fragment) template keeps the DOM structure identical under the
+  parent's `space-y-6`.
+- **S4 `ClinicalStatTile.vue`** — the tile **SHELL only**, deliberately CLOSED: label + caller-supplied value
+  STRING + optional unit/caption, **no slot, no tone/colour/status/trend/direction prop, no arithmetic, no
+  comparison**. The audit flagged the tiles as where the fence gets breached (the mock fills this exact tile
+  with BOP %, DMFT, mean pocket depth, "1 finding", "one site to watch", "▼ from 3.1"). It intentionally does
+  NOT reuse the generic `Components/StatCard.vue` — that one's icon slot would reopen the hole.
+- **S5 `ProcedureCard.vue`** — code/name/tooth/surface/status chrome; **`amount` is an already-formatted,
+  ENGINE-SUPPLIED string**. The card does no division of minor units, no summing, no totalling.
+- i18n: a unique top-level `dentalShared` block (no dotted keys, no `@`).
+
+**Only Odontogram was rewired** (to S2), proving the extraction; S1/S4/S5 ship registered but unconsumed for
+P2–P6 to adopt, exactly as scoped.
+
+**S3 was ALREADY BUILT — corrected the audit, did not duplicate it.** The specialty tab strip is
+`Components/DentalSectionNav.vue` from DENTAL.G9: all five tabs, real routes, already i18n'd. Its per-tab
+role-gating was examined and **deliberately left alone** — all five targets are gated identically at
+`patient.view`, so per-tab gating would invent a distinction the routes do not make (`/dental/fee-schedule` is
+`billing.manage` and correctly absent). §3's "six components" also overcounted: S6 (scan tile) was never in
+P1's scope. **Four new components delivered (S1/S2/S4/S5); S3 pre-existing.**
+
+**The extraction is PROVEN behaviour-identical, not assumed.** The Odontogram chart card was captured from a
+real browser before and after: **18109 normalised chars, byte-for-byte identical**; all 32 teeth identical on
+number, classes, computed opacity, all five per-surface background colours and the whole-tooth mark; full-page
+text identical; click-to-select still yields exactly one `.tooth-selected` with the scoped outline intact.
+**No existing test was modified** — the 58 `tests/Feature/Dental` tests, the Evals and the Architecture suite
+all stayed green untouched.
+
+**Tests added** — `tests/Feature/Dental/SharedComponentsTest.php` (8 tests, 291 assertions), STRUCTURAL by
+design because the property under test is an ABSENCE (a render test would only cover today's callers, not the
+affordance the next caller reaches for). It scans **comment-stripped** source — the components' comments
+deliberately NAME what they refuse to build ("DMFT", "BOP %", "trend arrows"), and that documentation must not
+be what trips the scan. **The assertions were mutation-checked**: adding a `trend` prop, a
+`Number(value) / 100`, or a `:class` keyed to `allergy.severity` each turn the suite red.
+`severity` is the ONE narrow, documented allowance, only in `PatientClinicalHeader.vue`.
+
+**§5.1 stays out and §6 stays in:** no DMFT, no finding count, no site-to-watch, no index, no trend, no colour
+band, no AI finding was reintroduced — asserted for both the page and the widget, plus the on-screen chart-key
+note ("not its severity") is re-asserted.

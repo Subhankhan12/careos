@@ -321,15 +321,41 @@ Two further wireframes were decoded from the design pack and triaged. **Neither 
   **SMS/phone** (email-only — the SETTINGS.P5 seam). **Record as a gap:** the richer preference model
   (preferred days, time bands, earliest date, short-notice, per-entry channels, note).
 
+- **DENTAL BATCH — 13 screens AUDITED; the DENTAL-B chain is now STARTED (P1 done, P2–P6 open).** Audit at
+  `docs/wireframe-parity/DENTAL-BATCH-DIFF.md`. **9 of 13 have a live page; 4 have none.** The batch's dominant
+  finding is NOT visual drift: ~20 computed-clinical-judgment items across 8 screens are
+  **MUST-NOT-BUILD-AS-DRAWN** (an agent-proposed endo diagnosis with a confidence level, an auto-narrowed
+  differential, AI radiograph findings on three separate screens, an antibiotic substitution WITH dosing,
+  perio indices with trend arrows and a "site to watch", a crown prep gauged against a material minimum, a
+  computed prognosis and material Rx). **The live dental build already made every one of those calls
+  correctly and its tests lock them — nothing in the audit asks for a fence change.** The genuine parity work
+  is modest and front-loaded.
+  - **DENTAL-B.P1 — DONE.** The shared components: `resources/js/Components/Dental/` —
+    `PatientClinicalHeader.vue` (S1), `ToothArch.vue` + `toothConditionColour.ts` (S2, EXTRACTED from
+    `Odontogram.vue` and **proven byte-for-byte behaviour-identical in a real browser**),
+    `ClinicalStatTile.vue` (S4, a deliberately CLOSED shell — no slot, no tone/trend prop, no arithmetic,
+    because the tiles are where the fence gets breached), `ProcedureCard.vue` (S5, engine-supplied money
+    strings only). Only Odontogram was rewired; S1/S4/S5 await P2–P6. **S3 was already built**
+    (`DentalSectionNav.vue`, DENTAL.G9) — the audit was corrected, not duplicated; its per-tab role-gating was
+    examined and deliberately left alone (all five targets are gated identically at `patient.view`).
+  - **P2–P6 open** (Odontogram · Perio · Treatment Plan · Fee Schedule visual half · Scan Library/Upload over
+    the 2D backend), + two optional (B3 structured procedure records; **B4 `Resource` capability field — one
+    field closes this batch's chair gap AND the recorded APPT.P4 gap**).
+  - **Recommended to stay deferred:** the 4 no-live-page screens (Scan Comparison, Ortho Progress, Chair
+    Scheduling, Inventory & Sterilization) are net-new subsystems — three already deferred by decision, and
+    sterilisation/reprocessing has **no model anywhere in the repo**. Also NOT in the chain: every §5.1 item,
+    B5 (3D scan/mesh, partner-gated) and the licensed Swiss SSO point-value tariff.
+
 ---
 
 ## DEPLOYMENT — the primary track (authoritative; everything below this section is history)
 
 **No verticals remain, no hospital phases remain, and no wireframe-parity pages from the nine-page pass
-remain.** The buildable work that exists is, in priority order: **(a) DEPLOYMENT** · **(b) Waitlist Management**
-(audited, not started) · **(c) Operator Mode G4–G11** (deliberately deferred to post-first-customer) · (d) the
-two optional Appointment follow-ons · (e) the open password-policy decision · (f) the certified-partner seams ·
-(g) the earlier parked items. Full list with triggers in `DEFERRED.md`.
+remain.** The buildable work that exists is, in priority order: **(a) DEPLOYMENT** · **(b) the DENTAL-B chain
+P2–P6** (P1 done; the audit is written and the shared components exist) · **(c) Waitlist Management** (audited,
+not started) · **(d) Operator Mode G4–G11** (deliberately deferred to post-first-customer) · (e) the two
+optional Appointment follow-ons · (f) the open password-policy decision · (g) the certified-partner seams ·
+(h) the earlier parked items. Full list with triggers in `DEFERRED.md`.
 
 **If asked "what's next?", the answer is DEPLOY** — not a new vertical, not a new parity page, and not G4. The
 security-critical work that was worth doing ahead of deployment is **done**.

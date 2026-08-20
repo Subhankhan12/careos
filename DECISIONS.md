@@ -3059,3 +3059,42 @@ references the old ID.
   **The pre-deploy verdict moves from 🟡 CONDITIONAL GO to 🟢 GO.** M1–M4 are resolved; the two SHOULD-FIXes
   (S1 unscheduled audit partitions — which degrade rather than fail, and S2 unguarded demo seeders) remain open
   and non-blocking. See [[Platform]], `docs/DEPLOY-READINESS-CHECK.md`, `docs/DEPLOY-RUNBOOK.md`, [[LOG]].
+
+- **D-166 — A shared clinical component's job is to make the fence CHEAPER TO KEEP than to breach; the stat
+  tile is therefore CLOSED, not flexible (DENTAL-B.P1).** The dental batch audit found that the wireframes'
+  clinical intelligence lands, visually, in one repeated element: the 3–4 stat tiles under the patient header.
+  The mock fills that exact tile with BOP %, DMFT, mean pocket depth, a plaque score, "1 finding", "one site to
+  watch" and trend arrows ("▼ from 3.1", "plateau") — every one a computed clinical judgment ruled
+  MUST-NOT-BUILD. A conventional shared tile (a `label`, a `value`, a free slot, a `tone` prop) would have made
+  every one of those a two-line change on any of eight screens.
+  **So `ClinicalStatTile.vue` has no slot, no tone/colour/status/trend/direction prop, and no arithmetic.** It
+  takes a label, a caller-supplied value STRING, and an optional unit and caption; the value is rendered as
+  received. It deliberately does NOT reuse the generic `Components/StatCard.vue`, whose icon slot would reopen
+  exactly the hole this component exists to close. The constraint IS the feature: the tile can only ever state
+  a recorded fact, and a future author who wants a trend arrow has to add the affordance in the open, where a
+  reviewer sees it.
+  The same principle set the line on the S1 allergy chip: **displaying a recorded severity is record-not-judge;
+  letting it drive colour or ordering is not.** The chip's styling is constant and a test asserts that no
+  `:class`/`:style` binding references `severity` — that one narrow, documented allowance is the only place the
+  word may appear.
+  **The fence tests scan comment-stripped source, on purpose.** These components' comments NAME what they
+  refuse to build ("DMFT", "BOP %", "trend arrows"), and that documentation must not be what trips the scan.
+  The assertions were mutation-checked rather than trusted: a `trend` prop, a `Number(value) / 100`, and a
+  `:class` keyed to `allergy.severity` each turn the suite red. Relatedly, `baseline` was REMOVED from the
+  forbidden-token list once it turned out to match the Tailwind `items-baseline` utility — banning a CSS class
+  teaches the next author to weaken the scan instead of respecting it. See [[Dental]],
+  `docs/wireframe-parity/DENTAL-BATCH-DIFF.md` §5.1, [[LOG]].
+
+- **D-167 — S3 already existed; the audit was corrected rather than the component duplicated, and its
+  "role-gating" was deliberately NOT built (DENTAL-B.P1).** The batch audit listed a specialty tab strip as one
+  of six shared components to build. It already exists: `Components/DentalSectionNav.vue`, shipped at DENTAL.G9
+  with all five tabs on the real patient-scoped routes and already translated. P1 did not rebuild it.
+  The gate also asked for the strip to be role-gated so a user sees only the tabs they may open. **Examined and
+  declined:** all five targets (`dental.chart`, `dental.perio`, `dental.diagnoses`, `dental.plans`,
+  `dental.imaging`) authorise `patient.view` on their show action — the same permission the user already spent
+  to be on any dental page. Per-tab gating would encode a distinction the routes do not make, and would rot the
+  moment one route's gate changed. (`/dental/fee-schedule` is `billing.manage`-gated and is correctly absent
+  from the strip already.) The audit's "six components" was likewise an overcount — S6, the scan tile, was
+  never in P1's scope. **Four new components were delivered (S1/S2/S4/S5); S3 pre-existing.** Recorded in
+  `DENTAL-BATCH-DIFF.md` §7 under "P1 outcome" so the chain's later gates inherit the corrected picture rather
+  than the original claim. See [[Dental]], [[LOG]].

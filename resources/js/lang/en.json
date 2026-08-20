@@ -3009,6 +3009,21 @@
         "plans": "Treatment plan",
         "images": "Imaging"
     },
+    "dentalShared": {
+        "header": {
+            "viewChart": "Open patient chart",
+            "allergies": "Recorded allergies",
+            "noAllergies": "No allergies recorded",
+            "allergyNote": "Documented by a clinician. Shown as recorded — not ranked, not interpreted."
+        },
+        "tile": {
+            "recorded": "Recorded value"
+        },
+        "card": {
+            "estimate": "Estimate",
+            "noItems": "Nothing recorded in this phase yet."
+        }
+    },
     "dental": {
         "eyebrow": "Dental chart",
         "title": "Odontogram",

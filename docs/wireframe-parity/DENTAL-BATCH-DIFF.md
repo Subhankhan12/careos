@@ -213,7 +213,7 @@ customer need — **not** as parity work.
 
 | Gate | Builds | Proves |
 |---|---|---|
-| **DENTAL-B.P1** | **Shared components** — S1 patient clinical header, S3 specialty tab strip, S4 stat-tile **shell**, S5 procedure/phase card. Extract S2 tooth-arch from `Odontogram.vue` into a reusable component. | Purely presentational (P0D.GU); every existing dental test stays green; the tile shell carries **no** computed value. |
+| ~~**DENTAL-B.P1**~~ ✅ **DONE** | **Shared components** — S1 patient clinical header, S3 specialty tab strip, S4 stat-tile **shell**, S5 procedure/phase card. Extract S2 tooth-arch from `Odontogram.vue` into a reusable component. | Purely presentational (P0D.GU); every existing dental test stays green; the tile shell carries **no** computed value. |
 | **DENTAL-B.P2** | **Odontogram visual parity** — Read/Chart toggle, per-tooth detail rail with history, US-notation cross-reference, chart-key polish. **DMFT/finding-count/flag stay omitted.** | The fence assertions still pass; the omissions are re-asserted, not quietly reintroduced. |
 | **DENTAL-B.P3** | **Perio visual parity** — grid ergonomics, entry flow, raw value-over-time. **No indices, no trend labels, no colour bands, no site-to-watch.** | A recursive no-judgment assertion over the page payload, as DENTAL.G6 does today. |
 | **DENTAL-B.P4** | **Treatment Plan parity** — phase timeline, goal narrative, consent + provenance rail, payment-plan link. All money engine-supplied. | Estimate/billed figures tie to the engine **δ=0**; no page-side arithmetic (adversarial grep). |
@@ -224,6 +224,34 @@ customer need — **not** as parity work.
 
 **Realistic gate count: 6 core + 2 optional = 6–8 gates.** Roughly **one-third of the visual surface is
 S1/S3/S4/S5**, which is why P1 comes first.
+
+### P1 outcome (2026-08-20)
+
+Shipped as `resources/js/Components/Dental/` — `PatientClinicalHeader.vue` (S1), `ToothArch.vue` +
+`toothConditionColour.ts` (S2), `ClinicalStatTile.vue` (S4), `ProcedureCard.vue` (S5). Only Odontogram was
+rewired (to S2); S1/S4/S5 are registered for P2–P6 to adopt.
+
+**Correction to §3 — S3 was already built.** The specialty tab strip exists as
+`resources/js/Components/DentalSectionNav.vue`, shipped at DENTAL.G9 with all five tabs on the real routes and
+already i18n'd. P1 therefore did **not** rebuild it. Its per-tab role-gating was also examined and deliberately
+left alone: all five targets (`dental.chart`, `dental.perio`, `dental.diagnoses`, `dental.plans`,
+`dental.imaging`) are gated identically at `patient.view`, so gating tabs individually would invent a
+distinction the routes do not make. `/dental/fee-schedule` is `billing.manage`-gated and correctly absent from
+the strip.
+
+**§3 also overstated the shared-component count.** Six were listed, but S6 (the scan tile) was never in P1's
+scope — §3 itself splits it into "reuse the 2D viewer" and a partner-gated 3D long pole. P1 delivered **four new
+components covering S1/S2/S4/S5**, with S3 pre-existing.
+
+**S2 is proven behaviour-identical**, not merely believed to be: the Odontogram chart card was captured from a
+real browser before and after the extraction — **18109 normalised characters, byte-for-byte identical**, all 32
+teeth matching on number, classes, computed opacity, all five per-surface background colours and the whole-tooth
+mark, with full-page text identical. The existing Odontogram tests were not modified.
+
+**S4 is deliberately closed** — no slot, no tone/trend/severity prop, no arithmetic — because §3 flagged the
+tiles as where the fence gets breached. `tests/Feature/Dental/SharedComponentsTest.php` asserts that absence
+structurally, and the assertions were mutation-checked (adding a `trend` prop and a `Number(value) / 100`
+both fail the suite).
 
 **Explicitly NOT in the chain:** every §5.1 item; B5 (3D/mesh, partner-gated); B6 (reprocessing subsystem); the
 Swiss SSO point-value tariff (licensed).
