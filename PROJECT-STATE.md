@@ -387,7 +387,7 @@ Two further wireframes were decoded from the design pack and triaged. **Neither 
 
 ---
 
-- **PATIENTS & CLINICAL BATCH — 12 screens AUDITED; the PC chain is STARTED (P1 done, P2–P8 open).** Audit at
+- **PATIENTS & CLINICAL BATCH — 12 screens AUDITED; the PC chain is STARTED (P1–P3 done, P4–P8 open).** Audit at
   `docs/wireframe-parity/PATIENTS-CLINICAL-BATCH-DIFF.md`. **4 fully live · 2 partial · 6 with no page.** Unlike
   Dental, most of this batch is BUILDABLE — the mocks are fence-aware and several describe mechanisms the live
   build already has (an extractive source-linked chart summary at a SUGGEST ceiling, trend-free vitals,
@@ -409,7 +409,17 @@ Two further wireframes were decoded from the design pack and triaged. **Neither 
     find-in-chart (a plain substring filter over loaded content, ranks nothing) and recall proximity as a
     plain interval, tinting nothing. **Caught a false green of my own:** the vitals fence passed a `band`
     mutation because the fixture had no vitals — an absence assertion over an empty collection (D-174).
-  - **P3–P8 open** (360 · Note Editor · Access Log + the nDSG/GDPR export · Referral Out · Recall Due
+  - **PC.P3 — DONE.** Patient 360 parity, carried by an **EXTENDED S1 rather than a forked one**: `status`,
+    `links`, `variant` and `initials` are all OPTIONAL and `compact` is the DEFAULT, so the four dental
+    callers are untouched — the hero's avatar and watermark are absolutely-positioned DECORATION, not a
+    wrapper (a first attempt that would have changed the compact DOM was caught before it was built).
+    Counts moved server-side here too, **ahead of the defect rather than behind it**. **The one genuinely
+    FAKED thing in this programme was found here and removed (D-176):** the hero's `⚑ Flag` chip was a
+    hardcoded, unbound span rendered for EVERY patient, on a model with **no flag column anywhere**.
+    Omitted, not backfilled — deriving one is a computed risk marker, defaulting a column is a clinical
+    fact with no author or timestamp. **The gap is RECORDED and needs its own gate** (a recorded flag with
+    author + reason + timestamp). The i18n key went with it and the header grew no `flag` prop.
+  - **P4–P8 open** (Note Editor · Access Log + the nDSG/GDPR export · Referral Out · Recall Due
     List · optional Consult Summary). **Recommended DEFERRED:** Allergy Alert, Care Plan Review, Medical
     History Intake, Patient Flow.
 ---

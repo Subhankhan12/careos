@@ -199,3 +199,30 @@ asserts the reference); my arithmetic regex matched Tailwind's `border-line/60` 
 it now reads the `<script>` block only (banning a class utility would teach the next author to
 weaken the scan — the D-166 `baseline` lesson); and `fall` as a squashed substring matched
 "fallback", so the fence token is now `fallrisk` — the judgment is a fall-RISK SCORE, not the word.
+
+## PC.P3 — Patient 360 parity (2026-08-21)
+
+**S1 was EXTENDED, not forked.** Patient 360's hero and the dental band are now the SAME component. The
+four new props (`status`, `links`, `variant`, `initials`) are **optional**, `compact` is the **default**,
+and the hero's avatar + watermark are **absolutely-positioned decoration** — so the dental callers' markup
+is untouched. A first attempt wrapped the band in an avatar row; that would have altered the compact DOM
+and broken PC.P1's byte-identity, and it was rewritten **before** it was built. If you add a fifth prop,
+keep it optional and keep the hero additive, or the dental surfaces silently change.
+
+**THE FLAG CHIP IS GONE AND MUST STAY GONE (D-176).** The hero shipped `⚑ Flag` as a hardcoded, unbound
+span on **every** patient. `Patient` has **no flag column, no fillable attribute and no migration** — it
+asserted a documented fact that does not exist. Don't "fix" it by adding a boolean: a flag is meaningful
+only as a CLINICIAN-RECORDED fact (who flagged, why, when), and deriving one from the record would be a
+computed risk marker the fence forbids. The i18n key `patients.show.headerFlag` was deleted too, and the
+shared header deliberately has **no `flag` prop** — a prop is an affordance and the next author fills it.
+A test pins all four absences and was mutation-checked.
+
+**Counts are server-computed** (`counts.{contacts,coverages,consents,identifiers,allergies,accessLog}`,
+allergies counting ACTIVE only). `PatientAccessReport::forPatient()` is uncapped **today**, so the Vue
+lengths were accurate — but that is a property of today's payload, not a guarantee, and it is exactly the
+assumption that broke on the chart at PC.P2. Count where the record is.
+
+**Helper-name collision, second time.** `p3Ctx()` clashed with `CrossTenantIsolationTest` — green in a
+single-file run, **fatal across the suite**, and `composer check` still exited 0. Pest helpers are global:
+prefix them uniquely (`p360*`) and grep the whole `tests/` tree before naming one.
+

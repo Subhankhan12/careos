@@ -149,6 +149,7 @@ Classification: **(a)** visual · **(b)** backend gap · **(c)** fence MUST-NOT-
 | **Allergy Alert** | **The hard block** — "This can't be prescribed… no override" | **YES.** The seam's contract states a partner's findings are "ADVISORY + human-owned, NEVER auto-blocking or auto-acting." So even *with* a licensed partner, the drawn behaviour is refused. | **MUST-NOT-BUILD** |
 | **Allergy Alert** | **Agent-proposed "Safe alternative — Clindamycin 300 mg · no conflict"** | **YES.** A substitution + dose is dosing logic; the same refusal the dental Endo screen drew. | **MUST-NOT-BUILD** |
 | **Medical History Intake** | **"Anticoagulant… Review bleeding-risk before invasive procedures; consider INR/timing per protocol"**, tagged `interaction:anticoagulant` | **YES** — same seam. The *shape* (flag-only, never blocks, human acknowledges) is correct and worth keeping; the *content* is a drug-class inference CareOS may not compute. | **Certified-partner seam** |
+| **Patient 360** | **The "⚑ Flag" chip beside the name** | **Now, yes — it was the one thing on this screen that was faked.** `patients` has no flag column and nothing in CareOS records one, so the chip that shipped was a hardcoded span rendered for **every** patient. PC.P3 removed it. A flag must be a **clinician-recorded** fact before it can be displayed; deriving one from the record would make it a computed risk marker. | **Needs a recorded fact first** |
 | **Care Plan Review** | **BOP %, "sites ≥ 4 mm" count, plaque score** | **YES.** DENTAL.G6/D-104 stores raw per-site values only; `PerioChartTest`'s `pcAssertNoJudgment` forbids the judgment keys, and DENTAL-B.P3 re-asserted it with a payload + component scan. | **MUST-NOT-BUILD** |
 | **Care Plan Review** | **Trend labels** — "▼ 19 pts", "▼ from 18", "plateau" | **YES** — DENTAL-B.P3: a prior value may be shown as a raw number; labelling the direction is the judgment. | **MUST-NOT-BUILD** |
 | **Care Plan Review** | **"One site to watch — tooth 26 mesial… Flagged"** | **YES** — refused at DENTAL-B.P3; the compound-phrase scan (`sitetowatch`) exists precisely for this. | **MUST-NOT-BUILD** |
@@ -217,7 +218,7 @@ immutable snapshots and audited withdrawal — these screens must **read** that,
 |---|---|---|
 | ~~**PC.P1**~~ ✅ **DONE** | **Shared components + B1.** Promote S1 out of `Components/Dental/` to a shared clinical namespace and **wire its allergy chip** by adding allergies to the `Patients/Show` payload. Build N1 rail card, N3 audit row, N6 sign-off bar. | Presentational (P0D.GU); the chip renders **recorded** allergies only, never a computed cross-reaction; existing tests stay green. |
 | ~~**PC.P2**~~ ✅ **DONE** | **Patient Chart parity** — band counts, tab chips, find-in-chart, timeline filters + month groups, version chains, recall proximity, and the N4 agent panel around the **existing** summary tool. | Vitals stay trend-free; the summary keeps its SUGGEST ceiling and source chips; D-169 styling scan. |
-| **PC.P3** | **Patient 360 parity** — hero band, five tabs with counts, consents tab (N5), access tab. | Consent snapshots stay immutable; the allergy chip is display-only. |
+| ~~**PC.P3**~~ ✅ **DONE** | **Patient 360 parity** — the hero band carried by the **extended S1** (status pill · dental link), five tabs with **server-computed** counts, consents tab, access tab. | Consent snapshots stay immutable; the allergy chip is display-only; **the flag chip is omitted — nothing records a flag** (§7c). |
 | **PC.P4** | **Note Editor parity** — focus mode, version rail, required-section counter, type-to-confirm sign modal, signed read-only, amend-with-reason. | Signing/amend re-checked server-side; no delete affordance anywhere. |
 | **PC.P5** | **Patient Access Log (B2)** — dedicated route + `patient.audit.view` gate, basis/range facets, agent min-necessary detail, and the **signed nDSG/GDPR export**. | Basis derived server-side; rows immutable; viewing writes its own row. **Operator-mode detail omitted + flagged** (G4–G11 deferred). |
 | **PC.P6** | **Referral Out (B5)** — urgency, packet, consent-to-share, tracking states. | The share is consent-gated and minimum-necessary; the agent packages, never decides whom to refer. |
@@ -280,6 +281,48 @@ and says so on screen) and recall proximity as a plain calendar interval ("due i
 because the fixture recorded no vitals — an absence assertion over an empty collection is vacuously true. The
 test now records real vitals including a frankly abnormal reading, and asserts the collection is non-empty
 before scanning it (D-174).
+
+---
+## 7c — P3 outcome (2026-08-21)
+
+**S1 was extended, not forked.** Patient 360's hero and the dental band are now the same component. The
+four new props (`status`, `links`, `variant`, `initials`) are all **optional** and `compact` is the default,
+so the dental callers are untouched — the hero's avatar and watermark are **absolutely-positioned
+decoration**, added without changing the compact DOM. A first attempt wrapped the band in an avatar row;
+that would have altered the dental markup and was rewritten before it was built. Verified in a browser on
+both surfaces: the dental band's root class string, its `text-2xl` name and the absence of avatar/watermark
+are unchanged; the 360 hero shows the recorded status pill, the real severe-allergy chip and the dental link.
+
+**The one faked thing on this screen was found and removed.** The hero carried a hardcoded `⚑ Flag` span —
+unbound, rendered for **every** patient, asserting a documented fact that does not exist. There is no flag
+column, no model attribute and no migration anywhere in CareOS. It is **omitted, not backfilled**: a flag is
+meaningful only as a clinician-recorded fact, and deriving one from the record would be exactly the computed
+risk marker the fence forbids. `patients.show.headerFlag` was deleted too — a live string is an invitation to
+render it again — and the header deliberately grew **no** `flag` prop. **This is the gap; it is recorded, not
+closed.** Closing it needs its own gate: a recorded flag with an author, a reason and a timestamp.
+
+**One field the hero no longer shows, stated rather than glossed:** the old bespoke band carried a
+`preferred_language` chip that the shared header has no prop for. It is **not lost** — the Demographics tab
+on the same page still renders it (`patients.fields.language`, untouched) — but the hero shows one fewer
+fact than before, and the wireframe hero does not draw language either. Adding a prop for it would have
+widened S1 for one caller; if a clinician wants it back in the band, that is a prop worth adding
+deliberately, not a detail to discover later.
+
+**Counting moved server-side here too**, ahead of the defect rather than behind it. `PatientAccessReport::
+forPatient()` is uncapped today, so the Vue lengths were accurate — but that is a property of today's payload,
+not a guarantee, and it is precisely the assumption that broke on the chart at P2.
+
+**Moving the h1 broke an a11y guard, and the guard was right to break.** `a11y-markup.test.ts` asserted the
+360 page source contains `<h1`; the heading now lives in the shared header, so the page has none — the
+rendered outline is identical, but the assertion had lost its subject. It was made to FOLLOW the heading
+(the page must render the shared header and add no competing `<h1>`; the header must carry exactly one),
+which is stronger than what it replaced. The first attempt at that fix was too loose and only the mutation
+run revealed it.
+
+**Every new guard was mutation-checked** (five mutations: a reintroduced flag chip, severity-keyed chip
+styling, a page-side count, a dental caller made hero, a fence token in the header). Each failed exactly one
+test. One mutation fired unprompted: the glyph scan caught the `⚑` in my own explanatory comment, so the
+prose was reworded and the raw-source check kept at full strictness.
 
 ---
 ## 8 — Bottom line

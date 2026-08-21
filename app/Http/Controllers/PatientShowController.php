@@ -64,6 +64,26 @@ class PatientShowController extends Controller
             // wireframe names. Landing it here lights that banner with no page rewrite.
             'allergies' => $this->allergies($record),
             'accessLog' => $this->accessLog($accessReport, $record),
+            /*
+             * Tab counts computed HERE from the real rows (PC.P3, the PC.P2 lesson).
+             *
+             * They are accurate as Vue lengths today because none of these lists is filtered —
+             * but that is a property of today's payload, not a guarantee. The moment one of them
+             * is capped or gated (as the chart's `notes` and `orders` already are), a page-side
+             * length starts under-reporting the record silently. Counting the rows is the version
+             * that stays true.
+             */
+            'counts' => [
+                'contacts' => PatientContact::query()->where('patient_id', $record->id)->count(),
+                'coverages' => PatientCoverage::query()->where('patient_id', $record->id)->count(),
+                'consents' => PatientConsent::query()->where('patient_id', $record->id)->count(),
+                'identifiers' => PatientIdentifier::query()->where('patient_id', $record->id)->count(),
+                'allergies' => Allergy::query()
+                    ->where('patient_id', $record->id)
+                    ->where('status', Allergy::STATUS_ACTIVE)
+                    ->count(),
+                'accessLog' => $accessReport->forPatient($record)->count(),
+            ],
             'actions' => [
                 'can_edit' => Gate::allows('patient.edit'),
                 'grant_consent_url' => route('patients.consents.grant', $record->id),

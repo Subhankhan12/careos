@@ -20,8 +20,22 @@ function read(relative: string): string {
 describe('A11Y.1 U-1 — patient-360 has a navigable heading outline', () => {
     const src = read('./pages/Patients/Show.vue');
 
-    it('has a single top-level h1 (the patient name)', () => {
-        expect(src).toContain('<h1');
+    /*
+     * The h1 MOVED (PC.P3): Patient 360's hero is now the shared clinical header, so the page
+     * source no longer contains the tag — the rendered outline is unchanged. This assertion
+     * FOLLOWS its subject rather than being relaxed to fit (D-173): the page must render the
+     * shared header, and that header must carry EXACTLY ONE h1. That is strictly stronger than
+     * the original `toContain('<h1')`, which a second h1 would have passed.
+     */
+    it('has a single top-level h1 (the patient name), rendered by the shared clinical header', () => {
+        expect(src).toMatch(/<PatientClinicalHeader[\s/>]/);
+        expect(src).toContain('@/Components/Clinical/PatientClinicalHeader.vue');
+        // The page itself must not add a competing top-level heading.
+        expect(src).not.toContain('<h1');
+
+        const header = read('./Components/Clinical/PatientClinicalHeader.vue');
+        expect(header.match(/<h1\b/g) ?? []).toHaveLength(1);
+        expect(header).toContain('{{ patient.name }}');
     });
 
     it('gives each tab section a semantic h2 (visually hidden, sr-only — no visual change)', () => {

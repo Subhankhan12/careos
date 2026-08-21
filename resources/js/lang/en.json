@@ -1533,7 +1533,6 @@
             "create": "Create patient"
         },
         "show": {
-            "headerFlag": "Flag",
             "tabs": {
                 "demographics": "Demographics",
                 "contacts": "Contacts",

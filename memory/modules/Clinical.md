@@ -334,3 +334,17 @@ and uses `interval_months` (not `interval_days`); `Encounter` fails closed witho
 `practitioner_id`; `Medication` requires `substance_key`; and the note service method is
 `saveDraft(encounter, author, sections, actor)` with `sign(note, user)` and
 `amend(note, changes, reason, author, actor)` — not the `create(...)` I assumed.
+
+## PC.P3 — the shared clinical header now serves two surfaces (2026-08-21)
+
+`Components/Clinical/PatientClinicalHeader.vue` (S1) is consumed by **five** pages: the four dental
+surfaces (compact) and Patient 360 (hero). It was **extended, not forked** — `status`, `links`,
+`variant`, `initials` are all optional and `compact` is the default, and the hero adds only
+absolutely-positioned decoration, so the compact DOM is byte-identical. **Change it with that in
+mind:** a structural edit inside the shared body changes all five pages at once.
+
+It stays **purely presentational** — it parses no date, derives no age, and its allergy chips carry
+**one constant class string** whatever the recorded severity (D-169). It deliberately has **no `flag`
+prop**: nothing in CareOS records a patient flag, and a prop would invite the next author to compute
+one (D-176). The fence test scans this file by name and was mutation-checked.
+

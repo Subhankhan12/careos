@@ -3299,3 +3299,21 @@ references the old ID.
   **The rule is now in AGENTS.md** so future gates write positive controls by default: prove the subject is
   non-empty, make the fixture representative of what would tempt the breach, and mutation-check. **A guard that
   has never been seen to fail is not yet a guard.** See [[LOG]], D-173, D-174.
+
+- **D-176 — A chip that asserts a recorded fact must be BOUND to one; an unbound chip is a fabrication, and
+  the fix is to DELETE it, not to invent the column (PC.P3).** Patient 360's hero carried `⚑ Flag` as a
+  hardcoded, unbound `<span>` — rendered for **every** patient, on a model with **no flag column, no
+  attribute and no migration anywhere in CareOS**. It looked like parity with the wireframe; it was the one
+  genuinely faked thing on the screen. Every other omission in this programme has been an absence the user
+  can see; this was worse — **a presence the user cannot distinguish from a real one**. Three ways to close
+  it, and only one is honest: (a) derive a flag from the record — that is a **computed risk marker**, exactly
+  what the fence forbids; (b) add a boolean column and default it — a fact with no author, no reason and no
+  timestamp is not a clinical record; (c) **remove it and record the gap** — chosen. A flag is meaningful
+  only as a CLINICIAN-RECORDED fact: who flagged, why, and when. Closing the gap properly needs its own
+  gate. The i18n string `patients.show.headerFlag` was deleted with it — **a live string is an invitation to
+  render it again** — and the shared header deliberately grew **no** `flag` prop, since a prop is an
+  affordance and the next author would fill it. A test now pins all four: no column, no glyph, no key, no
+  prop. **Generalises past chips:** any element asserting something about a patient must trace to a stored,
+  authored value; if it cannot, it does not ship. See [[LOG]], D-170 (money the engine cannot source is
+  OMITTED, and an agent that does not exist is NOT invented) — this is the same rule applied to a FACT.
+

@@ -7,6 +7,7 @@ import Button from '@/Components/Button.vue';
 import DataList from '@/Components/DataList.vue';
 import Input from '@/Components/Input.vue';
 import Tabs from '@/Components/Tabs.vue';
+import PatientClinicalHeader from '@/Components/Clinical/PatientClinicalHeader.vue';
 
 const { t } = useI18n();
 const page = usePage();
@@ -50,6 +51,12 @@ const props = defineProps<{
     // the banner renders only when the prop lands (same pattern as the landing KPIs).
     allergies?: Array<{ id: string; substance: string; reaction: string | null; severity: string; status: string }>;
     accessLog: Array<{ actor_type: string; actor_id: string | null; occurred_at: string; resource_type: string }>;
+    /**
+     * SERVER-COMPUTED counts of real rows (PC.P3). Not array lengths: the moment one of these
+     * lists is capped or gated, a page-side length starts under-reporting the record silently
+     * — the defect PC.P2 found on the chart.
+     */
+    counts: { contacts: number; coverages: number; consents: number; identifiers: number; allergies: number; accessLog: number };
     actions: { can_edit: boolean; grant_consent_url: string };
 }>();
 
@@ -64,11 +71,28 @@ const initials = computed(() =>
 
 const tabs = computed(() => [
     { key: 'demographics', label: t('patients.show.tabs.demographics') },
-    { key: 'contacts', label: t('patients.show.tabs.contacts'), count: props.patient.contacts.length },
-    { key: 'coverages', label: t('patients.show.tabs.coverages'), count: props.patient.coverages.length },
-    { key: 'consents', label: t('patients.show.tabs.consents'), count: props.patient.consents.length },
-    { key: 'access', label: t('patients.show.tabs.access'), count: props.accessLog.length },
+    { key: 'contacts', label: t('patients.show.tabs.contacts'), count: props.counts.contacts },
+    { key: 'coverages', label: t('patients.show.tabs.coverages'), count: props.counts.coverages },
+    { key: 'consents', label: t('patients.show.tabs.consents'), count: props.counts.consents },
+    { key: 'access', label: t('patients.show.tabs.access'), count: props.counts.accessLog },
 ]);
+
+/*
+ * The header's view-model. Every value is a RECORDED field, formatted for display by this
+ * page — the shared component parses and computes nothing (D-091: dates are already strings).
+ */
+const headerPatient = computed(() => ({
+    name: `${props.patient.first_name} ${props.patient.last_name}`,
+    mrn: props.patient.mrn,
+    dateOfBirth: props.patient.date_of_birth,
+    age: `${props.patient.age} ${t('patients.index.ageUnit')}`,
+    sex: props.patient.sex,
+}));
+
+// The dental cross-link, offered only to a dental-capable user — the same gate as the top nav.
+const headerLinks = computed(() =>
+    canDental.value ? [{ key: 'dental', label: t('patients.show.viewInDental'), href: `/dental/chart/${props.patient.id}` }] : [],
+);
 
 const demographics = computed(() => [
     { label: t('patients.fields.mrn'), value: props.patient.mrn },
@@ -134,60 +158,24 @@ function withdrawConsent(url: string): void {
             </nav>
 
             <!-- The screen's one deep-eucalyptus accent tile: the patient band. -->
-            <div class="euca-tile-dark relative overflow-hidden p-6 sm:p-7">
-                <svg
-                    class="pointer-events-none absolute -right-8 -top-8 h-40 w-40 text-euca-50 opacity-10"
-                    viewBox="0 0 200 200"
-                    fill="none"
-                    aria-hidden="true"
-                >
-                    <path d="M40 170C40 100 70 55 160 45c-4 78-44 118-120 125z" fill="currentColor" />
-                </svg>
-                <div class="relative flex flex-col gap-5 md:flex-row md:items-start md:justify-between">
-                    <div class="flex items-start gap-4">
-                        <span
-                            class="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-white/15 text-lg font-semibold text-euca-50"
-                        >
-                            {{ initials }}
-                        </span>
-                        <div>
-                            <div class="flex flex-wrap items-center gap-2">
-                                <h1 class="text-3xl font-semibold tracking-tight text-euca-50">
-                                    {{ patient.first_name }} {{ patient.last_name }}
-                                </h1>
-                                <span
-                                    class="inline-flex items-center gap-1.5 rounded-full bg-euca-300/25 px-2.5 py-1 text-xs font-semibold text-euca-50"
-                                >
-                                    <span class="h-1.5 w-1.5 rounded-full bg-euca-200"></span>
-                                    {{ patient.status }}
-                                </span>
-                                <span
-                                    class="inline-flex items-center gap-1 rounded-full border border-white/25 px-2.5 py-1 text-xs font-medium text-euca-100"
-                                >
-                                    ⚑ {{ t('patients.show.headerFlag') }}
-                                </span>
-                            </div>
-                            <div class="mt-3 flex flex-wrap items-center gap-2 text-sm">
-                                <span class="rounded-md bg-white/10 px-2.5 py-1 font-mono text-euca-100">{{ patient.mrn }}</span>
-                                <span class="rounded-md bg-white/10 px-2.5 py-1 text-euca-100">
-                                    {{ patient.date_of_birth }} · {{ patient.age }} {{ t('patients.index.ageUnit') }}
-                                </span>
-                                <span v-if="patient.sex" class="rounded-md bg-white/10 px-2.5 py-1 text-euca-100">{{ patient.sex }}</span>
-                                <span v-if="patient.preferred_language" class="rounded-md bg-white/10 px-2.5 py-1 text-euca-100">
-                                    {{ patient.preferred_language }}
-                                </span>
-                            </div>
-                        </div>
-                    </div>
-                    <Link
-                        v-if="canDental"
-                        :href="`/dental/chart/${patient.id}`"
-                        class="shrink-0 self-start rounded-xl bg-white/15 px-4 py-2 text-sm font-semibold text-euca-50 transition hover:bg-white/25"
-                    >
-                        {{ t('patients.show.viewInDental') }} →
-                    </Link>
-                </div>
-            </div>
+            <!-- The SHARED clinical header (S1) in its hero variant — one component, two
+                 surfaces (PC.P3). It carries the recorded status, the recorded allergy chips
+                 and the dental link.
+
+                 THE FLAG CHIP THE WIREFRAME DRAWS IS DELIBERATELY ABSENT. `patients` has no
+                 flag column and nothing records one, so the hardcoded flag chip that shipped
+                 asserted a recorded fact that does not exist — on every patient. A flag must
+                 be a CLINICIAN-RECORDED fact before it can be shown; inventing one, or deriving
+                 it from data, would make it a computed risk marker. Gap recorded, not faked. -->
+            <PatientClinicalHeader
+                variant="hero"
+                :patient="headerPatient"
+                :initials="initials"
+                :status="patient.status"
+                :allergies="allergies"
+                :no-allergies-label="t('patients.show.allergiesNone')"
+                :links="headerLinks"
+            />
 
             <!-- Allergy banner, pinned under the header — dormant until an allergies prop lands. -->
             <div
