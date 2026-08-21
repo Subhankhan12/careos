@@ -116,6 +116,14 @@ test('NOTHING is auto-suggested, proposed, ranked, or auto-populated — the pay
     // The page renders (with a dentist-recorded diagnosis) and its payload carries NO suggestion field.
     app(DiagnosisService::class)->record($fx['doctor'], $fx['patient'], 'Deep caries, tooth 16', Diagnosis::STATUS_PROVISIONAL, '16');
 
+    /*
+     * A REPRESENTATIVE pick-list (FENCE-AUDIT / D-174). The terms scan below used to run over an
+     * EMPTY list and so could never fail. The tenant now has an authored term — and one whose
+     * label names the very finding just charted, which is exactly the case where a system that
+     * WANTED to suggest would surface it.
+     */
+    app(DiagnosisService::class)->addTerm($fx['doctor'], 'Caries profunda');
+
     dxCtx()->forget();
     $this->actingAs($fx['doctor'])
         ->get(route('dental.diagnoses', $fx['patient']->id))
@@ -123,7 +131,9 @@ test('NOTHING is auto-suggested, proposed, ranked, or auto-populated — the pay
         ->assertInertia(fn (Assert $page) => $page
             ->component('Dental/Diagnoses')
             ->has('diagnoses', 1)   // only the ONE the dentist entered
-            ->has('terms')
+            // POSITIVE CONTROL (FENCE-AUDIT): the pick-list must be NON-EMPTY, or the
+            // no-suggestion scan below inspects nothing and passes vacuously (D-174).
+            ->has('terms', 1)
             ->has('statuses', 3)
             ->where('actions.can_record', true)
             ->where('diagnoses', function ($diagnoses) {

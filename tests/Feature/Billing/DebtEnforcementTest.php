@@ -112,8 +112,13 @@ function denRunDunning(array $fx, string $asOf): void
 /** Recursively scan a source dir; true if any .php file CONTAINS the needle. */
 function denSourceContains(string $absDir, string $needle): bool
 {
+    /*
+     * POSITIVE CONTROL (FENCE-AUDIT / D-174). A missing directory used to return false, which
+     * made the caller's `->toBeFalse()` pass having scanned NOTHING — the guard would go
+     * quiet the moment its target moved. Fail loudly instead.
+     */
     if (! is_dir($absDir)) {
-        return false;
+        throw new RuntimeException("fence scan target does not exist: {$absDir} — the guard would otherwise pass having scanned nothing");
     }
     $it = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($absDir, FilesystemIterator::SKIP_DOTS));
     foreach ($it as $file) {

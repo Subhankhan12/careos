@@ -273,10 +273,18 @@ test('the three new shared shells compute NOTHING and offer no clinical affordan
 });
 
 test('THE FENCE: no risk score, acuity, EWS, prognosis or interaction determination in the new surface', function () {
-    $files = array_merge(
-        glob(base_path('resources/js/Components/Clinical/*.vue')) ?: [],
-        [base_path('app/Http/Controllers/PatientShowController.php')],
-    );
+    $shells = glob(base_path('resources/js/Components/Clinical/*.vue')) ?: [];
+
+    /*
+     * POSITIVE CONTROL (FENCE-AUDIT / D-174). Without this, renaming or emptying
+     * Components/Clinical/ would leave the glob resolving to nothing and this fence would
+     * pass having read no files — a guard that cannot fail.
+     */
+    expect($shells)->not->toBeEmpty('the clinical component scan resolved to no files');
+    expect(array_map('basename', $shells))
+        ->toContain('PatientClinicalHeader.vue', 'ClinicalRailCard.vue', 'AccessLogRow.vue', 'SignOffBar.vue');
+
+    $files = array_merge($shells, [base_path('app/Http/Controllers/PatientShowController.php')]);
 
     $forbidden = [
         'risk', 'riskscore', 'acuity', 'triage', 'ews', 'news', 'deterioration', 'readmission',

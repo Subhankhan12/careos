@@ -231,11 +231,19 @@ test('the shared dental components introduce NO computed-judgment affordance (DE
 
     // Both shared namespaces — the header moved to Components/Clinical/ at PC.P1, and the
     // scan follows it rather than losing sight of it.
-    $files = array_merge(
-        glob(base_path('resources/js/Components/Dental/*.{vue,ts}'), GLOB_BRACE) ?: [],
-        glob(base_path('resources/js/Components/Clinical/*.{vue,ts}'), GLOB_BRACE) ?: [],
-    );
-    expect($files)->not->toBeEmpty('no shared dental components found');
+    $dentalFiles = glob(base_path('resources/js/Components/Dental/*.{vue,ts}'), GLOB_BRACE) ?: [];
+    $clinicalFiles = glob(base_path('resources/js/Components/Clinical/*.{vue,ts}'), GLOB_BRACE) ?: [];
+    $files = array_merge($dentalFiles, $clinicalFiles);
+
+    /*
+     * POSITIVE CONTROL (FENCE-AUDIT / D-174). "Not empty" was too weak: it still passed if
+     * ONE namespace stopped resolving — precisely the file move (D-173) this scan exists to
+     * survive. BOTH must contribute, and the components that must be scanned are named.
+     */
+    expect($dentalFiles)->not->toBeEmpty('the dental component scan resolved to no files');
+    expect($clinicalFiles)->not->toBeEmpty('the clinical component scan resolved to no files');
+    expect(array_map('basename', $files))
+        ->toContain('ToothArch.vue', 'ClinicalStatTile.vue', 'ProcedureCard.vue', 'PatientClinicalHeader.vue');
 
     foreach ($files as $file) {
         $name = basename($file);

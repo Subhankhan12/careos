@@ -56,6 +56,16 @@ Market packs:
   Every clinical-safety judgment is a **certified-partner null-object seam** — advisory, human-owned,
   and structurally incapable of auto-blocking. **A homemade version is a permanent NON-GOAL**, not a
   backlog item: it would make CareOS a medical device.
+- **A FENCE TEST MUST BITE — every absence assertion needs a POSITIVE CONTROL.** The fence is enforced by
+  tests that assert something is NOT present (no judgment key in a payload, no forbidden token in a source
+  scan, no licensed code set in the repo). Such a test is **vacuously true over an empty subject**: a payload
+  scan whose fixture recorded no rows, a glob that resolves to no files, a source scan whose directory has
+  moved. It then passes for ever while protecting nothing, and buys false confidence. So: **prove the subject
+  is non-empty before scanning it** (assert the rows/files exist, and name what must be among them), **make
+  the fixture representative** — include the data that would TEMPT the breach (an abnormal vital, a deep
+  pocket, a severe allergy, an expensive fee, a populated pick-list) — and **mutation-check it**: introduce the
+  forbidden thing and confirm the suite turns red. A guard that has never been seen to fail is not yet a
+  guard. See D-174 (the vacuous vitals scan) and D-173 (a scan that stopped resolving when its file moved).
 - **GOVERNANCE:** agent autonomy = **MIN(configured, tool ceiling, role RBAC ceiling)**; configuration can
   only ever NARROW, never widen. The fence is toggle-free. The agent **DRAFTS** (suggest-only, through the
   ApprovalQueue) and a **HUMAN commits** anything consequential: the agent never auto-sends, never commits

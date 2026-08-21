@@ -3268,3 +3268,34 @@ references the old ID.
   by relevance would be a different thing entirely, and a test forbids it. Likewise recall proximity is a plain
   calendar interval ("due in 66 days"), not urgency: nothing is tinted by it (D-169). See [[Clinical]],
   `docs/wireframe-parity/PATIENTS-CLINICAL-BATCH-DIFF.md` §7, [[LOG]].
+- **D-175 — The fence audit: 85 absence assertions inventoried, measured EMPIRICALLY, and 6 hardened. No real
+  breach was hiding behind any of them (FENCE-AUDIT).** D-174 found one vacuous guard by accident. This gate
+  went looking for the rest rather than guessing which were at risk.
+  **Method.** Static reading cannot tell you whether a scan ever inspected anything, so the suite was
+  temporarily instrumented: every recursive absence-helper logged the SIZE of what it was handed, and every
+  glob logged how many files it resolved to. Then the suites were run and the log read. A first pass looked
+  damning — three helpers appeared to have empty calls — but the probe was counting RECURSIVE DESCENTS into
+  empty sub-arrays, not top-level invocations. A second, depth-aware pass (log only depth 0) corrected it, and
+  **two of those three findings evaporated**. Measure the right thing before reporting a problem.
+  **Result. Of 15 recursive payload scans, 14 bite; ONE had a vacuous call site** — `DiagnosisTest`'s scan of
+  the diagnosis term pick-list, which ran over an EMPTY list because the fixture never authored a term. Of the
+  file/source scans, **four `*SourceContains` helpers returned `false` for a MISSING DIRECTORY**, so
+  `expect(...)->toBeFalse()` passed having scanned nothing — the guard would go silent the moment its target
+  moved (the D-173 shape). They protect ALLERGY.P1 (no homemade drug-conflict logic) and three ARDETAIL money
+  fences. Two globs were unguarded or under-guarded: `Components/Clinical/*.vue` had no control at all, and the
+  merged dental+clinical glob asserted only "not empty" — which still passed if ONE namespace stopped
+  resolving, precisely the move it was written to survive.
+  **THE KEY QUESTION — did anything forbidden slip in behind a dead guard? NO.** Checked directly:
+  `new SafetyAlert(` appears nowhere in `Modules/Pharmacy/src` or `Modules/Clinical/src`, so the ALLERGY.P1
+  fence holds in reality; and the terms payload emits only `id` and `label`, no suggestion or ranking key. The
+  guards were incapable of proving the fence, but the fence itself was never breached.
+  **Fixes, all strictly stronger.** The source-scan helpers now THROW when their target is missing rather than
+  reporting "not found". The term pick-list fixture now authors a real term — and deliberately one
+  (`Caries profunda`) that names the very finding just charted, i.e. exactly the case where a system that
+  WANTED to suggest would surface it. The glob scans now assert their subjects resolved and NAME the
+  components that must be in the scan. Every change was mutation-checked: a `suggested` key on the terms list,
+  and simulated moves of `Modules/Pharmacy/src`, `Components/Clinical/` and one of the two component
+  namespaces — all four now fail loudly where they previously passed in silence.
+  **The rule is now in AGENTS.md** so future gates write positive controls by default: prove the subject is
+  non-empty, make the fixture representative of what would tempt the breach, and mutation-check. **A guard that
+  has never been seen to fail is not yet a guard.** See [[LOG]], D-173, D-174.
