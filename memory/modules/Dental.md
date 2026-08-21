@@ -573,3 +573,63 @@ column**; and a **doctor (dental.chart, no billing.manage) gets 403** on the pag
 **My own slips:** two Pint failures (a fully-qualified class alongside its import; then quote/spacing
 style) and two PHPStan warnings (`?->` unnecessary on the left of `??` after I made `$item` non-null
 in practice). All fixed before green.
+## DENTAL-B.P6 — Scan Library + Upload visual parity (2026-08-20, `<pending>`) — **DENTAL-B CORE COMPLETE**
+
+Final core gate of the **DENTAL-B chain**. 2D only, over the existing image backend. **P0D.GU.**
+
+**WHAT THE 2D BACKEND REALLY HOLDS.** A `DentalImage` is METADATA over a file in the existing
+clinical document storage: `image_type` (one of five plain labels — bitewing / periapical /
+panoramic / photo / scan), an optional FDI `tooth`, an optional free-text `region`, `captured_at`
+and `uploaded_by`. The file itself carries `original_filename`, `mime_type` and `size_bytes`.
+Interpretation lives in append-only `DentalImageReading` rows — **the dentist's own written text**.
+Both models are IMMUTABLE (model + DB trigger). **Nothing anywhere looks at the pixels.**
+
+**WHAT THE MOCK SHOWS THAT HAS NO SOURCE:** 3D/mesh scans, planned setups and tray/ortho series;
+per-tooth coverage flagging ("Well covered / Thin / Gap"); scan superimposition and measured
+deviation; AI radiograph findings. The first three are **B5, partner-gated**; the last is CADe/CADx,
+a **regulated device** and a permanent non-goal.
+
+**BUILT (2D only):** the library became a filtered tile list over the REAL rows — filters by
+**modality and tooth (real recorded attributes only)**, newest/oldest ordering on the recorded
+capture time, a "Showing n of m" count, an honest no-match message, and per-tile the real
+capture date, **who captured it** (the recorded `uploaded_by`, resolved to a name for display),
+the original filename and its byte size in kB. The tooth filter offers **only teeth that actually
+appear on this patient's images**, not the whole FDI universe. Readings now show **who wrote them**.
+The viewer gained **drag-to-pan** alongside zoom — optics only, with an on-screen note saying so.
+**S1 header adopted.**
+
+**THE UPLOAD PATH IS UNTOUCHED.** Same endpoint, same validation (jpg/jpeg/png, ≤10 MB, a known
+type, an optional valid FDI tooth). A test posts a forged `ai_finding` field and proves it reaches
+nothing — the form cannot smuggle a finding in through the upload.
+
+**THE FENCE — the sharpest in the batch — is ABSENT and RE-ASSERTED:** no AI/auto finding, no
+detection, no confidence, no analysis, no coverage/quality flag, no computed measurement verdict,
+no comparison overlay. The viewer may not DRAW: `<canvas>`, `getContext`, `fillRect`, `drawImage`,
+`<svg>`, `marker`, `boundingBox` and `heatmap` are all forbidden in the component, so a
+system-generated mark cannot appear on a clinical image. Any annotation would have to be the
+CLINICIAN'S OWN authored record — today that is the free-text reading.
+
+**FLAGGED, NOT BUILT** (the P5 precedent, stated on the page): no image analysis; no 3D scans,
+superimposition or ortho overlays (certified scanner partner needed); no live capture from an
+X-ray sensor or intraoral scanner — upload the file the device produced.
+
+**Tests added** — `tests/Feature/Dental/ImagingParityTest.php` (5 tests, 223 assertions), EXTENDING
+the existing `DentalImagingTest` (not modified). **Mutation-checked three ways:** an AI `findings`
+payload key, a camelCase `coverageScore`, and an `<svg>` overlay drawn on the image each turn the
+suite red — and the AI-findings mutation also turned the EXISTING no-AI test red, confirming it
+still bites.
+
+**Browser-verified:** the tile reads "Bitewing · 16 · 8/20/2026 · captured by Dr. med. dent. Sabine
+Morgenstern · bitewing-16.jpg · 200 kB"; the type filter narrows to "Showing 0 of 1" with the
+honest no-match message; the dentist's reading renders with "read by"; the viewer holds the image
+with **zero svg/canvas overlays**; a patient with no images shows "No images uploaded yet." with the
+upload form still available; and the ONLY mentions of finding/confidence/comparison on the page are
+the two disclaimers stating their absence.
+
+### DENTAL-B CORE COMPLETE (P1–P6)
+
+Nine of the thirteen dental screens are addressed. **Deferred, unchanged:** the four no-live-page
+screens (Scan Comparison, Ortho Progress, Chair Scheduling, Inventory & Sterilization) — net-new
+subsystems, three already deferred by decision and one (sterilisation/reprocessing) with no model
+anywhere. **Optional gates still open:** B3 structured procedure records; B4 the `Resource`
+capability field, which also closes the recorded APPT.P4 gap.

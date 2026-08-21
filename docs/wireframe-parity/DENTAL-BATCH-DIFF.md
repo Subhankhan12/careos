@@ -218,7 +218,7 @@ customer need — **not** as parity work.
 | ~~**DENTAL-B.P3**~~ ✅ **DONE** | **Perio visual parity** — grid ergonomics, entry flow, raw value-over-time. **No indices, no trend labels, no colour bands, no site-to-watch.** | A recursive no-judgment assertion over the page payload, as DENTAL.G6 does today. |
 | ~~**DENTAL-B.P4**~~ ✅ **DONE** | **Treatment Plan parity** — phase timeline, goal narrative, consent + provenance rail, payment-plan link. All money engine-supplied. | Estimate/billed figures tie to the engine **δ=0**; no page-side arithmetic (adversarial grep). |
 | ~~**DENTAL-B.P5**~~ ✅ **DONE** | **Fee Schedule parity (visual half)** — category grouping, active/retired status, layout. **B2 versioning is a separate decision.** | The catalog stays tenant-authored; the agent still cannot edit it. |
-| **DENTAL-B.P6** | **Scan Library / Upload parity over the 2D backend** — filters, selection, viewer polish. **No coverage flagging, no live capture.** | The imaging fence test still passes; no `ai/finding/confidence` key appears. |
+| ~~**DENTAL-B.P6**~~ ✅ **DONE** | **Scan Library / Upload parity over the 2D backend** — filters, selection, viewer polish. **No coverage flagging, no live capture.** | The imaging fence test still passes; no `ai/finding/confidence` key appears. |
 | **DENTAL-B.P7** *(optional)* | **B3 structured procedure records** — per-canal endo + prep measurements as recorded facts, surfacing the RCT/Crown screens' *recordable* half only. | Values recorded, never graded; no gauged-vs-minimum verdict anywhere. |
 | **DENTAL-B.P8** *(optional, separate)* | **B4 `Resource` capability field** — closes this batch's chair gap **and** APPT.P4. | Capability match enforced **server-side** in the booking path. |
 
@@ -274,6 +274,42 @@ state, so none is shown.
 - **B1 (mixed dentition) untouched**, as scoped. The S1 allergy chip is left unused — sourcing Clinical
   allergies into the dental payload is a new cross-module read and belongs to a later gate.
 
+### P6 outcome (2026-08-20) — **DENTAL-B CORE COMPLETE (P1–P6)**
+
+The library became a filtered tile list over the REAL stored rows: filters by **modality and tooth only** (both
+recorded attributes; the tooth filter offers only teeth that actually appear on this patient's images),
+newest/oldest ordering on the recorded capture time, a count, an honest no-match message, and per tile the real
+date, who captured it, the filename and its size. Readings show who wrote them. The viewer gained drag-to-pan
+beside zoom. **The upload endpoint and its validation are untouched** — and a test posts a forged `ai_finding`
+field to prove it reaches nothing, because "the page has no AI affordance" is a weaker claim than "no AI value
+can enter through the page".
+
+**The new formulation of this fence (D-172): on an image surface the breach is DRAWING, not vocabulary.** A
+finding needs no word — it needs a box, a highlight or a measurement over the pixels. So `Imaging.vue` may not
+draw: `<canvas>`, `getContext`, `fillRect`, `strokeRect`, `drawImage`, `<svg>`, `marker`, `boundingBox` and
+`heatmap` are forbidden, and a mutation adding an `<svg><rect>` turns the suite red. Zoom and pan stay — they
+are optics. Any annotation must be the clinician's own authored record, today the free-text reading.
+
+**Flagged, not built** (stated on the page): no image analysis; no 3D scans, superimposition or ortho overlays
+(**B5**, certified scanner partner); no live capture from an X-ray sensor or intraoral scanner.
+
+---
+
+## ✅ DENTAL-B CORE CHAIN COMPLETE (P1–P6)
+
+**Nine of the thirteen dental screens are addressed.** The chain ran: shared components → Odontogram → Perio →
+Treatment Plan → Fee Schedule → Imaging. Across all six gates **not one §5.1 item was built**, and each gate
+re-asserted the omissions with mutation-checked tests. The fence formulations that emerged are worth carrying
+forward: a stat tile should be *closed* (D-166); a severity ramp needs no judgment word, so the rule lives in
+the styling (D-169); money the engine cannot source is omitted, and an agent that does not exist is not invented
+(D-170); licensed tariff data is kept out by a repo-wide scan (D-171); and on an image, the breach is drawing
+(D-172).
+
+**Still deferred — net-new subsystems, not parity work:** Scan Comparison, Ortho Progress, Chair Scheduling,
+Inventory & Sterilization. **Optional gates still open:** B3 structured procedure records; B4 the `Resource`
+capability field, which also closes the recorded APPT.P4 gap.
+
+---
 ### P5 outcome (2026-08-20)
 
 The visual half over the tenant-authored catalog: search, grouping, status pills, three factual count tiles and

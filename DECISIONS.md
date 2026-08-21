@@ -3199,3 +3199,27 @@ references the old ID.
   endpoint, and a test pins it to the two form transforms. No average fee, no total catalog value, no price
   banding — and, per D-169, no row is tinted by its price. See [[Dental]], [[Billing]],
   `docs/wireframe-parity/DENTAL-BATCH-DIFF.md` §4 (B2), [[LOG]].
+- **D-172 — On a clinical image, the fence is "the system may not DRAW"; and the DENTAL-B core chain closes
+  (DENTAL-B.P6).** The dental wireframe's imaging intelligence is CADe/CADx — a regulated medical device — and
+  it is the sharpest fence in the batch: AI radiograph findings, "bone loss confirmed on today's bitewing",
+  scan analysis, per-tooth coverage flagging, "beyond 0.5 mm". None of it exists and none may be added.
+  The useful new formulation is that on an image surface, **the breach is drawing, not vocabulary**. A finding
+  does not need the word "finding" — it needs a box, a highlight, a marker or a measurement rendered over the
+  pixels. So the component-level rule is now: the viewer may not draw. `<canvas>`, `getContext`, `fillRect`,
+  `strokeRect`, `drawImage`, `<svg>`, `marker`, `boundingBox` and `heatmap` are forbidden in `Imaging.vue`, and
+  a mutation adding an `<svg><rect>` over the image turns the suite red. That sits alongside the payload-key
+  scan (which the pre-existing DENTAL.G8 test already enforces, and which the AI-findings mutation confirmed
+  still bites) and the D-169 styling rule. **Zoom and pan remain fine — they are optics: they change which
+  stored pixels you see and record nothing.** Any annotation that ever ships must be the CLINICIAN'S OWN
+  authored record, which today is the free-text reading.
+  **The upload form is a smuggling route, so it was tested as one.** A forged `ai_finding` field posted to the
+  unchanged endpoint must reach nothing — asserted explicitly, because "the page has no AI affordance" is not
+  the same claim as "no AI value can enter through the page".
+  **With P6 the DENTAL-B core chain (P1–P6) is COMPLETE** — nine of the thirteen dental screens addressed. The
+  four no-live-page screens (Scan Comparison, Ortho Progress, Chair Scheduling, Inventory & Sterilization) stay
+  DEFERRED as net-new subsystems: three by prior decision, and sterilisation/reprocessing has no model anywhere
+  in the repo. Two optional gates remain open: B3 structured procedure records, and B4 the `Resource`
+  capability field that also closes the recorded APPT.P4 gap. Nothing in the six gates changed the fence; the
+  batch's honest headline still stands — **most of what the dental mocks show must continue to be refused**, and
+  the live build was already refusing it. See [[Dental]], `docs/wireframe-parity/DENTAL-BATCH-DIFF.md` §4 (B5)
+  and §5.1, [[LOG]].

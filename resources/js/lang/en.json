@@ -3254,7 +3254,8 @@
             "scan": "Scan"
         },
         "viewer": {
-            "tooth": "Tooth"
+            "tooth": "Tooth",
+            "opticsNote": "Zoom and drag change what you see, not what is recorded. Nothing is marked on the image."
         },
         "reading": {
             "title": "Your reading",
@@ -3262,7 +3263,25 @@
             "placeholder": "Write your interpretation of this image…",
             "reasonPlaceholder": "Reason, if correcting a prior reading (optional)",
             "reason": "Reason",
-            "submit": "Save reading"
+            "submit": "Save reading",
+            "by": "read by {name}"
+        },
+        "library": {
+            "type": "Image type",
+            "allTypes": "All types",
+            "tooth": "Tooth",
+            "allTeeth": "All teeth",
+            "newestFirst": "Newest first",
+            "oldestFirst": "Oldest first",
+            "showing": "Showing {shown} of {total}",
+            "noMatch": "No image matches these filters.",
+            "capturedBy": "captured by {name}"
+        },
+        "notes": {
+            "title": "What this viewer does not do",
+            "noAnalysis": "CareOS does not analyse the image. There is no automatic detection, no finding, no confidence score and no measurement — you read the image and write what you see.",
+            "no3d": "3D scans, superimposing two scans and orthodontic progress overlays are not available. They need a certified scanner partner.",
+            "noCapture": "Live capture from an X-ray sensor or intraoral scanner is not available either — upload the file your device produced."
         }
     },
     "feeSchedule": {

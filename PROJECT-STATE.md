@@ -321,7 +321,7 @@ Two further wireframes were decoded from the design pack and triaged. **Neither 
   **SMS/phone** (email-only — the SETTINGS.P5 seam). **Record as a gap:** the richer preference model
   (preferred days, time bands, earliest date, short-notice, per-entry channels, note).
 
-- **DENTAL BATCH — 13 screens AUDITED; the DENTAL-B chain is UNDER WAY (P1–P5 done, P6 open).** Audit at
+- **DENTAL BATCH — 13 screens AUDITED; the DENTAL-B CORE CHAIN is COMPLETE (P1–P6 done).** Audit at
   `docs/wireframe-parity/DENTAL-BATCH-DIFF.md`. **9 of 13 have a live page; 4 have none.** The batch's dominant
   finding is NOT visual drift: ~20 computed-clinical-judgment items across 8 screens are
   **MUST-NOT-BUILD-AS-DRAWN** (an agent-proposed endo diagnosis with a confidence level, an auto-narrowed
@@ -370,9 +370,16 @@ Two further wireframes were decoded from the design pack and triaged. **Neither 
     no licensed tariff term anywhere in Modules/app/database/config/resources — the shipped starter template
     is asserted generic (`^D-[A-Z]+$`). **Flagged not built:** the mock's tax-point pricing (licensed data)
     and B2 effective-dated versioning + diff.
-  - **P6 open** (Scan Library/Upload over
-    the 2D backend), + two optional (B3 structured procedure records; **B4 `Resource` capability field — one
-    field closes this batch's chair gap AND the recorded APPT.P4 gap**).
+  - **DENTAL-B.P6 — DONE. The CORE CHAIN (P1–P6) is COMPLETE.** Scan Library + Upload over the 2D backend:
+    filtered tile library over the REAL stored rows (modality/tooth filters only — both recorded attributes),
+    who captured each image, drag-to-pan beside zoom, and an on-screen note of what the viewer does not do.
+    The upload endpoint and its validation are UNTOUCHED (a forged `ai_finding` field is proven to reach
+    nothing). **The fence formulation (D-172): on an image surface the breach is DRAWING, not vocabulary** —
+    canvas/svg/marker/heatmap are forbidden in the viewer, so no system-generated mark can appear on a
+    clinical image; zoom and pan stay because they are optics. **B5 (3D/mesh, superimposition, ortho
+    overlays) flagged not built.**
+  - **Two OPTIONAL gates remain open:** B3 structured procedure records; **B4 the `Resource` capability
+    field — one field closes this batch's chair gap AND the recorded APPT.P4 gap**.
   - **Recommended to stay deferred:** the 4 no-live-page screens (Scan Comparison, Ortho Progress, Chair
     Scheduling, Inventory & Sterilization) are net-new subsystems — three already deferred by decision, and
     sterilisation/reprocessing has **no model anywhere in the repo**. Also NOT in the chain: every §5.1 item,

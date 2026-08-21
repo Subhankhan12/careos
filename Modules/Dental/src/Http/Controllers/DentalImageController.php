@@ -42,13 +42,25 @@ class DentalImageController
         $record = Patient::query()->whereKey($patient)->firstOrFail();
         $images = $imaging->imagesFor($actor, $record);
 
+        /*
+         * Who captured each image and who wrote each reading, resolved for DISPLAY only
+         * (DENTAL-B.P6). Both ids are ALREADY RECORDED on their rows; this turns them into the
+         * names the library shows, in one query. No new fact is created, and nothing about the
+         * image itself is derived — the system still never looks at the pixels.
+         */
+        $people = User::query()
+            ->whereIn('id', $images->pluck('uploaded_by')
+                ->merge($images->flatMap(fn (DentalImage $i): array => $i->readings->pluck('read_by')->all()))
+                ->unique()->all())
+            ->pluck('name', 'id');
+
         return Inertia::render('Dental/Imaging', [
             'patient' => [
                 'id' => $record->id,
                 'mrn' => $record->mrn,
                 'name' => trim($record->first_name.' '.$record->last_name),
             ],
-            'images' => $images->map(fn (DentalImage $image): array => $this->present($image))->values()->all(),
+            'images' => $images->map(fn (DentalImage $image): array => $this->present($image, $people->all()))->values()->all(),
             'types' => DentalImage::TYPES,
             'teeth' => [
                 'permanent' => ToothNotation::permanent(),
@@ -134,9 +146,10 @@ class DentalImageController
     /**
      * A dental image + its metadata + the dentist's readings — no analysis/finding/overlay field.
      *
+     * @param  array<int|string, string>  $people  display-only id -> name lookup
      * @return array<string, mixed>
      */
-    private function present(DentalImage $image): array
+    private function present(DentalImage $image, array $people = []): array
     {
         return [
             'id' => $image->id,
@@ -145,8 +158,10 @@ class DentalImageController
             'region' => $image->region,
             'captured_at' => $image->captured_at->toIso8601String(),
             'uploaded_by' => $image->uploaded_by,
+            'uploaded_by_name' => $people[$image->uploaded_by] ?? null,
             'mime_type' => $image->document?->mime_type,
             'original_filename' => $image->document?->original_filename,
+            'size_bytes' => $image->document?->size_bytes,
             'file_url' => route('dental.imaging.file', $image->id),
             'reading_url' => route('dental.imaging.reading', $image->id),
             'readings' => $image->readings
@@ -156,6 +171,7 @@ class DentalImageController
                     'reading' => $r->reading,
                     'reason' => $r->reason,
                     'read_by' => $r->read_by,
+                    'read_by_name' => $people[$r->read_by] ?? null,
                     'read_at' => $r->read_at->toIso8601String(),
                 ])->values()->all(),
         ];
