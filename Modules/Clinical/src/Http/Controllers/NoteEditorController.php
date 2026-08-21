@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
+use Modules\Clinical\Models\Allergy;
 use Modules\Clinical\Models\ClinicalNote;
 use Modules\Clinical\Models\Encounter;
 use Modules\Clinical\Models\NoteTemplate;
@@ -31,12 +32,46 @@ class NoteEditorController
         $encounter = $this->encounterFor($record);
         $template = $this->templateFor($record);
 
+        $chain = $notes->versionsFor($record);
+        $current = $chain->last();
+
         return Inertia::render('Clinical/NoteEditor', [
             'note' => $this->notePayload($record),
             'encounter' => $this->encounterPayload($encounter),
             'patient' => $this->patientPayload($encounter),
             'template' => $this->templatePayload($template),
-            'versions' => $notes->versionsFor($record)->map(fn (ClinicalNote $version): array => $this->versionPayload($version))->all(),
+            'versions' => $chain->map(fn (ClinicalNote $version): array => $this->versionPayload($version))->all(),
+            /*
+             * PC.P4 — where this version sits in the chain, computed SERVER-side from the
+             * existing append-only chain. It is the difference between "this is the note" and
+             * "this is an older version of the note", which a clinician reading a superseded
+             * v1 cannot otherwise see. DISPLAY ONLY: it re-implements nothing and bypasses
+             * nothing — the chain, the immutability and the amend path are exactly as they were.
+             */
+            'chain' => [
+                'is_superseded' => $current instanceof ClinicalNote && $current->id !== $record->id,
+                'current' => $current instanceof ClinicalNote ? [
+                    'id' => $current->id,
+                    'version' => $current->version,
+                    'status' => $current->status,
+                    'edit_url' => route('clinical.notes.edit', $current->id),
+                ] : null,
+            ],
+            /*
+             * The patient's RECORDED active allergies (PC.P4, the B1 pattern).
+             *
+             * `NoteEditor.vue` has carried a dormant `allergies` prop and a hidden mini-banner
+             * since it was built — "not part of the note-editor payload today" — the same gap
+             * PC.P1 closed on Patient 360. Landing it lights the banner with no page rewrite.
+             * No boundary question arises here: `Allergy` is a `Modules\Clinical` model and this
+             * controller is Clinical's own, so there is no cross-module read (D-017).
+             *
+             * DISPLAY-ONLY, ordered by SUBSTANCE and never by severity: the recorded substance,
+             * reaction and clinician-recorded severity, shown as facts. No cross-reactivity, no
+             * ranking, no interaction check — that remains the certified `MedicationSafetyProvider`
+             * seam, whose only implementation is a null object.
+             */
+            'allergies' => $this->allergies($record),
             // ADDITIVE (P0P.G10): the current clinician's dot-phrases, pre-expanded
             // server-side with the whitelisted non-clinical placeholders only.
             'snippets' => $this->snippetPayload($request, $snippets, $encounter),
@@ -159,6 +194,32 @@ class NoteEditorController
         }
 
         return NoteTemplate::query()->whereKey($templateId)->firstOrFail();
+    }
+
+    /**
+     * The patient's ACTIVE recorded allergies, as documented facts.
+     *
+     * Ordered by substance — deliberately NOT by severity, because ordering by badness would be
+     * the system asserting a priority it has no business asserting. Mirrors the composition
+     * `PatientShowController` and `AppointmentDetailController` already use, so no two surfaces
+     * can disagree about what a patient is allergic to.
+     *
+     * @return list<array<string, mixed>>
+     */
+    private function allergies(ClinicalNote $note): array
+    {
+        return Allergy::query()
+            ->where('patient_id', $note->patient_id)
+            ->where('status', Allergy::STATUS_ACTIVE)
+            ->orderBy('substance')
+            ->get()
+            ->map(fn (Allergy $allergy): array => [
+                'id' => $allergy->id,
+                'substance' => $allergy->substance,
+                'reaction' => $allergy->reaction,
+                'severity' => $allergy->severity,
+            ])
+            ->all();
     }
 
     /**

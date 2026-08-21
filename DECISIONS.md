@@ -3317,3 +3317,21 @@ references the old ID.
   authored value; if it cannot, it does not ship. See [[LOG]], D-170 (money the engine cannot source is
   OMITTED, and an agent that does not exist is NOT invented) — this is the same rule applied to a FACT.
 
+- **D-177 — When the MOCK draws no agent either, the absence is not a gap to fill: an assist panel is
+  OMITTED, and a guard that counts CALL SITES does not protect a WRITE SURFACE (PC.P4).** The Note Editor
+  gate arrived expecting an assist panel bounded to rephrasing the clinician's own text. Two independent
+  checks said build nothing: **no rephrase or note-authoring capability exists** (ten AiCore tools, none
+  touching note prose; the only clinical one is extractive at a SUGGEST ceiling and belongs on the Chart),
+  and **the decoded wireframe contains no assist affordance whatsoever** — zero mentions of assist,
+  rephrase, AI, agent, suggest or summarize. D-170 says an agent that does not exist is not invented; this
+  adds the sharper case: **when the mock does not draw one either, adding one is not parity at all** — it is
+  putting a content-producing affordance beside a legal clinical record on nobody's request. The existing
+  extractive summary was deliberately NOT duplicated here for the same reason. **The second half is a
+  testing lesson paid for by a mutation that PASSED:** the auto-insert guard counted `insertSnippet` call
+  sites, so a NEW WATCHER assigning straight into a SOAP section slipped through green — and that is
+  precisely the shape auto-authored text would take. Counting the *known* entry points cannot prove the
+  absence of an *unknown* one. The guard now pins the **write surface**: exactly one watcher on the page,
+  and exactly one assignment into a SOAP section anywhere in it. **Generalises:** to prove nothing writes
+  X, enumerate and bound the writes to X — never the callers you happen to know about. See [[LOG]], D-170,
+  D-174.
+

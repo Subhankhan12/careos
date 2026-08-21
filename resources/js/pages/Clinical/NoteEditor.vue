@@ -5,6 +5,7 @@ import { useI18n } from 'vue-i18n';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import SoapEditor from '@/Components/SoapEditor.vue';
 import VersionHistory from '@/Components/VersionHistory.vue';
+import SignOffBar from '@/Components/Clinical/SignOffBar.vue';
 
 const { t } = useI18n();
 
@@ -28,10 +29,18 @@ const props = defineProps<{
     patient: { id: string; mrn: string; name: string; chart_url: string };
     template: { id: string; name: string; required_sections: string[] } | null;
     versions: Array<{ id: string; version: number; status: string; author_name: string; created_at: string | null; signed_at: string | null; amendment_reason: string | null; edit_url: string }>;
+    /**
+     * Where this version sits in the append-only chain (PC.P4), computed server-side.
+     * DISPLAY ONLY — it changes no path: amending still goes through the existing amend route.
+     */
+    chain: { is_superseded: boolean; current: { id: string; version: number; status: string; edit_url: string } | null };
     actions: { save_url: string; sign_url: string; amend_url: string; chart_url: string; can_write: boolean; can_sign: boolean };
     snippets?: Array<{ trigger: string; title: string; scope: string; body: string }>;
-    // Optional chart-sourced allergies — not part of the note-editor payload today; the
-    // mini-banner surfaces only when the prop lands (same pattern as the chart/landing).
+    /**
+     * The patient's RECORDED active allergies — landed in PC.P4 (the prop and its banner have
+     * been here, dormant, since the editor was built). Displayed as documented facts: the chip
+     * styling is constant and the list is ordered by substance, never by severity.
+     */
     allergies?: Array<{ id: string; substance: string; reaction: string | null; severity: string }>;
 }>();
 
@@ -74,8 +83,30 @@ function saveDraft(): void {
     router.patch(props.actions.save_url, sections, {
         preserveScroll: true,
         onStart: () => (autosaveState.value = t('clinical.note.saving')),
-        onSuccess: () => (autosaveState.value = t('clinical.note.saved')),
+        // The clock time the save landed — UI feedback about an action that just happened,
+        // not a record field. (`new Date()` is "now"; D-091 governs DATE-ONLY record values.)
+        onSuccess: () => (autosaveState.value = `${t('clinical.note.saved')} · ${savedAtLabel()}`),
     });
+}
+
+/*
+ * The readiness line handed to N6 as a STRING. The bar counts nothing; this page composes the
+ * sentence from the template's own required_sections, exactly as the footer count always has.
+ */
+const readinessLine = computed(() => {
+    if (requiredCount.value.total === 0) return t('clinical.note.draftLabel');
+    const base = t('clinical.note.requiredCount', { filled: requiredCount.value.filled, total: requiredCount.value.total });
+    return requiredCount.value.missing.length
+        ? `${base} — ${t('clinical.note.requiredMissing', { sections: requiredCount.value.missing.join(', ') })}`
+        : base;
+});
+
+function savedAtLabel(): string {
+    try {
+        return new Intl.DateTimeFormat(undefined, { hour: '2-digit', minute: '2-digit' }).format(new Date());
+    } catch {
+        return '';
+    }
 }
 
 function confirmSign(): void {
@@ -150,11 +181,29 @@ watch(
                     <div class="glass-card p-5">
                         <p class="mb-3 text-xs font-semibold uppercase tracking-wide text-ink-subtle">{{ t('clinical.note.history') }}</p>
                         <VersionHistory :versions="versions" />
+                        <p class="mt-3 text-xs text-ink-subtle">{{ t('clinical.note.historyNote') }}</p>
                     </div>
                 </div>
 
                 <!-- Main -->
                 <div class="space-y-5">
+                    <!-- Viewing an older version. The chain is append-only, so an older version is
+                         never edited and never removed — it is simply no longer the current one, and
+                         a clinician reading it must be told so. Display only: the link goes to the
+                         existing editor route for the current version. -->
+                    <div
+                        v-if="chain.is_superseded && chain.current"
+                        class="flex flex-col gap-2 rounded-xl border border-line bg-surface-2 px-4 py-3 text-sm sm:flex-row sm:items-center sm:justify-between"
+                    >
+                        <p class="text-ink">
+                            <span class="font-semibold">{{ t('clinical.note.viewingOlder', { version: note.version }) }}</span>
+                            <span class="text-ink-muted"> — {{ t('clinical.note.originalPreserved') }}</span>
+                        </p>
+                        <Link :href="chain.current.edit_url" class="shrink-0 text-sm font-semibold text-euca-700 transition hover:text-euca-800">
+                            {{ t('clinical.note.returnToCurrent', { version: chain.current.version }) }} →
+                        </Link>
+                    </div>
+
                     <template v-if="note.is_read_only">
                         <!-- Signed: quiet lock line, plain-text SOAP, no edit/delete affordances. -->
                         <div class="flex items-center gap-2 rounded-xl border border-line bg-surface-2 px-4 py-3 text-sm font-medium text-ink">
@@ -210,22 +259,25 @@ watch(
                                 :required-sections="template?.required_sections ?? []"
                                 @update:model-value="Object.assign(sections, $event)"
                             />
+                            <!-- Said on the page, not only in a docblock: what this editor does NOT do.
+                                 The note is the clinician's own text end to end. -->
+                            <p class="mt-4 border-t border-line pt-4 text-xs text-ink-subtle">{{ t('clinical.note.authorshipNote') }}</p>
+                            <p class="mt-1 text-xs text-ink-subtle">{{ t('clinical.note.vitalsNote') }}</p>
                         </div>
 
-                        <!-- The dark moment: sign bar. No red anywhere near a clinical action. -->
-                        <div class="euca-tile-dark flex flex-col items-center justify-between gap-3 p-4 sm:flex-row">
-                            <p class="text-sm text-euca-100">
-                                <template v-if="requiredCount.total > 0">
-                                    <span class="font-semibold text-euca-50">{{ t('clinical.note.requiredCount', { filled: requiredCount.filled, total: requiredCount.total }) }}</span>
-                                    <template v-if="requiredCount.missing.length"> — {{ t('clinical.note.requiredMissing', { sections: requiredCount.missing.join(', ') }) }}</template>
-                                </template>
-                                <template v-else>{{ t('clinical.note.draftLabel') }}</template>
-                            </p>
-                            <div class="flex flex-wrap items-center gap-3">
-                                <button v-if="actions.can_write" type="button" class="rounded-xl bg-white/15 px-4 py-2.5 text-sm font-semibold text-euca-50 transition hover:bg-white/25" @click="saveDraft">{{ t('clinical.note.save') }}</button>
-                                <button v-if="actions.can_sign" type="button" class="rounded-xl bg-euca-400 px-5 py-2.5 text-sm font-semibold text-euca-900 transition hover:bg-euca-300" @click="signModalOpen = true; signConfirmText = ''">{{ t('clinical.note.sign') }}</button>
-                            </div>
-                        </div>
+                        <!-- The dark moment: the SHARED N6 sign-off bar (PC.P1). It renders the
+                             readiness line and the caller's buttons and PERFORMS NO SIGNING LOGIC —
+                             the server re-checks `note.sign` and the required sections exactly as
+                             before. The readiness string is composed HERE and passed in; the bar
+                             counts nothing. No red anywhere near a clinical action. -->
+                        <SignOffBar
+                            :label="t('clinical.note.signBarLabel')"
+                            :readiness="readinessLine"
+                            :note="t('clinical.note.signBarNote')"
+                        >
+                            <button v-if="actions.can_write" type="button" class="rounded-xl bg-white/15 px-4 py-2.5 text-sm font-semibold text-euca-50 transition hover:bg-white/25" @click="saveDraft">{{ t('clinical.note.save') }}</button>
+                            <button v-if="actions.can_sign" type="button" class="rounded-xl bg-euca-400 px-5 py-2.5 text-sm font-semibold text-euca-900 transition hover:bg-euca-300" @click="signModalOpen = true; signConfirmText = ''">{{ t('clinical.note.sign') }}</button>
+                        </SignOffBar>
                     </template>
                 </div>
             </div>
@@ -239,6 +291,7 @@ watch(
                 <p class="mt-2 text-sm text-ink-muted">{{ t('clinical.note.signConfirm') }} {{ t('clinical.note.signModalBody') }}</p>
                 <dl class="mt-4 space-y-2 rounded-xl border border-line bg-surface-2 p-4 text-sm">
                     <div class="flex justify-between gap-3"><dt class="text-ink-muted">{{ t('clinical.note.patient') }}</dt><dd class="font-medium text-ink">{{ patient.name }} · {{ patient.mrn }}</dd></div>
+                    <div class="flex justify-between gap-3"><dt class="text-ink-muted">{{ t('clinical.note.encounter') }}</dt><dd class="font-medium text-ink">{{ encounter.type }} · {{ encounter.started_at }}</dd></div>
                     <div class="flex justify-between gap-3"><dt class="text-ink-muted">{{ t('clinical.note.required') }}</dt><dd class="font-medium text-ink">{{ t('clinical.note.requiredCount', { filled: requiredCount.filled, total: requiredCount.total }) }}</dd></div>
                 </dl>
                 <label class="mt-4 block text-sm font-medium text-ink">

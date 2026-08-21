@@ -348,3 +348,28 @@ It stays **purely presentational** — it parses no date, derives no age, and it
 prop**: nothing in CareOS records a patient flag, and a prop would invite the next author to compute
 one (D-176). The fence test scans this file by name and was mutation-checked.
 
+## PC.P4 — the Note Editor (2026-08-21)
+
+**THE EDITOR HAS NO AGENT, AND THAT IS DELIBERATE (D-177).** There is no rephrase, autocomplete or
+note-authoring tool anywhere in CareOS — ten AiCore tools, none touching note prose — and the
+wireframe draws none either. `ClinicalSummaryTool` is EXTRACTIVE at a SUGGEST ceiling and belongs on
+the CHART; it was deliberately **not** duplicated onto the authoring page, because a
+content-producing affordance beside the note body is exactly what this screen must not have. If a
+future gate proposes an assist panel here, that is a NEW capability decision, not parity work.
+
+**What protects the note is the WRITE SURFACE, not the call sites.** A mutation that added a new
+watcher assigning straight into a SOAP section passed the suite green, because the guard counted
+`insertSnippet` call sites. The test now pins **one watcher on the page and exactly one assignment
+into a section**. Keep it that way: if you add a watcher, the fence test will (correctly) go red, and
+the fix is to justify the write, not to raise the count.
+
+**The lifecycle is unchanged and must stay so:** `saveDraft` (drafts only) → `sign` (`note.sign`,
+records who + when, re-validates required sections) → `amend` (signed only, reason required, creates
+a NEW version at version+1 that is itself a DRAFT). Signed notes are immutable at model AND trigger
+level. The PC.P4 additions — the superseded banner and the chain payload — are **display only**; they
+re-implement nothing and bypass nothing.
+
+**Flagged, not changed:** the mock wants template prefill to render placeholder-style and never
+autosave as content; live applies template defaults as real content at creation. Changing that is a
+behaviour change to an existing tested path — it needs its own gate.
+

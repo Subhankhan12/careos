@@ -387,7 +387,7 @@ Two further wireframes were decoded from the design pack and triaged. **Neither 
 
 ---
 
-- **PATIENTS & CLINICAL BATCH — 12 screens AUDITED; the PC chain is STARTED (P1–P3 done, P4–P8 open).** Audit at
+- **PATIENTS & CLINICAL BATCH — 12 screens AUDITED; the PC chain is STARTED (P1–P4 done, P5–P8 open).** Audit at
   `docs/wireframe-parity/PATIENTS-CLINICAL-BATCH-DIFF.md`. **4 fully live · 2 partial · 6 with no page.** Unlike
   Dental, most of this batch is BUILDABLE — the mocks are fence-aware and several describe mechanisms the live
   build already has (an extractive source-linked chart summary at a SUGGEST ceiling, trend-free vitals,
@@ -419,7 +419,18 @@ Two further wireframes were decoded from the design pack and triaged. **Neither 
     Omitted, not backfilled — deriving one is a computed risk marker, defaulting a column is a clinical
     fact with no author or timestamp. **The gap is RECORDED and needs its own gate** (a recorded flag with
     author + reason + timestamp). The i18n key went with it and the header grew no `flag` prop.
-  - **P4–P8 open** (Note Editor · Access Log + the nDSG/GDPR export · Referral Out · Recall Due
+  - **PC.P4 — DONE.** Note Editor parity. **The audit row overstated this screen's gap** — the sign modal,
+    required-section counter and autosave chip were already live (`CLINIC.W5` predates the audit), so the
+    real deltas were four: per-section required/filled markers (identically styled — the word states the
+    state), the superseded-version banner ("a newer version exists" + a link to it, display-only over the
+    existing append-only chain), the shared N6 sign bar, and the dormant allergy banner lit.
+    **THE ASSIST PANEL IS OMITTED (D-177)** for two independent reasons: no rephrase/authoring tool exists
+    among the ten AiCore tools, **and the wireframe draws no assist affordance at all** — so building one
+    would not be parity but an agent surface beside a legal clinical record on nobody's request. The
+    extractive summary was deliberately NOT duplicated here. Nothing auto-inserted, nothing auto-signed.
+    **A mutation passed and taught the rule:** counting `insertSnippet` call sites missed a NEW WATCHER
+    writing into a SOAP section; the guard now bounds the WRITE SURFACE (one watcher, one assignment).
+  - **P5–P8 open** (Access Log + the nDSG/GDPR export · Referral Out · Recall Due
     List · optional Consult Summary). **Recommended DEFERRED:** Allergy Alert, Care Plan Review, Medical
     History Intake, Patient Flow.
 ---

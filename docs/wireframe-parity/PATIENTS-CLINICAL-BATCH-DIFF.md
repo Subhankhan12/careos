@@ -87,7 +87,7 @@ Classification: **(a)** visual · **(b)** backend gap · **(c)** fence MUST-NOT-
 | **Patients Index + Register** | Mock: 3-control search, 4 data columns + status, silent 25-cap with a "showing the first 25" line, match highlight; a 4-step wizard (identity · contacts · coverage · review) with **debounced duplicate detection at 300 ms** rendering candidates with High/Medium match labels inside step 1, and a single "this is a new patient — continue". Live has index + register and a `patients/duplicates` endpoint. Deltas are the wizard's step chrome, the review step, and the candidate presentation. · ⚠️ "High match / Medium" is a **similarity grade on identity, not a clinical judgment** — permissible, but it must come from the existing server-side duplicate check, never a page-side score. | **(a)** mostly · **(b)** wizard/review step | a: **Low** · b: **Low–Med** |
 | **Patient 360** | Mock: dark hero band, status pill, **Flag chip**, portal-invite + edit actions, five fixed tabs with count chips, consents tab with grant/withdraw + signature capture and immutable snapshots, access-log tab as a human-readable day-grouped timeline. Live already has the page, **all five tabs with count chips** (verified in `Patients/Show.vue`) and the consent grant/withdraw routes, and writes `auditRead(surface: patient_360)` on every render. · **The mock itself notes the AllergyBanner "binds to a chart-sourced allergies prop (not yet in Patients/Show's payload)"** — the same gap DENTAL-B.P1's S1 chip has. | **(a)** hero/tabs/chips · **(b)** allergies prop (see B1) | a: **Low** · b: **Med** |
 | **Patient Chart** | Mock: dark patient band with factual counts ("3 encounters · 2 problems · 2 medications · 1 open recall"), pinned AllergyBanner, seven tabs with counts, find-in-chart, encounter timeline with type filters + month groups + note-state badges + **full version chains (v1 signed always reachable)**, referrals & recalls rail with recall proximity ("in 66 days"), and the **AI chart summary** — "extractive only · every line carries its source · interpretive requests are refused", Refresh at suggest ceiling, one explicit "Insert into my draft note". · **The mock explicitly keeps vitals trend-free**: "a sparkline would already be interpretation". | **(a)** most of it · **(d)** the summary + trend-free vitals already match | a: **Low–Med** · d: **keep** |
-| **Note Editor** | Mock: focus mode, encounter rail, **version list with v1 signed / v2 draft + amendment reason**, required-section markers driven by the template with a footer count ("2 of 3 required sections filled"), autosave chip, a **type-SIGN-to-confirm** modal, signed read-only rendering with "no edit cursors, no delete affordances — anywhere", and an amend flow requiring a reason. Live has the editor, sign, amend routes. Deltas are chrome, the confirm modal and the required-section counter. | **(a)** all of it | **Low** |
+| **Note Editor** | Mock: focus mode, encounter rail, **version list with v1 signed / v2 draft + amendment reason**, required-section markers driven by the template with a footer count ("2 of 3 required sections filled"), autosave chip, a **type-SIGN-to-confirm** modal, signed read-only rendering with "no edit cursors, no delete affordances — anywhere", and an amend flow requiring a reason. Live has the editor, sign, amend routes. Deltas are chrome, the confirm modal and the required-section counter. **CORRECTED AT PC.P4:** the type-to-confirm modal, the required-section counter and the autosave chip were ALREADY LIVE when this audit was written — `CLINIC.W5` (`1e4b7c0`) predates the audit commit. The real deltas were narrower: per-section required/filled markers, the superseded-version banner, and the dormant allergy banner. | **(a)** all of it | **Low** |
 | **Patient Access Log** | Mock is a **dedicated screen** at `patients/{patient}/access-log` gated `patient.audit.view`, with range facets (7/30/90/all), **access-basis facets** (care team · reception & billing · patient self · agent · operator mode), an "only notable" filter, per-agent-read **min-necessary field disclosure**, an expanded **operator-mode read** carrying owner-approval + scope + a 0-changes assertion + a link to the session receipt, and **"Export access report"** — a signed report under **nDSG Art. 25 / GDPR Art. 15**. Live has an access tab inside Patient 360 only — but the **rows already come from a real service**, `PatientAccessReport::forPatient()`. The gap is the dedicated surface, not the data. · Counts (23 people · 142 accesses · 3 agent reads) are **factual counts over audit rows**, not judgments. | **(b)** dedicated route + gate + facets + export · **(b)** operator-mode detail depends on **deferred** Operator Mode G4–G11 | b: **High** |
 | **Allergy Alert** | **The batch's sharpest fence.** Mock: a modal that names a **drug-class cross-reaction** ("Amoxicillin — aminopenicillin" vs "Penicillin — amoxicillin cross-reacts"; "Class: All penicillins — incl. amoxicillin, co-amoxiclav"), **hard-blocks the prescription with no override**, and offers an agent-surfaced **"Safe alternative — Clindamycin 300 mg · no conflict"** from "practice antibiotic guidance". · The live build has the **recorded-allergy display** and the seam's honest "not configured" state. | **(c)** the determination, the block, the alternative | **Must-not-build** |
 | **Care Plan Review** | Re-imports the perio computed rail refused at DENTAL-B.P3: **BOP % with "▼ 19 pts"**, **"sites ≥ 4 mm" count with "▼ from 18"**, **plaque score "plateau"**, **"One site to watch — tooth 26 mesial · Deepened 4 → 5 mm ... Flagged"**, plus **"Bitewing · bone loss confirmed"** (an AI imaging finding), a **guideline-derived interval recommendation**, and an agent **"SUGGESTED DISPOSITION"**. · Genuinely buildable underneath: the plan itself, its goals, the review as a signed record, adherence as a **count of attended vs scheduled recalls**, and raw per-visit measures. | **(c)** indices, trends, site-to-watch, imaging finding, guideline recommendation · **(b)** review record, interval, outcome-measure series | c: **Must-not-build** · b: **High** |
@@ -219,7 +219,7 @@ immutable snapshots and audited withdrawal — these screens must **read** that,
 | ~~**PC.P1**~~ ✅ **DONE** | **Shared components + B1.** Promote S1 out of `Components/Dental/` to a shared clinical namespace and **wire its allergy chip** by adding allergies to the `Patients/Show` payload. Build N1 rail card, N3 audit row, N6 sign-off bar. | Presentational (P0D.GU); the chip renders **recorded** allergies only, never a computed cross-reaction; existing tests stay green. |
 | ~~**PC.P2**~~ ✅ **DONE** | **Patient Chart parity** — band counts, tab chips, find-in-chart, timeline filters + month groups, version chains, recall proximity, and the N4 agent panel around the **existing** summary tool. | Vitals stay trend-free; the summary keeps its SUGGEST ceiling and source chips; D-169 styling scan. |
 | ~~**PC.P3**~~ ✅ **DONE** | **Patient 360 parity** — the hero band carried by the **extended S1** (status pill · dental link), five tabs with **server-computed** counts, consents tab, access tab. | Consent snapshots stay immutable; the allergy chip is display-only; **the flag chip is omitted — nothing records a flag** (§7c). |
-| **PC.P4** | **Note Editor parity** — focus mode, version rail, required-section counter, type-to-confirm sign modal, signed read-only, amend-with-reason. | Signing/amend re-checked server-side; no delete affordance anywhere. |
+| ~~**PC.P4**~~ ✅ **DONE** | **Note Editor parity** — per-section required/filled markers, the superseded-version banner, the shared N6 sign bar, the recorded-allergy banner lit. **The assist panel is OMITTED (§7d)** — no such tool exists and the mock draws none. | Signing/amend re-checked server-side; a signed note provably not editable in place; no delete affordance anywhere. |
 | **PC.P5** | **Patient Access Log (B2)** — dedicated route + `patient.audit.view` gate, basis/range facets, agent min-necessary detail, and the **signed nDSG/GDPR export**. | Basis derived server-side; rows immutable; viewing writes its own row. **Operator-mode detail omitted + flagged** (G4–G11 deferred). |
 | **PC.P6** | **Referral Out (B5)** — urgency, packet, consent-to-share, tracking states. | The share is consent-gated and minimum-necessary; the agent packages, never decides whom to refer. |
 | **PC.P7** | **Recall Due List (B6)** — the worklist over the existing engine, with channel/consent and agent status. | Auto-send respects the real ceiling; "consent — can't send" is a genuine refusal. |
@@ -323,6 +323,47 @@ run revealed it.
 styling, a page-side count, a dental caller made hero, a fence token in the header). Each failed exactly one
 test. One mutation fired unprompted: the glyph scan caught the `⚑` in my own explanatory comment, so the
 prose was reworded and the raw-source check kept at full strictness.
+
+---
+## 7d — P4 outcome (2026-08-21)
+
+**This screen was the most nearly-complete in the batch, and the audit row overstated its gap.** The
+type-to-confirm sign modal, the required-section footer count and the autosave chip were all already live
+(`CLINIC.W5`, which predates the audit commit). Checking the repo rather than the audit is what turned a
+"build all of it" row into four narrow, real deltas — the row is corrected in §2 above.
+
+**THE ASSIST PANEL IS OMITTED, FOR TWO INDEPENDENT REASONS.** First, **no rephrase or note-authoring
+capability exists**: there are ten AiCore tools, none of which touches note prose, and the only clinical one
+(`ClinicalSummaryTool`) is EXTRACTIVE at a SUGGEST ceiling and lives on the Chart, where PC.P2 wired it.
+Second — and decisively — **the wireframe itself draws no assist panel at all**: zero occurrences of assist,
+rephrase, AI, agent, suggest or summarize anywhere in the decoded mock. So building one would not have been
+parity; it would have been **inventing an agent surface beside a legal clinical record that neither the mock
+nor the backend asks for** (D-170). The extractive summary was deliberately NOT duplicated onto the
+authoring page either: a content-producing affordance next to the note body is precisely what this screen
+must not have. The page now says so in words: *"You author this note. CareOS stores and versions your text —
+it does not write, complete, rephrase or suggest clinical content, and nothing is inserted or signed without
+you."*
+
+**Built (the four real deltas):** per-section `required · filled` / `required · empty` / `optional` markers
+and S/O/A/P letters, with **every marker carrying identical classes** so the word states the state and
+nothing is tinted (D-169); the **superseded-version banner** — a clinician reading v1 is now told a newer
+version exists and given a link to it, computed server-side from the existing append-only chain and changing
+no path; the **shared N6 sign-off bar** adopted, which performs no signing logic and receives the readiness
+line as a pre-composed string; and the **dormant allergy banner lit** — the note editor's `allergies` prop
+has been declared and hidden since the editor was built, the same gap PC.P1 closed on Patient 360. No
+boundary question arose: `Allergy` is Clinical's own model.
+
+**Flagged, not changed:** the mock says template prefill "renders placeholder-style until edited; it never
+autosaves as content", while live applies template defaults as real content at creation. That is a
+behaviour change to an existing path with existing tests, so it is recorded rather than made here.
+
+**Seven mutations, and one of them exposed a real hole in my own guard.** Counting `insertSnippet` call
+sites does NOT catch a **new watcher writing straight into a SOAP section** — which is exactly how
+auto-authored text would arrive, and that mutation passed the suite on the first run. The guard now pins the
+**write surface itself**: one watcher, and exactly one assignment into a section anywhere on the page. All
+seven now bite: auto-sign on a timer, auto-insert via a new watcher, a signed note made editable in place, a
+`generatedAssessment` payload key, a severity-tinted allergy banner, a suppressed superseded banner, and an
+invented `RephraseNoteTool`.
 
 ---
 ## 8 — Bottom line

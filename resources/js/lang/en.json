@@ -1872,7 +1872,18 @@
             "history": "Versions",
             "versionLabel": "Version {version}",
             "openVersion": "Open version",
-            "open": "Open"
+            "open": "Open",
+            "sectionFilled": "filled",
+            "sectionEmpty": "empty",
+            "sectionOptional": "optional",
+            "viewingOlder": "Viewing v{version} — a newer version exists",
+            "originalPreserved": "the original is preserved exactly as it was; nothing here is overwritten or deleted",
+            "returnToCurrent": "Return to the current version (v{version})",
+            "signBarLabel": "Sign this note",
+            "signBarNote": "Signing permanently locks this note. Corrections afterwards happen only as visible amendments.",
+            "historyNote": "Every version stays reachable, including the original. Nothing here deletes.",
+            "authorshipNote": "You author this note. CareOS stores and versions your text — it does not write, complete, rephrase or suggest clinical content, and nothing is inserted or signed without you.",
+            "vitalsNote": "Vitals and results appear as the raw documented values. The editor never colours or interprets them."
         },
         "chart": {
             "title": "Patient chart",
