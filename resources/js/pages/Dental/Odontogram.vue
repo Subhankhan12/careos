@@ -5,7 +5,7 @@ import { useI18n } from 'vue-i18n';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import DentalSectionNav from '@/Components/DentalSectionNav.vue';
 import ToothArch from '@/Components/Dental/ToothArch.vue';
-import PatientClinicalHeader from '@/Components/Dental/PatientClinicalHeader.vue';
+import PatientClinicalHeader from '@/Components/Clinical/PatientClinicalHeader.vue';
 import { colour } from '@/Components/Dental/toothConditionColour';
 import { ageFromDateOnly, formatDateOnly } from '@/lib/date';
 

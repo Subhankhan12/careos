@@ -199,9 +199,21 @@ function withdrawConsent(url: string): void {
                         <path d="M12 4 21 19H3L12 4Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" />
                         <path d="M12 10v4M12 16.5v.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" />
                     </svg>
+                    <!-- RECORDED facts (ALLERGY.P1): the documented substance, the reaction and
+                         the severity a clinician recorded. Every chip is styled IDENTICALLY —
+                         nothing is tinted or ordered by severity (D-169), and CareOS asserts no
+                         cross-reactivity or contraindication of its own. -->
                     <span>
                         <span class="font-semibold">{{ t('patients.show.allergiesLabel') }}:</span>
-                        {{ allergies.map((a) => (a.reaction ? `${a.substance} — ${a.reaction}` : a.substance)).join(' · ') }}
+                        <span
+                            v-for="allergy in allergies"
+                            :key="allergy.id"
+                            class="ml-1 inline-flex items-center gap-1 rounded-full bg-white/50 px-2 py-0.5 text-xs"
+                        >
+                            <span class="font-semibold text-ink">{{ allergy.substance }}</span>
+                            <span v-if="allergy.reaction" class="text-ink-muted">{{ allergy.reaction }}</span>
+                            <span v-if="allergy.severity" class="text-ink-muted">{{ allergy.severity }}</span>
+                        </span>
                     </span>
                 </p>
                 <Link
@@ -211,6 +223,15 @@ function withdrawConsent(url: string): void {
                     {{ t('patients.show.viewInChart') }} →
                 </Link>
             </div>
+
+            <!-- Honest empty state: "none recorded" is a different statement from "none exist",
+                 and saying nothing at all would let a reader assume the record was checked. -->
+            <p
+                v-else-if="allergies"
+                class="rounded-xl border border-line bg-surface px-4 py-3 text-sm text-ink-muted"
+            >
+                {{ t('patients.show.allergiesNone') }}
+            </p>
 
             <div class="glass-card p-6">
                 <Tabs v-model:active="activeTab" :tabs="tabs">

@@ -215,7 +215,7 @@ immutable snapshots and audited withdrawal — these screens must **read** that,
 
 | Gate | Builds | Proves |
 |---|---|---|
-| **PC.P1** | **Shared components + B1.** Promote S1 out of `Components/Dental/` to a shared clinical namespace and **wire its allergy chip** by adding allergies to the `Patients/Show` payload. Build N1 rail card, N3 audit row, N6 sign-off bar. | Presentational (P0D.GU); the chip renders **recorded** allergies only, never a computed cross-reaction; existing tests stay green. |
+| ~~**PC.P1**~~ ✅ **DONE** | **Shared components + B1.** Promote S1 out of `Components/Dental/` to a shared clinical namespace and **wire its allergy chip** by adding allergies to the `Patients/Show` payload. Build N1 rail card, N3 audit row, N6 sign-off bar. | Presentational (P0D.GU); the chip renders **recorded** allergies only, never a computed cross-reaction; existing tests stay green. |
 | **PC.P2** | **Patient Chart parity** — band counts, tab chips, find-in-chart, timeline filters + month groups, version chains, recall proximity, and the N4 agent panel around the **existing** summary tool. | Vitals stay trend-free; the summary keeps its SUGGEST ceiling and source chips; D-169 styling scan. |
 | **PC.P3** | **Patient 360 parity** — hero band, five tabs with counts, consents tab (N5), access tab. | Consent snapshots stay immutable; the allergy chip is display-only. |
 | **PC.P4** | **Note Editor parity** — focus mode, version rail, required-section counter, type-to-confirm sign modal, signed read-only, amend-with-reason. | Signing/amend re-checked server-side; no delete affordance anywhere. |
@@ -237,6 +237,31 @@ immutable snapshots and audited withdrawal — these screens must **read** that,
 
 ---
 
+## 7a — P1 outcome (2026-08-21)
+
+**S1 promoted** to `Components/Clinical/` (a clinical component dental merely needed first), all four dental
+callers updated, **behaviour-identical**: the rendered dental header is byte-for-byte identical before and
+after (381 normalised chars).
+
+**B1 landed where the boundary requires.** `Modules\Patients` may not use `Modules\Clinical` (arch-enforced),
+so `PatientShowController` moved to the **app layer** — the same reason `AppointmentDetailController` lives
+there (D-017). Namespace changed; route, gate, payload and the **single read-audit row** unchanged.
+
+**The page was already waiting.** `Patients/Show.vue` has carried a dormant `allergies` prop and hidden banner
+since it was built — the exact gap the wireframe names. Landing the prop lit it with no page rewrite. Chips show
+recorded substance · reaction · severity as facts, styled identically, **ordered by substance not severity**,
+with an honest "No allergies recorded" empty state.
+
+**Patient 360's hero was deliberately not replaced** with S1 — it carries a status pill, flag chip and dental
+link S1 has no props for. That is **PC.P3**.
+
+**Three new shells:** N1 rail card, N3 audit row (basis is server-derived and merely printed), N6 sign-off bar
+(**performs no signing logic**). All compute nothing.
+
+**The fence scan now follows the header** across both namespaces — moving a file out of a glob is a fence
+weakened invisibly, and the severity-tint mutation was caught by that very test.
+
+---
 ## 8 — Bottom line
 
 - **12 decoded, 12 audited. 4 fully live, 2 partial, 6 with no page.**

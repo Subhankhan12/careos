@@ -140,3 +140,62 @@ read-logged private-disk PDF streaming — NO payment processing (PSP deferred).
   exposing documents to the portal.
 - MySQL 8 CI should verify the `WITH PARSER ngram` path; local MariaDB 10.4 lacks the ngram parser
   and uses the migration fallback FULLTEXT index.
+
+## PC.P1 — shared clinical components + B1, the recorded-allergy wiring (2026-08-21, `<pending>`)
+
+First gate of the **PC chain** (`docs/wireframe-parity/PATIENTS-CLINICAL-BATCH-DIFF.md` §7).
+Presentational (P0D.GU) plus **one narrow read-only payload addition**.
+
+**S1 PROMOTED.** `PatientClinicalHeader.vue` moved from `Components/Dental/` to
+`Components/Clinical/` — it is a clinical component that dental merely happened to need first.
+All four dental callers updated. **Behaviour-identical, proven the DENTAL-B.P1 way:** the rendered
+dental header was captured from a real browser before and after the move and is **byte-for-byte
+identical (381 normalised chars)**. The existing dental tests were not modified.
+
+**B1 — THE ALLERGY WIRING, AND WHERE IT HAD TO LIVE.** `Modules\Patients` **may not use**
+`Modules\Clinical` — an arch test enforces it. So `PatientShowController` **moved to the app
+layer** (`app/Http/Controllers/`), which is exactly why `AppointmentDetailController` already
+lives there: it composes Scheduling + Patients + Clinical + Audit (D-017). The move changed the
+class's namespace and nothing else — same route, same `patient.view` gate, same payload, **the
+same single `auditRead()` row** (asserted: `substr_count(... 'auditRead(') === 1`, so the allergy
+read adds no second audit path).
+
+**What `Patients/Show.vue` was already waiting for.** The page has carried a dormant top-level
+`allergies` prop and a hidden banner since it was built, commented *"not part of Patients/Show's
+payload today — rendered when present, absent silently until the prop lands"*. The wireframe names
+the same gap. **Landing that prop lights the banner with no page rewrite** — the smallest possible
+change that closes the gap.
+
+**The banner now shows the RECORDED facts** — substance · reaction · the severity a CLINICIAN
+recorded — each chip styled IDENTICALLY, plus an **honest empty state** ("No allergies recorded for
+this patient"), because *none recorded* is a different statement from *we did not look*. Only
+`active` rows appear, matching the composition `AppointmentDetailController` already uses so the
+two surfaces cannot disagree. **Ordered by SUBSTANCE, never by severity** — ordering by badness
+would be the system asserting a priority it has no business asserting.
+
+**I did NOT swap Patient 360's hero for S1.** Its hero carries a status pill, a flag chip and the
+dental cross-link that S1 has no props for; replacing it would have regressed the page. Patient 360
+parity is **PC.P3's** gate.
+
+**THE THREE NEW SHELLS** (`Components/Clinical/`): **N1 `ClinicalRailCard`** (titled box + slot +
+honest empty state; `count` is a caller-supplied STRING so it cannot be handed a number to compute
+on), **N3 `AccessLogRow`** (who · what · when · surface · basis — **basis is server-derived and
+merely printed; inferring it here would make an audit worthless**), **N6 `SignOffBar`** (chrome
+only: it renders the actions the caller passes and **performs no signing logic** — no router, no
+form, no fetch; disabling a button hides an affordance, it is not a gate, per D-168).
+
+**THE FENCE SCAN NOW FOLLOWS THE HEADER.** Moving S1 out of `Components/Dental/` would have
+silently dropped it from `SharedComponentsTest`'s glob — a weakening by relocation. Both
+`dscPath()` and the recursive scan now resolve **either** namespace. This mattered immediately: the
+severity-tint mutation below was caught **by that test**, which would otherwise have gone quiet.
+
+**Tests added** — `tests/Feature/Patients/PatientClinicalSharedTest.php` (7 tests, 276 assertions).
+**Mutation-checked three ways:** tinting the allergy chip by `allergy.severity` (caught by the
+followed-along P1 fence test), adding a computed `crossReacts` field to the payload (caught twice —
+the exact-keys assertion and the fence token scan), and giving N6 a `router.post` + a `tone` prop.
+
+**Three test-side bugs of my own:** `recorded_by` needs a **StaffProfile**, not a User (the model
+asserts the reference); my arithmetic regex matched Tailwind's `border-line/60` opacity syntax, so
+it now reads the `<script>` block only (banning a class utility would teach the next author to
+weaken the scan — the D-166 `baseline` lesson); and `fall` as a squashed substring matched
+"fallback", so the fence token is now `fallrisk` — the judgment is a fall-RISK SCORE, not the word.

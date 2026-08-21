@@ -1552,7 +1552,8 @@
             "consentSignature": "Signature (typed full name)",
             "grantConsent": "Grant",
             "withdrawReason": "Reason for withdrawal",
-            "withdraw": "Withdraw"
+            "withdraw": "Withdraw",
+            "allergiesNone": "No allergies recorded for this patient."
         }
     },
     "scheduling": {
@@ -3571,5 +3572,17 @@
         "mobilityLabel": "Tooth {tooth}, mobility",
         "furcationLabel": "Tooth {tooth}, furcation",
         "entered": "{count} site entered | {count} sites entered"
+    },
+    "clinicalShared": {
+        "rail": {
+            "empty": "Nothing recorded yet."
+        },
+        "access": {
+            "agent": "Agent",
+            "basisLabel": "Access basis"
+        },
+        "signOff": {
+            "note": "Signing is permanent. Corrections afterwards happen as visible amendments."
+        }
     }
 }

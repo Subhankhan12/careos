@@ -21,6 +21,17 @@
 /** Absolute path to a shared dental component. */
 function dscPath(string $file): string
 {
+    /*
+     * The shared patient header was PROMOTED out of the dental namespace at PC.P1 (it is used by
+     * the clinical surfaces too). Resolve either home so the S1 assertions below keep running
+     * against it — dropping them because a file moved would quietly weaken the fence.
+     */
+    foreach (['resources/js/Components/Dental/', 'resources/js/Components/Clinical/'] as $dir) {
+        if (file_exists(base_path($dir.$file))) {
+            return base_path($dir.$file);
+        }
+    }
+
     return base_path('resources/js/Components/Dental/'.$file);
 }
 
@@ -218,7 +229,12 @@ test('the shared dental components introduce NO computed-judgment affordance (DE
     // §5.1 items. Listing it would make the scan fail for a CSS class, which teaches the next
     // author to weaken the scan rather than to respect it.
 
-    $files = glob(base_path('resources/js/Components/Dental/*.{vue,ts}'), GLOB_BRACE);
+    // Both shared namespaces — the header moved to Components/Clinical/ at PC.P1, and the
+    // scan follows it rather than losing sight of it.
+    $files = array_merge(
+        glob(base_path('resources/js/Components/Dental/*.{vue,ts}'), GLOB_BRACE) ?: [],
+        glob(base_path('resources/js/Components/Clinical/*.{vue,ts}'), GLOB_BRACE) ?: [],
+    );
     expect($files)->not->toBeEmpty('no shared dental components found');
 
     foreach ($files as $file) {

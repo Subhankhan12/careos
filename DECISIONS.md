@@ -3223,3 +3223,27 @@ references the old ID.
   batch's honest headline still stands — **most of what the dental mocks show must continue to be refused**, and
   the live build was already refusing it. See [[Dental]], `docs/wireframe-parity/DENTAL-BATCH-DIFF.md` §4 (B5)
   and §5.1, [[LOG]].
+- **D-173 — A cross-module clinical read moves the CONTROLLER to the app layer, not the dependency into the
+  module; and a fence scan must follow a file that moves (PC.P1).** Patient 360 needed the patient's recorded
+  allergies, which live in Clinical. `Modules\Patients` may not use `Modules\Clinical` and an arch test enforces
+  it, so the answer was not to relax the boundary but to move `PatientShowController` into `app/` — the same
+  reasoning that already placed `AppointmentDetailController` there (D-017). The move changed a namespace and
+  nothing else: same route, same gate, same payload, and the **same single read-audit row**, asserted by
+  counting `auditRead(` occurrences so the new read cannot quietly grow a second audit path.
+  **The smallest change that closes a gap is usually the one the page already anticipated.** `Patients/Show.vue`
+  had carried a dormant `allergies` prop and a hidden banner since it was built — "rendered when present, absent
+  silently until the prop lands". Landing the prop lit the banner with no page rewrite. The chips show the
+  RECORDED substance, reaction and clinician-recorded severity as facts, styled identically, ordered by
+  SUBSTANCE — ordering by severity would be the system asserting a priority (D-169). And the empty case says
+  "No allergies recorded", because *none recorded* is a different claim from *we did not look*.
+  **Patient 360's hero was deliberately NOT replaced with the shared header.** The hero carries a status pill, a
+  flag chip and a dental cross-link the shared component has no props for; swapping it to "adopt S1" would have
+  regressed the page to satisfy a tidiness goal. That is PC.P3's gate, with the props to do it properly.
+  **A FENCE SCAN MUST FOLLOW A FILE THAT MOVES.** Promoting the header out of `Components/Dental/` would have
+  dropped it from `SharedComponentsTest`'s glob — a fence weakened not by editing an assertion but by relocating
+  its subject, which no reviewer would see in the diff. Both the path helper and the recursive scan now resolve
+  either namespace, and the value was immediate: the severity-tint mutation was caught by that very test.
+  Corollary, third time in two chains: scans must not ban legitimate primitives. The arithmetic check matched
+  Tailwind's `border-line/60` opacity syntax, so it now reads the `<script>` block only; and `fall` as a
+  substring matched "fallback", so the token is `fallrisk` — the judgment is a fall-RISK SCORE, not the word.
+  See [[Patients]], [[Clinical]], `docs/wireframe-parity/PATIENTS-CLINICAL-BATCH-DIFF.md` §4 (B1), [[LOG]].

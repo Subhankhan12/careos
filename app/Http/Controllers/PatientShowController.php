@@ -1,10 +1,11 @@
 <?php
 
-namespace Modules\Patients\Http\Controllers;
+namespace App\Http\Controllers;
 
 use Illuminate\Support\Facades\Gate;
 use Inertia\Inertia;
 use Inertia\Response;
+use Modules\Clinical\Models\Allergy;
 use Modules\Patients\Models\Patient;
 use Modules\Patients\Models\PatientConsent;
 use Modules\Patients\Models\PatientContact;
@@ -12,7 +13,23 @@ use Modules\Patients\Models\PatientCoverage;
 use Modules\Patients\Models\PatientIdentifier;
 use Modules\Patients\Services\PatientAccessReport;
 
-class PatientShowController
+/**
+ * The Patient 360 page.
+ *
+ * It lives in the APP LAYER because it composes TWO modules — Patients (the administrative
+ * record) and Clinical (the recorded allergies the shared header's chip displays). Modules never
+ * depend on each other (D-017), and an arch test enforces that `Modules\Patients` does not use
+ * `Modules\Clinical`; the same reasoning already placed `AppointmentDetailController` here.
+ * Moving this class changed its namespace and nothing else — the route, its `patient.view` gate,
+ * the payload it already returned and its single read-audit row are untouched.
+ *
+ * THE ALLERGY READ IS DISPLAY-ONLY (ALLERGY.P1 / PC.P1-B1). It surfaces the substance, reaction
+ * and the severity a CLINICIAN RECORDED, as facts. CareOS computes no allergy judgment here: no
+ * cross-reactivity, no class match, no contraindication, no ranking — that is the certified
+ * `MedicationSafetyProvider` seam, whose only implementation is a null object. Rows are ordered
+ * by SUBSTANCE (alphabetically), never by severity, so the list itself asserts no priority.
+ */
+class PatientShowController extends Controller
 {
     public function __invoke(string $patient, PatientAccessReport $accessReport): Response
     {
@@ -41,12 +58,46 @@ class PatientShowController
                 'coverages' => $this->coverages($record),
                 'consents' => $this->consents($record),
             ],
+            // B1 — the RECORDED allergies this page has been waiting for. `Patients/Show.vue`
+            // already declares this optional top-level prop and keeps its banner dormant until
+            // it lands ("rendered when present, absent silently"), which is exactly the gap the
+            // wireframe names. Landing it here lights that banner with no page rewrite.
+            'allergies' => $this->allergies($record),
             'accessLog' => $this->accessLog($accessReport, $record),
             'actions' => [
                 'can_edit' => Gate::allows('patient.edit'),
                 'grant_consent_url' => route('patients.consents.grant', $record->id),
             ],
         ]);
+    }
+
+    /**
+     * The patient's ACTIVE recorded allergies, as documented facts.
+     *
+     * Ordered by substance — deliberately NOT by severity, because ordering by badness would be
+     * the system asserting a priority it has no business asserting. Only `active` rows are
+     * shown, matching the app-layer composition `AppointmentDetailController` already uses, so
+     * the two surfaces cannot disagree about what a patient is allergic to.
+     *
+     * @return list<array<string, mixed>>
+     */
+    private function allergies(Patient $patient): array
+    {
+        return Allergy::query()
+            ->where('patient_id', $patient->id)
+            ->where('status', Allergy::STATUS_ACTIVE)
+            ->orderBy('substance')
+            ->get()
+            ->map(fn (Allergy $allergy): array => [
+                'id' => $allergy->id,
+                'substance' => $allergy->substance,
+                'reaction' => $allergy->reaction,
+                // The clinician-RECORDED severity, surfaced as a fact — never a computed grade,
+                // and never used to colour or order anything (D-169).
+                'severity' => $allergy->severity,
+                'status' => $allergy->status,
+            ])
+            ->all();
     }
 
     /**

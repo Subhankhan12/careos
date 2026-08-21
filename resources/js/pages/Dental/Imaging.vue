@@ -4,7 +4,7 @@ import { computed, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import DentalSectionNav from '@/Components/DentalSectionNav.vue';
-import PatientClinicalHeader from '@/Components/Dental/PatientClinicalHeader.vue';
+import PatientClinicalHeader from '@/Components/Clinical/PatientClinicalHeader.vue';
 import Button from '@/Components/Button.vue';
 import Card from '@/Components/Card.vue';
 

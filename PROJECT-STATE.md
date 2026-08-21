@@ -387,6 +387,25 @@ Two further wireframes were decoded from the design pack and triaged. **Neither 
 
 ---
 
+- **PATIENTS & CLINICAL BATCH — 12 screens AUDITED; the PC chain is STARTED (P1 done, P2–P8 open).** Audit at
+  `docs/wireframe-parity/PATIENTS-CLINICAL-BATCH-DIFF.md`. **4 fully live · 2 partial · 6 with no page.** Unlike
+  Dental, most of this batch is BUILDABLE — the mocks are fence-aware and several describe mechanisms the live
+  build already has (an extractive source-linked chart summary at a SUGGEST ceiling, trend-free vitals,
+  immutable consent, a read-audit row on every render). **The fence risk is concentrated in two screens:**
+  Allergy Alert (a drug-class cross-reactivity determination AND a hard block — the `MedicationSafetyProvider`
+  seam refuses both, and even a certified partner's findings are advisory, never auto-blocking) and Care Plan
+  Review (the perio computed rail refused at DENTAL-B.P3 plus an AI bitewing finding refused at P6).
+  - **PC.P1 — DONE.** S1 promoted to `Components/Clinical/` (behaviour-identical, byte-for-byte); **B1 wired**:
+    `PatientShowController` moved to the APP LAYER (Patients may not import Clinical — arch-enforced; the
+    D-017/AppointmentDetail precedent) and the dormant `allergies` prop the page had carried since it was built
+    now lights its banner — recorded substance/reaction/severity as facts, identical styling, ordered by
+    substance, honest empty state, one audit path. Three new shells (rail card · audit row · sign-off bar) that
+    compute nothing. **The fence scan now follows the moved header across both namespaces** (D-173).
+  - **P2–P8 open** (Chart · 360 · Note Editor · Access Log + the nDSG/GDPR export · Referral Out · Recall Due
+    List · optional Consult Summary). **Recommended DEFERRED:** Allergy Alert, Care Plan Review, Medical
+    History Intake, Patient Flow.
+---
+
 ## DEPLOYMENT — the primary track (authoritative; everything below this section is history)
 
 **No verticals remain, no hospital phases remain, and no wireframe-parity pages from the nine-page pass
