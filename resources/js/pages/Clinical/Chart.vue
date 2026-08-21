@@ -43,7 +43,13 @@ const props = defineProps<{
     documents: Array<{ id: string; category: string; title: string; original_filename: string; uploaded_at: string; shared_with_patient: boolean; download_url: string }>;
     carePlans: Array<{ id: string; title: string; status: string; started_on: string; ended_on: string | null; goals: Array<{ id: string; description: string; target_date: string | null; status: string }> }>;
     referrals: Array<{ id: string; direction: string; status: string; specialty: string | null; reason: string; to_provider_name: string | null; from_provider_name: string | null; to_branch_id: string | null; sent_at: string | null; responded_at: string | null; notes: string | null }>;
-    recalls: Array<{ id: string; rule_id: string; rule_name: string; due_on: string; status: string }>;
+    recalls: Array<{ id: string; rule_id: string; rule_name: string; due_on: string; status: string; due_in_days: number }>;
+    /**
+     * SERVER-COMPUTED counts of real rows (PC.P2). Not array lengths: `notes` carries head
+     * versions only and `orders` is gated, so counting the loaded arrays would under-report
+     * the record. Administrative facts about the chart, never a clinical index.
+     */
+    counts: { encounters: number; notes: number; problems: number; vitals: number; medications: number; documents: number; orders: number; referrals: number; openRecalls: number };
     orders: Array<{
         id: string;
         item: string | null;
@@ -90,22 +96,34 @@ const initials = computed(() => {
     const parts = props.patient.name.trim().split(/\s+/);
     return ((parts[0]?.[0] ?? '') + (parts.length > 1 ? (parts[parts.length - 1][0] ?? '') : '')).toUpperCase();
 });
-const openRecalls = computed(() => props.recalls.filter((r) => !['completed', 'dismissed', 'cancelled'].includes(r.status)).length);
 
 const tabs = computed(() => [
     { key: 'timeline', label: t('clinical.chart.tabs.timeline') },
-    { key: 'notes', label: t('clinical.chart.tabs.notes'), count: props.notes.length },
-    { key: 'problems', label: t('clinical.chart.tabs.problems'), count: props.problems.length },
-    { key: 'vitals', label: t('clinical.chart.tabs.vitals'), count: props.vitals.length },
-    { key: 'medications', label: t('clinical.chart.tabs.medications'), count: props.medications.length },
-    { key: 'documents', label: t('clinical.chart.tabs.documents'), count: props.documents.length },
-    { key: 'orders', label: t('clinical.orders.tab'), count: props.orders.length },
+    { key: 'notes', label: t('clinical.chart.tabs.notes'), count: props.counts.notes },
+    { key: 'problems', label: t('clinical.chart.tabs.problems'), count: props.counts.problems },
+    { key: 'vitals', label: t('clinical.chart.tabs.vitals'), count: props.counts.vitals },
+    { key: 'medications', label: t('clinical.chart.tabs.medications'), count: props.counts.medications },
+    { key: 'documents', label: t('clinical.chart.tabs.documents'), count: props.counts.documents },
+    { key: 'orders', label: t('clinical.orders.tab'), count: props.counts.orders },
     { key: 'care', label: t('clinical.chart.tabs.care') },
 ]);
 
+/*
+ * FIND IN CHART — a plain, case-insensitive SUBSTRING match over content ALREADY LOADED in
+ * this payload. It is a text filter, nothing more: it fetches nothing, ranks nothing, scores
+ * no relevance, and reorders nothing. Rows either contain the typed text or they do not.
+ */
+const chartQuery = ref('');
+function matchesQuery(...parts: Array<string | null | undefined>): boolean {
+    const needle = chartQuery.value.trim().toLowerCase();
+    if (needle === '') return true;
+    return parts.filter(Boolean).join(' ').toLowerCase().includes(needle);
+}
+
 const encounterTypes = computed(() => Array.from(new Set(props.encounters.map((e) => e.type))));
 const monthGroups = computed(() => {
-    const filtered = encounterFilter.value === 'all' ? props.encounters : props.encounters.filter((e) => e.type === encounterFilter.value);
+    const byType = encounterFilter.value === 'all' ? props.encounters : props.encounters.filter((e) => e.type === encounterFilter.value);
+    const filtered = byType.filter((e) => matchesQuery(e.type, e.status, e.started_at));
     const groups: Record<string, typeof props.encounters> = {};
     const order: string[] = [];
     for (const e of filtered) {
@@ -189,9 +207,9 @@ function transitionOrder(orderId: string, status: string): void {
                             <div class="mt-3 flex flex-wrap items-center gap-2 text-sm">
                                 <span class="rounded-md bg-white/10 px-2.5 py-1 font-mono text-euca-100">{{ patient.mrn }}</span>
                                 <span class="rounded-md bg-white/10 px-2.5 py-1 text-euca-100">{{ patient.date_of_birth }}<template v-if="age !== null"> · {{ age }} y</template> · {{ patient.sex }}</span>
-                                <span class="rounded-md bg-white/10 px-2.5 py-1 text-euca-100">{{ t('clinical.chart.summary', { encounters: encounters.length, problems: problems.length, medications: medications.length }) }}</span>
-                                <span v-if="openRecalls > 0" class="inline-flex items-center gap-1.5 rounded-md bg-warning/25 px-2.5 py-1 text-euca-50">
-                                    <span class="h-1.5 w-1.5 rounded-full bg-warning"></span>{{ t('clinical.chart.openRecalls', { count: openRecalls }, openRecalls) }}
+                                <span class="rounded-md bg-white/10 px-2.5 py-1 text-euca-100">{{ t('clinical.chart.summary', { encounters: counts.encounters, problems: counts.problems, medications: counts.medications }) }}</span>
+                                <span v-if="counts.openRecalls > 0" class="inline-flex items-center gap-1.5 rounded-md bg-warning/25 px-2.5 py-1 text-euca-50">
+                                    <span class="h-1.5 w-1.5 rounded-full bg-warning"></span>{{ t('clinical.chart.openRecalls', { count: counts.openRecalls }, counts.openRecalls) }}
                                 </span>
                             </div>
                         </div>
@@ -214,6 +232,19 @@ function transitionOrder(orderId: string, status: string): void {
             <AllergyRecordPanel :allergies="allergies" :medication-safety="medicationSafety" />
 
             <!-- AI summary draft — badged, dashed, source-linked, human-insert only. -->
+            <!-- Find in chart: a plain text filter over content ALREADY on this page. It
+                 fetches nothing and ranks nothing — a row either contains the text or not. -->
+            <label class="block">
+                <span class="sr-only">{{ t('clinical.chart.find.label') }}</span>
+                <input
+                    v-model="chartQuery"
+                    type="search"
+                    :placeholder="t('clinical.chart.find.placeholder')"
+                    class="w-full rounded-2xl border border-line bg-surface px-4 py-2.5 text-sm text-ink"
+                />
+            </label>
+            <p v-if="chartQuery.trim() !== ''" class="-mt-3 text-xs text-ink-subtle">{{ t('clinical.chart.find.note') }}</p>
+
             <div v-if="aiSummary" class="rounded-2xl border border-dashed border-euca-400 bg-euca-50/50 p-5">
                 <div class="flex flex-col justify-between gap-3 sm:flex-row sm:items-start">
                     <div class="flex items-center gap-2">
@@ -409,7 +440,17 @@ function transitionOrder(orderId: string, status: string): void {
                                 <div v-for="recall in recalls" :key="recall.id" class="flex items-center justify-between gap-2 rounded-xl border border-line bg-surface-2 p-4">
                                     <div>
                                         <p class="font-semibold text-ink">{{ recall.rule_name }}</p>
-                                        <p class="text-sm text-ink-muted">{{ recall.due_on }}</p>
+                                        <p class="text-sm text-ink-muted">
+                                            {{ recall.due_on }}
+                                            <!-- A plain calendar interval from the recorded due date.
+                                                 Not urgency, not priority — and nothing is tinted by it. -->
+                                            <span class="text-ink-subtle">
+                                                ·
+                                                {{ recall.due_in_days >= 0
+                                                    ? t('clinical.chart.recallDueIn', { days: recall.due_in_days }, recall.due_in_days)
+                                                    : t('clinical.chart.recallOverdueBy', { days: -recall.due_in_days }, -recall.due_in_days) }}
+                                            </span>
+                                        </p>
                                     </div>
                                     <span class="rounded-full bg-euca-50 px-2.5 py-0.5 text-xs font-semibold text-euca-800">{{ recall.status }}</span>
                                 </div>

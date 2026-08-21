@@ -3247,3 +3247,24 @@ references the old ID.
   Tailwind's `border-line/60` opacity syntax, so it now reads the `<script>` block only; and `fall` as a
   substring matched "fallback", so the token is `fallrisk` — the judgment is a fall-RISK SCORE, not the word.
   See [[Patients]], [[Clinical]], `docs/wireframe-parity/PATIENTS-CLINICAL-BATCH-DIFF.md` §4 (B1), [[LOG]].
+- **D-174 — A count rendered in the page is a claim about the record, so it must be counted where the record
+  lives; and an absence assertion over an empty collection proves nothing (PC.P2).** The Patient Chart's band and
+  tab chips were `array.length` over the loaded payload. That looks harmless and is not: the chart's lists are
+  deliberately PARTIAL — `notes` carries head versions only (superseded ones are reachable through the version
+  chain) and `orders` is empty for an actor who may not see them — so a Vue length silently UNDER-REPORTS the
+  record to a clinician. The counts are now computed server-side from real rows, and the two lists that are
+  filtered have counts that deliberately MIRROR their lists, so a chip can never disagree with what sits under
+  it. The superseded client-side `openRecalls` computed was deleted rather than left in place: a second,
+  divergent source of the same number is exactly the defect being removed.
+  **The more important lesson is about the test.** The vitals fence assertion — "no band, flag, score, delta or
+  trend key" — passed a mutation that added `'band' => 'high'`, because the fixture recorded NO VITALS. An
+  absence assertion over an empty collection is VACUOUSLY TRUE, and it had been sitting there looking like
+  protection. The test now records real vitals, asserts the collection is non-empty BEFORE scanning it, and
+  deliberately includes a frankly abnormal reading (176/104, SpO2 91) so the fence is proven against exactly the
+  data that would tempt someone to annotate it. **Every absence assertion needs a positive control: prove the
+  thing you are scanning actually contains rows.**
+  Corollary on find-in-chart: a client-side substring filter over already-loaded content is a TEXT FILTER, not
+  clinical computation — it fetches nothing, ranks nothing and reorders nothing, and the page says so. Ranking
+  by relevance would be a different thing entirely, and a test forbids it. Likewise recall proximity is a plain
+  calendar interval ("due in 66 days"), not urgency: nothing is tinted by it (D-169). See [[Clinical]],
+  `docs/wireframe-parity/PATIENTS-CLINICAL-BATCH-DIFF.md` §7, [[LOG]].

@@ -401,7 +401,15 @@ Two further wireframes were decoded from the design pack and triaged. **Neither 
     now lights its banner — recorded substance/reaction/severity as facts, identical styling, ordered by
     substance, honest empty state, one audit path. Three new shells (rail card · audit row · sign-off bar) that
     compute nothing. **The fence scan now follows the moved header across both namespaces** (D-173).
-  - **P2–P8 open** (Chart · 360 · Note Editor · Access Log + the nDSG/GDPR export · Referral Out · Recall Due
+  - **PC.P2 — DONE.** Patient Chart parity. Most of the screen was already right (extractive SUGGEST-ceiling
+    summary with source chips, trend-free vitals, version chains with v1 reachable, tabs, month groups).
+    **The real defect was the counting:** band/tab chips were `array.length` in Vue over DELIBERATELY
+    PARTIAL lists (`notes` = head versions only; `orders` gated), so they under-reported the record —
+    now server-computed from real rows, with the filtered lists' counts mirroring their lists. Added
+    find-in-chart (a plain substring filter over loaded content, ranks nothing) and recall proximity as a
+    plain interval, tinting nothing. **Caught a false green of my own:** the vitals fence passed a `band`
+    mutation because the fixture had no vitals — an absence assertion over an empty collection (D-174).
+  - **P3–P8 open** (360 · Note Editor · Access Log + the nDSG/GDPR export · Referral Out · Recall Due
     List · optional Consult Summary). **Recommended DEFERRED:** Allergy Alert, Care Plan Review, Medical
     History Intake, Patient Flow.
 ---

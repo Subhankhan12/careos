@@ -216,7 +216,7 @@ immutable snapshots and audited withdrawal — these screens must **read** that,
 | Gate | Builds | Proves |
 |---|---|---|
 | ~~**PC.P1**~~ ✅ **DONE** | **Shared components + B1.** Promote S1 out of `Components/Dental/` to a shared clinical namespace and **wire its allergy chip** by adding allergies to the `Patients/Show` payload. Build N1 rail card, N3 audit row, N6 sign-off bar. | Presentational (P0D.GU); the chip renders **recorded** allergies only, never a computed cross-reaction; existing tests stay green. |
-| **PC.P2** | **Patient Chart parity** — band counts, tab chips, find-in-chart, timeline filters + month groups, version chains, recall proximity, and the N4 agent panel around the **existing** summary tool. | Vitals stay trend-free; the summary keeps its SUGGEST ceiling and source chips; D-169 styling scan. |
+| ~~**PC.P2**~~ ✅ **DONE** | **Patient Chart parity** — band counts, tab chips, find-in-chart, timeline filters + month groups, version chains, recall proximity, and the N4 agent panel around the **existing** summary tool. | Vitals stay trend-free; the summary keeps its SUGGEST ceiling and source chips; D-169 styling scan. |
 | **PC.P3** | **Patient 360 parity** — hero band, five tabs with counts, consents tab (N5), access tab. | Consent snapshots stay immutable; the allergy chip is display-only. |
 | **PC.P4** | **Note Editor parity** — focus mode, version rail, required-section counter, type-to-confirm sign modal, signed read-only, amend-with-reason. | Signing/amend re-checked server-side; no delete affordance anywhere. |
 | **PC.P5** | **Patient Access Log (B2)** — dedicated route + `patient.audit.view` gate, basis/range facets, agent min-necessary detail, and the **signed nDSG/GDPR export**. | Basis derived server-side; rows immutable; viewing writes its own row. **Operator-mode detail omitted + flagged** (G4–G11 deferred). |
@@ -260,6 +260,26 @@ link S1 has no props for. That is **PC.P3**.
 
 **The fence scan now follows the header** across both namespaces — moving a file out of a glob is a fence
 weakened invisibly, and the severity-tint mutation was caught by that very test.
+
+---
+## 7b — P2 outcome (2026-08-21)
+
+Most of this screen was already right: the extractive SUGGEST-ceiling summary with source chips, trend-free
+vitals, note version chains with v1 always reachable, tabs, month grouping and type filters all pre-existed.
+
+**The real defect was the counting.** The band and tab chips were `array.length` in Vue — and the chart's lists
+are deliberately partial (`notes` carries head versions only; `orders` is empty for an actor who may not see
+them), so a Vue length **under-reports the record**. Counts are now server-computed from real rows, with
+`notes`/`orders` mirroring their lists so a chip cannot disagree with what sits under it. The superseded
+client-side `openRecalls` computed was deleted rather than left as a second, divergent source.
+
+**Added:** find-in-chart (a plain substring filter over already-loaded content — fetches nothing, ranks nothing,
+and says so on screen) and recall proximity as a plain calendar interval ("due in 66 days"), tinting nothing.
+
+**A false green of my own, caught and fixed:** the vitals fence assertion passed a `'band' => 'high'` mutation
+because the fixture recorded no vitals — an absence assertion over an empty collection is vacuously true. The
+test now records real vitals including a frankly abnormal reading, and asserts the collection is non-empty
+before scanning it (D-174).
 
 ---
 ## 8 — Bottom line

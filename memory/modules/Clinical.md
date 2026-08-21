@@ -284,3 +284,53 @@ NEVER built homemade. The only allergy block is the pre-existing deterministic e
 - Real HL7/FHIR lab connectivity is deferred (partner-driven; see DEFERRED.md).
 - Computed drug-allergy safety (cross-reactivity / class-match / contraindication / substitution) is a
   certified-partner medical-device NON-GOAL — the `MedicationSafetyProvider` seam awaits a licensed partner.
+
+## PC.P2 — Patient Chart visual parity (2026-08-21, `<pending>`)
+
+Second gate of the **PC chain**. Visual parity over the EXISTING chart backend. **P0D.GU.**
+
+**WHAT THE PAYLOAD ALREADY CARRIED** (so most of this gate was completion, not construction):
+allergies, the medication-safety seam's honest "not configured" state, vitals **and** a unified
+`vitalsHistory` ("raw values only (no bands/flags/scores/deltas)"), medications, documents,
+carePlans, referrals, recalls, orders, and — already correct — the AI summary panel over
+`ClinicalSummaryTool` (`autonomyCeiling: SUGGEST`, "ABSOLUTE CONSTRAINT: EXTRACTIVE"), plus **full
+note version chains** with `amendment_reason` and a per-version `edit_url`, so v1 was always
+reachable. Tabs, month grouping and encounter type filters existed too.
+
+**THE REAL DEFECT THIS GATE FIXED: the counts were `array.length` in Vue.** That is not a
+cosmetic difference. Several of the lists are DELIBERATELY PARTIAL — `notes` carries head
+versions only (superseded ones live in the version chain) and `orders` is empty for an actor who
+may not see them — so counting the loaded array **under-reports the record**. Counts are now
+computed SERVER-side from real rows (`counts.encounters/notes/problems/vitals/medications/
+documents/orders/referrals/openRecalls`), and `notes`/`orders` deliberately mirror their lists so
+a chip can never disagree with what is under it. The now-superseded client-side `openRecalls`
+computed was DELETED rather than left beside it — a second, divergent source of the same number
+is the bug I had just removed.
+
+**BUILT:** find-in-chart (a plain case-insensitive substring match over content ALREADY LOADED —
+it fetches nothing, ranks nothing, scores no relevance, reorders nothing, and says so on screen);
+recall proximity as **a plain calendar interval** (`due_in_days`, computed server-side on whole
+days, negative when past due) rendered as "due in N days" / "N days past due" / "due today".
+
+**THE FENCE, unchanged and re-asserted:** vitals stay RAW — no band, flag, score, delta, trend,
+arrow or sparkline, and nothing on the page is styled from a vital's value or a numeric threshold
+(D-169); the summary stays EXTRACTIVE at SUGGEST with per-line source chips and ONE explicit human
+insert (no new tool, no raised ceiling, no auto-insert); no risk score, acuity, EWS, prognosis,
+auto-problem-list or cross-reactivity anywhere; nothing draws (D-172).
+
+**Tests added** — `tests/Feature/Clinical/ChartParityTest.php` (5 tests, 181 assertions).
+**Mutation-checked four ways:** a recall row tinted by proximity, a `'band' => 'high'` key in the
+vitals payload, the summary tool's ceiling raised to APPROVE, and an auto-insert call site.
+
+**I SHIPPED A FALSE GREEN AND CAUGHT IT.** The vitals re-assertion passed the `band` mutation
+because my fixture recorded **no vitals** — an absence assertion over an EMPTY collection is
+vacuously true. The test now records two real vitals (including a frankly abnormal 176/104, SpO2
+91) and asserts `toHaveCount(2)` before scanning, then asserts the abnormal row's keys are exactly
+the recorded fields — so the fence is proven against data that would *tempt* an annotation. Re-run
+against the mutation, it now fails as it should.
+
+**Four fixture bugs from reading signatures rather than guessing:** `RecallRule` needs `criteria`
+and uses `interval_months` (not `interval_days`); `Encounter` fails closed without a
+`practitioner_id`; `Medication` requires `substance_key`; and the note service method is
+`saveDraft(encounter, author, sections, actor)` with `sign(note, user)` and
+`amend(note, changes, reason, author, actor)` — not the `create(...)` I assumed.

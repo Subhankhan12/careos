@@ -1933,7 +1933,14 @@
                 "refresh": "Refresh",
                 "extractive": "Extractive only — every line carries its source; interpretive requests are refused.",
                 "insert": "Insert into my draft note"
-            }
+            },
+            "find": {
+                "label": "Find in chart",
+                "placeholder": "Find in chart — encounters, notes, medications…",
+                "note": "Filtering what is already loaded on this page. Nothing is ranked or scored."
+            },
+            "recallDueIn": "due today | due in {days} day | due in {days} days",
+            "recallOverdueBy": "due today | {days} day past due | {days} days past due"
         }
     },
     "portal": {

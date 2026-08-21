@@ -199,6 +199,17 @@ class ClinicalChartController
                     ->all()
                 : [],
             'aiSummary' => $this->aiSummaryDraft($record),
+            /*
+             * The band and tab counts, computed HERE from the real rows (PC.P2).
+             *
+             * They cannot be `array.length` in the page: several of the lists above are
+             * deliberately PARTIAL — `notes` carries head versions only (superseded ones are
+             * reachable through their version chain), and `orders` is empty for an actor who
+             * may not see them. Counting a filtered array in Vue would quietly under-report
+             * what is in the record. These are counts of RECORDED ROWS — administrative facts
+             * about the chart, never a clinical index.
+             */
+            'counts' => $this->counts($record, $noteRecords->whereNull('supersedes_id')->count(), $actor, $orders),
             'actions' => [
                 'can_view' => Gate::allows('patient.view'),
                 'can_write_notes' => Gate::allows('note.write'),
@@ -271,6 +282,34 @@ class ClinicalChartController
     /**
      * @return array<string, mixed>
      */
+    /**
+     * Counts of REAL rows for the patient band and the tab chips.
+     *
+     * Every figure is a `count()` over recorded rows — nothing is derived, weighted or scored,
+     * and no count is a statement about the patient's condition. `notes` and `orders` mirror
+     * exactly what their tabs list, so a chip can never disagree with the list beneath it.
+     *
+     * @return array<string, int>
+     */
+    private function counts(Patient $patient, int $noteCount, ?User $actor, OrderService $orders): array
+    {
+        return [
+            'encounters' => Encounter::query()->where('patient_id', $patient->id)->count(),
+            'notes' => $noteCount,
+            'problems' => Problem::query()->where('patient_id', $patient->id)->count(),
+            'vitals' => Vital::query()->where('patient_id', $patient->id)->count(),
+            'medications' => Medication::query()->where('patient_id', $patient->id)->count(),
+            'documents' => Document::query()->where('patient_id', $patient->id)->count(),
+            'orders' => $actor instanceof User ? $orders->chartOrders($patient, $actor)->count() : 0,
+            'referrals' => Referral::query()->where('patient_id', $patient->id)->count(),
+            // "Open" is the recall's own lifecycle status — not a judgment about urgency.
+            'openRecalls' => Recall::query()
+                ->where('patient_id', $patient->id)
+                ->whereNotIn('status', ['completed', 'dismissed', 'cancelled'])
+                ->count(),
+        ];
+    }
+
     private function referralSummary(Referral $referral): array
     {
         $referral->auditRead(['surface' => 'clinical_chart']);
@@ -334,6 +373,13 @@ class ClinicalChartController
             'rule_name' => $rule->name,
             'due_on' => $recall->due_on->toDateString(),
             'status' => $recall->status,
+            /*
+             * How many days away the recorded due date is — a PLAIN CALENDAR INTERVAL between
+             * two dates (negative when it has passed), computed on whole days so no timezone
+             * shifts it. It is arithmetic on a date, not a judgment: it carries no urgency, no
+             * priority and no colour, and nothing on the page may tint a row by it (D-169).
+             */
+            'due_in_days' => (int) now()->startOfDay()->diffInDays($recall->due_on->startOfDay(), false),
         ];
     }
 
