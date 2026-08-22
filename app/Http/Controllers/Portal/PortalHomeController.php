@@ -33,6 +33,11 @@ class PortalHomeController
             ->first();
 
         $patient = Patient::query()->whereKey($account->patient_id)->firstOrFail();
+
+        // PT.P1 — the patient is reading their own record: one read row per render, through
+        // the EXISTING auditRead() path, so this disclosure appears in their access log (PC.P5).
+        $patient->auditRead(['surface' => 'portal_home']);
+
         $unreadMessages = 0;
         foreach ($threads->threadsForPatient($patient) as $thread) {
             $unreadMessages += $threads->patientUnreadCount($thread, $patient);

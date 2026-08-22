@@ -743,6 +743,10 @@ test('every GUEST route renders for an anonymous visitor (200, never a request-t
         // SETTINGS.P6 staff invite: an unknown token must still render its honest "no longer valid"
         // page rather than erroring.
         'staff-invite.accept' => '/invite/'.$token,
+        // PT.P1 — the PATIENT's entry point. It sat outside this list, so a 500 on the portal
+        // sign-in page could have shipped green: the very gap AUTH-SEC.2 was written to close,
+        // one route over. A locked-out patient has no way around this page.
+        'portal.login' => '/portal/login',
     ];
 
     $failures = [];

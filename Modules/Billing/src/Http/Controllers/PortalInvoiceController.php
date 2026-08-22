@@ -9,6 +9,7 @@ use Inertia\Inertia;
 use Inertia\Response;
 use Modules\Billing\Models\Invoice;
 use Modules\Billing\Models\InvoiceBalance;
+use Modules\Patients\Models\Patient;
 use Modules\Patients\Models\PortalAccount;
 
 /**
@@ -23,6 +24,11 @@ class PortalInvoiceController
     public function index(Request $request): Response
     {
         $account = $this->account($request);
+
+        // PT.P1 — the patient is reading their own record: one read row per render, through
+        // the EXISTING auditRead() path, so this disclosure appears in their access log (PC.P5).
+        Patient::query()->whereKey($account->patient_id)->firstOrFail()
+            ->auditRead(['surface' => 'portal_invoices']);
 
         $invoices = Invoice::query()
             ->where('patient_id', $account->patient_id)

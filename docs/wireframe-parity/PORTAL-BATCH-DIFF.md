@@ -245,6 +245,42 @@ edited, because this task is audit-only.
 
 ---
 
+## 4a — PT.P1 outcome (2026-08-22) — B1 + B4 CLOSED
+
+**The `portal_home · patient` row the PC.P5 wireframe draws is now real.** Six portal surfaces write one
+read row per render through the EXISTING `auditRead()` path — `portal_home`, `portal_appointments`,
+`portal_documents`, `portal_invoices`, `portal_consents`, `portal_checkin`. The subject is the **patient**
+(`Patient::auditPatientId()` returns its own id), which is what makes the rows selectable by PC.P5's query
+(`action='read' AND patient_id = ?`) — the same shape `patient_360`, `referrals` and `recall_worklist`
+already use. **No disclosure, scoping, query or behaviour changed**; the per-document and per-invoice
+DOWNLOAD rows, the message-thread open and the telehealth token issue already audited and were left
+untouched, so nothing double-audits.
+
+**Proven end to end in a browser**, which is also how the actor-type question was settled: signed in as the
+real portal patient, visited the five page surfaces, then opened the patient's access log as staff. All five
+appear **on screen and in the CSV export** (one query, so they cannot disagree), and the actor-type chip
+reads **"Patient (self) · 6"**.
+
+**A test artifact worth recording.** The suite first reported `actor_type = user` for portal reads.
+`actingAs($account, 'patient')` also calls `shouldUse('patient')`, so `Auth::user()` resolves the
+PortalAccount — and `PlatformAuditContext::actor()` checks `Auth::user()` FIRST. In production the default
+guard stays `web`, `Auth::user()` is null, and the context falls through to the patient branch. The browser
+settled it (`actor_type=patient`, six rows) and the test now drives the guard the way a real request does,
+via `Auth::guard('patient')->setUser()`. **The assertion was right; the way the test drove the app was
+wrong** — worth remembering before bending an assertion to make a suite pass.
+
+**`/portal/login` is now in the AUTH-SEC.2 guest smoke, and it was proven to bite:** breaking the route's
+resolution turned the guest smoke red with `guest.portal.login [/portal/login] -> 500`, then it was
+restored. The guest-route list was **EXTENDED, never relaxed** — one more route to satisfy.
+
+**A mutation of mine that proved nothing, caught and fixed.** "Audit the invoices row against another
+patient" was written as `Patient::orderBy('id')->first()` — with ULIDs that resolves back to the viewer, so
+the mutation was a **no-op** and its passing meant nothing. Rewritten as
+`where('id', '!=', $account->patient_id)`, it turns the suite red. The guard was also strengthened while
+investigating: the control patient is now asserted empty **per surface**, not just once at the end.
+
+---
+
 ## 5 — Correctly-more-real — keep, do not trim
 
 1. **Three-layer middleware gating** on every portal page, with `portal.access` consent enforced server-side —
@@ -265,7 +301,7 @@ edited, because this task is audit-only.
 
 | Gate | Builds | Proves |
 |---|---|---|
-| **PT.P1** | **B1 + B4 — the audit + smoke gap.** One `auditRead()` per unaudited portal surface (Home, Documents list, Invoices list, Appointments, Consents, Check-in), and `/portal/login` added to the guest smoke. | Every portal read appears in the patient's own access log (PC.P5), one row per render, no second audit path. A public 500 on the portal entry point can no longer ship green. **Do this first — it is the cheapest and closes the transparency hole.** |
+| ~~**PT.P1**~~ ✅ **DONE** | **B1 + B4 — the audit + smoke gap.** One `auditRead()` per unaudited portal surface (Home, Documents list, Invoices list, Appointments, Consents, Check-in), and `/portal/login` added to the guest smoke. | Every portal read appears in the patient's own access log (PC.P5), one row per render, no second audit path. A public 500 on the portal entry point can no longer ship green. **Do this first — it is the cheapest and closes the transparency hole.** |
 | **PT.P2** | **Shared portal chrome (P2/P3/P4/P5/P6) + B5/B6.** The public auth frame, filter pills with counts, period grouping, unified empty states, the serious two-step confirm; the invoice balance moved server-side and the appointment proximity interval computed server-side. | One patient-facing frame, not four; Home and Invoices agree by construction; no page-side money arithmetic. |
 | **PT.P3** | **Portal Home + Appointments parity** — hero, prep reminder, quick-actions row, leaf date tile, proximity captions, day chips + morning/afternoon grouping, confirm summary line. | Server-derived data only; the cancel window stays server-enforced; **decide explicitly** whether the amber in-window tint is built (a policy boundary, not a clinical judgment) or stated in words. |
 | **PT.P4** | **Portal Documents + Invoices + Messages parity** — filters, search, grouping, "New" badge, thread previews/day separators, the footnotes. | Only shared documents; issued-only invoices; **no pay button**; AI provenance still never crosses to the portal. |

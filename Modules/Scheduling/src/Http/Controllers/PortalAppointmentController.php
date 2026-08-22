@@ -32,6 +32,11 @@ class PortalAppointmentController
     {
         $account = $this->account($request);
 
+        // PT.P1 — the patient is reading their own record: one read row per render, through
+        // the EXISTING auditRead() path, so this disclosure appears in their access log (PC.P5).
+        Patient::query()->whereKey($account->patient_id)->firstOrFail()
+            ->auditRead(['surface' => 'portal_appointments']);
+
         $appointments = Appointment::query()
             ->where('patient_id', $account->patient_id)
             ->orderByDesc('starts_at')

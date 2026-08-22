@@ -20,6 +20,13 @@ class PortalCheckInController
     public function checkIn(Request $request, CheckInService $checkIns): RedirectResponse
     {
         $patient = $this->patient($request);
+
+        // PT.P1 — the patient is reading their own record: one read row per request, through
+        // the EXISTING auditRead() path, so this disclosure appears in their access log (PC.P5).
+        // `updateContact` is a pure write and is deliberately NOT audited as a read; the existing
+        // `appointment.checked_in` ACTION row is a different action, not a second read path.
+        $patient->auditRead(['surface' => 'portal_checkin']);
+
         $data = $request->validate(['appointment_id' => ['required', 'string']]);
 
         $appointment = Appointment::query()

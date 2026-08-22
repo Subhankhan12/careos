@@ -9,6 +9,7 @@ use Inertia\Inertia;
 use Inertia\Response as InertiaResponse;
 use Modules\Clinical\Models\Document;
 use Modules\Clinical\Services\DocumentService;
+use Modules\Patients\Models\Patient;
 use Modules\Patients\Models\PortalAccount;
 
 class PortalDocumentController
@@ -22,6 +23,11 @@ class PortalDocumentController
     {
         $account = $request->user('patient');
         abort_unless($account instanceof PortalAccount, 401);
+
+        // PT.P1 — the patient is reading their own record: one read row per render, through
+        // the EXISTING auditRead() path, so this disclosure appears in their access log (PC.P5).
+        Patient::query()->whereKey($account->patient_id)->firstOrFail()
+            ->auditRead(['surface' => 'portal_documents']);
 
         $shared = $documents->sharedForPortal($account)
             ->map(fn (Document $document): array => [
