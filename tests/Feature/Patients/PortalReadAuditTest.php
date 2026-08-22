@@ -3,6 +3,7 @@
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Modules\Clinical\Models\Document;
 use Modules\Patients\Models\ConsentTemplate;
 use Modules\Patients\Models\Patient;
@@ -115,13 +116,25 @@ function ptaSignIn($test, PortalAccount $account)
     return $test;
 }
 
-/** Every `action='read'` row for this patient carrying the given surface. */
+/**
+ * Every `action='read'` row for this patient carrying the given surface.
+ *
+ * DECODED, never pattern-matched. MySQL 8 re-serialises a JSON column on the way in — it stores
+ * `{"surface": "portal_home"}` with a space after the colon, and may reorder keys — while MariaDB
+ * keeps the bytes it was given. A `LIKE '%"surface":"…"%'` therefore passes locally and matches
+ * NOTHING on CI, which is exactly how this suite went green on my machine and red in CI.
+ */
 function ptaRows(Patient $patient, string $surface): int
 {
-    return (int) DB::table('audit_events')
+    return DB::table('audit_events')
         ->where('action', 'read')
         ->where('patient_id', $patient->id)
-        ->where('context', 'like', '%"surface":"'.$surface.'"%')
+        ->pluck('context')
+        ->filter(function ($context) use ($surface): bool {
+            $decoded = json_decode((string) $context, true);
+
+            return is_array($decoded) && ($decoded['surface'] ?? null) === $surface;
+        })
         ->count();
 }
 
@@ -203,11 +216,17 @@ test('the rows carry actor_type patient and the viewer own id — and reach PC.P
 
     ptaCtx()->set($fx['tenant']);
 
+    // Decoded, not pattern-matched (see ptaRows) — the stored JSON's exact bytes are the
+    // database's business, not this test's.
     $row = DB::table('audit_events')
         ->where('action', 'read')
         ->where('patient_id', $fx['patient']->id)
-        ->where('context', 'like', '%portal_home%')
-        ->first();
+        ->get()
+        ->first(function ($candidate): bool {
+            $decoded = json_decode((string) $candidate->context, true);
+
+            return is_array($decoded) && ($decoded['surface'] ?? null) === 'portal_home';
+        });
 
     expect($row)->not->toBeNull()
         // The portal records the PATIENT as the actor — this is what makes the row legible in
@@ -219,7 +238,11 @@ test('the rows carry actor_type patient and the viewer own id — and reach PC.P
 
     // 1) It appears in PC.P5's access-log query.
     $report = app(PatientAccessReport::class)->forPatientNewestFirst($fx['patient']);
-    $surfaces = $report->map(fn (object $r): string => (string) $r->context)->filter(fn (string $c): bool => str_contains($c, 'portal_home'));
+    $surfaces = $report->filter(function (object $r): bool {
+        $decoded = json_decode((string) $r->context, true);
+
+        return is_array($decoded) && ($decoded['surface'] ?? null) === 'portal_home';
+    });
     expect($surfaces)->not->toBeEmpty('the portal row is missing from the PC.P5 access log');
 
     // 2) ...and in its CSV export — the SAME query, so the file cannot disagree with the screen.
@@ -254,6 +277,39 @@ test('no row is written against anyone else — the control patient log stays em
 
     $control = app(PatientAccessReport::class)->forPatientNewestFirst($fx['control']);
     expect($control)->toBeEmpty('a portal visit wrote a row against a patient who was never viewed');
+});
+
+test('the row lookup survives how the database chose to store the JSON', function () {
+    $fx = ptaFixture();
+    ptaCtx()->set($fx['tenant']);
+
+    /*
+     * THE REGRESSION THIS PINS. MySQL 8 re-serialises a JSON column on insert — it stores
+     * `{"surface": "portal_home"}` WITH A SPACE after the colon — while MariaDB keeps the bytes
+     * it was handed. A `LIKE '%"surface":"…"%'` therefore matched locally and matched NOTHING on
+     * CI: this suite went green on my machine and red in CI for exactly that reason.
+     *
+     * Writing both spellings and requiring BOTH to be counted makes the helper prove it reads the
+     * JSON rather than the bytes, on whichever engine is running.
+     */
+    foreach (['{"surface":"portal_home"}', '{"surface": "portal_home"}'] as $spelling) {
+        DB::table('audit_events')->insert([
+            'id' => (string) Str::ulid(),
+            'tenant_id' => $fx['tenant']->id,
+            'actor_type' => 'patient',
+            'actor_id' => (string) $fx['account']->id,
+            'action' => 'read',
+            'resource_type' => 'patient',
+            'resource_id' => $fx['patient']->id,
+            'patient_id' => $fx['patient']->id,
+            'context' => $spelling,
+            'occurred_at' => now()->format('Y-m-d H:i:s.u'),
+            'hash' => str_repeat('a', 64),
+        ]);
+    }
+
+    // Both spellings are the SAME FACT and must both be counted.
+    expect(ptaRows($fx['patient'], 'portal_home'))->toBe(2);
 });
 
 test('the guest-route smoke now covers the portal sign-in page', function () {

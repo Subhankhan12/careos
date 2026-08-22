@@ -273,6 +273,15 @@ wrong** — worth remembering before bending an assertion to make a suite pass.
 resolution turned the guest smoke red with `guest.portal.login [/portal/login] -> 500`, then it was
 restored. The guest-route list was **EXTENDED, never relaxed** — one more route to satisfy.
 
+**And a CI failure of my own, recorded rather than smoothed over.** The first PT.P1 commit went RED on CI
+while local was green: `ptaRows()` matched the audit JSON as raw bytes
+(`LIKE '%"surface":"portal_home"%'`). **MySQL 8 re-serialises a JSON column on insert** — it stores
+`{"surface": "portal_home"}`, with a space — while local MariaDB keeps the bytes it was given, so the
+pattern matched everything here and nothing there. The rows were always being written; the browser proof
+above was taken against a real server and stands. All three lookups now DECODE the JSON, and the failure
+became a permanent guard: a test writes the same fact under both spellings and requires both to be counted,
+so a byte-matching helper now fails on ANY engine rather than waiting for CI.
+
 **A mutation of mine that proved nothing, caught and fixed.** "Audit the invoices row against another
 patient" was written as `Patient::orderBy('id')->first()` — with ULIDs that resolves back to the viewer, so
 the mutation was a **no-op** and its passing meant nothing. Rewritten as
