@@ -290,6 +290,44 @@ investigating: the control patient is now asserted empty **per surface**, not ju
 
 ---
 
+## 4b — PT.P2 outcome (2026-08-22) — B5 CLOSED
+
+**THE ONE-SOURCE FIX.** `PatientBalanceReader` is now the single place that answers "what does this patient
+owe". Portal Home and Portal Invoices both read it, and it applies the **engine's** rule — Σ the
+`invoice_balances` projection over the patient's ISSUED invoices, which is exactly the
+`account_outstanding_minor` that `MetricsService::accountLedger()` asserts a δ=0 tie against. A test proves
+all three agree (engine, Home, Invoices) on a fixture with a fully open, a **partly paid** and a settled
+invoice, all issued through the real charge → draft → issue path.
+
+**The old divergence was real, not theoretical.** Invoices summed `.reduce()` over the rows it had been
+sent AND excluded credit notes; Home summed the projection including them. With a credit note on the
+account the two screens told the patient different things. **And the filter made it worse:** the wireframe
+promises "your open balance stays the full total" while the status pills narrow the list — a promise that
+is only keepable because the total is no longer derived from the rows.
+
+**No page-side money arithmetic anywhere in the portal.** All money is formatted server-side (the
+DENTAL-B.P4 contract): Home, Invoices and the portal Treatment Plan all lost their `/100`, and the
+`.reduce()` is gone. An adversarial test scans every portal page, portal component and the portal layout,
+with a positive control that the scan resolved them. (`Documents.vue` still divides for a FILE SIZE in MB —
+not money — so the ban is written against the money idioms specifically rather than arithmetic in general.)
+
+**The patient-facing header is a NEW component (D-181), not a stretched S1.** `PortalPageHeader` renders an
+eyebrow, a title and a lead line. It deliberately does **not** render MRN, date of birth, sex, an allergy
+tile or a dark clinical surface — that is S1's staff framing, and a patient does not need their own MRN
+quoted back at them. It carries no tone/severity/urgency prop, so nothing patient-facing can be tinted by a
+value. **S1 is untouched**, and a test asserts both halves.
+
+**Adopted on Documents and Consents, proven byte-identical** the PC.P1 way: the component's markup is the
+exact block those screens already rendered, and a browser capture before/after matched character for
+character (326 → 326 and 352 → 352 chars, exact string equality). The other five auth screens were left
+alone this gate — their header blocks differ enough that adopting them is a visual decision, not an
+extraction, and belongs with PT.P3/PT.P4 where those screens are being worked anyway.
+
+**Fence:** invoice rows render with ONE style across open/partly-paid/settled — no overdue band, no
+severity tint (D-169), verified in a browser. PT.P1's audit rows are unchanged at exactly one per render.
+
+---
+
 ## 5 — Correctly-more-real — keep, do not trim
 
 1. **Three-layer middleware gating** on every portal page, with `portal.access` consent enforced server-side —
@@ -311,7 +349,7 @@ investigating: the control patient is now asserted empty **per surface**, not ju
 | Gate | Builds | Proves |
 |---|---|---|
 | ~~**PT.P1**~~ ✅ **DONE** | **B1 + B4 — the audit + smoke gap.** One `auditRead()` per unaudited portal surface (Home, Documents list, Invoices list, Appointments, Consents, Check-in), and `/portal/login` added to the guest smoke. | Every portal read appears in the patient's own access log (PC.P5), one row per render, no second audit path. A public 500 on the portal entry point can no longer ship green. **Do this first — it is the cheapest and closes the transparency hole.** |
-| **PT.P2** | **Shared portal chrome (P2/P3/P4/P5/P6) + B5/B6.** The public auth frame, filter pills with counts, period grouping, unified empty states, the serious two-step confirm; the invoice balance moved server-side and the appointment proximity interval computed server-side. | One patient-facing frame, not four; Home and Invoices agree by construction; no page-side money arithmetic. |
+| ~~**PT.P2**~~ ✅ **DONE (chrome partly)** | **Shared portal chrome + B5.** The public auth frame, filter pills with counts, period grouping, unified empty states, the serious two-step confirm; the invoice balance moved server-side and the appointment proximity interval computed server-side. | One patient-facing frame, not four; Home and Invoices agree by construction; no page-side money arithmetic. |
 | **PT.P3** | **Portal Home + Appointments parity** — hero, prep reminder, quick-actions row, leaf date tile, proximity captions, day chips + morning/afternoon grouping, confirm summary line. | Server-derived data only; the cancel window stays server-enforced; **decide explicitly** whether the amber in-window tint is built (a policy boundary, not a clinical judgment) or stated in words. |
 | **PT.P4** | **Portal Documents + Invoices + Messages parity** — filters, search, grouping, "New" badge, thread previews/day separators, the footnotes. | Only shared documents; issued-only invoices; **no pay button**; AI provenance still never crosses to the portal. |
 | **PT.P5** | **Portal Consents parity** — plain-language scope lines with the raw key as a chip, and the two-step `portal.access` confirm with the lockout consequence. | Reason still required and recorded; snapshots immutable; the warning stays literally true. |

@@ -9,6 +9,7 @@ use Inertia\Inertia;
 use Inertia\Response;
 use Modules\Billing\Models\Invoice;
 use Modules\Billing\Models\InvoiceBalance;
+use Modules\Billing\Services\PatientBalanceReader;
 use Modules\Patients\Models\Patient;
 use Modules\Patients\Models\PortalAccount;
 
@@ -21,7 +22,7 @@ use Modules\Patients\Models\PortalAccount;
  */
 class PortalInvoiceController
 {
-    public function index(Request $request): Response
+    public function index(Request $request, PatientBalanceReader $balances): Response
     {
         $account = $this->account($request);
 
@@ -38,8 +39,9 @@ class PortalInvoiceController
             ->get();
 
         return Inertia::render('Portal/Invoices', [
-            'invoices' => $invoices->map(function (Invoice $invoice): array {
+            'invoices' => $invoices->map(function (Invoice $invoice) use ($balances): array {
                 $balance = InvoiceBalance::query()->where('invoice_id', $invoice->id)->first();
+                $openMinor = $balance !== null ? (int) $balance->open_balance_minor : 0;
 
                 return [
                     'id' => $invoice->id,
@@ -48,11 +50,21 @@ class PortalInvoiceController
                     'due_date' => $invoice->due_date?->toDateString(),
                     'currency' => $invoice->currency,
                     'total_minor' => $invoice->total_minor,
-                    'open_balance_minor' => $balance !== null ? $balance->open_balance_minor : 0,
+                    'open_balance_minor' => $openMinor,
+                    // PT.P2 — formatted HERE. The page renders these strings and performs no
+                    // arithmetic of its own, not even a divide-by-100.
+                    'total' => $balances->format((int) $invoice->total_minor, (string) $invoice->currency),
+                    'open_balance' => $balances->format($openMinor, (string) $invoice->currency),
                     'status' => $balance !== null ? $balance->status : $invoice->status,
                     'download_url' => route('portal.invoices.download', $invoice->id),
                 ];
             })->all(),
+            /*
+             * THE SAME FIGURE HOME SHOWS, from the SAME reader — not a re-derivation, and not a
+             * sum of the rows above. The list can be filtered in the browser; this total cannot
+             * drift with it, because the page never computes it.
+             */
+            'outstanding' => $balances->present($account->patient_id),
         ]);
     }
 

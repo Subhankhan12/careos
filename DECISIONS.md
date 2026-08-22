@@ -3391,3 +3391,22 @@ references the old ID.
   access logs stay silent about a real disclosure — same mechanism, correct granularity.
   See [[LOG]], D-169, D-170, D-177, D-178, D-179.
 
+- **D-181 — A patient-facing surface is not a staff component with the labels changed; and one figure means
+  ONE SOURCE, on the patient's side of the glass too (PT.P2).** Two rules, learned on the same gate.
+  **(1) The portal header is a NEW component, not a stretched S1.** `PatientClinicalHeader` renders MRN,
+  date of birth, sex and recorded allergies on a dark clinical tile — correct for a clinician identifying a
+  patient, wrong for a patient reading their own record. They know who they are; their allergy list is not
+  a page banner; and the portal's whole visual language is the lighter one. PC.P3 extended S1 rather than
+  forking it and that was right **because both callers were staff surfaces**. Here the caller is the
+  patient, so the honest move is a separate component in a portal namespace and S1 untouched. **The test
+  asserts the absence** — the portal header may not render MRN/DOB/sex/allergies, and S1 may not learn
+  about the portal.
+  **(2) The reconcile-to-the-unit rule applies patient-side.** Portal Home took the open balance from the
+  server while Portal Invoices `.reduce()`d its own from the rows it had been sent — and excluded credit
+  notes, so with a credit note on the account **the two screens disagreed about what the patient owed**.
+  Both now read one server reader that applies the ENGINE's rule (Σ the projection's open balances — the
+  tie target `MetricsService::accountLedger()` asserts at δ=0), and the figure is formatted server-side so
+  no portal template divides by 100. **The subtle part is WHY it must not be a sum of the rows:** the page
+  filters the list, and the wireframe promises the balance stays the full total — a promise only keepable
+  if the total was never derived from the rows in the first place. See [[LOG]], D-170, D-176.
+

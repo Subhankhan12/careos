@@ -5,8 +5,7 @@ namespace App\Http\Controllers\Portal;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
-use Modules\Billing\Models\Invoice;
-use Modules\Billing\Models\InvoiceBalance;
+use Modules\Billing\Services\PatientBalanceReader;
 use Modules\Comms\Services\ThreadService;
 use Modules\Patients\Models\Patient;
 use Modules\Patients\Models\PortalAccount;
@@ -20,7 +19,7 @@ use Modules\Scheduling\Models\Service;
  */
 class PortalHomeController
 {
-    public function __invoke(Request $request, ThreadService $threads): Response
+    public function __invoke(Request $request, ThreadService $threads, PatientBalanceReader $balances): Response
     {
         $account = $request->user('patient');
         abort_unless($account instanceof PortalAccount, 401);
@@ -43,13 +42,14 @@ class PortalHomeController
             $unreadMessages += $threads->patientUnreadCount($thread, $patient);
         }
 
-        $invoiceIds = Invoice::query()
-            ->where('patient_id', $account->patient_id)
-            ->whereNotNull('number')
-            ->pluck('id');
-        $outstandingMinor = (int) InvoiceBalance::query()
-            ->whereIn('invoice_id', $invoiceIds)
-            ->sum('open_balance_minor');
+        /*
+         * PT.P2 — ONE source. This figure and the one on Portal Invoices now come from the same
+         * reader, which applies the ENGINE's rule (Σ the projection's open balances, the tie
+         * target `MetricsService::accountLedger()` asserts at δ=0). Previously Home derived it
+         * here and the invoices page derived it again in the browser; with a credit note on the
+         * account the two disagreed.
+         */
+        $outstanding = $balances->present($account->patient_id);
 
         return Inertia::render('Portal/Home', [
             'nextAppointment' => $next !== null ? [
@@ -59,7 +59,11 @@ class PortalHomeController
                 'status' => $next->status,
             ] : null,
             'unreadMessages' => (int) $unreadMessages,
-            'outstandingBalanceMinor' => (int) $outstandingMinor,
+            // The integer stays available; the STRING is what the page renders, so no portal
+            // template divides by 100 (the DENTAL-B.P4 contract, applied patient-side).
+            'outstandingBalanceMinor' => $outstanding['minor'],
+            'outstandingBalance' => $outstanding['formatted'],
+            'currency' => $outstanding['currency'],
         ]);
     }
 }

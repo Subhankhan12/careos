@@ -13,11 +13,19 @@ const props = defineProps<{
         issue_date: string | null;
         due_date: string | null;
         currency: string;
+        /** Already formatted by the server — the page never divides minor units. */
+        total: string;
+        open_balance: string;
         total_minor: number;
         open_balance_minor: number;
         status: string;
         download_url: string;
     }>;
+    /**
+     * The account outstanding, from the SAME server reader Portal Home uses (PT.P2). Not a sum
+     * of the rows above, so filtering the list cannot change it.
+     */
+    outstanding: { minor: number; currency: string; formatted: string };
 }>();
 
 const activeStatus = ref('all');
@@ -40,14 +48,18 @@ function isCredit(invoice: { total_minor: number }): boolean {
 
 // "Open balance" is what the patient OWES: real invoices only. A credit note is shown as its
 // own row and is never folded in as a negative "open balance". Filters narrow the list only.
-const openBalance = computed(() =>
-    props.invoices.filter((i) => !isCredit(i)).reduce((sum, i) => sum + i.open_balance_minor, 0),
-);
-const currency = computed(() => props.invoices[0]?.currency ?? '');
-
-function money(minor: number): string {
-    return (minor / 100).toFixed(2);
-}
+/*
+ * THE OPEN BALANCE IS THE SERVER'S, NOT THIS PAGE'S (PT.P2).
+ *
+ * It used to be summed here with a `.reduce()` while Portal Home took the same figure from the
+ * server — two derivations of one number on two screens a patient sees minutes apart, which
+ * disagreed whenever the account carried a credit note. Both now read one server value, computed
+ * by the ENGINE's rule (Σ the projection's open balances, the tie target the AR ledger asserts).
+ *
+ * The status filter narrows the LIST only. Because this total is not derived from the rows, it
+ * cannot drift when the list is filtered — which is exactly what the wireframe promises
+ * ("your open balance stays the full total").
+ */
 
 function statusLabel(status: string): string {
     const key = `portal.invoices.statuses.${status}`;
@@ -82,7 +94,7 @@ function rowStatusDot(invoice: { status: string; total_minor: number }): string 
             </div>
             <div v-if="invoices.length" class="glass-card px-5 py-3">
                 <p class="text-xs font-medium text-ink-muted">{{ t('portal.invoices.openBalance') }}</p>
-                <p class="text-xl font-semibold text-ink">{{ money(openBalance) }} {{ currency }}</p>
+                <p class="text-xl font-semibold text-ink">{{ outstanding.formatted }}</p>
             </div>
         </div>
 
@@ -128,8 +140,8 @@ function rowStatusDot(invoice: { status: string; total_minor: number }): string 
                             <td class="py-3 pr-4 font-medium text-ink">{{ invoice.number }}</td>
                             <td class="py-3 pr-4 text-ink-muted">{{ invoice.issue_date ?? '—' }}</td>
                             <td class="py-3 pr-4 text-ink-muted">{{ invoice.due_date ?? '—' }}</td>
-                            <td class="py-3 pr-4 text-ink">{{ money(invoice.total_minor) }} {{ invoice.currency }}</td>
-                            <td class="py-3 pr-4 text-ink">{{ money(invoice.open_balance_minor) }} {{ invoice.currency }}</td>
+                            <td class="py-3 pr-4 text-ink">{{ invoice.total }}</td>
+                            <td class="py-3 pr-4 text-ink">{{ invoice.open_balance }}</td>
                             <td class="py-3 pr-4">
                                 <span class="inline-flex items-center gap-1.5 text-ink-muted">
                                     <span class="h-1.5 w-1.5 rounded-full" :class="rowStatusDot(invoice)"></span>

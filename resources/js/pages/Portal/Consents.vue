@@ -3,6 +3,7 @@ import { Head, router } from '@inertiajs/vue3';
 import { reactive, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import PortalLayout from '@/Layouts/PortalLayout.vue';
+import PortalPageHeader from '@/Components/Portal/PortalPageHeader.vue';
 
 const { t, te } = useI18n();
 
@@ -54,9 +55,13 @@ function withdraw(consentId: string): void {
     <PortalLayout>
         <Head :title="t('portal.consents.title')" />
 
-        <p class="text-xs font-semibold uppercase tracking-[0.14em] text-ink-subtle">{{ t('portal.consents.eyebrow') }}</p>
-        <h1 class="mt-1 text-2xl font-semibold tracking-tight text-ink sm:text-3xl">{{ t('portal.consents.title') }}</h1>
-        <p class="mt-1 max-w-2xl text-ink-muted">{{ t('portal.consents.subtitle') }}</p>
+        <!-- PT.P2 — the shared patient-facing header. Extracted verbatim, so this renders
+             byte-for-byte as before. -->
+        <PortalPageHeader
+            :eyebrow="t('portal.consents.eyebrow')"
+            :title="t('portal.consents.title')"
+            :lead="t('portal.consents.subtitle')"
+        />
 
         <div v-if="consents.length" class="mt-6 space-y-4">
             <div v-for="consent in consents" :key="consent.id" class="glass-card p-6">

@@ -10,22 +10,23 @@ interface Item {
     name: string | null;
     tooth: string | null;
     estimate_minor: number;
+    /** Server-formatted (PT.P2). */
+    estimate: string;
 }
 interface Phase {
     id: string;
     name: string;
     total_minor: number;
+    total: string;
     items: Item[];
 }
 
 defineProps<{
-    plans: Array<{ id: string; title: string | null; status: string; total_minor: number; phases: Phase[] }>;
+    plans: Array<{ id: string; title: string | null; status: string; total_minor: number; total: string; phases: Phase[] }>;
 }>();
 
 // The tenant currency isn't shared to the portal here; estimates display as a plain amount.
-function money(minor: number): string {
-    return (minor / 100).toFixed(2);
-}
+// PT.P2 — money arrives already formatted from the server; this page performs no arithmetic.
 </script>
 
 <template>
@@ -42,18 +43,18 @@ function money(minor: number): string {
                     <p class="font-semibold text-ink">{{ plan.title ?? t('portalTreatmentPlan.title') }}</p>
                     <span class="inline-flex items-center rounded-full bg-euca-50 px-3 py-1 text-xs font-semibold text-euca-700">{{ t(`portalTreatmentPlan.status.${plan.status}`) }}</span>
                 </div>
-                <p class="mt-1 text-sm text-ink-muted">{{ t('portalTreatmentPlan.total') }}: <span class="font-semibold text-ink">{{ money(plan.total_minor) }}</span></p>
+                <p class="mt-1 text-sm text-ink-muted">{{ t('portalTreatmentPlan.total') }}: <span class="font-semibold text-ink">{{ plan.total }}</span></p>
 
                 <div class="mt-4 space-y-3">
                     <div v-for="phase in plan.phases" :key="phase.id" class="rounded-xl border border-line p-4">
                         <div class="flex items-center justify-between">
                             <p class="font-semibold text-ink">{{ phase.name }}</p>
-                            <p class="text-sm text-ink-muted">{{ money(phase.total_minor) }}</p>
+                            <p class="text-sm text-ink-muted">{{ phase.total }}</p>
                         </div>
                         <ul class="mt-2 space-y-1 text-sm">
                             <li v-for="item in phase.items" :key="item.id" class="flex items-center justify-between border-t border-line/60 pt-1">
                                 <span class="text-ink">{{ item.name }}<span v-if="item.tooth" class="text-ink-subtle"> · {{ item.tooth }}</span></span>
-                                <span class="text-ink-muted">{{ money(item.estimate_minor) }}</span>
+                                <span class="text-ink-muted">{{ item.estimate }}</span>
                             </li>
                         </ul>
                     </div>

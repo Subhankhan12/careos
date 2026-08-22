@@ -3,6 +3,7 @@ import { Head } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import PortalLayout from '@/Layouts/PortalLayout.vue';
+import PortalPageHeader from '@/Components/Portal/PortalPageHeader.vue';
 
 const { t } = useI18n();
 
@@ -50,9 +51,13 @@ function formatSize(bytes?: number): string {
     <PortalLayout>
         <Head :title="t('portal.documents.title')" />
 
-        <p class="text-xs font-semibold uppercase tracking-[0.14em] text-ink-subtle">{{ t('portal.documents.eyebrow') }}</p>
-        <h1 class="mt-1 text-2xl font-semibold tracking-tight text-ink sm:text-3xl">{{ t('portal.documents.title') }}</h1>
-        <p class="mt-1 max-w-2xl text-ink-muted">{{ t('portal.documents.subtitle') }}</p>
+        <!-- PT.P2 — the shared patient-facing header. Extracted verbatim, so this renders
+             byte-for-byte as before. -->
+        <PortalPageHeader
+            :eyebrow="t('portal.documents.eyebrow')"
+            :title="t('portal.documents.title')"
+            :lead="t('portal.documents.subtitle')"
+        />
 
         <div v-if="documents.length" class="mt-6 flex flex-wrap gap-2">
             <button

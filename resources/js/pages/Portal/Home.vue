@@ -12,6 +12,9 @@ const props = defineProps<{
     nextAppointment: { id: string; service: string | null; starts_at: string; status: string } | null;
     unreadMessages: number;
     outstandingBalanceMinor: number;
+    /** Formatted by the server (PT.P2) — the same figure Portal Invoices shows. */
+    outstandingBalance: string;
+    currency: string;
 }>();
 
 const today = computed(() => {
@@ -47,7 +50,8 @@ function formatWhen(value: string): string {
     }
 }
 
-const balance = computed(() => (props.outstandingBalanceMinor / 100).toFixed(2));
+// PT.P2 — the server formats it; this page performs no money arithmetic, not even a divide.
+const balance = computed(() => props.outstandingBalance);
 const hasBalance = computed(() => props.outstandingBalanceMinor > 0);
 
 const quickActions = [

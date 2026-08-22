@@ -5,11 +5,13 @@ namespace Modules\Dental\Http\Controllers;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
+use Modules\Billing\Services\PatientBalanceReader;
 use Modules\Dental\Models\TreatmentPlan;
 use Modules\Dental\Models\TreatmentPlanItem;
 use Modules\Dental\Models\TreatmentPlanPhase;
 use Modules\Dental\Services\TreatmentPlanService;
 use Modules\Patients\Models\PortalAccount;
+use Modules\Platform\Services\SettingsService;
 
 /**
  * The patient portal's view of their OWN dental treatment plans (DENTAL.G5) — READ-ONLY. Only
@@ -20,8 +22,10 @@ use Modules\Patients\Models\PortalAccount;
  */
 class PortalTreatmentPlanController
 {
-    public function index(Request $request, TreatmentPlanService $plans): Response
+    public function index(Request $request, TreatmentPlanService $plans, PatientBalanceReader $balances, SettingsService $settings): Response
     {
+        // The tenant's display currency, exactly as the staff treatment-plan surface resolves it.
+        $currency = (string) $settings->get('currency', 'EUR');
         $account = $request->user('patient');
         abort_unless($account instanceof PortalAccount, 401);
 
@@ -39,7 +43,7 @@ class PortalTreatmentPlanController
             ->get();
 
         return Inertia::render('Portal/TreatmentPlan', [
-            'plans' => $planModels->map(function (TreatmentPlan $plan) use ($plans): array {
+            'plans' => $planModels->map(function (TreatmentPlan $plan) use ($plans, $balances, $currency): array {
                 $plan->auditRead(['surface' => 'portal_treatment_plan']); // patient-scoped disclosure
 
                 return [
@@ -47,15 +51,19 @@ class PortalTreatmentPlanController
                     'title' => $plan->title,
                     'status' => $plan->status,
                     'total_minor' => $plan->items->sum(fn (TreatmentPlanItem $i): int => $plans->itemEstimate($i)),
+                    // PT.P2 — formatted server-side; the page renders the string (DENTAL-B.P4).
+                    'total' => $balances->format((int) $plan->items->sum(fn (TreatmentPlanItem $i): int => $plans->itemEstimate($i)), $currency),
                     'phases' => $plan->phases->sortBy('sequence')->map(fn (TreatmentPlanPhase $phase): array => [
                         'id' => $phase->id,
                         'name' => $phase->name,
                         'total_minor' => $plan->items->where('treatment_plan_phase_id', $phase->id)->sum(fn (TreatmentPlanItem $i): int => $plans->itemEstimate($i)),
+                        'total' => $balances->format((int) $plan->items->where('treatment_plan_phase_id', $phase->id)->sum(fn (TreatmentPlanItem $i): int => $plans->itemEstimate($i)), $currency),
                         'items' => $plan->items->where('treatment_plan_phase_id', $phase->id)->sortBy('sequence')->values()->map(fn (TreatmentPlanItem $i): array => [
                             'id' => $i->id,
                             'name' => $i->dentalProcedure?->tariffItem?->description,
                             'tooth' => $i->tooth,
                             'estimate_minor' => $plans->itemEstimate($i),
+                            'estimate' => $balances->format((int) $plans->itemEstimate($i), $currency),
                         ])->all(),
                     ])->values()->all(),
                 ];
