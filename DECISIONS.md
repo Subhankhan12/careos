@@ -3410,3 +3410,20 @@ references the old ID.
   filters the list, and the wireframe promises the balance stays the full total — a promise only keepable
   if the total was never derived from the rows in the first place. See [[LOG]], D-170, D-176.
 
+- **D-182 — A guard test must fail for the RIGHT reason: give the refused path everything it needs except
+  the thing under test (PT.P3).** The BRANCH.P1 assertion — "a soft-suspended branch offers no slots" —
+  passed while the guard was DELETED. The suspended branch in my fixture had no resources, so the finder
+  returned an empty list either way: the test proved nothing and would have kept proving nothing forever.
+  Once the suspended branch was given fully bookable practitioner and room resources with availability, the
+  ONLY thing standing between the patient and a slot was `accepts_online_bookings`, and removing the guard
+  turned the suite red. **The rule generalises past this gate:** when asserting that X refuses something,
+  build the fixture so that WITHOUT X it would succeed — otherwise the assertion is satisfied by the
+  scenery. This is D-174's positive control pointed at a REFUSAL rather than at a scan: not "is there data
+  to look at" but "would this have worked if the guard were gone".
+  **A second, smaller line from the same gate:** the D-169 styling ban must distinguish IDENTITY from
+  PROXIMITY. `selectedSlot?.starts_at === slot.starts_at` is selection state — which chip the patient
+  clicked — and is ordinary UI. What stays forbidden is chrome keyed to HOW SOON something is: a time
+  compared relationally, or against `now()`, or against a duration threshold. That is the shape every
+  "turn it amber as it approaches" implementation must take, and it is what a patient must not be shown.
+  See [[LOG]], D-169, D-174.
+

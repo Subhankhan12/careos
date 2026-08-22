@@ -328,6 +328,41 @@ severity tint (D-169), verified in a browser. PT.P1's audit rows are unchanged a
 
 ---
 
+## 4c — PT.P3 outcome (2026-08-22)
+
+**HOME.** Counts are now SERVER-computed row counts — shared documents, upcoming appointments and unread
+messages — never a Vue length over a partial payload (the PC.P2 defect). The balance is PT.P2's
+`PatientBalanceReader`, tying to the engine. The quick-actions row the mock draws **already existed**; what
+was missing were the figures beside them.
+
+**APPOINTMENTS.** The card now carries the **recorded branch** — a real column the payload simply had not
+included, and the one the wireframe shows beside the service. Groups, the cancel window and the slot search
+were already contract-correct. `PortalPageHeader` was adopted **byte-identically** (the block was already
+exactly that shape) and the three empty states now use `PortalEmptyState`.
+
+**Home's greeting was deliberately NOT forced into `PortalPageHeader`.** A greeting ("Good morning, Nora",
+large, no eyebrow) is a different treatment from a section header, and the mock treats it as one. Shared
+chrome is worth having where the shape is genuinely shared — not applied everywhere for uniformity's sake.
+
+**RESCHEDULE IS ABSENT AND STAYS ABSENT (D-170).** The portal has book / cancel / check-in and no
+reschedule route; none was invented. A test asserts both halves — the routes that exist, and the ones that
+must not.
+
+**THE BOOKING GUARD, RE-ASSERTED AND NEARLY MIS-PROVEN (D-182).** Slots come from the real
+`AvailableSlotFinder` (capped at 12, each carrying resource ids), a soft-suspended branch offers none and
+refuses a forged booking that skips the slot list, and the overlap guard stops a double-book — all verified
+in a browser as well as in tests. **But the soft-suspend assertion first passed with the guard DELETED:**
+the suspended branch had no resources, so the finder was empty either way. Once it was given fully bookable
+resources, the only thing between the patient and a slot was the flag, and the mutation turned the suite
+red. A refusal test must be built so that WITHOUT the guard it would succeed.
+
+**Fence:** no urgency, priority or no-show anywhere; no chrome keyed to how soon an appointment is. The
+D-169 rule was sharpened rather than relaxed to distinguish **selection state** (which slot was clicked —
+ordinary UI) from **proximity** (a time compared to now or a threshold — forbidden). Emphasising the first
+upcoming row is positional, the same class as PC.P7's date sort, and stays.
+
+---
+
 ## 5 — Correctly-more-real — keep, do not trim
 
 1. **Three-layer middleware gating** on every portal page, with `portal.access` consent enforced server-side —
@@ -350,7 +385,7 @@ severity tint (D-169), verified in a browser. PT.P1's audit rows are unchanged a
 |---|---|---|
 | ~~**PT.P1**~~ ✅ **DONE** | **B1 + B4 — the audit + smoke gap.** One `auditRead()` per unaudited portal surface (Home, Documents list, Invoices list, Appointments, Consents, Check-in), and `/portal/login` added to the guest smoke. | Every portal read appears in the patient's own access log (PC.P5), one row per render, no second audit path. A public 500 on the portal entry point can no longer ship green. **Do this first — it is the cheapest and closes the transparency hole.** |
 | ~~**PT.P2**~~ ✅ **DONE (chrome partly)** | **Shared portal chrome + B5.** The public auth frame, filter pills with counts, period grouping, unified empty states, the serious two-step confirm; the invoice balance moved server-side and the appointment proximity interval computed server-side. | One patient-facing frame, not four; Home and Invoices agree by construction; no page-side money arithmetic. |
-| **PT.P3** | **Portal Home + Appointments parity** — hero, prep reminder, quick-actions row, leaf date tile, proximity captions, day chips + morning/afternoon grouping, confirm summary line. | Server-derived data only; the cancel window stays server-enforced; **decide explicitly** whether the amber in-window tint is built (a policy boundary, not a clinical judgment) or stated in words. |
+| ~~**PT.P3**~~ ✅ **DONE** | **Portal Home + Appointments parity** — hero, prep reminder, quick-actions row, leaf date tile, proximity captions, day chips + morning/afternoon grouping, confirm summary line. | Server-derived data only; the cancel window stays server-enforced; **decide explicitly** whether the amber in-window tint is built (a policy boundary, not a clinical judgment) or stated in words. |
 | **PT.P4** | **Portal Documents + Invoices + Messages parity** — filters, search, grouping, "New" badge, thread previews/day separators, the footnotes. | Only shared documents; issued-only invoices; **no pay button**; AI provenance still never crosses to the portal. |
 | **PT.P5** | **Portal Consents parity** — plain-language scope lines with the raw key as a chip, and the two-step `portal.access` confirm with the lockout consequence. | Reason still required and recorded; snapshots immutable; the warning stays literally true. |
 | **PT.P6** | **B3 — the portal invite landing page.** GET route + Vue over the existing POST. | Invite-only enrolment actually completes from an emailed link; generic failure for invalid/expired/used. |

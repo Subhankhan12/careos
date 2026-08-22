@@ -3,6 +3,8 @@ import { Head, router, usePage } from '@inertiajs/vue3';
 import { computed, reactive, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import PortalLayout from '@/Layouts/PortalLayout.vue';
+import PortalEmptyState from '@/Components/Portal/PortalEmptyState.vue';
+import PortalPageHeader from '@/Components/Portal/PortalPageHeader.vue';
 
 const { t } = useI18n();
 const page = usePage();
@@ -141,8 +143,11 @@ function confirmBooking(): void {
     <PortalLayout>
         <Head :title="t('portal.nav.appointments')" />
 
-        <p class="text-xs font-semibold uppercase tracking-[0.14em] text-ink-subtle">{{ t('portal.appointments.eyebrow') }}</p>
-        <h1 class="mt-1 text-2xl font-semibold tracking-tight text-ink sm:text-3xl">{{ t('portal.nav.appointments') }}</h1>
+        <!-- PT.P3 — the shared patient header (PT.P2). Extracted verbatim: byte-identical. -->
+        <PortalPageHeader
+            :eyebrow="t('portal.appointments.eyebrow')"
+            :title="t('portal.nav.appointments')"
+        />
         <p class="mt-1 text-ink-muted">{{ t('portal.appointments.subtitle') }}</p>
 
         <div class="mt-6 grid gap-5 lg:grid-cols-2">
@@ -227,7 +232,7 @@ function confirmBooking(): void {
                         </div>
                     </li>
                 </ul>
-                <p v-else class="mt-4 text-sm text-ink-muted">{{ t('portal.appointments.empty') }}</p>
+                <PortalEmptyState v-else class="mt-4" :message="t('portal.appointments.empty')" />
 
                 <p class="mt-4 text-xs text-ink-subtle">{{ t('portal.appointments.cancelHint', { hours: cancelMinHours }) }}</p>
 
@@ -238,7 +243,7 @@ function confirmBooking(): void {
                         <span class="rounded-full bg-surface-2 px-2.5 py-0.5 text-xs font-medium text-ink-muted">{{ appointment.status }}</span>
                     </li>
                 </ul>
-                <p v-else class="text-sm text-ink-muted">{{ t('portal.appointments.empty') }}</p>
+                <PortalEmptyState v-else :message="t('portal.appointments.empty')" />
             </div>
 
             <!-- Book -->
@@ -318,7 +323,7 @@ function confirmBooking(): void {
                         {{ t('portal.appointments.confirmBooking') }}
                     </button>
                 </div>
-                <p v-else-if="searched" class="mt-5 text-sm text-ink-muted">{{ t('portal.appointments.slotsEmpty') }}</p>
+                <PortalEmptyState v-else-if="searched" class="mt-5" :message="t('portal.appointments.slotsEmpty')" />
             </div>
         </div>
 

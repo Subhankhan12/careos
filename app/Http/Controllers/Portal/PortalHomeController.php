@@ -6,6 +6,7 @@ use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
 use Modules\Billing\Services\PatientBalanceReader;
+use Modules\Clinical\Models\Document;
 use Modules\Comms\Services\ThreadService;
 use Modules\Patients\Models\Patient;
 use Modules\Patients\Models\PortalAccount;
@@ -51,6 +52,23 @@ class PortalHomeController
          */
         $outstanding = $balances->present($account->patient_id);
 
+        /*
+         * PT.P3 — SERVER-COMPUTED counts of real rows, never a Vue length over a partial payload
+         * (the PC.P2 defect). `documents` counts what the practice has explicitly shared; nothing
+         * else from the record can reach this number, because the same `shared_with_patient`
+         * condition gates the documents screen itself.
+         */
+        $documentCount = Document::query()
+            ->where('patient_id', $account->patient_id)
+            ->where('shared_with_patient', true)
+            ->count();
+
+        $upcomingCount = Appointment::query()
+            ->where('patient_id', $account->patient_id)
+            ->whereIn('status', [Appointment::STATUS_BOOKED, Appointment::STATUS_CONFIRMED])
+            ->where('starts_at', '>=', now())
+            ->count();
+
         return Inertia::render('Portal/Home', [
             'nextAppointment' => $next !== null ? [
                 'id' => $next->id,
@@ -61,6 +79,11 @@ class PortalHomeController
             'unreadMessages' => (int) $unreadMessages,
             // The integer stays available; the STRING is what the page renders, so no portal
             // template divides by 100 (the DENTAL-B.P4 contract, applied patient-side).
+            'counts' => [
+                'documents' => $documentCount,
+                'upcomingAppointments' => $upcomingCount,
+                'unreadMessages' => (int) $unreadMessages,
+            ],
             'outstandingBalanceMinor' => $outstanding['minor'],
             'outstandingBalance' => $outstanding['formatted'],
             'currency' => $outstanding['currency'],

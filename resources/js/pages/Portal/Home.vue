@@ -11,6 +11,10 @@ const locale = computed(() => (page.props.locale as string) || 'en');
 const props = defineProps<{
     nextAppointment: { id: string; service: string | null; starts_at: string; status: string } | null;
     unreadMessages: number;
+    /**
+     * SERVER-COMPUTED counts of real rows (PT.P3) — never a length over a partial payload.
+     */
+    counts: { documents: number; upcomingAppointments: number; unreadMessages: number };
     outstandingBalanceMinor: number;
     /** Formatted by the server (PT.P2) — the same figure Portal Invoices shows. */
     outstandingBalance: string;
@@ -105,7 +109,7 @@ const quickActions = [
             <div class="grid gap-5">
                 <Link href="/portal/messages" class="glass-card glass-card-hover block p-6">
                     <p class="text-sm font-medium text-ink-muted">{{ t('portal.home.unreadMessages') }}</p>
-                    <p class="mt-2 text-3xl font-semibold text-ink">{{ unreadMessages }}</p>
+                    <p class="mt-2 text-3xl font-semibold text-ink">{{ counts.unreadMessages }}</p>
                     <p class="mt-1 text-sm text-euca-700">{{ t('portal.home.viewMessages') }} →</p>
                 </Link>
                 <div class="glass-card p-6">

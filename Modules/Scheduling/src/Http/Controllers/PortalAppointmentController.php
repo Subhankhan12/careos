@@ -191,6 +191,9 @@ class PortalAppointmentController
         return [
             'id' => $appointment->id,
             'service' => $service?->name,
+            // PT.P3 — the RECORDED branch. A real column the payload simply had not carried;
+            // the wireframe shows it beside the service ("Consultation · Zurich Oberstrass").
+            'branch' => Branch::query()->find($appointment->branch_id)?->name,
             'starts_at' => $appointment->starts_at->toDateTimeString(),
             'ends_at' => $appointment->ends_at->toDateTimeString(),
             'status' => $appointment->status,
