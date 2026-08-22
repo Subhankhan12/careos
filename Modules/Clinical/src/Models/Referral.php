@@ -27,6 +27,8 @@ use Modules\Platform\Models\Branch;
  * @property Carbon|null $sent_at
  * @property Carbon|null $responded_at
  * @property string|null $notes
+ * @property Carbon|null $created_at
+ * @property Carbon|null $updated_at
  */
 class Referral extends Model
 {

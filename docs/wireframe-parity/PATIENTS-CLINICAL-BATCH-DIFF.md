@@ -221,7 +221,7 @@ immutable snapshots and audited withdrawal — these screens must **read** that,
 | ~~**PC.P3**~~ ✅ **DONE** | **Patient 360 parity** — the hero band carried by the **extended S1** (status pill · dental link), five tabs with **server-computed** counts, consents tab, access tab. | Consent snapshots stay immutable; the allergy chip is display-only; **the flag chip is omitted — nothing records a flag** (§7c). |
 | ~~**PC.P4**~~ ✅ **DONE** | **Note Editor parity** — per-section required/filled markers, the superseded-version banner, the shared N6 sign bar, the recorded-allergy banner lit. **The assist panel is OMITTED (§7d)** — no such tool exists and the mock draws none. | Signing/amend re-checked server-side; a signed note provably not editable in place; no delete affordance anywhere. |
 | ~~**PC.P5**~~ ✅ **DONE** | **Patient Access Log (B2)** — dedicated route gated `audit.view` + `patient.view`, range/actor-type facets over real recorded values, and the **nDSG/GDPR subject-access export (CSV)** sharing the screen's query. | Rows immutable + chain still verifies; viewing AND exporting each write their own row. **Operator-mode reads cannot be patient-attributed — reported as a gap and stated on screen** (§7e). |
-| **PC.P6** | **Referral Out (B5)** — urgency, packet, consent-to-share, tracking states. | The share is consent-gated and minimum-necessary; the agent packages, never decides whom to refer. |
+| ~~**PC.P6**~~ ✅ **DONE** | **Referral Out** — compose + the REAL states over the existing `ReferralService`. **Urgency, the document packet, the consent-to-share and the provider directory are all OMITTED — none exists** (§7f). | Clinician-authored; every transition through the existing service; the disclosure audited on the existing path. **CareOS does not transmit the referral, and the screen says so.** |
 | **PC.P7** | **Recall Due List (B6)** — the worklist over the existing engine, with channel/consent and agent status. | Auto-send respects the real ceiling; "consent — can't send" is a genuine refusal. |
 | **PC.P8** *(optional)* | **Consult Summary (B4)** — the draft→sign→release record over the existing extractive summary. | Grounded in the signed note; nothing reaches the patient unsigned; delivery is consent-gated. |
 
@@ -415,6 +415,54 @@ A single-actor fixture would never have shown it.
 may reference an operator grant, and my new docblock named `OperatorGrantService` in PROSE. The file has no
 operator capability whatsoever — so the fix was to reword the comment, **not** to add the file to the
 expected list, which would have normalised new entries into a deliberately closed set.
+
+---
+## 7f — P6 outcome (2026-08-21)
+
+**The backend is real and complete; the mock is mostly not.** `Referral` records direction, recipient
+(`to_provider_name`, FREE TEXT), an optional internal `to_branch_id`, specialty, the clinician's `reason`,
+status, `sent_at`, `responded_at` and notes. `ReferralService` owns the state machine —
+**draft → sent → accepted|declined → completed** — gates every write on `note.write`, and audits each
+transition. There was **no route and no page**: the audit was right that this is net-new UI.
+
+**THE BIGGEST FINDING: `send()` TRANSMITS NOTHING.** It sets `status = 'sent'` and `sent_at = now()`, and
+that is all — there is no channel, no message, no document, no integration anywhere in the codebase
+(`ReferralService` is the only file in the repo that touches referrals at all). So "sent" means **the
+clinician recorded that they sent it**. The screen says exactly that, in those words, rather than implying
+a transmission that does not happen: *"CareOS does NOT transmit referrals… Send the referral through your
+usual secure channel."* Wiring a real channel is a new capability, not parity work.
+
+**Four more things the wireframe draws with no backing, OMITTED and stated on screen (D-170):**
+- **URGENCY** ("soon · within 1 week") — there is no urgency column and nothing records one. Inventing it
+  would also have handed the UI a value to rank and tint by, which is exactly the fence.
+- **The shared/withheld DOCUMENT PACKET** — referrals have no attachment relation at all.
+- **A PROVIDER DIRECTORY** with known partners and triage times — `to_provider_name` is free text, so no
+  partner is suggested, matched or ranked. Free text was KEPT rather than a directory invented.
+- **The AGENT that "assembles the packet, sends it, tracks and chases"** — no agent tool touches referrals.
+  (The single grep hit is `ClassifyDocumentTool` mapping the *word* "referral" in a filename to the letter
+  document category — nothing to do with the referral workflow.)
+
+**Also not built: the mock's tracking states** (Received · Appt booking · Report back). The real states are
+draft/sent/accepted/declined/completed; the extra steps have no backing, so the real ones are rendered and
+the rest omitted.
+
+**Built:** a patient-scoped screen at `clinical/patients/{patient}/referrals` — compose (recipient,
+specialty, internal branch, the clinician's reason, notes) and every REAL transition, each posting to a
+route that calls the existing service. The controller writes no status: a test proves it contains no
+`save`/`update`/`forceFill` at all. S1 header + N1 rail + N6 sign-off bar reused. **Ordered newest-first by
+a recorded timestamp**, never by importance, and **every status pill carries identical classes** — a
+declined referral is not painted alarming and a completed one is not painted reassuring (D-169).
+
+**The disclosure is audited on the existing path:** opening the screen writes exactly ONE read row
+(`surface: referrals`) — not one per referral — so it appears in the PC.P5 access log, verified end to end
+in the browser. No second audit path; the transitions stay audited by the service as before.
+
+**Two corrections from checking rather than assuming.** The service's `note.write` refusal surfaces as
+**403, not 500** (an `AuthorizationException`), and reception *does* hold `patient.view` — so it reaches
+the screen read-only and is refused at the write, which is the more interesting proof and is what the test
+now asserts. And the fence scan initially failed on the i18n key `scopeUrgency` — the on-screen sentence
+stating that urgency does NOT exist. Those disclaimer references are stripped for the same reason comments
+are (the recurring lesson); their text is asserted verbatim elsewhere, so nothing is hidden.
 
 ---
 ## 8 — Bottom line

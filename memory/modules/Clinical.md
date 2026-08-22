@@ -373,3 +373,27 @@ re-implement nothing and bypass nothing.
 autosave as content; live applies template defaults as real content at creation. Changing that is a
 behaviour change to an existing tested path — it needs its own gate.
 
+## PC.P6 — Referral Out (2026-08-21)
+
+**`ReferralService::send()` DOES NOT TRANSMIT ANYTHING.** It sets `status = 'sent'` and `sent_at`.
+There is no channel, no message, no document and no integration anywhere in the repo — the service
+is the only file that touches referrals. The UI therefore says **"Mark as sent"**, never "Send",
+and states on screen that the clinician must send it through their own secure channel (D-179). If
+you wire a real channel, that is a NEW capability with its own gate — and the wording must change
+with it, or the screen starts lying in the other direction.
+
+**The referral surface writes no state.** `ReferralController` calls the service for every
+transition and contains no `save`/`update`/`forceFill`; a test pins that. The service owns
+draft → sent → accepted|declined → completed and re-checks `note.write` on every call — which
+surfaces as **403** (AuthorizationException), not 500, while an out-of-order transition is an
+InvalidArgumentException and surfaces as 500.
+
+**Four things the wireframe draws that do NOT exist — do not add them without a backend:**
+urgency (no column; inventing it also hands the UI a value to rank and tint by), a shared/withheld
+document packet (no attachment relation), a provider directory (`to_provider_name` is FREE TEXT),
+and a referral agent (no tool touches referrals). The mock's Received / Appt-booking / Report-back
+tracking states are equally unbacked; the five real states are what render.
+
+**Opening the screen writes exactly ONE read row** (`surface: referrals`), not one per referral, so
+it lands in the patient's access log (PC.P5). Keep it to one: the count is asserted.
+

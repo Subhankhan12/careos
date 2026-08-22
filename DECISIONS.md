@@ -3354,3 +3354,18 @@ references the old ID.
   appears in its own report. **Generalises:** when a surface's purpose is to prove nothing is hidden, every
   narrowing must be either impossible or visible. See [[LOG]], D-174, D-176.
 
+- **D-179 — A verb the system does not perform must not be implied by the UI: "sent" means RECORDED AS
+  SENT, and the screen says so (PC.P6).** `ReferralService::send()` sets a status and a timestamp. It
+  transmits nothing — no channel, no message, no document, no integration exists anywhere in the repo. A
+  button labelled "Send referral" beside a "Sent" pill would therefore assert an action CareOS never
+  took, and a clinician could reasonably believe the specialist had received it. That is the same class of
+  defect as D-176's unbacked flag chip — **a presence the user cannot distinguish from a real one** — but
+  about a VERB rather than a fact. The button says "Mark as sent", the bar says CareOS does not transmit,
+  and the rail tells the clinician to send it through their usual secure channel. **The rule: when the
+  backend records an intention rather than performing an action, the UI must name the recording, not the
+  action.** Wiring a real channel is a new capability and needs its own gate. The same gate omitted four
+  further drawn-but-unbacked things (urgency, a document packet, a provider directory, a referral agent)
+  under D-170 — and note that **urgency was the one that mattered most to omit**: had it been invented,
+  the UI would immediately have had a value to rank and tint referrals by, which is precisely the
+  clinical judgment the fence forbids. See [[LOG]], D-170, D-176, D-178.
+

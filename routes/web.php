@@ -45,6 +45,7 @@ use Modules\Clinical\Http\Controllers\OrderableItemController;
 use Modules\Clinical\Http\Controllers\OrderController;
 use Modules\Clinical\Http\Controllers\OrdersReviewController;
 use Modules\Clinical\Http\Controllers\PortalDocumentController;
+use Modules\Clinical\Http\Controllers\ReferralController;
 use Modules\Clinical\Http\Controllers\SnippetController;
 use Modules\Comms\Http\Controllers\InboxActionController;
 use Modules\Comms\Http\Controllers\InboxController;
@@ -269,6 +270,18 @@ Route::middleware('auth')->group(function () {
     Route::post('/clinical/snippets/update', [SnippetController::class, 'update'])->name('clinical.snippets.update');
     Route::post('/clinical/snippets/delete', [SnippetController::class, 'delete'])->name('clinical.snippets.delete');
 
+    // PC.P6 — Referral Out. A NET-NEW surface over the EXISTING referral backend: every write
+    // goes through ReferralService, which owns the state machine and re-checks `note.write`.
+    Route::get('/clinical/patients/{patient}/referrals', [ReferralController::class, 'index'])
+        ->name('clinical.referrals');
+    Route::post('/clinical/patients/{patient}/referrals', [ReferralController::class, 'store'])
+        ->name('clinical.referrals.store');
+    Route::post('/clinical/referrals/{referral}/send', [ReferralController::class, 'send'])
+        ->name('clinical.referrals.send');
+    Route::post('/clinical/referrals/{referral}/respond', [ReferralController::class, 'respond'])
+        ->name('clinical.referrals.respond');
+    Route::post('/clinical/referrals/{referral}/complete', [ReferralController::class, 'complete'])
+        ->name('clinical.referrals.complete');
     Route::post('/clinical/patients/{patient}/documents', DocumentUploadController::class)
         ->name('clinical.documents.upload');
     Route::get('/clinical/documents/{document}', DocumentDownloadController::class)

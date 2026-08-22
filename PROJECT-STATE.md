@@ -387,7 +387,7 @@ Two further wireframes were decoded from the design pack and triaged. **Neither 
 
 ---
 
-- **PATIENTS & CLINICAL BATCH — 12 screens AUDITED; the PC chain is STARTED (P1–P5 done, P6–P8 open).** Audit at
+- **PATIENTS & CLINICAL BATCH — 12 screens AUDITED; the PC chain is STARTED (P1–P6 done, P7–P8 open).** Audit at
   `docs/wireframe-parity/PATIENTS-CLINICAL-BATCH-DIFF.md`. **4 fully live · 2 partial · 6 with no page.** Unlike
   Dental, most of this batch is BUILDABLE — the mocks are fence-aware and several describe mechanisms the live
   build already has (an extractive source-linked chart summary at a SUGGEST ceiling, trend-free vitals,
@@ -441,7 +441,15 @@ Two further wireframes were decoded from the design pack and triaged. **Neither 
     it is unreachable today — closing it is an OPMODE gate, not a parity gate.
     **A real bug the multi-actor fixture caught:** `COUNT(DISTINCT a, b)` drops rows where either value
     is NULL, so the SYSTEM reader went uncounted in the headline. Fixed; 3 → 4.
-  - **P6–P8 open** (Referral Out · Recall Due List · optional Consult Summary). **Recommended DEFERRED:** Allergy Alert, Care Plan Review, Medical
+  - **PC.P6 — DONE.** Referral Out (`clinical/patients/{patient}/referrals`), net-new UI over the existing
+    `ReferralService`: compose plus every REAL transition (draft → sent → accepted|declined → completed),
+    each through the service — the controller writes no status at all. The disclosure writes ONE read row
+    and shows up in PC.P5's access log. **`send()` TRANSMITS NOTHING** — it records a status and a time,
+    so the button says "Mark as sent" and the screen states that CareOS does not transmit (D-179).
+    **Four drawn-but-unbacked things omitted + stated:** urgency (no column — and inventing it would have
+    handed the UI something to rank and tint by), the document packet (no attachments), a provider
+    directory (recipient is free text), and the referral agent (no tool touches referrals).
+  - **P7–P8 open** (Recall Due List · optional Consult Summary). **Recommended DEFERRED:** Allergy Alert, Care Plan Review, Medical
     History Intake, Patient Flow.
 ---
 
