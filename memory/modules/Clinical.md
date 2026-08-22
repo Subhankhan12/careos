@@ -397,3 +397,30 @@ tracking states are equally unbacked; the five real states are what render.
 **Opening the screen writes exactly ONE read row** (`surface: referrals`), not one per referral, so
 it lands in the patient's access log (PC.P5). Keep it to one: the count is asserted.
 
+## PC.P7 — the recall due list (2026-08-22) — PC batch core complete
+
+**`ORDER BY due_on ASC` IS THE WHOLE FENCE ON THIS SCREEN.** The longest-overdue row leads because
+its recorded date is earliest — not because anything scored it. Keep it a date sort: no priority or
+urgency score, no overdue band, no likelihood-of-non-attendance, and above all **no `:class` keyed
+to `due_in_days`** (D-180/D-169). Every row across a -200…+120 spread must render with one class
+string; a test and a browser check both pin it. `recalls` has **no priority column** — that schema
+fact is asserted, so adding one would break the suite loudly.
+
+**Why wiring the recall agent here was safe: the CEILING, not the UI.** `clinical.draft_recall_message`
+is capped at **SUGGEST**, so `AgentRuntime::runTool()` can only reach `propose()` — auto-send is
+structurally unreachable. If anyone ever raises that ceiling, this screen silently becomes an
+auto-contact surface; the ceiling is the guarantee, so treat a change to it as a security change.
+The tool refuses medical advice, blocks without `comms.email` consent, and never sets `sent`.
+
+**`FollowUpAgent::draftRecallMessage()` had no caller before this gate** — the tool, the wrapper and
+the registry entry existed but nothing invoked them. Worth remembering when auditing agent surface:
+a registered tool is not necessarily a reachable one.
+
+**Audit granularity on a MULTI-patient screen:** the one-row-per-render rule (PC.P1/P5/P6) assumes a
+single patient. This worklist writes one `auditRead()` row **per patient shown** — same mechanism,
+correct granularity — otherwise most of those patients' access logs would never record the
+disclosure. Do not "optimise" it back to one row.
+
+**Completing a recall books nothing.** `RecallService::transition()` only moves the status; no
+scheduling path is touched from this screen, and a test asserts the controller cannot reach one.
+

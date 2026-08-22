@@ -3369,3 +3369,25 @@ references the old ID.
   the UI would immediately have had a value to rank and tint referrals by, which is precisely the
   clinical judgment the fence forbids. See [[LOG]], D-170, D-176, D-178.
 
+- **D-180 — Sorting a recorded DATE is not ranking patients; and a capped ceiling is what makes wiring an
+  agent safe rather than a leap of faith (PC.P7, closing the PC batch core).** The recall worklist puts the
+  longest-overdue row first, which looks like triage and is not: it is `ORDER BY due_on ASC` on a date a
+  human recorded. The distinction is the whole fence on that screen, so it is stated in the controller, on
+  the page, and proven by a test that shows the sequence is explained by the date alone. What stays
+  forbidden is everything that would turn the order into a JUDGMENT: a priority or urgency score, an
+  overdue severity band, a likelihood-of-non-attendance, or — the one that matters most in practice —
+  **any `:class` keyed to how overdue a row is.** Painting the overdue rows red is the system telling a
+  clinician which patient matters more, using a number it derived. Every row across a -200…+120 day spread
+  renders with one class string, verified in a browser.
+  **The second half is about wiring an agent at all.** The mock promised routine invites "sent
+  automatically at Level 1". The real `clinical.draft_recall_message` tool is capped at **SUGGEST**, so
+  `AgentRuntime::runTool()` can only reach its `propose()` branch — auto-send is not a switch someone
+  forgot to flip, it is **structurally unreachable** without raising the ceiling. That is precisely why the
+  tool could be wired in a parity gate with confidence: **the ceiling, not the UI, is the guarantee.** The
+  clinician writes the wording; the tool fills in recorded facts, refuses medical advice, blocks on missing
+  comms consent, and the draft waits in the capped queue for a human to send. **Corollary on auditing a
+  MULTI-PATIENT surface:** the one-row-per-render rule (D-174-era, PC.P1/P5/P6) assumes one patient per
+  screen. A worklist showing many must write one row PER PATIENT DISCLOSED, or most of those patients'
+  access logs stay silent about a real disclosure — same mechanism, correct granularity.
+  See [[LOG]], D-169, D-170, D-177, D-178, D-179.
+

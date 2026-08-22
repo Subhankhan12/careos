@@ -45,6 +45,7 @@ use Modules\Clinical\Http\Controllers\OrderableItemController;
 use Modules\Clinical\Http\Controllers\OrderController;
 use Modules\Clinical\Http\Controllers\OrdersReviewController;
 use Modules\Clinical\Http\Controllers\PortalDocumentController;
+use Modules\Clinical\Http\Controllers\RecallWorklistController;
 use Modules\Clinical\Http\Controllers\ReferralController;
 use Modules\Clinical\Http\Controllers\SnippetController;
 use Modules\Comms\Http\Controllers\InboxActionController;
@@ -269,6 +270,16 @@ Route::middleware('auth')->group(function () {
     Route::post('/clinical/snippets', [SnippetController::class, 'store'])->name('clinical.snippets.store');
     Route::post('/clinical/snippets/update', [SnippetController::class, 'update'])->name('clinical.snippets.update');
     Route::post('/clinical/snippets/delete', [SnippetController::class, 'delete'])->name('clinical.snippets.delete');
+
+    // PC.P7 — the recall due list (worklist). Ordering is a DATE SORT on due_on; every
+    // transition goes through RecallService, and a draft only ever PROPOSES to the capped
+    // approval queue (the tool ceiling is SUGGEST) — nothing is sent from this screen.
+    Route::get('/clinical/recalls', [RecallWorklistController::class, 'index'])
+        ->name('clinical.recalls');
+    Route::post('/clinical/recalls/{recall}/transition', [RecallWorklistController::class, 'transition'])
+        ->name('clinical.recalls.transition');
+    Route::post('/clinical/recalls/{recall}/draft', [RecallWorklistController::class, 'draft'])
+        ->name('clinical.recalls.draft');
 
     // PC.P6 — Referral Out. A NET-NEW surface over the EXISTING referral backend: every write
     // goes through ReferralService, which owns the state machine and re-checks `note.write`.

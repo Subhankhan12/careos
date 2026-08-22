@@ -222,7 +222,7 @@ immutable snapshots and audited withdrawal — these screens must **read** that,
 | ~~**PC.P4**~~ ✅ **DONE** | **Note Editor parity** — per-section required/filled markers, the superseded-version banner, the shared N6 sign bar, the recorded-allergy banner lit. **The assist panel is OMITTED (§7d)** — no such tool exists and the mock draws none. | Signing/amend re-checked server-side; a signed note provably not editable in place; no delete affordance anywhere. |
 | ~~**PC.P5**~~ ✅ **DONE** | **Patient Access Log (B2)** — dedicated route gated `audit.view` + `patient.view`, range/actor-type facets over real recorded values, and the **nDSG/GDPR subject-access export (CSV)** sharing the screen's query. | Rows immutable + chain still verifies; viewing AND exporting each write their own row. **Operator-mode reads cannot be patient-attributed — reported as a gap and stated on screen** (§7e). |
 | ~~**PC.P6**~~ ✅ **DONE** | **Referral Out** — compose + the REAL states over the existing `ReferralService`. **Urgency, the document packet, the consent-to-share and the provider directory are all OMITTED — none exists** (§7f). | Clinician-authored; every transition through the existing service; the disclosure audited on the existing path. **CareOS does not transmit the referral, and the screen says so.** |
-| **PC.P7** | **Recall Due List (B6)** — the worklist over the existing engine, with channel/consent and agent status. | Auto-send respects the real ceiling; "consent — can't send" is a genuine refusal. |
+| ~~**PC.P7**~~ ✅ **DONE** | **Recall Due List** — the worklist over the existing engine: `due_on` DATE SORT, plain intervals, real transitions, consent shown. **The mock's Level-1 auto-send and its needs-review triage are REFUSED** (§7g). | The draft tool's SUGGEST ceiling makes auto-send structurally impossible; "no comms consent" is a genuine recorded refusal. |
 | **PC.P8** *(optional)* | **Consult Summary (B4)** — the draft→sign→release record over the existing extractive summary. | Grounded in the signed note; nothing reaches the patient unsigned; delivery is consent-gated. |
 
 **Realistic gate count: 7 core + 1 optional = 7–8 gates.**
@@ -463,6 +463,65 @@ the screen read-only and is refused at the write, which is the more interesting 
 now asserts. And the fence scan initially failed on the i18n key `scopeUrgency` — the on-screen sentence
 stating that urgency does NOT exist. Those disclaimer references are stripped for the same reason comments
 are (the recurring lesson); their text is asserted verbatim elsewhere, so nothing is hidden.
+
+---
+## 7g — P7 outcome (2026-08-22) — THE PC BATCH CORE IS COMPLETE
+
+**The backend was real and had no page.** `Recall` records `patient_id`, `rule_id`, `due_on` (a DATE) and
+`status`; `RecallService::transition()` owns the legal graph (due → contacted|booked|completed|dismissed,
+contacted → booked|completed|dismissed, booked → completed|dismissed), gates on `note.write` and audits
+every move. **Completing a recall closes the recall — it books nothing**, so this gate touches no
+scheduling path at all. There is **no priority column**, which is the schema-level fact the fence rests on.
+
+**THE ORDERING LINE, STATED IN CODE AND ON SCREEN.** Rows are `due_on` ASC, so the longest overdue leads —
+as a consequence of sorting a recorded date, not of scoring anything. The test proves the sequence is
+explained by the date alone (sorting the payload by `due_on` reproduces it exactly), and the page says it
+in words: *"it is a date sort, not a priority ranking"*. The interval reuses PC.P2's `due_in_days` —
+whole days between two dates, negative once passed — unchanged, so the worklist and the chart rail agree.
+
+**THE MOCK'S CENTRAL CLAIM IS REFUSED: "sends routine ones automatically at Level 1".** The existing
+`clinical.draft_recall_message` tool is capped at **SUGGEST**, so `AgentRuntime::runTool()` can only reach
+the `propose()` branch — auto-send is not a setting anyone forgot to switch on, it is **structurally
+unreachable** without raising the ceiling, which is exactly the fence. The tool was WIRED (it genuinely
+exists, D-170 satisfied): the clinician supplies the wording, the tool fills in the recorded name, recall
+type and due date, refuses anything resembling medical advice, blocks on missing comms consent, and the
+draft lands in the capped approval queue for a human to send. **Nothing is sent from this screen.**
+
+**Also refused: the "hands clinical cases to a person" triage** (perio maintenance, phone-only). An agent
+deciding which recalls are clinically sensitive is a computed judgment about patients; every recall on this
+list is handled by a human, and the page says so.
+
+**A finding worth recording: `FollowUpAgent::draftRecallMessage()` had NO caller.** The tool, the agent
+wrapper and the registry entry all existed, but nothing invoked them — the capability was real and
+unreachable. This gate gave it its first (human-initiated, draft-only) entry point.
+
+**One deliberate departure from the single-row audit rule, and why.** PC.P1/P5/P6 write ONE read row per
+render because those screens show ONE patient. A worklist shows many, so a single row would record the
+disclosure against one patient and leave every other patient's access log silent about a real disclosure of
+their record. This screen therefore writes **one row per patient shown**, through the same `auditRead()`
+path — one mechanism, not two. Verified: 7 patients × 2 renders = 14 rows, exactly one each per render.
+
+**Verified in a browser across the full spread (-200 … +120 days): every row resolved to ONE class string
+and ONE background**, and every status pill to one style. An overdue recall looks exactly like a
+not-yet-due one; the words and the date carry the state.
+
+---
+
+## THE PC BATCH CORE IS COMPLETE (P1–P7)
+
+**9 of 12 screens addressed:** P1 shared components + B1 · P2 Patient Chart · P3 Patient 360 · P4 Note
+Editor · P5 Access Log + the nDSG/GDPR export · P6 Referral Out · P7 Recall Due List.
+
+**Still deferred, unchanged:** Allergy Alert (the certified-partner seam — the drawn hard block is refused
+even with a partner), Care Plan Review (~70% refused material), Medical History Intake and Patient Flow
+(net-new subsystems, not parity work). **Optional:** P8 Consult Summary.
+
+**What the chain actually found.** Three of the seven gates turned up something faked or unbacked rather
+than merely unbuilt: the **flag chip** rendered for every patient with no column behind it (D-176), the
+**"sent" verb** for a referral CareOS never transmits (D-179), and the **auto-send** the recall mock
+promised that the tool's ceiling forbids. Two more were defects in my own guards, caught by mutation
+rather than by reading: an auto-insert path that counted call sites instead of bounding the write surface
+(D-177), and an access-log count that silently dropped the system reader (D-178).
 
 ---
 ## 8 — Bottom line

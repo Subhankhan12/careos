@@ -387,7 +387,7 @@ Two further wireframes were decoded from the design pack and triaged. **Neither 
 
 ---
 
-- **PATIENTS & CLINICAL BATCH — 12 screens AUDITED; the PC chain is STARTED (P1–P6 done, P7–P8 open).** Audit at
+- **PATIENTS & CLINICAL BATCH — 12 screens AUDITED; the PC CHAIN CORE IS COMPLETE (P1–P7 done; optional P8 open).** Audit at
   `docs/wireframe-parity/PATIENTS-CLINICAL-BATCH-DIFF.md`. **4 fully live · 2 partial · 6 with no page.** Unlike
   Dental, most of this batch is BUILDABLE — the mocks are fence-aware and several describe mechanisms the live
   build already has (an extractive source-linked chart summary at a SUGGEST ceiling, trend-free vitals,
@@ -449,7 +449,20 @@ Two further wireframes were decoded from the design pack and triaged. **Neither 
     **Four drawn-but-unbacked things omitted + stated:** urgency (no column — and inventing it would have
     handed the UI something to rank and tint by), the document packet (no attachments), a provider
     directory (recipient is free text), and the referral agent (no tool touches referrals).
-  - **P7–P8 open** (Recall Due List · optional Consult Summary). **Recommended DEFERRED:** Allergy Alert, Care Plan Review, Medical
+  - **PC.P7 — DONE. THE BATCH CORE IS COMPLETE.** The recall due list (`/clinical/recalls`) over the
+    existing engine: **`due_on` ASC — a DATE SORT, not a ranking** (stated in code, on screen, and proven
+    by a test that the order follows the date alone). Plain intervals reusing PC.P2's `due_in_days`; real
+    transitions through `RecallService` (the controller writes no status); filters over real attributes
+    only — **no priority filter, because `recalls` has no priority column**.
+    **The mock's "sends routine ones automatically at Level 1" is REFUSED:** the draft tool is capped at
+    SUGGEST, so auto-send is structurally unreachable, not merely off — and that ceiling is what made
+    wiring the tool safe (D-180). The clinician writes the wording; drafts wait in the capped approval
+    queue for a human to send. The "hands clinical cases to a person" triage is refused too.
+    **Found:** `FollowUpAgent::draftRecallMessage()` had NO caller — real capability, unreachable until now.
+    **Audit granularity:** a MULTI-patient worklist writes one read row PER PATIENT SHOWN (same
+    `auditRead()` path), or most patients' access logs would stay silent about a real disclosure.
+  - **Optional P8 open** (Consult Summary). **Still deferred:** Allergy Alert (partner seam), Care Plan
+    Review (~70% refused), Medical History Intake, Patient Flow (net-new subsystems). **Recommended DEFERRED:** Allergy Alert, Care Plan Review, Medical
     History Intake, Patient Flow.
 ---
 
