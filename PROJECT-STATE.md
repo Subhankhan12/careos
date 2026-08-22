@@ -387,7 +387,7 @@ Two further wireframes were decoded from the design pack and triaged. **Neither 
 
 ---
 
-- **PATIENTS & CLINICAL BATCH — 12 screens AUDITED; the PC chain is STARTED (P1–P4 done, P5–P8 open).** Audit at
+- **PATIENTS & CLINICAL BATCH — 12 screens AUDITED; the PC chain is STARTED (P1–P5 done, P6–P8 open).** Audit at
   `docs/wireframe-parity/PATIENTS-CLINICAL-BATCH-DIFF.md`. **4 fully live · 2 partial · 6 with no page.** Unlike
   Dental, most of this batch is BUILDABLE — the mocks are fence-aware and several describe mechanisms the live
   build already has (an extractive source-linked chart summary at a SUGGEST ceiling, trend-free vitals,
@@ -430,8 +430,18 @@ Two further wireframes were decoded from the design pack and triaged. **Neither 
     extractive summary was deliberately NOT duplicated here. Nothing auto-inserted, nothing auto-signed.
     **A mutation passed and taught the rule:** counting `insertSnippet` call sites missed a NEW WATCHER
     writing into a SOAP section; the guard now bounds the WRITE SURFACE (one watcher, one assignment).
-  - **P5–P8 open** (Access Log + the nDSG/GDPR export · Referral Out · Recall Due
-    List · optional Consult Summary). **Recommended DEFERRED:** Allergy Alert, Care Plan Review, Medical
+  - **PC.P5 — DONE.** The dedicated access log (`patients/{patient}/access-log`) + the **nDSG/GDPR
+    subject-access export (CSV)**, gated `audit.view` **+** `patient.view` — the real permission is
+    `audit.view` (`patient.audit.view` never existed), and requiring both is tighter than the 360 tab.
+    **COMPLETENESS IS STRUCTURAL (D-178):** the query filters on patient + action only — no actor-type,
+    surface or recency whitelist — and the filter chips are built from the actor types actually present.
+    Export shares the screen's query (one source) and audits itself. **GAP REPORTED, NOT FAKED:**
+    operator-mode events are written against the TENANT (action `operator.access`, no `patient_id`), so
+    they cannot be patient-attributed; the screen says so in words. Operator Mode is inert (D-164), so
+    it is unreachable today — closing it is an OPMODE gate, not a parity gate.
+    **A real bug the multi-actor fixture caught:** `COUNT(DISTINCT a, b)` drops rows where either value
+    is NULL, so the SYSTEM reader went uncounted in the headline. Fixed; 3 → 4.
+  - **P6–P8 open** (Referral Out · Recall Due List · optional Consult Summary). **Recommended DEFERRED:** Allergy Alert, Care Plan Review, Medical
     History Intake, Patient Flow.
 ---
 

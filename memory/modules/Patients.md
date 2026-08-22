@@ -226,3 +226,28 @@ assumption that broke on the chart at PC.P2. Count where the record is.
 single-file run, **fatal across the suite**, and `composer check` still exited 0. Pest helpers are global:
 prefix them uniquely (`p360*`) and grep the whole `tests/` tree before naming one.
 
+## PC.P5 — the access log + subject-access export (2026-08-21)
+
+**`PatientAccessReport` now has exactly ONE query, and it must stay that way.** `forPatient()` (the
+360 tab, oldest-first) and `forPatientNewestFirst()` (the dedicated screen AND the export) both
+funnel through the same private `query()`. The export sharing the screen's query is the whole point:
+a subject-access file that disagrees with what the requester was shown is worse than none.
+
+**COMPLETENESS IS THE PROPERTY (D-178).** The query filters on patient + `action = 'read'` and
+NOTHING else — no actor-type, surface, role or recency whitelist. Do not add one. The filter chips
+are built from the actor types actually present so a new kind of reader cannot fall outside a
+hardcoded taxonomy. Reads come from ~65 `auditRead()` call sites across every module plus the AI
+tools; agent reads are identified by their recorded SURFACE (`*_agent`), not by actor_type.
+
+**THE KNOWN GAP — do not 'fix' it by inventing a link.** Operator/platform-support events are
+written against the TENANT: action `operator.access`, `actor_type = 'operator'`, **no `patient_id`**.
+They cannot be attributed to a patient. The screen states this. If a future gate wants operator
+reads in a patient's log, the change belongs in the operator path (attribute the read to a patient
+at the point it happens), never in this report.
+
+**Two traps this gate hit, both worth remembering:** `COUNT(DISTINCT a, b)` in MySQL drops the row
+when EITHER value is NULL — it silently uncounted system reads (no actor id); use a COALESCE'd
+concat. And `OperatorGrantAccessTest` pins the exhaustive list of files that may mention an operator
+grant: even naming `OperatorGrantService` in a DOCBLOCK trips it. Reword the comment; never add your
+file to that list.
+

@@ -3335,3 +3335,22 @@ references the old ID.
   X, enumerate and bound the writes to X — never the callers you happen to know about. See [[LOG]], D-170,
   D-174.
 
+- **D-178 — On a transparency surface, COMPLETENESS is the property and a silent omission is the bug: the
+  access log filters on patient + action ONLY, and what it cannot show it says on screen (PC.P5).** A
+  patient exercising a subject-access right is entitled to every read of their record. A log that quietly
+  drops a category of reader is not merely incomplete — it is a **false assurance**, and worse than no
+  screen at all, because it produces confident belief in a wrong answer. So completeness here is
+  **structural, not a list**: the query applies no actor-type, surface, role or recency whitelist, and the
+  filter chips are built from the actor types ACTUALLY PRESENT rather than a hardcoded taxonomy that a
+  future reader type would silently fall outside of. **The gap that was found is reported, not faked:**
+  platform-support (operator) events are written against the TENANT — action `operator.access`, no
+  `patient_id` — so they cannot be attributed to a patient without inventing a link. The log does not try;
+  the screen states the limitation in words. **Two corollaries paid for in this gate.** (1) A MULTI-ACTOR
+  fixture is not optional here: `COUNT(DISTINCT actor_type, actor_id)` silently dropped the system reader
+  (MySQL discards the row when either value is NULL) — the reader a patient is least likely to know about,
+  missing from the headline count, and invisible to any single-actor test. (2) The export must share the
+  screen's QUERY, not merely its intent: one method, one filter set, so the file a patient receives cannot
+  disagree with what they were shown — and exporting is itself a disclosure, so it audits itself and
+  appears in its own report. **Generalises:** when a surface's purpose is to prove nothing is hidden, every
+  narrowing must be either impossible or visible. See [[LOG]], D-174, D-176.
+

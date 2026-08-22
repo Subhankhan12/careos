@@ -1553,6 +1553,32 @@
             "withdrawReason": "Reason for withdrawal",
             "withdraw": "Withdraw",
             "allergiesNone": "No allergies recorded for this patient."
+        },
+        "accessLog": {
+            "title": "Access log",
+            "eyebrow": "Record access · read audit",
+            "summary": "{accesses} recorded accesses by {actors} distinct actors.",
+            "range": "Range",
+            "rangeDays": "Last {days} days",
+            "rangeAll": "All",
+            "actorType": "Actor type",
+            "actorTypes": {
+                "user": "Staff user",
+                "patient": "Patient (self)",
+                "operator": "Operator mode",
+                "service": "System",
+                "system": "System"
+            },
+            "readAction": "read {resource}",
+            "dayCount": "{count} accesses",
+            "empty": "No recorded accesses for this patient in the selected range.",
+            "export": "Export access report",
+            "exportHint": "A portable CSV of exactly the rows shown, for a request under nDSG Art. 25 / GDPR Art. 15. Exporting is itself an access and is recorded below.",
+            "scopeTitle": "What this log covers",
+            "scopeAll": "Every recorded read of this patient's record, by every kind of actor — staff, the patient themself through the portal, automated agents and system processes. No actor type, surface or age of entry is filtered out unless you narrow it above.",
+            "scopeSelf": "Opening this page, and exporting it, are themselves disclosures of this record: each writes one audit row and will appear here.",
+            "scopeOperator": "Operator-mode (platform support) access is recorded against the clinic rather than against an individual patient, so it cannot be listed here. It is visible in the clinic's own audit ledger. Operator Mode is currently not reachable — it has no route and no interface.",
+            "scopeImmutable": "These rows are append-only and hash-chained. Nothing on this screen can edit or delete one."
         }
     },
     "scheduling": {

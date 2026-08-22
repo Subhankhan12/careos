@@ -13,6 +13,7 @@ use App\Http\Controllers\EdDispositionController;
 use App\Http\Controllers\GovernanceDashboardController;
 use App\Http\Controllers\KbArticleController;
 use App\Http\Controllers\NotificationSettingsController;
+use App\Http\Controllers\PatientAccessLogController;
 use App\Http\Controllers\PatientShowController;
 use App\Http\Controllers\Portal\PortalHomeController;
 use App\Http\Controllers\ResourceController;
@@ -142,6 +143,14 @@ Route::middleware('auth')->group(function () {
     Route::post('/patients', [PatientRegistrationController::class, 'store'])->name('patients.store');
     Route::post('/patients/duplicates', [PatientRegistrationController::class, 'duplicates'])->name('patients.duplicates.check');
     Route::get('/patients/{patient}', PatientShowController::class)->name('patients.show');
+    // PC.P5 — the dedicated access log + the nDSG Art. 25 / GDPR Art. 15 subject-access export.
+    // Both are gated `audit.view` + `patient.view` INSIDE the controller (org_admin / him_records),
+    // tenant-scoped and fail-closed on a foreign patient id. Declared BEFORE the show route would
+    // not matter here (the segments differ), but they stay next to it so the surface is obvious.
+    Route::get('/patients/{patient}/access-log', PatientAccessLogController::class)
+        ->name('patients.access-log');
+    Route::get('/patients/{patient}/access-log/export', [PatientAccessLogController::class, 'export'])
+        ->name('patients.access-log.export');
     Route::post('/patients/{patient}/consents', [PatientConsentController::class, 'grant'])->name('patients.consents.grant');
     Route::post('/patients/{patient}/consents/{consent}/withdraw', [PatientConsentController::class, 'withdraw'])
         ->name('patients.consents.withdraw');

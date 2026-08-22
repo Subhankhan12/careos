@@ -88,7 +88,7 @@ Classification: **(a)** visual · **(b)** backend gap · **(c)** fence MUST-NOT-
 | **Patient 360** | Mock: dark hero band, status pill, **Flag chip**, portal-invite + edit actions, five fixed tabs with count chips, consents tab with grant/withdraw + signature capture and immutable snapshots, access-log tab as a human-readable day-grouped timeline. Live already has the page, **all five tabs with count chips** (verified in `Patients/Show.vue`) and the consent grant/withdraw routes, and writes `auditRead(surface: patient_360)` on every render. · **The mock itself notes the AllergyBanner "binds to a chart-sourced allergies prop (not yet in Patients/Show's payload)"** — the same gap DENTAL-B.P1's S1 chip has. | **(a)** hero/tabs/chips · **(b)** allergies prop (see B1) | a: **Low** · b: **Med** |
 | **Patient Chart** | Mock: dark patient band with factual counts ("3 encounters · 2 problems · 2 medications · 1 open recall"), pinned AllergyBanner, seven tabs with counts, find-in-chart, encounter timeline with type filters + month groups + note-state badges + **full version chains (v1 signed always reachable)**, referrals & recalls rail with recall proximity ("in 66 days"), and the **AI chart summary** — "extractive only · every line carries its source · interpretive requests are refused", Refresh at suggest ceiling, one explicit "Insert into my draft note". · **The mock explicitly keeps vitals trend-free**: "a sparkline would already be interpretation". | **(a)** most of it · **(d)** the summary + trend-free vitals already match | a: **Low–Med** · d: **keep** |
 | **Note Editor** | Mock: focus mode, encounter rail, **version list with v1 signed / v2 draft + amendment reason**, required-section markers driven by the template with a footer count ("2 of 3 required sections filled"), autosave chip, a **type-SIGN-to-confirm** modal, signed read-only rendering with "no edit cursors, no delete affordances — anywhere", and an amend flow requiring a reason. Live has the editor, sign, amend routes. Deltas are chrome, the confirm modal and the required-section counter. **CORRECTED AT PC.P4:** the type-to-confirm modal, the required-section counter and the autosave chip were ALREADY LIVE when this audit was written — `CLINIC.W5` (`1e4b7c0`) predates the audit commit. The real deltas were narrower: per-section required/filled markers, the superseded-version banner, and the dormant allergy banner. | **(a)** all of it | **Low** |
-| **Patient Access Log** | Mock is a **dedicated screen** at `patients/{patient}/access-log` gated `patient.audit.view`, with range facets (7/30/90/all), **access-basis facets** (care team · reception & billing · patient self · agent · operator mode), an "only notable" filter, per-agent-read **min-necessary field disclosure**, an expanded **operator-mode read** carrying owner-approval + scope + a 0-changes assertion + a link to the session receipt, and **"Export access report"** — a signed report under **nDSG Art. 25 / GDPR Art. 15**. Live has an access tab inside Patient 360 only — but the **rows already come from a real service**, `PatientAccessReport::forPatient()`. The gap is the dedicated surface, not the data. · Counts (23 people · 142 accesses · 3 agent reads) are **factual counts over audit rows**, not judgments. | **(b)** dedicated route + gate + facets + export · **(b)** operator-mode detail depends on **deferred** Operator Mode G4–G11 | b: **High** |
+| **Patient Access Log** | Mock is a **dedicated screen** at `patients/{patient}/access-log` gated `patient.audit.view` (**CORRECTED AT PC.P5: the real permission is `audit.view`** — held by `org_admin` and `him_records`; the screen requires it *plus* `patient.view`), with range facets (7/30/90/all), **access-basis facets** (care team · reception & billing · patient self · agent · operator mode), an "only notable" filter, per-agent-read **min-necessary field disclosure**, an expanded **operator-mode read** carrying owner-approval + scope + a 0-changes assertion + a link to the session receipt, and **"Export access report"** — a signed report under **nDSG Art. 25 / GDPR Art. 15**. Live has an access tab inside Patient 360 only — but the **rows already come from a real service**, `PatientAccessReport::forPatient()`. The gap is the dedicated surface, not the data. · Counts (23 people · 142 accesses · 3 agent reads) are **factual counts over audit rows**, not judgments. | **(b)** dedicated route + gate + facets + export · **(b)** operator-mode detail depends on **deferred** Operator Mode G4–G11 | b: **High** |
 | **Allergy Alert** | **The batch's sharpest fence.** Mock: a modal that names a **drug-class cross-reaction** ("Amoxicillin — aminopenicillin" vs "Penicillin — amoxicillin cross-reacts"; "Class: All penicillins — incl. amoxicillin, co-amoxiclav"), **hard-blocks the prescription with no override**, and offers an agent-surfaced **"Safe alternative — Clindamycin 300 mg · no conflict"** from "practice antibiotic guidance". · The live build has the **recorded-allergy display** and the seam's honest "not configured" state. | **(c)** the determination, the block, the alternative | **Must-not-build** |
 | **Care Plan Review** | Re-imports the perio computed rail refused at DENTAL-B.P3: **BOP % with "▼ 19 pts"**, **"sites ≥ 4 mm" count with "▼ from 18"**, **plaque score "plateau"**, **"One site to watch — tooth 26 mesial · Deepened 4 → 5 mm ... Flagged"**, plus **"Bitewing · bone loss confirmed"** (an AI imaging finding), a **guideline-derived interval recommendation**, and an agent **"SUGGESTED DISPOSITION"**. · Genuinely buildable underneath: the plan itself, its goals, the review as a signed record, adherence as a **count of attended vs scheduled recalls**, and raw per-visit measures. | **(c)** indices, trends, site-to-watch, imaging finding, guideline recommendation · **(b)** review record, interval, outcome-measure series | c: **Must-not-build** · b: **High** |
 | **Consult Summary** | The best-behaved screen in the batch. Agent drafts a **plain-language translation of the signed note** — "it rephrases, never authors: no finding, instruction, or date appears here that isn't in the note" — clinician **signs before release**, delivery honours the **consented** clinical-comms channel, PDF filed to the record. · Needs: a summary record with a lifecycle (drafted → signed → released), portal delivery, PDF filing. | **(b)** the record + release path · **(c)** must stay extractive + human-signed | b: **Med–High** · c: **Guard** |
@@ -220,7 +220,7 @@ immutable snapshots and audited withdrawal — these screens must **read** that,
 | ~~**PC.P2**~~ ✅ **DONE** | **Patient Chart parity** — band counts, tab chips, find-in-chart, timeline filters + month groups, version chains, recall proximity, and the N4 agent panel around the **existing** summary tool. | Vitals stay trend-free; the summary keeps its SUGGEST ceiling and source chips; D-169 styling scan. |
 | ~~**PC.P3**~~ ✅ **DONE** | **Patient 360 parity** — the hero band carried by the **extended S1** (status pill · dental link), five tabs with **server-computed** counts, consents tab, access tab. | Consent snapshots stay immutable; the allergy chip is display-only; **the flag chip is omitted — nothing records a flag** (§7c). |
 | ~~**PC.P4**~~ ✅ **DONE** | **Note Editor parity** — per-section required/filled markers, the superseded-version banner, the shared N6 sign bar, the recorded-allergy banner lit. **The assist panel is OMITTED (§7d)** — no such tool exists and the mock draws none. | Signing/amend re-checked server-side; a signed note provably not editable in place; no delete affordance anywhere. |
-| **PC.P5** | **Patient Access Log (B2)** — dedicated route + `patient.audit.view` gate, basis/range facets, agent min-necessary detail, and the **signed nDSG/GDPR export**. | Basis derived server-side; rows immutable; viewing writes its own row. **Operator-mode detail omitted + flagged** (G4–G11 deferred). |
+| ~~**PC.P5**~~ ✅ **DONE** | **Patient Access Log (B2)** — dedicated route gated `audit.view` + `patient.view`, range/actor-type facets over real recorded values, and the **nDSG/GDPR subject-access export (CSV)** sharing the screen's query. | Rows immutable + chain still verifies; viewing AND exporting each write their own row. **Operator-mode reads cannot be patient-attributed — reported as a gap and stated on screen** (§7e). |
 | **PC.P6** | **Referral Out (B5)** — urgency, packet, consent-to-share, tracking states. | The share is consent-gated and minimum-necessary; the agent packages, never decides whom to refer. |
 | **PC.P7** | **Recall Due List (B6)** — the worklist over the existing engine, with channel/consent and agent status. | Auto-send respects the real ceiling; "consent — can't send" is a genuine refusal. |
 | **PC.P8** *(optional)* | **Consult Summary (B4)** — the draft→sign→release record over the existing extractive summary. | Grounded in the signed note; nothing reaches the patient unsigned; delivery is consent-gated. |
@@ -364,6 +364,57 @@ auto-authored text would arrive, and that mutation passed the suite on the first
 seven now bite: auto-sign on a timer, auto-insert via a new watcher, a signed note made editable in place, a
 `generatedAssessment` payload key, a severity-tinted allergy banner, a suppressed superseded banner, and an
 invented `RephraseNoteTool`.
+
+---
+## 7e — P5 outcome (2026-08-21)
+
+**The read-audit path is broad and genuinely complete for staff, portal, agent and system reads.** Every
+disclosure runs through `LogsReads::auditRead()` → `AuditService::recordRead()`, writing an `action = 'read'`
+row carrying the patient id, from ~65 call sites across clinical, billing, portal, dental, nursing, comms,
+lab, radiology, surgery, pharmacy, hospital, ED and the AI tools. The report filters on **patient + action
+only** — no actor-type, surface or recency whitelist — so completeness is STRUCTURAL rather than a list
+someone must remember to extend.
+
+**THE GAP FOUND AND REPORTED (not faked, not silently omitted): operator-mode access cannot be
+patient-attributed.** Platform-support events are written to the target tenant's ledger with
+`actor_type = 'operator'`, but under action `operator.access` and **with no `patient_id`** — they record
+that the platform touched the CLINIC, not that anyone read a given patient. No query can attribute them to
+a patient without inventing a link, so the log does not try, and the screen **says so in words** rather than
+implying exhaustiveness. A second, subtler half: if an operator user ever read patient data through a normal
+controller, `PlatformAuditContext::actor()` would label it `user` — indistinguishable from clinic staff.
+**Mitigating fact:** Operator Mode is deliberately inert (no HTTP route, no UI — D-164), so neither path is
+reachable today. Closing this needs an OPMODE gate, not a parity gate.
+
+**Built:** a dedicated route (`patients/{patient}/access-log`) gated **`audit.view` + `patient.view`** —
+strictly tighter than the Patient 360 tab, which any `patient.view` user can still see; newest-first,
+day-grouped rows showing WHO (resolved to a name), the recorded actor type, the surface and the time;
+filters over **real recorded values only** (a calendar range, and actor-type chips built from the types
+actually present — never a hardcoded taxonomy that could omit one). **No "only notable" filter and no
+out-of-branch facet were built**: "notable" edges toward the system deciding which reads deserve suspicion,
+and out-of-branch needs the actor's branch AT THE TIME, which the audit row does not record.
+
+**The mock's basis taxonomy needs a fact the row does not carry.** "Care team" vs "Reception & billing"
+requires the actor's ROLE AT THE TIME of the read; audit rows record actor type and surface, not role.
+Deriving it from today's role would be a fabrication about a past event, so the screen shows the RECORDED
+actor type instead. The agent mark is derived from the recorded SURFACE (the tools write surfaces that name
+themselves) — an attribution, not a judgment.
+
+**The export is CSV** — the format a patient can actually open and a regulator expects. It calls the SAME
+report method with the SAME filters as the screen (one source, so the file cannot disagree with what was on
+screen), and **exporting is itself audited**: its row is written before the query runs, so the export
+documents its own disclosure. Verified in the browser: the CSV carried all four actor types and its own
+`patient_access_log_export` row.
+
+**A bug the multi-actor fixture caught immediately:** the distinct-actor count used
+`COUNT(DISTINCT actor_type, actor_id)`, and MySQL drops a row from that when EITHER value is NULL — so a
+SYSTEM read (which legitimately has no actor id) was silently uncounted. Exactly the reader a patient is
+least likely to know about, missing from the headline. Fixed with a COALESCE'd concat; the count went 3 → 4.
+A single-actor fixture would never have shown it.
+
+**An existing guard fired and was right to.** `OperatorGrantAccessTest` pins the complete list of files that
+may reference an operator grant, and my new docblock named `OperatorGrantService` in PROSE. The file has no
+operator capability whatsoever — so the fix was to reword the comment, **not** to add the file to the
+expected list, which would have normalised new entries into a deliberately closed set.
 
 ---
 ## 8 — Bottom line
