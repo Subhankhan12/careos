@@ -14,6 +14,13 @@ const props = defineProps<{
         title: string;
         scope_keys: string[];
         status: string;
+        /** Who took the signature — a recorded fact, not a guess. */
+        captured_by: string | null;
+        /**
+         * Which copy block describes this consent. `null` when the product has none, in which
+         * case the page says so rather than inventing a consequence (PT.P5).
+         */
+        copy_key: string | null;
         granted_at: string | null;
         withdrawn_at: string | null;
     }>;
@@ -78,6 +85,31 @@ function withdraw(consentId: string): void {
                     {{ t('portal.consents.grantedOn', { date: consent.granted_at }) }}
                 </p>
 
+                <p v-if="consent.withdrawn_at" class="mt-1 text-sm text-ink-subtle">
+                    {{ t('portal.consents.withdrawnOn', { date: consent.withdrawn_at }) }}
+                </p>
+                <p v-if="consent.captured_by" class="mt-1 text-sm text-ink-subtle">
+                    {{ t('portal.consents.capturedBy', { name: consent.captured_by }) }}
+                </p>
+
+                <!-- PT.P5 — what it allows, and what withdrawing it ACTUALLY does. The
+                     consequence text is written against the code that enforces the scope: no
+                     over-claim, no omission, and an honest "we cannot say" where the product
+                     has no copy for a consent (D-176). -->
+                <div v-if="consent.copy_key" class="mt-4 space-y-3 rounded-xl bg-surface-2 p-4">
+                    <div>
+                        <p class="text-xs font-semibold uppercase tracking-wide text-ink-subtle">{{ t('portal.consents.whatItAllows') }}</p>
+                        <p class="mt-1 text-sm text-ink">{{ t(`portal.consents.purposes.${consent.copy_key}`) }}</p>
+                    </div>
+                    <div>
+                        <p class="text-xs font-semibold uppercase tracking-wide text-ink-subtle">{{ t('portal.consents.ifYouWithdraw') }}</p>
+                        <p class="mt-1 text-sm text-ink">{{ t(`portal.consents.consequences.${consent.copy_key}`) }}</p>
+                    </div>
+                </div>
+                <p v-else class="mt-4 rounded-xl bg-surface-2 p-4 text-sm text-ink-muted">
+                    {{ t('portal.consents.consequenceUnknown') }}
+                </p>
+
                 <ul class="mt-4 space-y-2">
                     <li v-for="scope in consent.scope_keys" :key="scope" class="flex items-start gap-2 text-sm">
                         <svg class="mt-0.5 h-4 w-4 shrink-0 text-euca-600" viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -132,6 +164,8 @@ function withdraw(consentId: string): void {
                     </div>
                 </div>
             </div>
+
+            <p class="text-xs text-ink-subtle">{{ t('portal.consents.historyNote') }}</p>
         </div>
         <p v-else class="mt-6 text-ink-muted">{{ t('portal.consents.empty') }}</p>
     </PortalLayout>

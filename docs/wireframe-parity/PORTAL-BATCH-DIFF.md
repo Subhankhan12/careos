@@ -405,6 +405,62 @@ the same reason comments are, and its text is asserted verbatim so it cannot qui
 
 ---
 
+## 4e — PT.P5 outcome (2026-08-23)
+
+**The consent inventory came first, and it decided the whole gate.** Only TWO consent scopes are enforced
+anywhere in CareOS: `portal.access` (the portal middleware on every request, `PortalAccessService` ×3,
+`ThreadService::assertPatientAccess`, `TelehealthService::joinTokenForPatient`, `DocumentService`) and
+`comms.email` (`NotificationService`, `SendAppointmentReminderJob`, `DraftRecallMessageTool`). Only two
+consent templates are seeded — `portal` and `comms` — and they map exactly onto those two scopes.
+
+**The mock's extra scopes (`documents.read`, `messages.write`, `research.share`) do not exist in the
+product.** That is the D-176 failure this gate feared, and it is ABSENT: no consent currently on a patient's
+screen gates nothing. Building those three toggles would have been fabricating a backend to match a mock
+(D-170), so they were not built.
+
+**What was added is the honest half of the wireframe: the CONSEQUENCE.** Each consent now states, in plain
+language, what it allows and what withdrawing it actually does — and each sentence is written against the
+enforcing code rather than the mock's prose:
+
+- **portal** — *"Withdrawing signs you out straight away. You will not be able to sign back in, or see your
+  documents, invoices and messages here, or join a video visit."* Every clause maps to a real check.
+- **comms** — *"Withdrawing stops the practice emailing you about appointments and care. Notices the
+  practice must send you by law — such as an invoice reminder — are not affected."* **The carve-out is the
+  point:** `NotificationService` exempts the LEGAL category from the consent gate by design (D-F7), so
+  "we will never email you" would have been an over-claim. The test asserts the dunning email still sends
+  AFTER withdrawal, which is what keeps that sentence honest.
+
+**A consent the product cannot describe says so.** `copy_key` is `null` for any template outside the
+described set, and the page prints *"We cannot describe here exactly what withdrawing this would change.
+Please ask the practice before you withdraw it."* — rather than reusing a reassurance no code delivers. The
+test proves this with a `research.share` template whose scope nothing enforces.
+
+**Also surfaced:** `withdrawn_at` was already in the payload and never rendered; the withdrawn row now
+shows its withdrawal date beside its grant date, `captured_by` resolves to the staff member's name, and the
+list carries the note that withdrawing does not erase the earlier record. The controller already listed ALL
+consent rows, so the append-only history was on screen before this gate — it just did not say so.
+
+**THE GATING PROOFS (D-182/D-183), one per enforcing layer:**
+
+| Proof | Layer | Why it cannot be answered by something else |
+|---|---|---|
+| A1 | `EnsurePortalConsent` middleware | Positive control first: the same request is `200` while the consent is live, `403` on the very next request after the withdrawal — including the consents screen itself. |
+| A2 | `PortalAccessService::login()` | The page promises "you will not be able to sign back in". Over HTTP the middleware refuses first, so this is a **DIRECT service call** with nothing in front of it. |
+| A3 | `DocumentService::shareWithPatient()` | The staff-side re-check: a document shared *before* the withdrawal succeeds, one after is refused and stays unshared. |
+| B | `NotificationService::send()` | Direct call, differing context so dedupe cannot be the refuser, and the positive control sends — which also rules out the tenant email-preference gate answering ahead of the consent gate. |
+
+**Mutation-checked seven ways, all red, each naming the intended test:** middleware check deleted, login
+re-check deleted, document re-check deleted, notification consent gate short-circuited, `copy_key` made
+unconditional, the withdraw route's ownership clause dropped, and the index filtered to granted-only.
+
+**Browser-verified end to end:** both consents render with purpose, consequence and "Recorded by Nadia
+Steiner"; withdrawing comms flips it to **Withdrawn** with both dates and keeps the record; withdrawing
+portal access produces the **403 "Your portal access has been withdrawn"** page on the very next request;
+a fresh sign-in attempt with correct credentials is then refused **403**. Both audit rows carry
+`actor_type=patient` and the patient's own words as the reason.
+
+---
+
 ## 5 — Correctly-more-real — keep, do not trim
 
 1. **Three-layer middleware gating** on every portal page, with `portal.access` consent enforced server-side —
@@ -429,7 +485,7 @@ the same reason comments are, and its text is asserted verbatim so it cannot qui
 | ~~**PT.P2**~~ ✅ **DONE (chrome partly)** | **Shared portal chrome + B5.** The public auth frame, filter pills with counts, period grouping, unified empty states, the serious two-step confirm; the invoice balance moved server-side and the appointment proximity interval computed server-side. | One patient-facing frame, not four; Home and Invoices agree by construction; no page-side money arithmetic. |
 | ~~**PT.P3**~~ ✅ **DONE** | **Portal Home + Appointments parity** — hero, prep reminder, quick-actions row, leaf date tile, proximity captions, day chips + morning/afternoon grouping, confirm summary line. | Server-derived data only; the cancel window stays server-enforced; **decide explicitly** whether the amber in-window tint is built (a policy boundary, not a clinical judgment) or stated in words. |
 | ~~**PT.P4**~~ ✅ **DONE** | **Portal Documents + Invoices + Messages parity** — filters, search, grouping, "New" badge, thread previews/day separators, the footnotes. | Only shared documents; issued-only invoices; **no pay button**; AI provenance still never crosses to the portal. |
-| **PT.P5** | **Portal Consents parity** — plain-language scope lines with the raw key as a chip, and the two-step `portal.access` confirm with the lockout consequence. | Reason still required and recorded; snapshots immutable; the warning stays literally true. |
+| ~~**PT.P5**~~ ✅ **DONE** | **Portal Consents parity** — plain-language purpose + the REAL consequence per consent, `captured_by`, the withdrawal date, the append-only note. The mock's three unbacked scopes were NOT built (they exist nowhere in the product). | Reason still required and recorded; snapshots immutable; the warning is literally true **and proven at each enforcing layer** (middleware, sign-in, document share, notification send). |
 | **PT.P6** | **B3 — the portal invite landing page.** GET route + Vue over the existing POST. | Invite-only enrolment actually completes from an emailed link; generic failure for invalid/expired/used. |
 | **PT.P7** | **B2 — portal password reset.** A `portal_accounts` broker, signed single-use time-boxed token, the three steps, session invalidation on success, no account enumeration. | Security-sensitive: same generic response either way; guest routes smoked. **Consider pairing with a security review.** |
 | **PT.P8** *(optional)* | **Portal Telehealth readiness + Sign-out interstitial.** | No record affordance appears; the checklist derives from the same session list. |

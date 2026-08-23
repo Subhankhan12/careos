@@ -251,3 +251,24 @@ concat. And `OperatorGrantAccessTest` pins the exhaustive list of files that may
 grant: even naming `OperatorGrantService` in a DOCBLOCK trips it. Reword the comment; never add your
 file to that list.
 
+### PT.P5 — Portal Consents (2026-08-23)
+
+The consent surface now states, per consent, what it ALLOWS and what withdrawing it ACTUALLY does.
+`PortalConsentController::DESCRIBED_CONSENTS` is the list the product has copy for — `portal` and
+`comms` — and it is not a style choice: **those are the only two scopes anything in CareOS enforces**
+(`portal.access` · `comms.email`). A consent outside the list is still listed, but comes back with
+`copy_key = null` and the page says plainly that we cannot describe the effect, rather than reusing a
+reassurance no code delivers (D-176).
+
+**If you add a consent template, add its copy AND its enforcement — or leave the fallback to fire.**
+`PortalConsentsParityTest` fails if a described scope is checked nowhere outside the tests.
+
+**The comms consequence deliberately admits a carve-out:** `NotificationService` never consent-gates
+the LEGAL category (D-F7), so the copy says statutory notices are unaffected. Removing that clause
+would turn true copy into an over-claim; the test asserts a dunning email still sends after withdrawal.
+
+**Four layers enforce `portal.access` withdrawal and each is pinned separately** (D-183): the portal
+middleware, `PortalAccessService::login()`, `DocumentService::shareWithPatient()` and — from PT.P4 —
+`ThreadService`. Test the inner ones with DIRECT service calls; over HTTP the middleware answers first
+and lets them be deleted in silence.
+

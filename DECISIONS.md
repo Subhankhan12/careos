@@ -3444,3 +3444,23 @@ references the old ID.
   **The rule: when a guard sits behind another guard, test it where nothing else can answer first** — a
   direct service call, or a fixture that satisfies every earlier condition. See [[LOG]], D-174, D-182.
 
+
+- **D-184 — A stated consequence is a PROMISE the code must keep, carve-outs included; and where the
+  product cannot state one, it must say so rather than borrow a reassurance (PT.P5).** D-176 banned the
+  unbacked control. This is the next case along: the control is real, but the sentence describing what it
+  does is itself a claim, and a claim can fail in two directions.
+  **Over-claiming.** The patient-facing copy for the email consent nearly read *"we will never email you"* —
+  which `NotificationService` does not honour: the LEGAL category is never consent-gated (D-F7), so
+  statutory notices and dunning still go out by design. The copy therefore names the carve-out — *"Notices
+  the practice must send you by law — such as an invoice reminder — are not affected"* — and a test asserts
+  the dunning email STILL SENDS after the withdrawal. **The assertion that keeps copy honest is the one that
+  proves the exception, not the rule.**
+  **Under-claiming, or worse, guessing.** A consent the product has no copy for gets `copy_key = null` and
+  the page prints *"We cannot describe here exactly what withdrawing this would change."* Reusing a generic
+  reassurance would have been a fabrication wearing a helpful tone. Admitting the limit is the honest
+  output, and the test proves it with a template whose scope nothing enforces.
+  **The structural half:** a described consent must be an ENFORCED one. `PortalConsentsParityTest` fails if
+  any scope named in the patient-facing copy is checked nowhere outside the tests — so copy and enforcement
+  cannot drift apart silently. Note what this decided about the wireframe: three of the mock's five scopes
+  (`documents.read`, `messages.write`, `research.share`) exist nowhere in CareOS, so they were NOT built
+  (D-170). See [[LOG]], D-170, D-176, D-179.

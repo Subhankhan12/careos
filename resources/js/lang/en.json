@@ -2224,7 +2224,21 @@
                 "granted": "Granted",
                 "withdrawn": "Withdrawn",
                 "expired": "Expired"
-            }
+            },
+            "purposes": {
+                "portal": "Lets you sign in here and see your appointments, documents, invoices and messages.",
+                "comms": "Lets the practice email you about your appointments and your care."
+            },
+            "consequences": {
+                "portal": "Withdrawing signs you out straight away. You will not be able to sign back in, or see your documents, invoices and messages here, or join a video visit — until the practice invites you again.",
+                "comms": "Withdrawing stops the practice emailing you about appointments and care. Notices the practice must send you by law — such as an invoice reminder — are not affected."
+            },
+            "consequenceUnknown": "We cannot describe here exactly what withdrawing this would change. Please ask the practice before you withdraw it.",
+            "capturedBy": "Recorded by {name}",
+            "whatItAllows": "What this allows",
+            "ifYouWithdraw": "If you withdraw it",
+            "historyNote": "Withdrawing does not erase what you agreed to before — the practice keeps that record unchanged.",
+            "withdrawnOn": "Withdrawn {date}"
         },
         "telehealth": {
             "eyebrow": "Video visits",

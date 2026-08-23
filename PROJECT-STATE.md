@@ -464,6 +464,29 @@ Two further wireframes were decoded from the design pack and triaged. **Neither 
   - **Optional P8 open** (Consult Summary). **Still deferred:** Allergy Alert (partner seam), Care Plan
     Review (~70% refused), Medical History Intake, Patient Flow (net-new subsystems). **Recommended DEFERRED:** Allergy Alert, Care Plan Review, Medical
     History Intake, Patient Flow.
+
+- **PORTAL BATCH (PT chain) — 11 wireframes audited (`PORTAL-BATCH-DIFF.md`), 5 of 7 core gates DONE.**
+  - **PT.P1** `22a2a3d` + **PT.P1-FIX** `0ab2b63` — a read-audit row on every portal surface (one per
+    render) and `/portal/login` in the guest smoke. The FIX is the CI lesson: JSON context must be
+    DECODED, never byte-matched — MySQL 8 re-serialises it and MariaDB does not.
+  - **PT.P2** `59e025c` — patient-facing chrome (`PortalPageHeader`, deliberately NOT the clinical S1
+    tile) and `PatientBalanceReader` as THE one source for a patient's outstanding balance.
+  - **PT.P3** `a144fcf` — Home + Appointments parity; self-booking still through the real finder.
+  - **PT.P4** `ab72168` — Documents + Invoices + Messages parity; four disclosure guards pinned, two of
+    which were being answered by an outer layer until mutation found them (D-183).
+  - **PT.P5 — DONE.** Portal Consents: each consent now states its purpose and **what withdrawing it
+    ACTUALLY does**, written against the enforcing code. **Only two scopes are enforced in CareOS**
+    (`portal.access`, `comms.email`) and both seeded templates map onto them, so no consent control is
+    cosmetic; the mock's `documents.read` / `messages.write` / `research.share` **do not exist in the
+    product and were NOT built** (D-170). A consent the product has no copy for returns `copy_key =
+    null` and the page says it cannot describe the effect rather than inventing one (D-176). The comms
+    copy admits the LEGAL carve-out because `NotificationService` never consent-gates it (D-F7).
+    Withdrawal proven at FOUR layers separately — middleware, `PortalAccessService::login()`,
+    `DocumentService::shareWithPatient()`, `NotificationService::send()` — the inner ones by DIRECT
+    service calls, because over HTTP the middleware answers first (D-183).
+  - **OPEN:** **PT.P6** the portal invite landing page (the POST exists, the GET page does not) and
+    **PT.P7** a portal password-reset broker — `portal_accounts` has no broker, so patients cannot
+    reset a password today. PT.P7 is security-sensitive; pair it with a review.
 ---
 
 ## DEPLOYMENT — the primary track (authoritative; everything below this section is history)
