@@ -90,6 +90,7 @@ use Modules\Patients\Http\Controllers\PatientRegistrationController;
 use Modules\Patients\Http\Controllers\PortalAuthController;
 use Modules\Patients\Http\Controllers\PortalConsentController;
 use Modules\Patients\Http\Controllers\PortalInvitationController;
+use Modules\Patients\Http\Controllers\PortalInviteAcceptController;
 use Modules\Pharmacy\Http\Controllers\DispensingController;
 use Modules\Pharmacy\Http\Controllers\FormularyController;
 use Modules\Pharmacy\Http\Controllers\InventoryController;
@@ -837,6 +838,18 @@ Route::prefix('book/{tenant:slug}')
 Route::prefix('invite')->name('staff-invite.')->middleware('throttle:10,1')->group(function () {
     Route::get('/{token}', [StaffInviteAcceptController::class, 'show'])->name('show');
     Route::post('/{token}', [StaffInviteAcceptController::class, 'accept'])->name('accept');
+});
+
+/*
+ * PT.P6 — the PATIENT invite landing page. A guest arrives here from the emailed link with the
+ * token in the URL; the token is the single-use, expiring, tenant-bound secret and the tenant
+ * is taken FROM it, never from the session. Throttled at 10/min — the same ceiling the staff
+ * invite uses (SETTINGS.P6) — and both routes are in the AUTH-SEC.2 guest smoke, because a 500
+ * on a patient enrolment page is a locked-out patient with nowhere to go.
+ */
+Route::prefix('portal/invite')->name('portal.invite.')->middleware('throttle:10,1')->group(function () {
+    Route::get('/{token}', [PortalInviteAcceptController::class, 'show'])->name('show');
+    Route::post('/{token}', [PortalInviteAcceptController::class, 'accept'])->name('accept');
 });
 
 Route::prefix('portal')->name('portal.')->group(function () {

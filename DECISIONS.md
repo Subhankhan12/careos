@@ -3464,3 +3464,25 @@ references the old ID.
   cannot drift apart silently. Note what this decided about the wireframe: three of the mock's five scopes
   (`documents.read`, `messages.write`, `research.share`) exist nowhere in CareOS, so they were NOT built
   (D-170). See [[LOG]], D-170, D-176, D-179.
+
+- **D-185 — On a guest surface the refusals must be identical in SHAPE, not just in wording; the leak is
+  usually a different exception, not a different sentence (PT.P6).** The invite landing page has one
+  generic "this invitation is no longer valid" for four different states — unknown token, expired,
+  already used, and bound to an account outside its own tenant — and writing that one sentence is the
+  easy part. The two ways it nearly leaked were both structural:
+  **(1) A different exception is a different answer.** `acceptInvite()` resolved the account with a bare
+  `firstOrFail()`, so a cross-tenant token produced a **404** while every other dead token produced a
+  validation refusal. Same page copy, entirely different response — and a prober measures responses, not
+  prose. Making the binding raise the same "invalid invitation" refusal is what let all four cases become
+  one.
+  **(2) Echoing the input back distinguishes the cases for free.** The staff invite page passes the token
+  into its invalid branch (`['token' => $token, 'valid' => false]`), so two refusals differ by exactly the
+  token. It is a natural thing to write — which is why the mutation that adds it here is a realistic one,
+  and why the test compares the four refusal BODIES for equality rather than checking that each says the
+  right thing.
+  **The test shape that catches both:** collect the four responses, strip only what the visitor supplied
+  themselves (the URL) and what is per-session by nature (the CSRF token), and assert `array_unique()` has
+  ONE element — for the status and the body alike. Asserting each case "shows the generic message" would
+  have passed throughout.
+  **The corollary for guest routes generally:** a route that can 404, 403, 422 or 200 depending on WHY it
+  refused has an enumeration channel regardless of what it renders. See [[LOG]], D-174, D-182.

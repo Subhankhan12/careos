@@ -41,7 +41,7 @@ recording affordance on telehealth.
 | 6 | **Portal Consents** | What the patient agreed to, and withdrawal with a recorded reason | **AUTH** | `GET /portal/consents`, `POST /consents/withdraw` · `Portal/Consents.vue` |
 | 7 | **Portal Telehealth** | Join a video visit; nothing suggests recording | **AUTH** | `GET /portal/telehealth`, `POST /telehealth/{session}/token` · `Portal/Telehealth.vue` |
 | 8 | **Portal Login** | The patient entry point; one generic failure line | **GUEST** | `GET /portal/login`, `POST /portal/login` · `Portal/Login.vue` |
-| 9 | **Portal Invite** | Activate a practice-issued invite: token + one-time code + new password | **GUEST** | `POST /portal/accept-invite` only — **NO GET PAGE, NO VUE** |
+| 9 | **Portal Invite** | Activate a practice-issued invite: token + one-time code + new password | **GUEST** | ✅ **BUILT (PT.P6)** — `GET/POST /portal/invite/{token}` → `Portal/AcceptInvite.vue`. (The inventory previously pointed at `Auth/AcceptInvite.vue`, which is the **STAFF** invite; corrected.) |
 | 10 | **Portal Password Reset** | Three-step patient recovery (request → check email → set new) | **GUEST** | **NO PORTAL IMPLEMENTATION** (see §4.7) |
 | 11 | **Portal Sign Out** | A calm confirm before leaving the portal | **GUEST-ish** | `POST /portal/logout` — **no confirm interstitial page** |
 
@@ -62,7 +62,7 @@ of them; `/portal/treatment-plan` and `/portal/check-in` are live with no wirefr
 | **Portal Consents** | Live orders by granted date, shows status, requires a reason to withdraw (server re-validated), keeps snapshots immutable. Missing: **plain-language scope lines** with the raw key as a quiet chip, and the **two-step serious confirm for `portal.access`** spelling out the lockout consequence. · The `portal.access` withdrawal genuinely locks the portal on the next request (middleware) — the mock's warning is *true*, which is rare and worth keeping. | (a) chrome · (b) copy | **Low-Med** |
 | **Portal Telehealth** | Live lists created/active sessions, issues a join token through a three-way fail-closed gate, never persists it, and has **no record affordance** — contract kept, and the "not recorded" line is the product, not marketing. Missing: **readiness checklist** (camera / mic / allow access) and the **"Opens 15 min before"** not-yet-open row. | (a) chrome | **Low** |
 | **Portal Login** | Live is a standalone public page with one generic failure line and no self-registration — contract kept. Missing: clinic-name-leads treatment detail, the "access is by invitation" footnote. · **NOT COVERED BY THE GUEST SMOKE** (§4.2). | (a) chrome · (b) **smoke gap** | a: **Low** · b: **Med** |
-| **Portal Invite** | `POST /portal/accept-invite` exists and works. **There is no GET page and no Vue component** — a patient clicking the emailed link has nowhere to land. The inventory maps this to `Auth/AcceptInvite.vue`, which is the **STAFF** invite (`/invite/{token}` → `StaffInviteAcceptController`). | **(b) backend-gap / inventory error** | **High** |
+| **Portal Invite** | ✅ **CLOSED by PT.P6.** `GET/POST /portal/invite/{token}` → `Portal/AcceptInvite.vue`, throttled 10/min and in the AUTH-SEC.2 guest smoke; the invite email now carries the link it always implied. Redemption still runs through the existing `PortalAccessService::acceptInvite`. The inventory's `Auth/AcceptInvite.vue` was the **STAFF** invite (`/invite/{token}` → `StaffInviteAcceptController`) — a different flow, now disambiguated. | ~~(b) backend-gap / inventory error~~ | ~~**High**~~ **DONE** |
 | **Portal Password Reset** | **Nothing patient-facing exists.** Fortify's `/forgot-password` + `/reset-password/{token}` use guard `web` and the **`users` password broker**; the `patient` guard uses provider `portal_accounts`, and `config/auth.php` defines **no portal broker**. The Vue pages `Auth/ForgotPassword.vue` / `Auth/ResetPassword.vue` contain no portal reference. A patient who forgets their password has **no self-service route** — they must ask the practice to re-invite. | **(b) backend-gap / inventory error** | **High** |
 | **Portal Sign Out** | `POST /portal/logout` clears the session. The mock's **calm confirm interstitial** does not exist — sign-out is immediate. Low risk, but the mock's rationale (a stray tap on a shared device) is reasonable. | (a) missing page | **Low** |
 
@@ -96,7 +96,7 @@ PC.P3 mistake in reverse.
 |---|---|---|---|
 | **B1** | **Portal reads are not audited.** Only the document download, invoice PDF download, message-thread open and telehealth token issue write an `action='read'` row. Home, the Documents list, the Invoices list, Appointments, Consents and Check-in write **none**. | **All 7 auth screens** + closes the hole in PC.P5's access log. The PC.P5 wireframe *itself* draws a `portal_home · patient` row that the live build never writes. | **Low** — one `auditRead()` per controller, the pattern PC.P5/P6/P7 already established |
 | **B2** | **No portal password reset.** No `portal_accounts` password broker, no routes, no pages. | Portal Password Reset (screen 10); removes a support burden (today: re-invite) | **Med** — a second broker + signed single-use token + 3 pages; security-sensitive |
-| **B3** | **No portal invite landing page.** `POST /portal/accept-invite` has no GET counterpart. | Portal Invite (screen 9) | **Low-Med** — one GET route + one Vue page over the existing POST |
+| ~~**B3**~~ ✅ **DONE (PT.P6)** | ~~No portal invite landing page.~~ Built: `GET/POST /portal/invite/{token}`, one generic refusal for every dead token, throttled, smoked. | Portal Invite (screen 9) | — |
 | **B4** | **`/portal/login` not in the guest smoke.** | Protects screens 8–11 from shipping a public 500 | **Trivial** — one line in `RouteSmokeTest` |
 | **B5** | **Invoice open balance is summed in the page.** | Invoices + Home agree by construction | **Low** — emit the figure server-side, delete the `.reduce()` |
 | **B6** | **No server-side proximity/interval field** for portal appointments. | Appointments + Home captions | **Low** — the PC.P2 `due_in_days` pattern |
@@ -238,7 +238,7 @@ that is where this line would first be tested.
 | Claim in `WIREFRAME-INVENTORY.md` | Reality |
 |---|---|
 | *Portal Password Reset — LIVE · `forgot-password, reset-password/{token}` · `Auth/*`* | Those routes are **Fortify's**, bound to guard `web` and the **`users`** password broker. The `patient` guard uses provider `portal_accounts`; **`config/auth.php` defines no portal broker**. `Auth/ForgotPassword.vue` and `Auth/ResetPassword.vue` contain **zero** portal references. **A portal patient has no password reset at all.** |
-| *Portal Invite — LIVE · `invite/{token}` · `Auth/AcceptInvite.vue`* | `/invite/{token}` is the **STAFF** invite (`StaffInviteAcceptController`). The portal's accept is **`POST /portal/accept-invite` only** — no GET route, no Vue page. |
+| *Portal Invite — LIVE · `invite/{token}` · `Auth/AcceptInvite.vue`* | **CORRECTED (PT.P6).** `/invite/{token}` is the **STAFF** invite (`StaffInviteAcceptController`); the patient one is now **`/portal/invite/{token}` → `Portal/AcceptInvite.vue`** (`PortalInviteAcceptController`). Two separate flows that the inventory had conflated. |
 
 Both rows should be corrected to **NO LIVE PAGE** when the inventory is next touched. Recorded here rather than
 edited, because this task is audit-only.
@@ -461,6 +461,55 @@ a fresh sign-in attempt with correct credentials is then refused **403**. Both a
 
 ---
 
+## 4f — PT.P6 outcome (2026-08-23)
+
+**What was actually missing was smaller and worse than "a page".** The backend flow was complete — staff
+could invite, and `PortalAccessService::acceptInvite()` could redeem — but the invitation email handed the
+patient a raw 64-character token and a code with **nowhere to put them**. Enrolment was reachable only by
+POSTing JSON. So the patient-facing half of an invite-only product did not exist.
+
+**The real contract, as found:** `invite()` requires `portal.access` consent to already be granted (staff
+capture it), creates or reuses the patient's `PortalAccount` in `invited` status, and stores a
+`PortalLoginToken` — `purpose = invite`, the token as a **SHA-256 hash** (never the token itself), a bcrypt
+hash of a 6-digit OTP, and `expires_at = now + 30 minutes`. Redemption checks hash + purpose + unconsumed +
+unexpired, takes the tenant **from the token**, verifies the OTP, re-checks the consent, sets the password,
+flips the account to `active`, stamps `consumed_at` (single-use) and audits `portal.first_login` +
+`portal.login`. **A patient needs three things: the link, the code from the same email, and a password of at
+least 8 characters.**
+
+**What this gate added is the landing page and nothing else.** Redemption still goes through the same
+service call, so the account, the consent re-check, the consumption and the audit rows are the ones that
+were already there — no second path, and no new audit action.
+
+**THE FENCE — one refusal, for every way a token can be dead.** Unknown, expired, already used, and bound to
+an account outside its own tenant all render `{"valid": false}` and **nothing else**: no token echo, no
+address, no practice, no reason. Verified byte-for-byte in the browser too — the only differences between
+two refusals are the per-session CSRF token and the URL the visitor typed themselves. Notably the STAFF
+invite page does echo the token back, which is why the mutation that adds that echo here turns the suite red.
+
+**Two places the wireframe was not followed, both deliberate:**
+- The mock prints *"This invite link expires 7 days after it was sent."* **A portal invite token lives 30
+  minutes.** The page states the row's own expiry instead of repeating a number that is false here.
+- The mock's *"Ask the practice to resend"* is rendered as an **instruction, not a control**. CareOS has no
+  patient-triggered resend, and a button that does nothing is worse than a sentence that does (D-176).
+
+**No consent is captured at enrolment — and none was invented (D-170).** `portal.access` is a PRECONDITION:
+`invite()` refuses without it and `acceptInvite()` re-checks it. Consent rows are staff-captured
+(`captured_by` is a NOT NULL user), so there is no path by which a patient grants one to themselves. The test
+asserts the patient's consent set is byte-identical before and after enrolment.
+
+**One real hardening fell out of the tenant-binding test.** `acceptInvite()` resolved the account with a bare
+`firstOrFail()`, so a token pointing at an account outside its own tenant produced a **404 while every other
+dead token produced a validation refusal** — a difference a prober could measure. It now raises the same
+"invalid invitation" refusal, which is what let the guest surface answer all four cases identically.
+
+**Mutation-checked eight ways, all red and each naming the intended test:** the single-use marker, the expiry
+check, the tenant binding on the landing page, the tenant binding on redemption, a refusal that echoes the
+token, the throttle, the guest-smoke line — and, per this gate's own instruction, **breaking the landing page
+to prove the smoke bites**: the AUTH-SEC.2 guest test fails and names `portal.invite.show`.
+
+---
+
 ## 5 — Correctly-more-real — keep, do not trim
 
 1. **Three-layer middleware gating** on every portal page, with `portal.access` consent enforced server-side —
@@ -486,7 +535,7 @@ a fresh sign-in attempt with correct credentials is then refused **403**. Both a
 | ~~**PT.P3**~~ ✅ **DONE** | **Portal Home + Appointments parity** — hero, prep reminder, quick-actions row, leaf date tile, proximity captions, day chips + morning/afternoon grouping, confirm summary line. | Server-derived data only; the cancel window stays server-enforced; **decide explicitly** whether the amber in-window tint is built (a policy boundary, not a clinical judgment) or stated in words. |
 | ~~**PT.P4**~~ ✅ **DONE** | **Portal Documents + Invoices + Messages parity** — filters, search, grouping, "New" badge, thread previews/day separators, the footnotes. | Only shared documents; issued-only invoices; **no pay button**; AI provenance still never crosses to the portal. |
 | ~~**PT.P5**~~ ✅ **DONE** | **Portal Consents parity** — plain-language purpose + the REAL consequence per consent, `captured_by`, the withdrawal date, the append-only note. The mock's three unbacked scopes were NOT built (they exist nowhere in the product). | Reason still required and recorded; snapshots immutable; the warning is literally true **and proven at each enforcing layer** (middleware, sign-in, document share, notification send). |
-| **PT.P6** | **B3 — the portal invite landing page.** GET route + Vue over the existing POST. | Invite-only enrolment actually completes from an emailed link; generic failure for invalid/expired/used. |
+| ~~**PT.P6**~~ ✅ **DONE** | **B3 — the portal invite landing page.** `GET/POST /portal/invite/{token}` over the existing `acceptInvite()`; the invite email now carries the link. | Invite-only enrolment completes from an emailed link. **Unknown, expired, consumed and cross-tenant tokens are byte-identical** (props `{"valid":false}` and nothing else); throttled 10/min; both routes in the guest smoke, proven to bite. Enrolment invents no consent — `portal.access` is a PRECONDITION, not something the patient grants here. |
 | **PT.P7** | **B2 — portal password reset.** A `portal_accounts` broker, signed single-use time-boxed token, the three steps, session invalidation on success, no account enumeration. | Security-sensitive: same generic response either way; guest routes smoked. **Consider pairing with a security review.** |
 | **PT.P8** *(optional)* | **Portal Telehealth readiness + Sign-out interstitial.** | No record affordance appears; the checklist derives from the same session list. |
 

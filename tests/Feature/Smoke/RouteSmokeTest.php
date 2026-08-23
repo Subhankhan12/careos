@@ -747,6 +747,10 @@ test('every GUEST route renders for an anonymous visitor (200, never a request-t
         // sign-in page could have shipped green: the very gap AUTH-SEC.2 was written to close,
         // one route over. A locked-out patient has no way around this page.
         'portal.login' => '/portal/login',
+        // PT.P6 — the patient invite landing page. An UNKNOWN token must still render the
+        // honest "no longer valid" page: this is the page a patient meets before they have an
+        // account at all, so a 500 here means enrolment is impossible with no way around it.
+        'portal.invite.show' => '/portal/invite/'.$token,
     ];
 
     $failures = [];
@@ -755,6 +759,27 @@ test('every GUEST route renders for an anonymous visitor (200, never a request-t
         $status = $this->get($url)->status();   // NO actingAs — a real anonymous visitor
         if ($status !== 200) {
             $failures[] = "guest.{$label} [{$url}] -> {$status}";
+        }
+    }
+
+    /*
+     * PT.P6 — the POST half of the invite flow is a guest route too, and a guest can reach it
+     * with a well-formed body. A GET-only smoke would leave the half that actually provisions
+     * an account uncovered, which is the more expensive one to have broken.
+     */
+    $guestPosts = [
+        'portal.invite.accept' => ['/portal/invite/'.$token, [
+            'otp' => '000000',
+            'password' => 'a-new-password',
+            'password_confirmation' => 'a-new-password',
+        ]],
+    ];
+
+    foreach ($guestPosts as $label => [$url, $payload]) {
+        smokeCtx()->forget();
+        $status = $this->post($url, $payload)->status();
+        if ($status !== 200) {
+            $failures[] = "guest.{$label} [POST {$url}] -> {$status}";
         }
     }
 

@@ -272,3 +272,22 @@ middleware, `PortalAccessService::login()`, `DocumentService::shareWithPatient()
 `ThreadService`. Test the inner ones with DIRECT service calls; over HTTP the middleware answers first
 and lets them be deleted in silence.
 
+### PT.P6 — the portal invite landing page (2026-08-23)
+
+`GET/POST /portal/invite/{token}` (`PortalInviteAcceptController` → `Portal/AcceptInvite.vue`) is the
+patient-facing enrolment page. **Do not confuse it with `/invite/{token}`, which is the STAFF invite**
+(`StaffInviteAcceptController`) — the parity inventory conflated the two for a whole batch.
+
+**The token contract:** SHA-256 hash stored (never the token), bcrypt OTP, **30-minute** expiry,
+single-use via `consumed_at`, tenant taken FROM the token. `PortalAccessService::previewInvite()` and
+`tokenForInvite()` now share ONE definition of redeemable, so the page can never show an invitation the
+POST would refuse.
+
+**Every dead token renders `{"valid": false}` and nothing else** — no token echo, no address, no
+reason. If you touch this page, keep it that way: `PortalInviteLandingTest` compares the four refusal
+bodies for equality, and the staff page's habit of echoing the token back is exactly the mutation it
+catches.
+
+**Enrolment captures NO consent.** `portal.access` must already be granted by staff before an invite can
+even be issued, and consent rows need a staff `captured_by` — there is no patient self-grant path.
+

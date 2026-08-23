@@ -484,9 +484,23 @@ Two further wireframes were decoded from the design pack and triaged. **Neither 
     Withdrawal proven at FOUR layers separately — middleware, `PortalAccessService::login()`,
     `DocumentService::shareWithPatient()`, `NotificationService::send()` — the inner ones by DIRECT
     service calls, because over HTTP the middleware answers first (D-183).
-  - **OPEN:** **PT.P6** the portal invite landing page (the POST exists, the GET page does not) and
-    **PT.P7** a portal password-reset broker — `portal_accounts` has no broker, so patients cannot
-    reset a password today. PT.P7 is security-sensitive; pair it with a review.
+  - **PT.P6 — DONE.** The portal invite LANDING PAGE: `GET/POST /portal/invite/{token}` →
+    `Portal/AcceptInvite.vue`, throttled 10/min and in the AUTH-SEC.2 guest smoke (proven to bite).
+    The backend flow already worked; what was missing is that the invitation email handed the patient
+    a raw token with **nowhere to put it** — in an invite-only product, the patient-facing half of
+    enrolment did not exist. Redemption still runs through the existing `acceptInvite()`; no second
+    path, no new audit action, and **no consent is captured at enrolment** (`portal.access` is a
+    PRECONDITION, and consent rows need a staff `captured_by`). **Every dead token — unknown, expired,
+    consumed, cross-tenant — renders `{"valid": false}` and nothing else**, byte-identical.
+    **A real hardening fell out of it:** `acceptInvite()` used a bare `firstOrFail()` for the account,
+    so a cross-tenant token 404d while every other dead token gave a validation refusal — a difference
+    a prober could measure. Two wireframe departures, both deliberate: the mock's "expires in 7 days"
+    is false here (**30 minutes**), and "ask the practice to resend" is an instruction, not a button
+    CareOS cannot back (D-176). **Note for anyone reading the parity inventory:** it mapped "Invite"
+    to `Auth/AcceptInvite.vue`, which is the **STAFF** invite — corrected in all three places.
+  - **OPEN:** **PT.P7** a portal password-reset broker — `portal_accounts` has no broker, so a patient
+    who forgets their password cannot reset it today; the practice must re-invite them.
+    Security-sensitive; pair it with a review.
 ---
 
 ## DEPLOYMENT — the primary track (authoritative; everything below this section is history)
