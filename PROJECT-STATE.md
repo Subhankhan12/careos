@@ -498,6 +498,11 @@ Two further wireframes were decoded from the design pack and triaged. **Neither 
     is false here (**30 minutes**), and "ask the practice to resend" is an instruction, not a button
     CareOS cannot back (D-176). **Note for anyone reading the parity inventory:** it mapped "Invite"
     to `Auth/AcceptInvite.vue`, which is the **STAFF** invite — corrected in all three places.
+    **PT.P6 shipped CI-red and was fixed in a follow-up (D-186):** two of its own tests depended on the
+    rate-limit bucket being empty, which is true locally (array cache) and false on CI (`CACHE_STORE:
+    redis` — a real env var beats `phpunit.xml`'s non-forced one, and nothing resets the cache between
+    tests the way `RefreshDatabase` resets the database). Reproduced locally, then fixed by clearing the
+    limiter store per test; the throttle assertion itself is unchanged and still mutation-proven.
   - **OPEN:** **PT.P7** a portal password-reset broker — `portal_accounts` has no broker, so a patient
     who forgets their password cannot reset it today; the practice must re-invite them.
     Security-sensitive; pair it with a review.

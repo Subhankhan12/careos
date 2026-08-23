@@ -3486,3 +3486,26 @@ references the old ID.
   have passed throughout.
   **The corollary for guest routes generally:** a route that can 404, 403, 422 or 200 depending on WHY it
   refused has an enumeration channel regardless of what it renders. See [[LOG]], D-174, D-182.
+
+- **D-186 — `RefreshDatabase` resets the database and NOTHING resets the cache: any test asserting on
+  a rate limit, lock or dedupe key is environment-dependent until it clears its own store
+  (PT.P6-FIX).** PT.P6 shipped green locally and red on CI, and the feature was not at fault — the
+  tests were.
+  **The mechanism, which is easy to miss:** `phpunit.xml` sets `CACHE_STORE=array`, but a
+  **non-forced `<env>` does not override a real environment variable**, and the CI workflow exports
+  `CACHE_STORE: redis`. Locally the limiter bucket is an array store rebuilt per test; on CI it is one
+  Redis key living for the whole run. A file making a dozen requests to a `throttle:10,1` route
+  poisons its own later tests — on CI only. The same trap waits for cache-backed locks, dedupe keys
+  and any cached read.
+  **And the bucket is wider than the route:** Laravel's guest throttle signature is `sha1(domain|ip)`,
+  **not the path**, so every `throttle:10,1` guest route shares ONE bucket per visitor. Requests made
+  by a test for a completely different route count against yours.
+  **The rule:** clear the store you assert on (`Cache::store(config('cache.limiter'))->flush()` for the
+  limiter) in a `beforeEach`, or assert something order-independent. Clearing changes the STARTING
+  POINT, not the assertion — the mutation that deletes the throttle must still turn the suite red, and
+  here it does.
+  **The meta-rule, now with two instances (see PT.P1-FIX):** when local is green and CI is red,
+  suspect the ENVIRONMENT the suite runs in before suspecting the code — the JSON serialiser last
+  time, the cache store this time — and REPRODUCE the CI condition locally before changing anything.
+  Both times, reproducing it took one command. See [[LOG]], D-174.
+

@@ -2,6 +2,7 @@
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Str;
@@ -20,6 +21,26 @@ use Modules\Platform\Models\User;
 use Modules\Platform\Services\TenantContext;
 
 uses(RefreshDatabase::class);
+
+/*
+ * THE THROTTLE BUCKET SURVIVES BETWEEN TESTS ON CI, AND ONLY ON CI.
+ *
+ * phpunit.xml sets CACHE_STORE=array, but a non-forced <env> does NOT override a real environment
+ * variable — and the CI workflow exports CACHE_STORE=redis. So locally the limiter starts empty for
+ * every test, while on CI it is one long-lived Redis key. A file like this one, which makes a dozen
+ * requests to a 10/min route, then poisons its own later tests: the first version of this file was
+ * green here and red there for exactly that reason.
+ *
+ * Worse, the signature for a guest is sha1(domain|ip) — NOT the path — so every `throttle:10,1`
+ * guest route shares one bucket per visitor. The staff-invite requests in another test count too.
+ *
+ * Laravel's RateLimiter uses the `cache.limiter` store (null falls through to the default one), so
+ * emptying it is the supported way to start each test from a known bucket. Nothing is relaxed: the
+ * throttle is still asserted below, just from a defined starting point.
+ */
+beforeEach(function (): void {
+    Cache::store(config('cache.limiter'))->flush();
+});
 
 /*
  * PT.P6 — the patient invite landing page.

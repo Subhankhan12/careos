@@ -508,6 +508,17 @@ check, the tenant binding on the landing page, the tenant binding on redemption,
 token, the throttle, the guest-smoke line — and, per this gate's own instruction, **breaking the landing page
 to prove the smoke bites**: the AUTH-SEC.2 guest test fails and names `portal.invite.show`.
 
+**PT.P6 SHIPPED CI-RED and was fixed immediately afterwards — worth recording, because the feature was
+not at fault.** Two of the new tests (`NO ENUMERATION`, `THROTTLED`) failed on CI with 429 where 200 was
+expected. `phpunit.xml` sets `CACHE_STORE=array`, but a non-forced `<env>` does not override a real
+environment variable and the CI workflow exports `CACHE_STORE: redis` — so locally the rate-limit bucket
+is rebuilt per test while on CI it survives the whole run, and a file making a dozen requests to a
+`throttle:10,1` route poisons its own later tests. (Laravel's guest throttle signature is
+`sha1(domain|ip)`, **not the path**, so all guest-throttled routes share one bucket per visitor.) The CI
+condition was REPRODUCED locally — `CACHE_STORE=redis REDIS_CLIENT=predis pest <file>` gave exactly the
+two failures — before anything was changed. The fix is a `beforeEach` emptying the limiter store; the
+throttle is still asserted, and deleting `throttle:10,1` still turns the suite red. See D-186.
+
 ---
 
 ## 5 — Correctly-more-real — keep, do not trim
