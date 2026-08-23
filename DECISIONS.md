@@ -3427,3 +3427,20 @@ references the old ID.
   "turn it amber as it approaches" implementation must take, and it is what a patient must not be shown.
   See [[LOG]], D-169, D-174.
 
+- **D-183 — Defence in depth is only real if each layer is pinned SEPARATELY; and an earlier guard can hide
+  a later one from its own test (PT.P4).** D-182 said build a refusal fixture so that WITHOUT the guard it
+  would succeed. This gate found two ways that is harder than it sounds, and both passed a mutation before
+  being fixed.
+  **(1) An EARLIER check short-circuits the one under test.** `assertPatientAccess()` refuses a foreign
+  thread on the `patient_id` comparison before it ever reaches the `ThreadParticipant` membership check —
+  so deleting membership entirely changed nothing, and the test kept passing. Pinning membership required a
+  thread that IS the patient's own, with their participation row removed: only then is membership the last
+  thing standing.
+  **(2) The MIDDLEWARE hides the SERVICE's own re-check.** Over HTTP the `portal-consent` middleware refuses
+  a withdrawn-consent send first, so deleting the service's identical check left the response unchanged.
+  Proving the service re-checks required calling it DIRECTLY, with no middleware in front. **Both layers are
+  wanted** — the middleware locks the portal, the service refuses even a caller that bypassed it — but a
+  test that only exercises the outer one silently permits deleting the inner.
+  **The rule: when a guard sits behind another guard, test it where nothing else can answer first** — a
+  direct service call, or a fixture that satisfies every earlier condition. See [[LOG]], D-174, D-182.
+

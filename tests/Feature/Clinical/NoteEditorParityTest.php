@@ -390,13 +390,26 @@ test('THE FENCE: the editor payload and its components carry no clinical judgmen
         ->and($props['allergies'][0]['severity'])->toBe('severe');
 
     $forbidden = [
-        'riskscore', 'acuity', 'triage', 'ews', 'deterioration', 'prognosis', 'crossreact',
+        'riskscore', 'acuity', 'triage', 'deterioration', 'prognosis', 'crossreact',
         'contraindication', 'interactioncheck', 'severityband', 'severityscore', 'severitytone',
         'autoproblem', 'generatedassessment', 'suggesteddiagnosis', 'differential', 'icdsuggest',
         'autosign', 'autoinsert',
     ];
 
-    $squashed = preg_replace('~[^a-z0-9]~', '', strtolower(json_encode($props) ?: '')) ?? '';
+    /*
+     * SHORT tokens are matched with a word boundary against the UNSQUASHED json, never as a
+     * substring of the squashed blob. ULIDs are Crockford base32 (the alphabet contains E, W and
+     * S), so ~0.08% of ids contain "ews" — with a dozen ids in a payload that reddened CI roughly
+     * 1.2% of runs, on a gate that touched neither this test nor its subject. `"ews":`, `ewsScore`
+     * and `ews_score` still fail; a random id no longer does.
+     */
+    $raw = strtolower(json_encode($props) ?: '');
+    foreach (['ews'] as $shortToken) {
+        expect(preg_match('~\b'.$shortToken.'~', $raw))
+            ->toBe(0, "fence token '{$shortToken}' appears in the payload");
+    }
+
+    $squashed = preg_replace('~[^a-z0-9]~', '', $raw) ?? '';
     expect(strlen($squashed))->toBeGreaterThan(400, 'the payload squashed to almost nothing');
     foreach ($forbidden as $token) {
         expect(str_contains($squashed, $token))->toBeFalse("fence token '{$token}' appears in the note-editor payload");

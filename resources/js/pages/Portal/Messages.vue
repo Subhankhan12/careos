@@ -3,12 +3,13 @@ import { Head, router, usePage } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import PortalLayout from '@/Layouts/PortalLayout.vue';
+import PortalPageHeader from '@/Components/Portal/PortalPageHeader.vue';
 
 const { t } = useI18n();
 const page = usePage();
 const locale = computed(() => (page.props.locale as string) || 'en');
 
-type Message = { id: string; author_type: string; body: string; sent_at: string };
+type Message = { id: string; author_type: string; ai_assisted: boolean; body: string; sent_at: string };
 
 const props = defineProps<{
     threads: Array<{ id: string; subject: string; status: string; last_message_at: string | null; unread: number }>;
@@ -74,9 +75,12 @@ const timeline = computed(() => {
     <PortalLayout>
         <Head :title="t('portal.messages.title')" />
 
-        <p class="text-xs font-semibold uppercase tracking-[0.14em] text-ink-subtle">{{ t('portal.messages.eyebrow') }}</p>
-        <h1 class="mt-1 text-2xl font-semibold tracking-tight text-ink sm:text-3xl">{{ t('portal.messages.title') }}</h1>
-        <p class="mt-1 max-w-2xl text-ink-muted">{{ t('portal.messages.subtitle') }}</p>
+        <!-- PT.P4 — the shared patient header (PT.P2). Extracted verbatim: byte-identical. -->
+        <PortalPageHeader
+            :eyebrow="t('portal.messages.eyebrow')"
+            :title="t('portal.messages.title')"
+            :lead="t('portal.messages.subtitle')"
+        />
 
         <div class="mt-6 grid gap-5 lg:grid-cols-[minmax(260px,340px)_1fr]">
             <div class="glass-card p-3">
@@ -146,6 +150,9 @@ const timeline = computed(() => {
                                         :class="item.message.author_type === 'patient' ? 'text-right' : ''"
                                     >
                                         {{ t(`portal.messages.author.${item.message.author_type}`) }} · {{ timeLabel(item.message.sent_at) }}
+                                        <!-- PT.P4 — the RECORDED provenance. The practice sent this;
+                                             AI helped draft it. Neither half of that is dropped. -->
+                                        <span v-if="item.message.ai_assisted"> · {{ t('portal.messages.aiAssisted') }}</span>
                                     </p>
                                 </div>
                             </div>

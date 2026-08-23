@@ -363,6 +363,48 @@ upcoming row is positional, the same class as PC.P7's date sort, and stays.
 
 ---
 
+## 4d — PT.P4 outcome (2026-08-23)
+
+**Most of these three screens were already right.** Documents lists only `shared_with_patient` rows and
+streams from the private disk; Invoices is issued-only with PT.P2's reader balance and no pay button;
+Messages scopes by `ThreadParticipant` membership. The visible change is small: `Messages` adopted
+`PortalPageHeader` **byte-identically**, and the recorded **`ai_assisted`** provenance now reaches the
+patient.
+
+**A DELIBERATE DISAGREEMENT WITH THE WIREFRAME, surfaced rather than silently resolved.** The mock states
+that *"staff-side AI provenance (✦) never crosses to the portal"* — the AI-assisted reply is to render as a
+plain practice message. This gate's instruction was the opposite: show provenance as recorded. **I followed
+the gate, but phrased it to keep accountability exact:** `ai_assisted` does NOT mean an agent messaged the
+patient. `DraftReplyTool` is capped at SUGGEST and *never posts*; the flag exists only because a staff
+member explicitly sent the message, with the human as actor. So the portal reads **"drafted with
+assistance, sent by the practice"** — true in both directions, and neither a hidden machine nor an absent
+human. If the mock's stance is preferred, this is a one-line revert and worth a decision.
+
+**Invoices did NOT adopt `PortalPageHeader`:** its `h1` sits inside a flex row beside the balance card, so
+the component would have restructured the layout rather than extracted it. The in-card empty states on all
+three screens likewise kept their centred treatment — wrapping them in `PortalEmptyState` (a glass-card)
+would nest a card inside a card. Chrome is shared where the shape is genuinely shared.
+
+**THE FOUR GUARDS, EACH PINNED D-182-STYLE** — every refusal built so it would SUCCEED without its guard:
+an UNSHARED document *belonging to the same patient* (only `shared_with_patient` hides it); a SHARED
+document belonging to someone else; a DRAFT invoice with a real total (only `whereNotNull('number')`); and
+a live session whose consent is then withdrawn. Each is paired with a positive control proving the guard is
+the only thing in the way.
+
+**TWO OF THOSE GUARDS WERE INITIALLY UNPINNED, AND MUTATION FOUND BOTH (D-183).** Deleting the
+`ThreadParticipant` check passed, because the foreign thread was refused earlier on its `patient_id`;
+isolating it needed the patient's OWN thread with participation removed. Deleting the service's
+`portal.access` re-check also passed, because the middleware refuses first; proving it needed a DIRECT
+service call. Both layers are wanted — but a test that only exercises the outer one lets the inner be
+deleted in silence.
+
+**Fence:** no interpretation, no urgency on a message, no payment-risk framing, no pay affordance, and
+invoice rows share ONE style — no overdue band. The safety footnote (*"for anything urgent please call the
+practice"*) is the one place "urgent" belongs on a patient screen; it is excluded from the token scan for
+the same reason comments are, and its text is asserted verbatim so it cannot quietly disappear.
+
+---
+
 ## 5 — Correctly-more-real — keep, do not trim
 
 1. **Three-layer middleware gating** on every portal page, with `portal.access` consent enforced server-side —
@@ -386,7 +428,7 @@ upcoming row is positional, the same class as PC.P7's date sort, and stays.
 | ~~**PT.P1**~~ ✅ **DONE** | **B1 + B4 — the audit + smoke gap.** One `auditRead()` per unaudited portal surface (Home, Documents list, Invoices list, Appointments, Consents, Check-in), and `/portal/login` added to the guest smoke. | Every portal read appears in the patient's own access log (PC.P5), one row per render, no second audit path. A public 500 on the portal entry point can no longer ship green. **Do this first — it is the cheapest and closes the transparency hole.** |
 | ~~**PT.P2**~~ ✅ **DONE (chrome partly)** | **Shared portal chrome + B5.** The public auth frame, filter pills with counts, period grouping, unified empty states, the serious two-step confirm; the invoice balance moved server-side and the appointment proximity interval computed server-side. | One patient-facing frame, not four; Home and Invoices agree by construction; no page-side money arithmetic. |
 | ~~**PT.P3**~~ ✅ **DONE** | **Portal Home + Appointments parity** — hero, prep reminder, quick-actions row, leaf date tile, proximity captions, day chips + morning/afternoon grouping, confirm summary line. | Server-derived data only; the cancel window stays server-enforced; **decide explicitly** whether the amber in-window tint is built (a policy boundary, not a clinical judgment) or stated in words. |
-| **PT.P4** | **Portal Documents + Invoices + Messages parity** — filters, search, grouping, "New" badge, thread previews/day separators, the footnotes. | Only shared documents; issued-only invoices; **no pay button**; AI provenance still never crosses to the portal. |
+| ~~**PT.P4**~~ ✅ **DONE** | **Portal Documents + Invoices + Messages parity** — filters, search, grouping, "New" badge, thread previews/day separators, the footnotes. | Only shared documents; issued-only invoices; **no pay button**; AI provenance still never crosses to the portal. |
 | **PT.P5** | **Portal Consents parity** — plain-language scope lines with the raw key as a chip, and the two-step `portal.access` confirm with the lockout consequence. | Reason still required and recorded; snapshots immutable; the warning stays literally true. |
 | **PT.P6** | **B3 — the portal invite landing page.** GET route + Vue over the existing POST. | Invite-only enrolment actually completes from an emailed link; generic failure for invalid/expired/used. |
 | **PT.P7** | **B2 — portal password reset.** A `portal_accounts` broker, signed single-use time-boxed token, the three steps, session invalidation on success, no account enumeration. | Security-sensitive: same generic response either way; guest routes smoked. **Consider pairing with a security review.** |

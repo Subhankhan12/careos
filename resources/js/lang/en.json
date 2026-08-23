@@ -2173,7 +2173,8 @@
                 "staff": "Care team",
                 "patient": "You",
                 "system": "System"
-            }
+            },
+            "aiAssisted": "drafted with assistance, sent by the practice"
         },
         "invoices": {
             "eyebrow": "Billing",

@@ -40,6 +40,17 @@ class PortalMessageController
                 'messages' => $messages->map(fn (Message $message): array => [
                     'id' => $message->id,
                     'author_type' => $message->author_type,
+                    /*
+                     * PT.P4 — the RECORDED provenance flag, surfaced as the fact it is.
+                     *
+                     * `ai_assisted` does NOT mean "an agent messaged you". `DraftReplyTool` is
+                     * draft-only at a SUGGEST ceiling and never posts; the row is written only
+                     * when a staff member explicitly sends, with the HUMAN as actor. So the
+                     * honest reading is: the practice sent this, and AI helped draft it — which
+                     * is what the page says. Claiming otherwise in either direction would be a
+                     * misrepresentation of who is accountable (D-179).
+                     */
+                    'ai_assisted' => (bool) $message->ai_assisted,
                     'body' => $message->body,
                     'sent_at' => $message->sent_at->toDateTimeString(),
                 ])->all(),
