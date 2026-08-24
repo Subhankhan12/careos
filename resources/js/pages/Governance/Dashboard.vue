@@ -39,6 +39,26 @@ const props = defineProps<{
         pendingNow: number;
     };
     windowLedger: Array<{ id: string; agentLabel: string; tool: string; outcome: string; reason: string | null; occurredAt: string | null; system: boolean }>;
+    /*
+     * GOV.P2 — the REAL "waiting on a person" states. Each category is a queryable state with a
+     * real setter and a real clearer; a category this viewer may not see comes back visible:false
+     * with a zero, never another category's data. No urgency, no SLA, no priority — items are
+     * ordered oldest-first, which is a date sort over a recorded timestamp, not a ranking (D-169).
+     */
+    needsHuman: {
+        categories: Array<{
+            key: string;
+            visible: boolean;
+            count: number;
+            actionUrl: string;
+            items: Array<{ id: string; waitingSince: string | null; agent?: string; tool?: string; subject?: string | null; reason?: string | null }>;
+        }>;
+        total: number;
+        /** Real states that cannot be produced today — stated, not hidden. */
+        unproducible: string[];
+        /** Real human-blocking work that lives on another screen, named so an empty panel is not read as a global all-clear. */
+        elsewhere: string[];
+    };
     range: string;
     ranges: string[];
     fenceInvariants: string[];
@@ -188,6 +208,49 @@ function pct(value: number | null): string {
                 </div>
             </Card>
 
+            <!-- ── GOV.P2 · what is waiting on a person ───────────────────────────────────────
+                 The REAL version of the slice the wireframe invented. Each category is a queryable
+                 state with a real setter and clearer; each links to where a human actually acts. -->
+            <Card :title="t('governance.needsHuman.title')" :subtitle="t('governance.needsHuman.subtitle')">
+                <div class="grid gap-4 sm:grid-cols-2">
+                    <div v-for="category in needsHuman.categories" :key="category.key">
+                        <StatCard
+                            :label="t(`governance.needsHuman.category.${category.key}`)"
+                            :value="category.visible ? String(category.count) : '—'"
+                            :hint="category.visible ? t(`governance.needsHuman.hint.${category.key}`) : t('governance.needsHuman.noPermission')"
+                        />
+                        <ul v-if="category.visible && category.items.length" class="mt-2 space-y-1.5">
+                            <!-- Oldest first — a date sort over a recorded timestamp, never a priority. -->
+                            <li v-for="item in category.items" :key="item.id" class="flex items-baseline justify-between gap-3 text-xs">
+                                <span class="min-w-0 truncate text-ink-muted">{{ item.subject || item.tool || item.agent }}</span>
+                                <span class="flex-none text-ink-subtle">{{ dateTime(item.waitingSince) }}</span>
+                            </li>
+                        </ul>
+                        <Link v-if="category.visible" :href="category.actionUrl" class="mt-2 inline-flex text-sm font-semibold text-euca-700 hover:text-euca-800">
+                            {{ t(`governance.needsHuman.act.${category.key}`) }}
+                        </Link>
+                    </div>
+                </div>
+
+                <p v-if="needsHuman.total === 0" class="mt-5 rounded-xl bg-surface-2 p-4 text-sm text-ink-muted">
+                    {{ t('governance.needsHuman.empty') }}
+                </p>
+
+                <!-- THE BOUNDARY, stated. An empty panel above means nothing in AGENT GOVERNANCE is
+                     waiting — it is not a claim about the clinical worklists, which have their own
+                     screens and owners. Saying so is what stops an honest empty state from reading
+                     as a false all-clear. -->
+                <div class="mt-5 border-t border-line pt-4">
+                    <p class="text-xs font-semibold uppercase tracking-wide text-ink-subtle">{{ t('governance.needsHuman.scope.title') }}</p>
+                    <p class="mt-1 text-sm text-ink-muted">{{ t('governance.needsHuman.scope.body') }}</p>
+                    <ul class="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-ink-subtle">
+                        <li v-for="key in needsHuman.elsewhere" :key="key">{{ t(`governance.needsHuman.elsewhere.${key}`) }}</li>
+                    </ul>
+                    <p v-for="key in needsHuman.unproducible" :key="key" class="mt-2 text-xs text-ink-subtle">
+                        {{ t(`governance.needsHuman.unproducible.${key}`) }}
+                    </p>
+                </div>
+            </Card>
             <!-- ── GOV.P1 · the governance window ─────────────────────────────────────────────
                  Everything below is a real count over [from, to], recomputed on the SERVER when the
                  range changes. -->

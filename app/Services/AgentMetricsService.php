@@ -216,8 +216,18 @@ class AgentMetricsService
             // zero would be unfalsifiable rather than reassuring.
             'fenceRefused' => $byStatus[AgentAction::STATUS_FENCE_REFUSED] ?? 0,
             // Deliberately NOT windowed: a queue depth is a fact about now, not about a period.
-            'pendingNow' => AgentAction::query()->where('status', AgentAction::STATUS_PENDING)->count(),
+            'pendingNow' => $this->pendingApprovalCount(),
         ];
+    }
+
+    /**
+     * The approval-queue depth RIGHT NOW — the one definition, shared by the governance
+     * dashboard (GOV.P1) and the needs-a-human reader (GOV.P2). Two surfaces quoting the same
+     * number must not compute it twice.
+     */
+    public function pendingApprovalCount(): int
+    {
+        return AgentAction::query()->where('status', AgentAction::STATUS_PENDING)->count();
     }
 
     /**

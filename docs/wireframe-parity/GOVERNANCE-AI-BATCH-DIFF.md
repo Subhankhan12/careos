@@ -268,7 +268,7 @@ audited components. Only the range picker and the export panel are new.
 | Gap | Unlocks | Size |
 |---|---|---|
 | ~~**G1 · A windowed governance-metrics reader**~~ ✅ **DONE (GOV.P1)** — `AgentMetricsService::window()`: counts by real status, by canonical agent, by REGISTERED tool (with each tool's real ceiling), the ledger by outcome, the fence-refusal count and the live queue depth | The dashboard; the export summary panel when GOV.P5 lands | — |
-| **G2 · An "actions needing a human" reader** (pending actions + threads with `clinician_attention_at` set) | The Dashboard's needs-a-human list, and a cross-link from the fence-refused screen | **Low-Med** — both sources exist; the join is new |
+| ~~**G2 · An "actions needing a human" reader**~~ ✅ **DONE (GOV.P2)** — `NeedsHumanReader`: pending approvals + threads still awaiting a clinician, each permission-scoped fail-closed, with the excluded worklists named on screen | The dashboard panel | — |
 | **G3 · A governance-ledger exporter** (filtered range → CSV/JSON, chain manifest, private-disk stream, **its own audit row**) | Screen 10 entirely | **Med-High**, security-sensitive |
 | ~~**G4 · Demo governance data**~~ ✅ **DONE (GOV.P4)** — executed (as-is + edited), rejected, fence-refused, spread across 12 days, every state driven through its real path | Screens 4 and 5 are demonstrable; AGENT.P5's approved-as-is % has a real denominator | — |
 | **G5 · Last-saved-by on a KB article** | The KB card's provenance line | **Low** — the audit row exists; surface it |
@@ -307,7 +307,7 @@ designed*, and listing them as gaps would smuggle them into a parity chain.
 | Gate | Builds | Proves |
 |---|---|---|
 | ~~**GOV.P1**~~ ✅ **DONE** | **G1 + the Dashboard's honest half.** The windowed reader, the server-re-parameterised range picker (7/30/90), closed KPI tiles per real status, per-agent and per-tool activity over all six agents, the fence-refusal count, the windowed ledger, and the mirrored fence vault. | Every number a real count or "—". **No trend verdict, no "0 breaches", no escalated slice, no confidence score, no invented tool.** The omissions are STATED on the page. See §10. |
-| **GOV.P2** | **G2 — "needs a human".** Pending actions + threads flagged `clinician_attention`, each linking to the real surface. | The list states *that* a clinician is needed and the recorded reason — **never a characterisation of the symptom**, and no clinical content on an `audit.view` screen. |
+| ~~**GOV.P2**~~ ✅ **DONE** | **G2 — "needs a human".** Pending approvals + threads still awaiting a clinician, each with a real count, its items and a link to where a person acts. | Every category is a real state with a cited setter and clearer; the excluded worklists are NAMED so an empty panel is not a false all-clear; no urgency, SLA or priority; the patient's message body never reaches the panel. See §11. |
 | **GOV.P3** | **KB Admin parity** — the explainer line, the active/inactive grouping, last-saved-by (G5), Preview. | Deactivation still stops grounding immediately (assert it); no "draft" state invented for a boolean column. |
 | ~~**GOV.P4**~~ ✅ **DONE** | **G4 — demo governance data**: one executed as-is, one edited-then-approved, one rejected, the fence refusal kept, spread across 12 days. | Screens 4/5 demonstrable; the outcome mix non-degenerate. **Every state driven through its real path** — the mutation that hand-sets a status turns the suite red. See §9. |
 | **GOV.P5** | **G3 — the ledger exporter.** Filtered range → CSV/JSON, chain manifest, private-disk stream, **its own audit row**, `audit.view`-gated. | The export is itself ledgered; the hash manifest is **not optional**; **PHI (message bodies) defaults OFF and is a separate, permission-checked decision** — and if the practice cannot justify it, it should not be a toggle at all. **Security-sensitive: pair with a review.** |
@@ -440,6 +440,71 @@ browser global inside a Vue SFC** — `window.location.pathname` in the range ha
 prop, not the browser. Renamed to `metrics` and the URL now comes from the server. The rename's
 regex also rewrote two i18n keys (`governance.window.byAgent` → `governance.metrics.byAgent`), which
 the browser check caught as two untranslated headings.
+---
+
+## 11 — GOV.P2 outcome (2026-08-24)
+
+**The enumeration was the gate's real work.** Every candidate "waiting on a human" state, with where
+it is set, where it is cleared, and whether it can occur today:
+
+| Candidate | Set | Cleared | Blocks a HUMAN? | Reachable today? | Verdict |
+|---|---|---|---|---|---|
+| **Pending agent actions** | `ApprovalQueue::propose()` → `pending` | `approve()` / `reject()`, each re-authorising the tool's own permission | **Yes** — nothing else moves it | Yes (2 in the demo) | **INCLUDED** |
+| **Threads flagged for a clinician** | `InboxAgent::refuseClinical()` writes `clinician_attention_at` + reason, audits `thread.flagged_for_clinician` | **nothing clears the column** — see below | **Yes** | Yes (1 in the demo) | **INCLUDED**, with a derived definition |
+| **Fence-refused actions** | `ApprovalQueue::recordFenceRefusal()` | — (terminal) | **No** — there is no approve or reject left to perform | Yes | **EXCLUDED — terminal.** Where the refusal did leave work, it is already counted: the same inbox refusal sets the clinician flag |
+| **Operator access requests** (OPMODE.G3) | `OperatorGrant` / `operator_access_grants` | owner decision | Yes, in principle | **No** — Operator Mode is inert (D-164): no HTTP route, no UI, so none can be raised | **EXCLUDED — cannot occur.** Stated on screen rather than shown as an empty queue |
+| **Orders resulted-but-unreviewed** | result entry → `Order::STATUS_RESULTED` | `OrderService::markReviewed()` (`order.manage`) | Yes | Yes | **EXCLUDED — own screen** (`/clinical/orders/review`), named on the panel |
+| **Recalls due** (PC.P7) | `RecallEngine::evaluate()` | `RecallService` transitions | Yes | Yes (3 in the demo) | **EXCLUDED — own screen**, named |
+| **Draft referrals awaiting send** (PC.P6) | `ReferralService::create()` | `send()` | Yes | Yes | **EXCLUDED — own screen**, named |
+| **Unsigned clinical notes** | `ClinicalNoteService` draft | sign | Yes | Yes (3 in the demo) | **EXCLUDED — own screen**, named |
+| **Draft timesheet lines** | nursing capture | coordinator `approve()` | Yes | Yes | **EXCLUDED — own screen** |
+| **Dunning / waitlist offers** | — | — | Waits on a PAYER or a PATIENT, not on our staff | — | **EXCLUDED — not blocked on us** |
+
+**The finding that shaped the design:** `clinician_attention_at` is **set and never cleared** — a
+whole-repo search finds no writer that nulls it. Counting flagged threads directly would produce a
+number no human action could ever reduce: a worklist you cannot empty, which is worse than none. So
+the reader defines *still waiting* as a conjunction of three real facts — **flagged**, **still
+open**, and **no staff message since the flag** — each cleared by a real human action (reply, or
+close). Both clearing paths are tested through the real services.
+
+**Scope, stated on the page.** The panel covers agent governance. The clinical and operational
+worklists above are real, are not in it, and are **named on screen with the note that they live on
+their own screens** — so the honest empty state ("nothing in agent governance is waiting") can never
+be read as a global all-clear. That is the PC.P5 completeness lesson applied to the *boundary*
+rather than to the contents.
+
+**Per-category permission scoping, fail-closed.** Approvals need `ai.manage`, the clinician hand-off
+needs `comms.manage`. A viewer without one gets `visible: false`, a zero and no items — never
+another category's data — and the total reflects only what they can see, so they are not told a
+queue is empty when they simply cannot see it. Pinned at the reader, called directly, with the
+control that the permission they *do* hold still returns real data.
+
+**One definition.** The pending count comes from `AgentMetricsService::pendingApprovalCount()`, the
+same figure the GOV.P1 dashboard shows; the test asserts panel = dashboard = queue, and the mutation
+that gives the panel its own arithmetic turns the suite red.
+
+**No invented urgency.** No priority, SLA, overdue band or age tint. Items are ordered oldest-first —
+a date sort over a recorded timestamp, never presented as importance (the PC.P7 formulation, D-169).
+
+**Where the clinical line falls, precisely.** The panel shows the thread's **subject** (a
+staff-authored title already visible in the inbox) and the fence's **recorded reason** (a routing
+code) — the item's identity, without which the row is an anonymous "1 waiting" nobody can act on. It
+never shows the patient's words. The demo's flagged message reads *"mir ist seit gestern
+schwindlig"*, and the fence test asserts that body — **read from the database, so it holds in any
+language and survives a seed change** — never reaches the payload. A first version of that test
+scanned English symptom words only and would have missed it.
+
+**Tests:** `tests/Feature/Governance/NeedsHumanTest.php` (8 tests, 101 assertions).
+**Mutation-checked seven ways, all red:** a category dropped (the exhaustiveness control), the
+clinician category counting the raw flag, the panel computing its own pending count, the approvals
+permission ignored, an SLA/urgency field added, the excluded worklists no longer named, and the
+patient's message body leaked into the panel.
+
+**A gap mutation found in my own test.** With only the *reply* path covered, deleting the
+`status = OPEN` conjunct left the suite green — the fixture's one flagged thread was open either way,
+so nothing measured that clause. A second test now closes the thread through `ThreadService::close()`
+and asserts it leaves the list, which makes the conjunct load-bearing. Same shape as PT.P7's
+tenant-binding gap: a conjunct no test isolates is a conjunct that can be deleted in silence.
 ---
 
 ## 8 — What this audit did not do

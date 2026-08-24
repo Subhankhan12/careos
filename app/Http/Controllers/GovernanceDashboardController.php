@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Services\AgentMetricsService;
+use App\Services\NeedsHumanReader;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -95,6 +96,7 @@ class GovernanceDashboardController
         SettingsService $settings,
         KillSwitch $killSwitch,
         AgentMetricsService $metrics,
+        NeedsHumanReader $needsHuman,
     ): Response {
         Gate::authorize('audit.view');
         $actor = $request->user();
@@ -117,6 +119,12 @@ class GovernanceDashboardController
              * Every figure is a real count or an honest null; see the reader's docblock for the
              * list of things the wireframe asked for that are deliberately absent.
              */
+            /*
+             * GOV.P2 — what is actually waiting on a person right now. Scoped PER CATEGORY to what
+             * this viewer may see (fail-closed), and deliberately not windowed: a queue depth is a
+             * fact about now, not about a period.
+             */
+            'needsHuman' => $needsHuman->forUser($actor),
             'metrics' => $metrics->window($from, $to),
             'windowLedger' => $metrics->ledgerForWindow($from, $to, 40),
             'range' => $range,

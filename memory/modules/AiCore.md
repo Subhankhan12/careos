@@ -443,3 +443,23 @@ for real, remove the line — do not leave the page contradicting itself.
 
 **Vue trap:** do not name a prop `window` — it shadows the browser global inside an SFC.
 
+### GOV.P2 — the "needs a human" reader (2026-08-24)
+
+`App\Services\NeedsHumanReader` answers "what is waiting on a person right now" for agent
+governance: **pending approvals** (`ai.manage`) and **threads still awaiting a clinician**
+(`comms.manage`), each permission-scoped fail-closed and each linking to where a human acts.
+
+**`clinician_attention_at` is set and NEVER cleared** (`InboxAgent::refuseClinical`; no writer
+anywhere nulls it). Counting flagged threads directly gives a number that can never fall, so the
+reader defines *still waiting* as flagged **and** open **and** no staff message since the flag.
+If you touch that query, keep all three conjuncts pinned — a mutation showed the `open` clause
+was dead until a test closed a thread instead of replying to it.
+
+**The panel names what it does NOT cover** (`governance.needsHuman.elsewhere`): results to
+review, recalls due, referrals to send, notes to sign. That is what stops its honest empty state
+from reading as a global all-clear. If a new agent-governance blocking state appears, add it as a
+category; if a clinical worklist changes, update the named list.
+
+**The pending count is `AgentMetricsService::pendingApprovalCount()`** — shared with the GOV.P1
+dashboard. Never re-query it locally.
+

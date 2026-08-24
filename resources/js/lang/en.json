@@ -3075,6 +3075,37 @@
             "breaches": "No \"breaches\" count. Nothing records a breach, so a zero would be unfalsifiable — the refusals above are what is actually countable.",
             "kbGaps": "No ranking of knowledge-base gaps. Nothing yet records the questions an agent could not ground, so there is nothing to rank.",
             "escalated": "No \"escalated\" outcome. Handing a thread to a clinician is flagged on the thread itself, not as an agent-action outcome — it is shown in the inbox, where it can be acted on."
+        },
+        "needsHuman": {
+            "title": "Waiting on a person",
+            "subtitle": "Agent work that cannot move until someone acts. Each one is a real state, and each link goes to where you act on it.",
+            "category": {
+                "pending_approvals": "Drafts awaiting approval",
+                "clinician_attention": "Handed to a clinician"
+            },
+            "hint": {
+                "pending_approvals": "Proposed by an agent; waiting for someone to approve or reject.",
+                "clinician_attention": "The fence refused a clinical question and flagged the thread. Still open, still unanswered."
+            },
+            "act": {
+                "pending_approvals": "Open the approval queue",
+                "clinician_attention": "Open the inbox"
+            },
+            "noPermission": "You do not have access to this one.",
+            "empty": "Nothing in agent governance is waiting on a person.",
+            "scope": {
+                "title": "What this covers",
+                "body": "Agent governance only. Other work that waits on a person lives on its own screen, with its own owner:"
+            },
+            "elsewhere": {
+                "orders_review": "Results to review",
+                "recalls_due": "Recalls due",
+                "referrals_draft": "Referrals to send",
+                "notes_draft": "Notes to sign"
+            },
+            "unproducible": {
+                "operator_access_request": "Support-access requests would also wait on the practice owner, but operator mode is switched off in this build, so none can be raised."
+            }
         }
     },
     "aiQueue": {
