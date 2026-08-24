@@ -3019,6 +3019,62 @@
             "resource": "Resource",
             "when": "When",
             "empty": "No audit events recorded yet."
+        },
+        "window": {
+            "title": "Agent activity",
+            "subtitle": "Every agent action in this period, counted from the record. {from} to {to}.",
+            "range": {
+                "7d": "Last 7 days",
+                "30d": "Last 30 days",
+                "90d": "Last 90 days"
+            },
+            "status": {
+                "pending": "Waiting for a person",
+                "executed": "Approved and run",
+                "rejected": "Rejected",
+                "fence_refused": "Refused by the fence"
+            },
+            "pendingHint": "Waiting right now, not only in this period.",
+            "empty": "No agent actions in this period.",
+            "byAgent": "By agent",
+            "byTool": "By tool",
+            "noTools": "No tool activity in this period.",
+            "col": {
+                "agent": "Agent",
+                "actions": "Actions",
+                "refused": "Refused",
+                "approvedAsIs": "Approved as-is"
+            },
+            "approvedAsIsNote": "Approved as-is counts approvals a person did not edit, across everything that agent has ever resolved — not just this period. A dash means nothing has resolved yet.",
+            "ceiling": "max {level}",
+            "unregistered": "{count} action(s) reference a tool that is not in the registry and are not listed above.",
+            "fence": {
+                "title": "Refused by the fence",
+                "note": "Times the fence stopped an agent before it produced anything, in this period. There is no \"breaches\" figure here: nothing records a breach, so a zero would prove nothing."
+            },
+            "ledger": {
+                "title": "Action ledger",
+                "subtitle": "The append-only record for this period. Read-only — rows can never be edited or deleted.",
+                "empty": "No ledger entries in this period.",
+                "when": "When",
+                "agent": "Agent",
+                "tool": "Tool",
+                "outcome": "Outcome",
+                "detail": "Detail"
+            }
+        },
+        "vault": {
+            "title": "The electric fence",
+            "subtitle": "Enforced in code. These are not settings — there is no switch for them here or anywhere.",
+            "manage": "Agent configuration"
+        },
+        "omitted": {
+            "title": "What this page does not show",
+            "subtitle": "Numbers we could draw but cannot source. We would rather leave them out than invent them.",
+            "confidence": "No confidence score. The agents produce no confidence signal, so any number here would be decoration.",
+            "breaches": "No \"breaches\" count. Nothing records a breach, so a zero would be unfalsifiable — the refusals above are what is actually countable.",
+            "kbGaps": "No ranking of knowledge-base gaps. Nothing yet records the questions an agent could not ground, so there is nothing to rank.",
+            "escalated": "No \"escalated\" outcome. Handing a thread to a clinician is flagged on the thread itself, not as an agent-action outcome — it is shown in the inbox, where it can be acted on."
         }
     },
     "aiQueue": {

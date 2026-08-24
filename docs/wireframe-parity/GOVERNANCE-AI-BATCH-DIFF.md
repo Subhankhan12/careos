@@ -267,7 +267,7 @@ audited components. Only the range picker and the export panel are new.
 
 | Gap | Unlocks | Size |
 |---|---|---|
-| **G1 · A windowed governance-metrics reader** (counts by outcome, by agent, over an arbitrary range; queue depth + oldest-waiting) | Dashboard KPIs, outcome mix, per-agent fleet counts, prior-window comparison — **and** the export summary panel | **Med** — pure aggregation over two existing append-only tables; `AgentMetricsService` is the natural home and already has the alias map |
+| ~~**G1 · A windowed governance-metrics reader**~~ ✅ **DONE (GOV.P1)** — `AgentMetricsService::window()`: counts by real status, by canonical agent, by REGISTERED tool (with each tool's real ceiling), the ledger by outcome, the fence-refusal count and the live queue depth | The dashboard; the export summary panel when GOV.P5 lands | — |
 | **G2 · An "actions needing a human" reader** (pending actions + threads with `clinician_attention_at` set) | The Dashboard's needs-a-human list, and a cross-link from the fence-refused screen | **Low-Med** — both sources exist; the join is new |
 | **G3 · A governance-ledger exporter** (filtered range → CSV/JSON, chain manifest, private-disk stream, **its own audit row**) | Screen 10 entirely | **Med-High**, security-sensitive |
 | ~~**G4 · Demo governance data**~~ ✅ **DONE (GOV.P4)** — executed (as-is + edited), rejected, fence-refused, spread across 12 days, every state driven through its real path | Screens 4 and 5 are demonstrable; AGENT.P5's approved-as-is % has a real denominator | — |
@@ -306,7 +306,7 @@ designed*, and listing them as gaps would smuggle them into a parity chain.
 
 | Gate | Builds | Proves |
 |---|---|---|
-| **GOV.P1** | **G1 + the Dashboard's honest half.** The windowed metrics reader, then the date-range picker (presets + custom), per-agent filter, the KPI tiles (closed, D-166), the outcome mix from real statuses, and the fleet grid over all **six** agents with real per-agent counts and real status. | Every number a real count or "—". **No trend verdict, no "0 breaches", no escalated slice.** The prior-window comparison, if built, shows two counts — not an arrow. |
+| ~~**GOV.P1**~~ ✅ **DONE** | **G1 + the Dashboard's honest half.** The windowed reader, the server-re-parameterised range picker (7/30/90), closed KPI tiles per real status, per-agent and per-tool activity over all six agents, the fence-refusal count, the windowed ledger, and the mirrored fence vault. | Every number a real count or "—". **No trend verdict, no "0 breaches", no escalated slice, no confidence score, no invented tool.** The omissions are STATED on the page. See §10. |
 | **GOV.P2** | **G2 — "needs a human".** Pending actions + threads flagged `clinician_attention`, each linking to the real surface. | The list states *that* a clinician is needed and the recorded reason — **never a characterisation of the symptom**, and no clinical content on an `audit.view` screen. |
 | **GOV.P3** | **KB Admin parity** — the explainer line, the active/inactive grouping, last-saved-by (G5), Preview. | Deactivation still stops grounding immediately (assert it); no "draft" state invented for a boolean column. |
 | ~~**GOV.P4**~~ ✅ **DONE** | **G4 — demo governance data**: one executed as-is, one edited-then-approved, one rejected, the fence refusal kept, spread across 12 days. | Screens 4/5 demonstrable; the outcome mix non-degenerate. **Every state driven through its real path** — the mutation that hand-sets a status turns the suite red. See §9. |
@@ -375,6 +375,71 @@ has ever been approved", which is exactly what this gate changed. Two stricter a
 beside it (rejected = 1, fence_refused = 1). The seeder's prior invariants all still hold: the demo
 period still reconciles to the unit, the audit chain still verifies, and the seeder is still
 idempotent.
+---
+
+## 10 — GOV.P1 outcome (2026-08-24)
+
+**G1 — the reader.** `AgentMetricsService::window(from, to)` returns, for a period: counts by **real
+agent-action status**, per **canonical agent** (through the same `LEDGER_ALIASES` the agent pages
+use), per **registered tool** (with the tool's real category and ceiling beside the count), the
+ledger by outcome, the fence-refusal count, and the live queue depth. Tenant-scoped by the models'
+own global scope; the dashboard route is `audit.view`-gated, and a user without it gets a 403 with a
+positive control proving the gate is what refused.
+
+**One definition, not two.** `approvedAsIsPct` was extracted from AGENT.P5's `hero()` into a private
+helper that **both** call, so an agent's own page and the dashboard cannot disagree about the same
+number — the BILLAR.P3/P5 precedent. A test asserts the two agree for four agents, and the mutation
+that gives the dashboard its own arithmetic turns the suite red. The honest `null → "—"` survives:
+`dispatch` and `clinical_summary` show a dash because nothing of theirs has resolved, which is the
+control that makes `scheduler = 100%` and `inbox = 0%` meaningful.
+
+**Which timestamp a window uses.** An action counts in the window in which the thing **happened** —
+a resolved action by when it resolved, a pending one by when it was raised. Windowing everything on
+`created_at` would drop an action raised weeks ago and approved this morning out of "this week",
+which is the opposite of what an oversight screen is for.
+
+**The range picker re-parameterises the SERVER.** Picking 7/30/90 days re-requests the page and the
+reader recomputes from the records; there is no client-side re-slice, which could only narrow what
+was already fetched and would disagree with the database past the page size (the BILLAR.P6 rule).
+Proven by fetching two ranges and asserting the server returned different figures — over GOV.P4's
+spread, the 12-day-old rejection is present at 30 days and **absent** at 7.
+
+### The omissions — each stated on the page, not silently dropped
+
+The wireframe drew seven things the code deliberately does not have. Every one is absent from the
+build, and the page carries a **"What this page does not show"** card naming four of them with the
+reason, so a reader who expected a number learns it has no source rather than assuming a bug (the
+PC.P5 / PT precedent).
+
+| Omitted | Why |
+|---|---|
+| **Nine invented acting tool keys** (`comms.send`, `clinical.sign`, `billing.charge`, `recall.send_batch`, `clinical.summary_draft`, `nursing.dispatch_suggest`, `scheduling.read`, `scheduling.book`, `comms.draft`) | Only `ToolRegistry` keys are emitted. Every invented key names an **acting** capability — send, sign, charge, book — and none was ever built; printing one would say it exists and was merely refused (D-170). Rows with an unregistered key are counted in `unregisteredTools` so nothing is hidden, without naming a tool that does not exist. |
+| **"The fence held 100% · 0 breaches"** | Nothing records a breach, so the number is unfalsifiable. **Shown instead:** the fence-refusal count — real `fence_refused` actions (APPROVAL.P5) — with a caption saying outright that there is no breaches figure and why. |
+| **The confidence score (0.86 / 0.68)** | No runtime confidence signal exists; AGENT.P6 already rendered it honestly deferred. Stated on the page. |
+| **The "escalated" outcome slice** | Not an `agent_action` status. The real hand-off is `clinician_attention_at` on a **thread**, and the page says so — pointing to the inbox, where it can be acted on, rather than inventing a fifth slice a chart cannot source. |
+| **The KB-gap ranking** | Rests on ungrounded-question telemetry that does not exist anywhere (zero greps). A feature needing a record first, not a parity gap (D-170). Stated on the page. |
+| **The "Level 3 requires governance sign-off" tier** | Implies AUTO is reachable. It is not — clinical and financial cap at APPROVE forever, clamped on write and again at call time. No such tier is drawn; instead every per-tool row states the tool's **real ceiling**. |
+| **"Possible red flag — chest tightness"** | Both a clinical judgment and clinical content on an `audit.view` screen. The fence scan asserts no symptom text reaches the payload. |
+
+**Reused, not rebuilt:** the closed `StatCard` for the KPI tiles (D-166 — no computed value enters
+one, and they are not filters), AGENT.P5's ledger presenter (one method now serves both the agent
+tab and the dashboard's windowed table), and AGENT.P3's `FENCE_INVARIANTS` — mirrored from the same
+constant, so the two surfaces state one set of invariants rather than two that could drift.
+
+**Tests:** `tests/Feature/Governance/GovernanceWindowTest.php` (7 tests, 116 assertions) — window
+boundaries against GOV.P4's spread, the one-definition agreement, registry-only tools (with the nine
+invented keys asserted absent *and* asserted still-unregistered), server re-parameterisation, the
+fence re-assertion over a **non-empty** payload, the stated omissions, and the RBAC gate.
+**Mutation-checked eight ways, all red:** ignoring the window, a second approved-as-is definition,
+an unregistered tool reaching the screen, the honest "—" becoming a fabricated 0, the range ignored
+server-side, a confidence score added, a "0 breaches" counter added, and `Dashboard.vue` naming
+`comms.send`.
+
+**A near-miss worth recording:** the metrics prop was first called `window`, which **shadows the
+browser global inside a Vue SFC** — `window.location.pathname` in the range handler resolved to the
+prop, not the browser. Renamed to `metrics` and the URL now comes from the server. The rename's
+regex also rewrote two i18n keys (`governance.window.byAgent` → `governance.metrics.byAgent`), which
+the browser check caught as two untranslated headings.
 ---
 
 ## 8 — What this audit did not do

@@ -65,8 +65,13 @@ class AgentConfigController
      * The electric-fence invariants — CODE-ENFORCED, toggle-free. Keys only; the descriptor text is
      * i18n. Every one is a genuinely enforced invariant (cited in the AGENT.P3 gate report / the DIFF
      * doc); this card DISPLAYS them, there is no route or action here to disable any of them.
+     *
+     * The governance dashboard mirrors this SAME list (GOV.P1), so the two surfaces state one
+     * set of invariants rather than two that could drift apart.
+     *
+     * @var list<string>
      */
-    private const FENCE_INVARIANTS = [
+    public const FENCE_INVARIANTS = [
         'ai_labelled',          // every interaction recorded to the append-only ai_interactions ledger
         'human_approves_send',  // agents draft (comms.draft_reply); a human sends — no send tool exists
         'clinical_reviewed',    // clinical tools capped at suggest; no diagnosis/triage/dosing

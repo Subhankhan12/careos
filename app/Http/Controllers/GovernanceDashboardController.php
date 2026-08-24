@@ -2,8 +2,10 @@
 
 namespace App\Http\Controllers;
 
+use App\Services\AgentMetricsService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Str;
 use Inertia\Inertia;
@@ -47,6 +49,24 @@ class GovernanceDashboardController
     /** How far back the AI-usage summary looks. */
     private const AI_WINDOW_DAYS = 30;
 
+    /**
+     * GOV.P1 — the ranges the governance window offers, in days back from today.
+     *
+     * These are SERVER-side parameters, not client filters: picking one re-requests this page and
+     * the reader recomputes from the real records. A client-side re-slice would only ever be able
+     * to narrow what was already fetched, and would quietly disagree with the database as soon as
+     * the window exceeded the page size (the BILLAR.P6 rule).
+     *
+     * @var array<string, int>
+     */
+    private const RANGES = [
+        '7d' => 7,
+        '30d' => 30,
+        '90d' => 90,
+    ];
+
+    private const DEFAULT_RANGE = '30d';
+
     /** How many recent rows each activity list surfaces. */
     private const ACTIVITY_LIMIT = 15;
 
@@ -69,15 +89,43 @@ class GovernanceDashboardController
         'agent_action.rejected',
     ];
 
-    public function index(Request $request, AuditService $audit, SettingsService $settings, KillSwitch $killSwitch): Response
-    {
+    public function index(
+        Request $request,
+        AuditService $audit,
+        SettingsService $settings,
+        KillSwitch $killSwitch,
+        AgentMetricsService $metrics,
+    ): Response {
         Gate::authorize('audit.view');
         $actor = $request->user();
         abort_unless($actor instanceof User, 403);
 
         $tenantId = $actor->tenant_id;
 
+        // The window comes from the REQUEST and is resolved here; an unknown value falls back to
+        // the default rather than erroring, so a hand-edited URL cannot break the page.
+        $range = (string) $request->query('range', self::DEFAULT_RANGE);
+        $days = self::RANGES[$range] ?? self::RANGES[self::DEFAULT_RANGE];
+        $range = array_key_exists($range, self::RANGES) ? $range : self::DEFAULT_RANGE;
+        $to = Carbon::today();
+        $from = $to->copy()->subDays($days - 1);
+
         return Inertia::render('Governance/Dashboard', [
+            /*
+             * GOV.P1 — the windowed governance metrics (G1). Computed SERVER-side by the same
+             * reader the agent pages use, so the two surfaces cannot disagree about a number.
+             * Every figure is a real count or an honest null; see the reader's docblock for the
+             * list of things the wireframe asked for that are deliberately absent.
+             */
+            'metrics' => $metrics->window($from, $to),
+            'windowLedger' => $metrics->ledgerForWindow($from, $to, 40),
+            'range' => $range,
+            'ranges' => array_keys(self::RANGES),
+            // The fence-vault invariants, mirrored from the SAME list the agent page shows
+            // (AGENT.P3). Display only — there is no route here, or anywhere, to disable one.
+            'fenceInvariants' => AgentConfigController::FENCE_INVARIANTS,
+            'agentsUrl' => route('governance.agents.index'),
+            'dashboardUrl' => route('governance.dashboard'),
             'chain' => $this->chainStatus($audit, $tenantId),
             'reconciliation' => $this->reconciliationStatus($settings),
             'ai' => $this->aiUsage($settings),

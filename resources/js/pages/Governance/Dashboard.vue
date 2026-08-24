@@ -18,6 +18,32 @@ const props = defineProps<{
     activity: Array<{ id: string; occurredAt: string; action: string; actorType: string; resourceType: string | null }>;
     security: Array<{ id: string; occurredAt: string; action: string; actorType: string; resourceType: string | null }>;
     verifyUrl: string;
+    /*
+     * GOV.P1 — the windowed governance metrics (G1), computed SERVER-side. Every figure is a real
+     * count of real records or an honest null. There is deliberately no confidence score, no
+     * breach counter, no KB-gap ranking and no trend verdict here: the records that would source
+     * them do not exist, and a governance screen inventing one would be the exact failure this
+     * screen is meant to detect (GOVERNANCE-AI-BATCH-DIFF.md §4.4).
+     */
+    metrics: {
+        from: string;
+        to: string;
+        byStatus: Record<string, number>;
+        byAgent: Array<{ key: string; name: string; total: number; byStatus: Record<string, number>; approvedAsIsPct: number | null }>;
+        /** REGISTERED tools only — the ten governed tools are the whole set (D-170). */
+        byTool: Array<{ key: string; name: string; category: string; ceiling: string; total: number }>;
+        unregisteredTools: number;
+        ledgerTotal: number;
+        ledgerByOutcome: Record<string, number>;
+        fenceRefused: number;
+        pendingNow: number;
+    };
+    windowLedger: Array<{ id: string; agentLabel: string; tool: string; outcome: string; reason: string | null; occurredAt: string | null; system: boolean }>;
+    range: string;
+    ranges: string[];
+    fenceInvariants: string[];
+    agentsUrl: string;
+    dashboardUrl: string;
 }>();
 
 const flash = computed(() => (page.props.flash as { status?: string } | undefined)?.status);
@@ -35,6 +61,28 @@ function dateTime(iso: string | null): string {
 
 function verifyNow(): void {
     router.post(props.verifyUrl, {}, { preserveScroll: true });
+}
+
+/*
+ * The range picker RE-REQUESTS the page: the server recomputes the window from the real records.
+ * It is not a client-side filter over what was already loaded — that could only ever narrow the
+ * fetched rows, and would disagree with the database the moment a window exceeded the page size.
+ */
+function selectRange(range: string): void {
+    router.get(props.dashboardUrl, { range }, { preserveScroll: true, preserveState: false });
+}
+
+// The REAL agent-action statuses. Nothing else may appear: "escalated" is not one of them (the
+// real hand-off is clinician_attention on a thread), and inventing it would put a fifth slice on
+// a chart that the database cannot produce.
+const STATUSES = ['pending', 'executed', 'rejected', 'fence_refused'] as const;
+
+const windowTotal = computed(() => Object.values(props.metrics.byStatus).reduce((sum, n) => sum + n, 0));
+const activeAgents = computed(() => props.metrics.byAgent.filter((a) => a.total > 0));
+
+/** A recorded percentage, or the honest em-dash when nothing has resolved (the AGENT.P5 rule). */
+function pct(value: number | null): string {
+    return value === null ? '—' : `${value}%`;
 }
 </script>
 
@@ -140,6 +188,149 @@ function verifyNow(): void {
                 </div>
             </Card>
 
+            <!-- ── GOV.P1 · the governance window ─────────────────────────────────────────────
+                 Everything below is a real count over [from, to], recomputed on the SERVER when the
+                 range changes. -->
+            <Card :title="t('governance.window.title')" :subtitle="t('governance.window.subtitle', { from: metrics.from, to: metrics.to })">
+                <div class="flex flex-wrap items-center gap-1.5">
+                    <button
+                        v-for="r in ranges"
+                        :key="r"
+                        type="button"
+                        class="rounded-full px-3 py-1 text-xs font-medium transition"
+                        :class="r === range ? 'nav-pill-active text-ink' : 'bg-surface-2 text-ink-muted hover:text-ink'"
+                        @click="selectRange(r)"
+                    >
+                        {{ t(`governance.window.range.${r}`) }}
+                    </button>
+                </div>
+
+                <!-- Outcome breakdown — the REAL statuses only. -->
+                <div class="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                    <StatCard
+                        v-for="status in STATUSES"
+                        :key="status"
+                        :label="t(`governance.window.status.${status}`)"
+                        :value="String(metrics.byStatus[status] ?? 0)"
+                        :hint="status === 'pending' ? t('governance.window.pendingHint') : undefined"
+                    />
+                </div>
+
+                <p v-if="windowTotal === 0" class="mt-5 text-sm text-ink-muted">{{ t('governance.window.empty') }}</p>
+
+                <!-- Per-agent activity. Agents with nothing in the window still appear, at zero:
+                     an absent row would read as "no such agent" rather than "nothing happened". -->
+                <div class="mt-6">
+                    <h3 class="text-sm font-semibold text-ink">{{ t('governance.window.byAgent') }}</h3>
+                    <div class="mt-3 overflow-x-auto">
+                        <table class="w-full min-w-[560px] text-left text-sm">
+                            <thead>
+                                <tr class="border-b border-line text-xs uppercase tracking-wide text-ink-subtle">
+                                    <th class="py-2 pr-3 font-medium">{{ t('governance.window.col.agent') }}</th>
+                                    <th class="py-2 pr-3 font-medium">{{ t('governance.window.col.actions') }}</th>
+                                    <th class="py-2 pr-3 font-medium">{{ t('governance.window.col.refused') }}</th>
+                                    <th class="py-2 font-medium">{{ t('governance.window.col.approvedAsIs') }}</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr v-for="agent in metrics.byAgent" :key="agent.key" class="border-b border-line/50">
+                                    <td class="py-2 pr-3 text-ink">{{ agent.name }}</td>
+                                    <td class="py-2 pr-3 text-ink-muted">{{ agent.total }}</td>
+                                    <td class="py-2 pr-3 text-ink-muted">{{ agent.byStatus.fence_refused ?? 0 }}</td>
+                                    <!-- "—" when nothing has resolved: honestly absent, never a fabricated 0 or 100. -->
+                                    <td class="py-2 text-ink-muted">{{ pct(agent.approvedAsIsPct) }}</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <p class="mt-2 text-xs text-ink-subtle">{{ t('governance.window.approvedAsIsNote') }}</p>
+                </div>
+
+                <!-- Per-tool activity — the REAL registry only, each row stating the tool's own cap. -->
+                <div class="mt-6">
+                    <h3 class="text-sm font-semibold text-ink">{{ t('governance.window.byTool') }}</h3>
+                    <p v-if="!metrics.byTool.length" class="mt-2 text-sm text-ink-muted">{{ t('governance.window.noTools') }}</p>
+                    <ul v-else class="mt-3 space-y-2">
+                        <li v-for="tool in metrics.byTool" :key="tool.key" class="flex flex-wrap items-center justify-between gap-2 border-b border-line/50 pb-2 text-sm">
+                            <span class="min-w-0">
+                                <span class="text-ink">{{ tool.name }}</span>
+                                <span class="ml-1.5 font-mono text-[11px] text-ink-subtle">{{ tool.key }}</span>
+                            </span>
+                            <span class="flex items-center gap-2">
+                                <!-- The tool's REAL ceiling, so the screen states the cap rather than
+                                     implying autonomy the resolver would refuse. -->
+                                <span class="rounded-full bg-surface-2 px-2 py-0.5 text-[11px] font-medium text-ink-muted">{{ t('governance.window.ceiling', { level: tool.ceiling }) }}</span>
+                                <span class="text-ink-muted">{{ tool.total }}</span>
+                            </span>
+                        </li>
+                    </ul>
+                    <p v-if="metrics.unregisteredTools > 0" class="mt-2 text-xs text-ink-subtle">
+                        {{ t('governance.window.unregistered', { count: metrics.unregisteredTools }) }}
+                    </p>
+                </div>
+
+                <!-- The fence. A COUNT of recorded refusals — not a score, and not a "breach" tally:
+                     nothing records a breach, so a zero there would be unfalsifiable. -->
+                <div class="mt-6 rounded-2xl border border-line bg-surface-2 p-4">
+                    <p class="text-sm font-semibold text-ink">{{ t('governance.window.fence.title') }}</p>
+                    <p class="mt-1 text-2xl font-semibold text-ink">{{ metrics.fenceRefused }}</p>
+                    <p class="mt-1 text-xs text-ink-muted">{{ t('governance.window.fence.note') }}</p>
+                </div>
+            </Card>
+
+            <!-- The action ledger for the window — the SAME read-only view of the append-only
+                 ai_interactions table the agent pages render, from the same presenter. -->
+            <Card :title="t('governance.window.ledger.title')" :subtitle="t('governance.window.ledger.subtitle')">
+                <p v-if="!windowLedger.length" class="text-sm text-ink-muted">{{ t('governance.window.ledger.empty') }}</p>
+                <div v-else class="overflow-x-auto">
+                    <table class="w-full min-w-[640px] text-left text-sm">
+                        <thead>
+                            <tr class="border-b border-line text-xs uppercase tracking-wide text-ink-subtle">
+                                <th class="py-2 pr-3 font-medium">{{ t('governance.window.ledger.when') }}</th>
+                                <th class="py-2 pr-3 font-medium">{{ t('governance.window.ledger.agent') }}</th>
+                                <th class="py-2 pr-3 font-medium">{{ t('governance.window.ledger.tool') }}</th>
+                                <th class="py-2 pr-3 font-medium">{{ t('governance.window.ledger.outcome') }}</th>
+                                <th class="py-2 font-medium">{{ t('governance.window.ledger.detail') }}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr v-for="row in windowLedger" :key="row.id" class="border-b border-line/50 align-top">
+                                <td class="whitespace-nowrap py-2 pr-3 text-ink-muted">{{ dateTime(row.occurredAt) }}</td>
+                                <td class="py-2 pr-3 text-ink">{{ row.agentLabel }}</td>
+                                <td class="py-2 pr-3 font-mono text-[11px] text-ink-subtle">{{ row.tool }}</td>
+                                <td class="py-2 pr-3 text-ink-muted">{{ row.outcome }}</td>
+                                <td class="py-2 text-xs text-ink-muted">{{ row.reason || '—' }}</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </Card>
+
+            <!-- The fence vault — the SAME code-enforced invariants the agent page shows (AGENT.P3),
+                 display-only. There is no toggle here, or anywhere. -->
+            <Card :title="t('governance.vault.title')" :subtitle="t('governance.vault.subtitle')">
+                <ul class="grid gap-2 sm:grid-cols-2">
+                    <li v-for="key in fenceInvariants" :key="key" class="flex items-start gap-2 text-sm">
+                        <svg class="mt-0.5 h-4 w-4 shrink-0 text-euca-600" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                            <path d="M5 12.5l4 4 10-10" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+                        </svg>
+                        <span class="text-ink">{{ t(`agentConfig.fence.invariants.${key}.title`) }}</span>
+                    </li>
+                </ul>
+                <Link :href="agentsUrl" class="mt-4 inline-flex text-sm font-semibold text-euca-700 hover:text-euca-800">{{ t('governance.vault.manage') }}</Link>
+            </Card>
+
+            <!-- What this screen deliberately does NOT show, and why. Saying the gap is the honest
+                 alternative to quietly omitting it — a reader who expected these numbers from the
+                 wireframe learns that they have no source, rather than assuming a bug. -->
+            <Card :title="t('governance.omitted.title')" :subtitle="t('governance.omitted.subtitle')">
+                <ul class="space-y-1.5 text-sm text-ink-muted">
+                    <li v-for="key in ['confidence', 'breaches', 'kbGaps', 'escalated']" :key="key" class="flex items-start gap-2">
+                        <span class="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-ink-subtle" />
+                        <span>{{ t(`governance.omitted.${key}`) }}</span>
+                    </li>
+                </ul>
+            </Card>
             <!-- Kill-switch state + security-relevant events. -->
             <div class="grid gap-6 lg:grid-cols-2">
                 <Card :title="t('governance.kill.title')" :subtitle="t('governance.kill.subtitle')">

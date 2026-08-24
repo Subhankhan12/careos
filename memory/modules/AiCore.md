@@ -423,3 +423,23 @@ is the genuinely inert one (reads the finder, `books_on_approval: false`). Avoid
 real call cannot reorder the hash chain against `verifyChain()`'s `occurred_at ASC` replay. The
 ledger and the action timestamps DO move. See [[demo-seeder-is-the-heavy-fixture]].
 
+### GOV.P1 — the windowed governance reader (2026-08-24)
+
+`AgentMetricsService::window(from, to)` is THE governance metrics reader: counts by real status,
+by canonical agent (via `LEDGER_ALIASES`), by **registered tool only** (with the tool's real
+ceiling), the ledger by outcome, the fence-refusal count and the live queue depth.
+
+**`approvedAsIsPct` has ONE definition** — a private helper shared by `hero()` and `window()`.
+If you add a third caller, call the helper; a second copy of the arithmetic is what the mutation
+test exists to catch. The honest `null → "—"` is load-bearing: never default it to 0.
+
+**Only `ToolRegistry` keys may be emitted.** The governance wireframe drew nine acting tool keys
+(`comms.send`, `clinical.sign`, `billing.charge`, …) that were never built; printing one would
+claim the capability exists. Unregistered keys are counted in `unregisteredTools` instead.
+
+**The dashboard states what it cannot show** (`governance.omitted.*`): no confidence score, no
+breach count, no KB-gap ranking, no "escalated" outcome. If a future gate sources one of these
+for real, remove the line — do not leave the page contradicting itself.
+
+**Vue trap:** do not name a prop `window` — it shadows the browser global inside an SFC.
+
