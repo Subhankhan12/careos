@@ -11,6 +11,7 @@ use Database\Factories\StaffProfileFactory;
 use Database\Factories\VitalFactory;
 use Illuminate\Database\Seeder;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
 use Modules\AiCore\Exceptions\FenceRefusalException;
 use Modules\AiCore\Models\KbArticle;
@@ -29,6 +30,7 @@ use Modules\Billing\Services\IssueService;
 use Modules\Billing\Services\PaymentService;
 use Modules\Clinical\Models\ClinicalNote;
 use Modules\Clinical\Models\Encounter;
+use Modules\Clinical\Models\Recall;
 use Modules\Clinical\Models\RecallRule;
 use Modules\Clinical\Models\Referral;
 use Modules\Clinical\Services\CarePlanService;
@@ -163,6 +165,12 @@ class DemoClinicSeeder extends Seeder
 
     /** A non-groundable patient thread whose draft hands off — approving it fires (and records) the fence. */
     private ?Thread $fenceThread = null;
+
+    /**
+     * A groundable opening-hours question (GOV.P4). Its draft is proposed, EDITED by a human, and
+     * approved — so the demo carries a real edit-through-the-gate with `human_edited` provenance.
+     */
+    private ?Thread $editedThread = null;
 
     private CarbonImmutable $periodStart;
 
@@ -1632,6 +1640,19 @@ class DemoClinicSeeder extends Seeder
         // A polite, non-groundable message: the inbox agent can ground nothing, so its draft hands
         // off — and approving that draft fires the ELECTRIC FENCE, which is RECORDED as a real
         // fence_refused outcome (in seedAiCore below, through the genuine approve path — no faked row).
+        /*
+         * GOV.P4 — a question the KB CAN ground (its text carries an active article's title, which is
+         * what the draft engine matches on). The agent drafts a grounded line; a human then edits the
+         * wording and approves, and the edit is re-validated against the same source at approve time.
+         */
+        $this->editedThread = $threads->openPatientThread($nadia, 'Öffnungszeiten', $reception);
+        $threads->addPatientParticipant($this->editedThread, $nadia, $reception);
+        $threads->postPatientMessage(
+            $this->editedThread,
+            $nadia,
+            'Guten Tag, wie sind Ihre Öffnungszeiten und Erreichbarkeit über die Feiertage?',
+        );
+
         $this->fenceThread = $threads->openPatientThread($nadia, 'Vielen Dank', $reception);
         $threads->addPatientParticipant($this->fenceThread, $nadia, $reception);
         $threads->postPatientMessage($this->fenceThread, $nadia, 'Vielen Dank für Ihre Hilfe!');
@@ -1738,6 +1759,186 @@ class DemoClinicSeeder extends Seeder
             // Expected: the fence refused the handed-off draft; ApprovalQueue already recorded the
             // fence_refused status + ledger row before re-throwing. Nothing was sent.
         }
+
+        $this->seedResolvedAgentActions($queue);
+    }
+
+    /**
+     * GOV.P4 — the RESOLVED outcomes, each reached by DRIVING ITS REAL PATH.
+     *
+     * Until this gate the demo produced only `pending` and `fence_refused`, so the Resolved and
+     * Rejected governance screens had nothing to show and AGENT.P5's approved-as-is percentage had
+     * no denominator (it renders "—" with nothing resolved).
+     *
+     * **Nothing here writes a status column and nothing inserts a ledger row.** Every state is the
+     * result of the same call the UI makes: `approve()` re-authorises the reviewer against the
+     * tool's OWN permission and re-executes the tool from live state; `reject()` requires a reason.
+     * A seeded state that did not traverse its guard would prove nothing and would make the demo
+     * lie about the gate.
+     *
+     * WHICH TOOLS, AND WHY THESE ARE SAFE TO EXECUTE IN A DEMO TENANT:
+     *  - `scheduler.suggest_slots` — its execute() only READS the availability finder and returns
+     *    the slots; it declares `books_on_approval: false` and writes nothing at all.
+     *    **`billing.preflight_invoice` was tried first and rejected**: its execute runs the charge
+     *    validator, which PERSISTS validation state — it flipped the demo's dunning fee from draft
+     *    to validated and broke an invariant an earlier gate pinned. "Reports" can still write.
+     *  - `comms.draft_reply` — its execute() posts an in-app message to a demo patient's thread
+     *    through ThreadService. **It sends nothing outbound**: no mail, no SMS, no notification —
+     *    the message is read in the portal. It is the only tool with a natural CONTENT edit (its
+     *    `draft` input), so it carries the edited-then-approved case.
+     *  - `clinical.draft_recall_message` is proposed and then REJECTED, so it never executes.
+     *
+     * Deliberately NOT executed here: `scheduler.fill_from_waitlist` (books a real appointment),
+     * the nursing tools (write assignments) and `clinical.summarize_since_last_visit` (writes
+     * clinical content). The waitlist proposal above stays PENDING, which is what the queue screen
+     * needs anyway.
+     */
+    private function seedResolvedAgentActions(ApprovalQueue $queue): void
+    {
+        /*
+         * THE TIME SPREAD, so the windowed metrics and the ledger view have a real distribution
+         * rather than six rows in the same second.
+         *
+         * The technique is to TRAVEL THE CLOCK AROUND EACH REAL CALL — the whole path runs at that
+         * instant, so the action's own timestamps and its append-only ledger rows are consistent
+         * with each other. Nothing is back-dated afterwards: `ai_interactions` refuses UPDATE at
+         * the database (a trigger), so a post-hoc adjustment is not even possible there.
+         *
+         * **Why this cannot corrupt the audit chain**, which is the obvious worry: `AuditService`
+         * forces `occurred_at` to be strictly monotonic per tenant — if now() is not after the
+         * previous row it uses prevTime + 1µs — precisely so the stored order and the verification
+         * order always agree. The chain therefore stays valid while the LEDGER and the action rows
+         * genuinely move. Verified: the seeder test still asserts verifyChain()['ok'].
+         *
+         * The fence refusal and the two pending proposals deliberately stay at "now", so the
+         * 7-day fence counter and the queue both have something current.
+         */
+        $this->atMoment(now()->subDays(12)->setTime(8, 22), fn () => $this->seedRejectedAction($queue));
+        $this->atMoment(now()->subDays(5)->setTime(11, 3), fn () => $this->seedApprovedAsIsAction($queue));
+        $this->atMoment(now()->subDays(2)->setTime(9, 12), fn () => $this->seedEditedThenApprovedAction($queue));
+    }
+
+    /**
+     * Run a real seeding call with the clock set to $moment, always restoring it afterwards.
+     *
+     * This is a CLOCK TRAVEL, not a data edit: the path executes normally and stamps its own rows,
+     * so nothing here writes a status column or touches a row after the fact.
+     */
+    private function atMoment(CarbonInterface $moment, callable $callback): void
+    {
+        Carbon::setTestNow($moment);
+
+        try {
+            $callback();
+        } finally {
+            Carbon::setTestNow();
+        }
+    }
+
+    /**
+     * EXECUTED, approved AS-IS — a billing preflight the billing manager approves unchanged.
+     * `edited_payload` stays null, which is what makes it count toward approved-as-is.
+     */
+    private function seedApprovedAsIsAction(ApprovalQueue $queue): void
+    {
+        $reception = $this->users['reception'];
+
+        $action = $queue->propose(
+            'scheduler.suggest_slots',
+            [
+                'service_id' => $this->services['consult']->id,
+                'branch_id' => $this->branch->id,
+                'date' => $this->weekday(4)->toDateString(),
+                'limit' => 6,
+            ],
+            $reception,
+            'scheduler.suggest_slots',
+            'scheduler',
+            'Eine Patientin fragt nach einem früheren Termin; freie Zeiten für Donnerstag zusammenstellen.',
+            AutonomyPolicy::APPROVE,
+        );
+
+        // The real gate: re-authorises $reception against appointment.manage and re-reads the
+        // availability finder. No edit — so this is the approved-as-is case. Nothing is booked:
+        // the tool's own result says `books_on_approval: false`.
+        $queue->approve($action, $reception);
+    }
+
+    /**
+     * EXECUTED, EDITED then approved (APPROVAL.P4's edit-through-the-gate). The agent grounds a line
+     * on an active KB article; the reviewer rewrites the WORDING and keeps the source, and approve()
+     * re-validates that source before anything is posted. The action lands with `edited_payload` set
+     * and the result carrying `human_edited` — an edited post is always distinguishable.
+     */
+    private function seedEditedThenApprovedAction(ApprovalQueue $queue): void
+    {
+        $reception = $this->users['reception'];
+        $threadId = $this->editedThread?->id;
+        $article = KbArticle::query()->where('is_active', true)->orderBy('title')->first();
+
+        if ($threadId === null || $article === null) {
+            return;
+        }
+
+        $action = $queue->propose(
+            'comms.draft_reply',
+            ['thread_id' => $threadId],
+            $reception,
+            'comms.draft_reply',
+            'inbox',
+            'Eine Frage zu den Öffnungszeiten; der Entwurf stützt sich auf einen aktiven KB-Artikel.',
+            AutonomyPolicy::SUGGEST,
+        );
+
+        /*
+         * The human's edit: warmer wording, SAME source. The engine re-validates every line at
+         * approve time (`kb_article` must still resolve and still be active), so an edit cannot
+         * smuggle in an ungrounded claim — the edit changes the content, never the fence.
+         */
+        $queue->approve($action, $reception, [
+            'thread_id' => $threadId,
+            'draft' => [[
+                'text' => 'Guten Tag Frau Keller, gerne: wir sind Montag bis Freitag von 08:00 bis 18:00 Uhr für Sie da. '
+                    .'An Wochenenden und Feiertagen ist die Praxis geschlossen — im Notfall wählen Sie bitte 144.',
+                'source' => ['type' => 'kb_article', 'id' => $article->id],
+            ]],
+        ]);
+    }
+
+    /**
+     * REJECTED — a recall wording draft a clinician declines, with the REASON the service requires.
+     * Nothing is executed and nothing is sent; the reason is recorded on the action and in the
+     * append-only ledger.
+     */
+    private function seedRejectedAction(ApprovalQueue $queue): void
+    {
+        $doctor = $this->users['doctor_brunner'];
+        $recall = Recall::query()->orderBy('due_on')->first();
+
+        if (! $recall instanceof Recall) {
+            return;
+        }
+
+        $action = $queue->propose(
+            'clinical.draft_recall_message',
+            [
+                'recall_id' => $recall->id,
+                'template' => 'Guten Tag {first_name}, für die {rule_name} ist eine Kontrolle fällig. '
+                    .'Bitte rufen Sie uns an, um einen Termin zu vereinbaren.',
+            ],
+            $doctor,
+            'clinical.recall_follow_up',
+            'recall',
+            'Eine Jahreskontrolle ist fällig; der Entwurf der Formulierung liegt zur Freigabe bereit.',
+            AutonomyPolicy::SUGGEST,
+        );
+
+        // The real reject path — a reason is mandatory (ApprovalQueue refuses an empty one).
+        $queue->reject(
+            $action,
+            $doctor,
+            'Warten, bis die neuen Recall-Vorlagen freigegeben sind — der Text nennt noch die alten Öffnungszeiten.',
+        );
     }
 
     private function seedKbArticles(): void

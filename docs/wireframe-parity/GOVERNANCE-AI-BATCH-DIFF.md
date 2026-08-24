@@ -270,7 +270,7 @@ audited components. Only the range picker and the export panel are new.
 | **G1 · A windowed governance-metrics reader** (counts by outcome, by agent, over an arbitrary range; queue depth + oldest-waiting) | Dashboard KPIs, outcome mix, per-agent fleet counts, prior-window comparison — **and** the export summary panel | **Med** — pure aggregation over two existing append-only tables; `AgentMetricsService` is the natural home and already has the alias map |
 | **G2 · An "actions needing a human" reader** (pending actions + threads with `clinician_attention_at` set) | The Dashboard's needs-a-human list, and a cross-link from the fence-refused screen | **Low-Med** — both sources exist; the join is new |
 | **G3 · A governance-ledger exporter** (filtered range → CSV/JSON, chain manifest, private-disk stream, **its own audit row**) | Screen 10 entirely | **Med-High**, security-sensitive |
-| **G4 · Demo governance data** (an executed and a rejected action in `DemoClinicSeeder`) | Screens 4 and 5 become demonstrable; the Dashboard outcome mix stops being all-zero in a demo | **Low** |
+| ~~**G4 · Demo governance data**~~ ✅ **DONE (GOV.P4)** — executed (as-is + edited), rejected, fence-refused, spread across 12 days, every state driven through its real path | Screens 4 and 5 are demonstrable; AGENT.P5's approved-as-is % has a real denominator | — |
 | **G5 · Last-saved-by on a KB article** | The KB card's provenance line | **Low** — the audit row exists; surface it |
 
 **Deliberately NOT gaps:** confidence scoring, ungrounded-question telemetry, a send/undo path, and
@@ -309,7 +309,7 @@ designed*, and listing them as gaps would smuggle them into a parity chain.
 | **GOV.P1** | **G1 + the Dashboard's honest half.** The windowed metrics reader, then the date-range picker (presets + custom), per-agent filter, the KPI tiles (closed, D-166), the outcome mix from real statuses, and the fleet grid over all **six** agents with real per-agent counts and real status. | Every number a real count or "—". **No trend verdict, no "0 breaches", no escalated slice.** The prior-window comparison, if built, shows two counts — not an arrow. |
 | **GOV.P2** | **G2 — "needs a human".** Pending actions + threads flagged `clinician_attention`, each linking to the real surface. | The list states *that* a clinician is needed and the recorded reason — **never a characterisation of the symptom**, and no clinical content on an `audit.view` screen. |
 | **GOV.P3** | **KB Admin parity** — the explainer line, the active/inactive grouping, last-saved-by (G5), Preview. | Deactivation still stops grounding immediately (assert it); no "draft" state invented for a boolean column. |
-| **GOV.P4** | **G4 — demo governance data** (one executed, one rejected, one edited-then-approved). | Screens 4/5 demonstrable; the Dashboard's outcome mix non-degenerate in a demo tenant. *Cheapest gate in the chain — consider doing it first.* |
+| ~~**GOV.P4**~~ ✅ **DONE** | **G4 — demo governance data**: one executed as-is, one edited-then-approved, one rejected, the fence refusal kept, spread across 12 days. | Screens 4/5 demonstrable; the outcome mix non-degenerate. **Every state driven through its real path** — the mutation that hand-sets a status turns the suite red. See §9. |
 | **GOV.P5** | **G3 — the ledger exporter.** Filtered range → CSV/JSON, chain manifest, private-disk stream, **its own audit row**, `audit.view`-gated. | The export is itself ledgered; the hash manifest is **not optional**; **PHI (message bodies) defaults OFF and is a separate, permission-checked decision** — and if the practice cannot justify it, it should not be a toggle at all. **Security-sensitive: pair with a review.** |
 | **GOV.P6** *(optional)* | **Signed PDF export.** | Needs a signing key and a key-management story. **Recommend DEFERRING** until a customer asks — a "signed" PDF with an unmanaged key is worse than an unsigned one. |
 
@@ -323,6 +323,58 @@ ranking, the undo-send window, the governance-board sign-off tier, and signed-PD
 two are the ones most likely to be asked for; both need a **real signal recorded first**, and
 neither is a parity gate.
 
+---
+
+## 9 — GOV.P4 outcome (2026-08-24)
+
+**The gap, restated:** the demo produced `pending` and `fence_refused` only. Two governance screens
+had nothing to show, and AGENT.P5's approved-as-is percentage correctly rendered "—" because nothing
+had ever resolved.
+
+**Every state is now reached by driving its real path.** No status column is written anywhere in the
+seeder, and no ledger row is inserted by hand:
+
+| Outcome | Path actually driven | Reviewer (holds the tool's real permission) |
+|---|---|---|
+| `executed`, approved AS-IS | `propose('scheduler.suggest_slots')` → `ApprovalQueue::approve()` | reception (`appointment.manage`) |
+| `executed`, EDITED then approved | `propose('comms.draft_reply')` → `approve($action, $reviewer, $editedPayload)` | reception (`comms.manage`) |
+| `rejected` | `propose('clinical.draft_recall_message')` → `reject($action, $reviewer, $reason)` | Dr Brunner (`note.write`) |
+| `fence_refused` | unchanged — propose a non-groundable draft, approve it, the fence fires | reception |
+
+**A tool-safety mistake worth recording, because an existing invariant caught it.** The first
+approved-as-is action used `billing.preflight_invoice`, on the reasoning that a "preflight report"
+writes nothing. **It writes:** its charge validator persists validation state, and the seeder run
+flipped the demo's dunning fee from `draft` to `validated` — breaking an assertion an earlier gate
+had pinned. The action was moved to `scheduler.suggest_slots`, whose execute only reads the
+availability finder and whose own result says `books_on_approval: false`. **A "report" can still
+write**; the only way to know is to read the execute path and then watch what the suite says.
+
+**The time spread — and why it cannot corrupt the chain.** Each real call runs inside a travelled
+clock (`Carbon::setTestNow`, always restored), so an action and its append-only ledger rows move
+together: rejected 12 days ago, executed-as-is 5 days ago, edited-then-approved 2 days ago, the fence
+refusal and the two pending proposals today. Nothing is adjusted afterwards — `ai_interactions`
+refuses `UPDATE` at the database, so a post-hoc edit is not even possible there.
+
+The obvious worry is the hash-chained audit, which `verifyChain()` replays in `occurred_at` order.
+**It is safe by construction:** `AuditService::record()` forces `occurred_at` strictly monotonic per
+tenant (`prevTime + 1µs` when the clock is not ahead), precisely so the stored order and the
+verification order always agree. I reasoned my way to the opposite conclusion first and was wrong;
+the empirical check settled it — a back-dated governed call left `verifyChain()['ok'] === true` — and
+the seeder test still asserts it.
+
+**Tests:** `tests/Feature/Demo/DemoGovernanceDataTest.php` (8 tests). They assert the FINGERPRINTS of
+a real traversal, not the status string: a tool-produced `result`, the `approved` + `executed` ledger
+pair only `approve()` writes, `human_edited` in all three places an edit stamps it, the fence's own
+message as the refusal reason, and the `approved`-then-`fence_refused` ledger pair that no other path
+produces. **Mutation-checked four ways, all red:** hand-setting the executed status, dropping the
+edit, hand-setting the rejected status, and wiring the demo seeder into `DatabaseSeeder`.
+
+**Two existing fixture counts were updated (flagged, not weakened):** the patient-thread count 4 → 5
+(the new groundable thread) and `executed_at count` 0 → 2 — the latter pinned "nothing in the demo
+has ever been approved", which is exactly what this gate changed. Two stricter assertions were added
+beside it (rejected = 1, fence_refused = 1). The seeder's prior invariants all still hold: the demo
+period still reconciles to the unit, the audit chain still verifies, and the seeder is still
+idempotent.
 ---
 
 ## 8 — What this audit did not do

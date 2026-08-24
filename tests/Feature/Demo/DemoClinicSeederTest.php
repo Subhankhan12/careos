@@ -184,7 +184,7 @@ test('demo clinic seeder produces a non-trivial, tenant-scoped clinic', function
 
     // Comms: patient threads (incl. the non-groundable "Vielen Dank" thread that seeds a real
     // fence_refused via the inbox agent, AGENT.P5), one flagged clinical, an internal thread, deliveries.
-    expect(Thread::query()->where('type', Thread::TYPE_PATIENT)->count())->toBe(4)
+    expect(Thread::query()->where('type', Thread::TYPE_PATIENT)->count())->toBe(5)
         ->and(Thread::query()->whereNotNull('assigned_to')->count())->toBe(1)
         ->and(Thread::query()->where('type', Thread::TYPE_INTERNAL)->count())->toBe(1)
         ->and(Thread::query()->whereNotNull('clinician_attention_at')->count())->toBe(1)
@@ -195,9 +195,17 @@ test('demo clinic seeder produces a non-trivial, tenant-scoped clinic', function
     // Internal threads may never reference a patient.
     expect(Thread::query()->where('type', Thread::TYPE_INTERNAL)->whereNotNull('patient_id')->count())->toBe(0);
 
-    // AiCore: pending proposals that have done nothing, and an active KB.
+    /*
+     * AiCore: the two proposals that have done nothing still stand — and GOV.P4 added the RESOLVED
+     * outcomes beside them, each driven through its real path (approve / reject / the fence), so
+     * the governance screens have something to show. `executed_at` was pinned at 0 when nothing in
+     * the demo had ever been approved; it is 2 now, and the reason is asserted in full by
+     * DemoGovernanceDataTest — including that the executions really traversed approve().
+     */
     expect(AgentAction::query()->where('status', AgentAction::STATUS_PENDING)->count())->toBe(2)
-        ->and(AgentAction::query()->whereNotNull('executed_at')->count())->toBe(0)
+        ->and(AgentAction::query()->whereNotNull('executed_at')->count())->toBe(2)
+        ->and(AgentAction::query()->where('status', AgentAction::STATUS_REJECTED)->count())->toBe(1)
+        ->and(AgentAction::query()->where('status', AgentAction::STATUS_FENCE_REFUSED)->count())->toBe(1)
         ->and(KbArticle::query()->where('is_active', true)->count())->toBe(3);
 
     // The demo tenant is the only tenant this seeder created, and its audit

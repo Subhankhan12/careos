@@ -401,3 +401,25 @@ at runtime too), audited `agent.created`. `candidateToolKeys` + metrics attribut
   prompt-quality harness would score real model outputs — still deferred.)
 - New agents/tools MUST land with matching `tests/Evals/` locks (fence/autonomy/grounding/no-trust)
   and a row in `docs/AGENT-EVALS.md`.
+
+### GOV.P4 — demo governance data (2026-08-24)
+
+`DemoClinicSeeder` now reaches **every** `AgentAction` outcome, each by driving its real path:
+`scheduler.suggest_slots` approved as-is, `comms.draft_reply` EDITED then approved,
+`clinical.draft_recall_message` rejected with a reason, and the pre-existing fence refusal.
+**Nothing writes a status column and nothing inserts a ledger row** — if you extend this, keep it
+that way: `DemoGovernanceDataTest` asserts the fingerprints of a real traversal, so a hand-set
+status turns it red.
+
+**Choosing a tool to EXECUTE in a seeder: read its execute path first.**
+`billing.preflight_invoice` looks like a pure report and is not — its validator persists
+validation state and flipped the demo dunning fee from draft to validated. `scheduler.suggest_slots`
+is the genuinely inert one (reads the finder, `books_on_approval: false`). Avoid
+`fill_from_waitlist` (books), the nursing tools (write assignments) and `suggest_charge_codes`
+(captures charges).
+
+**Back-dating seeded work is SAFE, contrary to the obvious worry.** `AuditService::record()` forces
+`occurred_at` strictly monotonic per tenant (`prevTime + 1µs`), so travelling the clock around a
+real call cannot reorder the hash chain against `verifyChain()`'s `occurred_at ASC` replay. The
+ledger and the action timestamps DO move. See [[demo-seeder-is-the-heavy-fixture]].
+
