@@ -291,3 +291,25 @@ catches.
 **Enrolment captures NO consent.** `portal.access` must already be granted by staff before an invite can
 even be issued, and consent rows need a staff `captured_by` — there is no patient self-grant path.
 
+### PT.P7 — the portal password-reset broker (2026-08-23) · PORTAL CORE COMPLETE
+
+`/portal/forgot-password` + `/portal/reset/{token}` (`PortalPasswordResetController` →
+`Portal/Password/{Forgot,Reset}.vue`). **There is no second broker and no second token table:** it is
+`PortalLoginToken` with `PURPOSE_PASSWORD_RESET`, and `redeemableToken($token, $purpose)` is the ONE
+definition of "alive" shared by both flows. Add a purpose there, not a table.
+
+**Rules to keep if you touch this:**
+- the request form answers IDENTICALLY to a live account, an unknown address, a never-invited patient
+  and a disabled one — and every dead token renders `{"valid": false}` and nothing else;
+- a reset changes ONLY the password: no activation, no consent, **no sign-in**. The patient goes through
+  `login()` afterwards, where the `portal.access` re-check still refuses (PT.P5);
+- a new request SUPERSEDES the account's older live reset links.
+
+**Not built, deliberately:** "signed out everywhere else". Portal sessions are not tracked per account
+(no `AuthenticateSession` in the portal stack), so the page does not claim it. Real follow-up.
+
+**Testing trap:** `TenantContext::system()` is a NO-OP while a tenant is in context — `TenantScope`
+checks `has()` first. To test tenant binding, change where the TENANT comes from (session vs token), or
+force a token whose tenant disagrees with its account's; wrapping the lookup in `system()` proves
+nothing.
+

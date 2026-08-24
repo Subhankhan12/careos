@@ -503,9 +503,25 @@ Two further wireframes were decoded from the design pack and triaged. **Neither 
     redis` — a real env var beats `phpunit.xml`'s non-forced one, and nothing resets the cache between
     tests the way `RefreshDatabase` resets the database). Reproduced locally, then fixed by clearing the
     limiter store per test; the throttle assertion itself is unchanged and still mutation-proven.
-  - **OPEN:** **PT.P7** a portal password-reset broker — `portal_accounts` has no broker, so a patient
-    who forgets their password cannot reset it today; the practice must re-invite them.
-    Security-sensitive; pair it with a review.
+  - **PT.P7 — DONE. THE PORTAL BATCH CORE IS COMPLETE.** The password-reset broker:
+    `/portal/forgot-password` + `/portal/reset/{token}`. Fortify's broker runs over `users`, so portal
+    accounts had none — a patient who forgot their password had to telephone the practice to be
+    re-invited. **Built on `PortalLoginToken` with a new `password_reset` PURPOSE — no second broker,
+    no second table** — so the hash-not-token storage, the OTP, the expiry, the single-use marker and
+    the tenant binding are the ones PT.P6 proved. Purpose-scoping is proven both ways (an invite token
+    cannot reset; a reset token cannot enrol).
+    **No enumeration** across four real subjects (live · unknown · never-invited · disabled), with the
+    positive control that exactly ONE of them was actually emailed. **A reset changes only the
+    password:** it revives no disabled account, grants no consent, and signs nobody in — browser-proven
+    by a withdrawn-consent patient who reset successfully and was still **403 at login** (PT.P5's gate
+    intact). Throttled 10/min; all four routes in the AUTH-SEC.2 guest smoke, proven to bite.
+    **NOT built and flagged rather than faked:** the wireframe's "signed out everywhere else" — portal
+    sessions are not tracked per account, so the page does not claim it. Genuine follow-up, and it
+    needs the portal middleware stack changed.
+  - **PORTAL BATCH CORE COMPLETE:** P1 audit rows + smoke · P2 chrome + one-source balance ·
+    P3 Home/Appointments · P4 Documents/Invoices/Messages · P5 Consents · P6 invite landing ·
+    P7 reset broker. **Optional leftovers only** (PT.P8: telehealth readiness + a sign-out
+    interstitial). The one open security follow-up is portal session invalidation on password change.
 ---
 
 ## DEPLOYMENT — the primary track (authoritative; everything below this section is history)

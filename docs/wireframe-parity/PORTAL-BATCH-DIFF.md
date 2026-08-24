@@ -42,7 +42,7 @@ recording affordance on telehealth.
 | 7 | **Portal Telehealth** | Join a video visit; nothing suggests recording | **AUTH** | `GET /portal/telehealth`, `POST /telehealth/{session}/token` · `Portal/Telehealth.vue` |
 | 8 | **Portal Login** | The patient entry point; one generic failure line | **GUEST** | `GET /portal/login`, `POST /portal/login` · `Portal/Login.vue` |
 | 9 | **Portal Invite** | Activate a practice-issued invite: token + one-time code + new password | **GUEST** | ✅ **BUILT (PT.P6)** — `GET/POST /portal/invite/{token}` → `Portal/AcceptInvite.vue`. (The inventory previously pointed at `Auth/AcceptInvite.vue`, which is the **STAFF** invite; corrected.) |
-| 10 | **Portal Password Reset** | Three-step patient recovery (request → check email → set new) | **GUEST** | **NO PORTAL IMPLEMENTATION** (see §4.7) |
+| 10 | **Portal Password Reset** | Three-step patient recovery (request → check email → set new) | **GUEST** | ✅ **BUILT (PT.P7)** — `/portal/forgot-password` + `/portal/reset/{token}` → `Portal/Password/{Forgot,Reset}.vue`, on the SAME `PortalLoginToken` machinery with a new purpose |
 | 11 | **Portal Sign Out** | A calm confirm before leaving the portal | **GUEST-ish** | `POST /portal/logout` — **no confirm interstitial page** |
 
 **7 authenticated · 4 guest/pre-auth.** Eight authenticated routes exist in total — the wireframes cover seven
@@ -95,7 +95,7 @@ PC.P3 mistake in reverse.
 | Ref | Gap | Unlocks | Effort |
 |---|---|---|---|
 | **B1** | **Portal reads are not audited.** Only the document download, invoice PDF download, message-thread open and telehealth token issue write an `action='read'` row. Home, the Documents list, the Invoices list, Appointments, Consents and Check-in write **none**. | **All 7 auth screens** + closes the hole in PC.P5's access log. The PC.P5 wireframe *itself* draws a `portal_home · patient` row that the live build never writes. | **Low** — one `auditRead()` per controller, the pattern PC.P5/P6/P7 already established |
-| **B2** | **No portal password reset.** No `portal_accounts` password broker, no routes, no pages. | Portal Password Reset (screen 10); removes a support burden (today: re-invite) | **Med** — a second broker + signed single-use token + 3 pages; security-sensitive |
+| ~~**B2**~~ ✅ **DONE (PT.P7)** | ~~No portal password reset.~~ Built on `PortalLoginToken` with a new `password_reset` purpose — **not** a second broker. | Portal Password Reset (screen 10); removes the support burden (was: re-invite) | — |
 | ~~**B3**~~ ✅ **DONE (PT.P6)** | ~~No portal invite landing page.~~ Built: `GET/POST /portal/invite/{token}`, one generic refusal for every dead token, throttled, smoked. | Portal Invite (screen 9) | — |
 | **B4** | **`/portal/login` not in the guest smoke.** | Protects screens 8–11 from shipping a public 500 | **Trivial** — one line in `RouteSmokeTest` |
 | **B5** | **Invoice open balance is summed in the page.** | Invoices + Home agree by construction | **Low** — emit the figure server-side, delete the `.reduce()` |
@@ -521,6 +521,69 @@ throttle is still asserted, and deleting `throttle:10,1` still turns the suite r
 
 ---
 
+## 4g — PT.P7 outcome (2026-08-23) · **PORTAL BATCH CORE COMPLETE**
+
+**The gap was real and total:** Fortify's reset broker runs over `users`, portal accounts live in
+`portal_accounts`, and nothing bridged them. A patient who forgot their password had exactly one option —
+telephone the practice and ask to be re-invited.
+
+**Reused rather than rebuilt.** `PortalLoginToken` already had every property this needed — a SHA-256 hash
+instead of the token, a bcrypt OTP, an expiry, a `consumed_at` single-use marker, and a tenant taken from the
+row — and PT.P6 had just proven all of them. So the broker is **a new `purpose` on the same table**, and the
+one lookup that decides whether a token is alive (`redeemableToken`) now takes the purpose as part of the
+question. A second token table would have meant a second set of these properties to get right, and a second
+set to keep right.
+
+**The purpose is what makes sharing safe**, and it is proven in both directions: an invite token presented on
+the reset route, and a reset token presented on the invite route, are refused exactly like tokens that never
+existed. Deleting the purpose clause turns the suite red.
+
+**No enumeration, tested against four genuinely different subjects** — a live account, an unknown address, a
+real patient who was never invited, and a disabled account. One response, one redirect, one page. The
+positive control matters here: the responses are identical *while exactly one subject was actually emailed*,
+which is the difference the identical answers conceal. The mutation that adds "we couldn't find that address"
+turns the suite red.
+
+**A reset changes exactly one thing.** It does not revive a disabled account (no token is issued at all), it
+does not touch consent, and **it does not sign anybody in** — the patient lands on the sign-in page and goes
+through the real login path. Verified end to end in the browser: a patient whose `portal.access` was
+withdrawn completed a reset (password genuinely changed) and was then **refused 403 at sign-in**. Recovery is
+not a way around the gate PT.P5 built.
+
+**Token hygiene:** only the hash is stored — asserted column by column against the raw token — and a new
+request **supersedes** the account's older live reset links, so a link sitting in an earlier email is dead.
+(The invite flow keeps its own behaviour; not this gate's to change.)
+
+**Two wireframe departures, both deliberate:**
+- The mock draws a password **strength meter** ("Strong"). The server's rule is a minimum length and nothing
+  else, so a verdict the code cannot back would be a judgment invented for the screen (D-176). The real rule
+  is stated instead.
+- The mock draws **"Resend available in 0:47"**. There is no per-address cooldown to count down to — only the
+  route throttle — so the timer would be a number with nothing behind it.
+
+**One wireframe promise NOT built, and flagged rather than faked:** *"a successful reset invalidates every
+other session server-side"*. Portal sessions are not tracked per account (no `AuthenticateSession` in the
+portal stack, no session index), so CareOS cannot do this today. The page therefore does not claim it — but
+it is a genuine security improvement and the right follow-up, and it needs the portal middleware stack
+changed, which is more than a copy fix.
+
+**Mutation-checked twelve ways**, all red and each naming the intended test, including the two that prove the
+guest smoke bites (breaking the reset page names `portal.password.reset`; breaking the request form names
+`portal.password.send`).
+
+**A defect in my OWN test, caught by mutation and worth recording.** The first tenant-binding test asserted
+that a beta token resolves as beta even when the session says alpha — and an unscoped account lookup passed
+it, because an account id is globally unique and resolves either way. The case it missed is the one where the
+token's tenant and its account's tenant DISAGREE. A second test now forces exactly that row and the mutation
+turns red. **A related trap:** wrapping a query in `TenantContext::system()` while a tenant is in context is a
+NO-OP — `TenantScope` checks `has()` first — so "mutate the lookup to system mode" does not test tenant
+binding at all. The real mutation is to change where the tenant comes from.
+
+**With this gate the PORTAL BATCH CORE IS COMPLETE:** P1 audit rows + smoke · P2 chrome + one-source balance ·
+P3 Home/Appointments · P4 Documents/Invoices/Messages · P5 Consents · P6 invite landing · P7 reset broker.
+
+---
+
 ## 5 — Correctly-more-real — keep, do not trim
 
 1. **Three-layer middleware gating** on every portal page, with `portal.access` consent enforced server-side —
@@ -547,7 +610,7 @@ throttle is still asserted, and deleting `throttle:10,1` still turns the suite r
 | ~~**PT.P4**~~ ✅ **DONE** | **Portal Documents + Invoices + Messages parity** — filters, search, grouping, "New" badge, thread previews/day separators, the footnotes. | Only shared documents; issued-only invoices; **no pay button**; AI provenance still never crosses to the portal. |
 | ~~**PT.P5**~~ ✅ **DONE** | **Portal Consents parity** — plain-language purpose + the REAL consequence per consent, `captured_by`, the withdrawal date, the append-only note. The mock's three unbacked scopes were NOT built (they exist nowhere in the product). | Reason still required and recorded; snapshots immutable; the warning is literally true **and proven at each enforcing layer** (middleware, sign-in, document share, notification send). |
 | ~~**PT.P6**~~ ✅ **DONE** | **B3 — the portal invite landing page.** `GET/POST /portal/invite/{token}` over the existing `acceptInvite()`; the invite email now carries the link. | Invite-only enrolment completes from an emailed link. **Unknown, expired, consumed and cross-tenant tokens are byte-identical** (props `{"valid":false}` and nothing else); throttled 10/min; both routes in the guest smoke, proven to bite. Enrolment invents no consent — `portal.access` is a PRECONDITION, not something the patient grants here. |
-| **PT.P7** | **B2 — portal password reset.** A `portal_accounts` broker, signed single-use time-boxed token, the three steps, session invalidation on success, no account enumeration. | Security-sensitive: same generic response either way; guest routes smoked. **Consider pairing with a security review.** |
+| ~~**PT.P7**~~ ✅ **DONE** | **B2 — portal password reset.** A `portal_accounts` broker built on `PortalLoginToken` + a new `password_reset` purpose (no second table), single-use, expiring, tenant-bound, purpose-scoped. | Same generic response for a live account, an unknown address, a never-invited patient and a disabled one; every dead token renders one page; both routes throttled and smoked. **A reset changes only the password** — it revives nothing and grants nothing, and the PT.P5 consent gate still refuses at login. **Session invalidation on success was NOT built** — see §4g. |
 | **PT.P8** *(optional)* | **Portal Telehealth readiness + Sign-out interstitial.** | No record affordance appears; the checklist derives from the same session list. |
 
 **Realistic gate count: 7 core + 1 optional.**

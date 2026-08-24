@@ -3509,3 +3509,24 @@ references the old ID.
   time, the cache store this time — and REPRODUCE the CI condition locally before changing anything.
   Both times, reproducing it took one command. See [[LOG]], D-174.
 
+
+- **D-187 — A mutation that changes nothing is not a passing test, and `TenantContext::system()` is one of
+  them: it is a NO-OP while a tenant is in context (PT.P7).** Two tenant-binding mutations "survived" this
+  gate. Only one was a real gap.
+  **The genuine gap.** The first tenant-binding test asserted that a beta token resolves as beta even when
+  the session says alpha — and an UNSCOPED account lookup passed it, because an account id is globally
+  unique and resolves either way. The case it never exercised is the one where the token's tenant and its
+  account's tenant DISAGREE; only a lookup scoped to the token's own tenant refuses that. A second test now
+  forces exactly that row (the model's own guard refuses to create it, so it goes in at the DB level — the
+  second layer is the one under test, D-183), and the mutation turns red.
+  **The false alarm, which cost two runs.** Mutating the redemption lookup to `system()` also left the suite
+  green — but that mutation removes NOTHING: `TenantScope::apply()` checks `$context->has()` FIRST and only
+  falls through to system mode when no tenant is set. Since the redemption path sets the tenant FROM the
+  token before the lookup, wrapping it in `system()` changes no SQL. (In `previewInvite`, where a guest
+  arrives with no context at all, the same edit IS a real mutation — which is why PT.P6's equivalent went
+  red. Same edit, opposite meaning, decided by whether a tenant is in context.)
+  **The rule:** before concluding a guard is unpinned, prove the mutation actually mutated — log the branch,
+  print the resolved row, or diff the SQL. A green suite under a no-op edit says nothing about the test.
+  **And for tenant binding specifically:** mutate the SOURCE of the tenant (session instead of token), not
+  the scoping of the query. That one turns red immediately, because it is the thing the binding actually is.
+  See [[LOG]], D-182, D-183.

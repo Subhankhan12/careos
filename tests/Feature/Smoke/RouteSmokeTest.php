@@ -751,6 +751,11 @@ test('every GUEST route renders for an anonymous visitor (200, never a request-t
         // honest "no longer valid" page: this is the page a patient meets before they have an
         // account at all, so a 500 here means enrolment is impossible with no way around it.
         'portal.invite.show' => '/portal/invite/'.$token,
+        // PT.P7 — portal password recovery. Both halves: the form someone locked out of their
+        // account starts from, and the page the emailed link lands on (with an UNKNOWN token, so
+        // the honest "no longer valid" page must still render rather than erroring).
+        'portal.password.request' => '/portal/forgot-password',
+        'portal.password.reset' => '/portal/reset/'.$token,
     ];
 
     $failures = [];
@@ -773,6 +778,12 @@ test('every GUEST route renders for an anonymous visitor (200, never a request-t
             'password' => 'a-new-password',
             'password_confirmation' => 'a-new-password',
         ]],
+        // PT.P7 — the reset POST, reached with an unknown token: the generic refusal renders (200).
+        'portal.password.update' => ['/portal/reset/'.$token, [
+            'otp' => '000000',
+            'password' => 'a-new-password',
+            'password_confirmation' => 'a-new-password',
+        ]],
     ];
 
     foreach ($guestPosts as $label => [$url, $payload]) {
@@ -781,6 +792,17 @@ test('every GUEST route renders for an anonymous visitor (200, never a request-t
         if ($status !== 200) {
             $failures[] = "guest.{$label} [POST {$url}] -> {$status}";
         }
+    }
+
+    /*
+     * PT.P7 — the request form POSTs and REDIRECTS (302), so it cannot join the 200 list above
+     * and is checked here instead. A 500 on the one form a locked-out patient can reach would
+     * otherwise ship green, which is exactly what AUTH-SEC.2 exists to stop.
+     */
+    smokeCtx()->forget();
+    $requestStatus = $this->post('/portal/forgot-password', ['email' => 'nobody@example.test'])->status();
+    if ($requestStatus !== 302) {
+        $failures[] = "guest.portal.password.send [POST /portal/forgot-password] -> {$requestStatus} (expected 302)";
     }
 
     expect(implode("\n", $failures))->toBe('');

@@ -2265,6 +2265,30 @@
             "invalidTitle": "This invitation is no longer valid",
             "invalidBody": "This invitation link is invalid or has expired.",
             "invalidNext": "Please ask the practice to send you a new invitation."
+        },
+        "password": {
+            "forgotTitle": "Forgot your password?",
+            "forgotLead": "Enter the email your practice has on file and we'll send you a link to set a new one.",
+            "email": "Email",
+            "submit": "Email me a reset link",
+            "backToSignIn": "Back to sign in",
+            "sentTitle": "Check your email",
+            "sentBody": "If an account exists for that address, a reset link is on its way. It can be used once and stops working after 30 minutes.",
+            "sentNext": "Didn't get it? Check your spam folder, or ask the practice if they have a different address on file.",
+            "resetTitle": "Set a new password",
+            "resetLead": "Opened from the link {practice} emailed you. Enter the code from that email and choose a new password.",
+            "code": "Verification code",
+            "codeHint": "The six-digit code in the same email as this link.",
+            "newPassword": "New password",
+            "passwordHint": "At least 8 characters.",
+            "confirmPassword": "Confirm password",
+            "save": "Save new password",
+            "expiresAt": "This link stops working at {when}.",
+            "invalidTitle": "This reset link is no longer valid",
+            "invalidBody": "This password reset link is invalid, has expired, or has already been used.",
+            "invalidNext": "Request a new reset link",
+            "resetDone": "Your password has been updated. Sign in with your new password.",
+            "forgotLink": "Forgot your password?"
         }
     },
     "comms": {

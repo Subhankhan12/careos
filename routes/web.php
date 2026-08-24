@@ -91,6 +91,7 @@ use Modules\Patients\Http\Controllers\PortalAuthController;
 use Modules\Patients\Http\Controllers\PortalConsentController;
 use Modules\Patients\Http\Controllers\PortalInvitationController;
 use Modules\Patients\Http\Controllers\PortalInviteAcceptController;
+use Modules\Patients\Http\Controllers\PortalPasswordResetController;
 use Modules\Pharmacy\Http\Controllers\DispensingController;
 use Modules\Pharmacy\Http\Controllers\FormularyController;
 use Modules\Pharmacy\Http\Controllers\InventoryController;
@@ -852,6 +853,21 @@ Route::prefix('portal/invite')->name('portal.invite.')->middleware('throttle:10,
     Route::post('/{token}', [PortalInviteAcceptController::class, 'accept'])->name('accept');
 });
 
+/*
+ * PT.P7 — portal password recovery. Fortify's reset broker runs over `users`; portal accounts were
+ * never covered by it, so a patient who forgot their password had to ask the practice to re-invite
+ * them. These four guest routes are that broker, on the SAME PortalLoginToken machinery as the
+ * invite (purpose-scoped, hashed, single-use, expiring, tenant-bound).
+ *
+ * Throttled at the established guest ceiling, and all four are in the AUTH-SEC.2 guest smoke: this
+ * is the page someone locked out of their account meets, so a 500 here has no way around it.
+ */
+Route::prefix('portal')->name('portal.password.')->middleware('throttle:10,1')->group(function () {
+    Route::get('/forgot-password', [PortalPasswordResetController::class, 'request'])->name('request');
+    Route::post('/forgot-password', [PortalPasswordResetController::class, 'send'])->name('send');
+    Route::get('/reset/{token}', [PortalPasswordResetController::class, 'edit'])->name('reset');
+    Route::post('/reset/{token}', [PortalPasswordResetController::class, 'update'])->name('update');
+});
 Route::prefix('portal')->name('portal.')->group(function () {
     Route::get('/login', [PortalAuthController::class, 'showLogin'])->name('login');
     Route::post('/accept-invite', [PortalAuthController::class, 'acceptInvite'])->name('accept-invite');

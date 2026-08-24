@@ -27,6 +27,14 @@ class PortalLoginToken extends Model
 
     public const PURPOSE_INVITE = 'invite';
 
+    /**
+     * PT.P7 — password recovery. A SEPARATE purpose on the same machinery, not a second token
+     * table: the hashing, the OTP, the expiry, the single-use marker and the tenant binding are
+     * the ones PT.P6 proved. Purpose-scoping is what keeps the two flows apart — an invite token
+     * cannot reset a password and a reset token cannot enrol an account.
+     */
+    public const PURPOSE_PASSWORD_RESET = 'password_reset';
+
     protected $keyType = 'string';
 
     public $incrementing = false;
