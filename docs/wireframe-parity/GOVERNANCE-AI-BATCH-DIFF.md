@@ -271,7 +271,7 @@ audited components. Only the range picker and the export panel are new.
 | ~~**G2 · An "actions needing a human" reader**~~ ✅ **DONE (GOV.P2)** — `NeedsHumanReader`: pending approvals + threads still awaiting a clinician, each permission-scoped fail-closed, with the excluded worklists named on screen | The dashboard panel | — |
 | **G3 · A governance-ledger exporter** (filtered range → CSV/JSON, chain manifest, private-disk stream, **its own audit row**) | Screen 10 entirely | **Med-High**, security-sensitive |
 | ~~**G4 · Demo governance data**~~ ✅ **DONE (GOV.P4)** — executed (as-is + edited), rejected, fence-refused, spread across 12 days, every state driven through its real path | Screens 4 and 5 are demonstrable; AGENT.P5's approved-as-is % has a real denominator | — |
-| **G5 · Last-saved-by on a KB article** | The KB card's provenance line | **Low** — the audit row exists; surface it |
+| ~~**G5 · Last-saved-by on a KB article**~~ ✅ **DONE (GOV.P3)** — read from the audit trail, no new column; honest "—" where nobody has saved it | The KB card's provenance line | — |
 
 **Deliberately NOT gaps:** confidence scoring, ungrounded-question telemetry, a send/undo path, and
 a governance-board sign-off workflow. Those are *features the product has decided against or has not
@@ -308,7 +308,7 @@ designed*, and listing them as gaps would smuggle them into a parity chain.
 |---|---|---|
 | ~~**GOV.P1**~~ ✅ **DONE** | **G1 + the Dashboard's honest half.** The windowed reader, the server-re-parameterised range picker (7/30/90), closed KPI tiles per real status, per-agent and per-tool activity over all six agents, the fence-refusal count, the windowed ledger, and the mirrored fence vault. | Every number a real count or "—". **No trend verdict, no "0 breaches", no escalated slice, no confidence score, no invented tool.** The omissions are STATED on the page. See §10. |
 | ~~**GOV.P2**~~ ✅ **DONE** | **G2 — "needs a human".** Pending approvals + threads still awaiting a clinician, each with a real count, its items and a link to where a person acts. | Every category is a real state with a cited setter and clearer; the excluded worklists are NAMED so an empty panel is not a false all-clear; no urgency, SLA or priority; the patient's message body never reaches the panel. See §11. |
-| **GOV.P3** | **KB Admin parity** — the explainer line, the active/inactive grouping, last-saved-by (G5), Preview. | Deactivation still stops grounding immediately (assert it); no "draft" state invented for a boolean column. |
+| ~~**GOV.P3**~~ ✅ **DONE** | **KB Admin parity** — closed count tiles, search over real fields, active/archived grouping, last-saved-by (G5), recorded grounding usage. | Deactivation still stops grounding immediately (asserted against the retriever's own rule); no "draft" state invented for a boolean column; **the gap ranking and quality score refused and stated on screen**. See §12. |
 | ~~**GOV.P4**~~ ✅ **DONE** | **G4 — demo governance data**: one executed as-is, one edited-then-approved, one rejected, the fence refusal kept, spread across 12 days. | Screens 4/5 demonstrable; the outcome mix non-degenerate. **Every state driven through its real path** — the mutation that hand-sets a status turns the suite red. See §9. |
 | **GOV.P5** | **G3 — the ledger exporter.** Filtered range → CSV/JSON, chain manifest, private-disk stream, **its own audit row**, `audit.view`-gated. | The export is itself ledgered; the hash manifest is **not optional**; **PHI (message bodies) defaults OFF and is a separate, permission-checked decision** — and if the practice cannot justify it, it should not be a toggle at all. **Security-sensitive: pair with a review.** |
 | **GOV.P6** *(optional)* | **Signed PDF export.** | Needs a signing key and a key-management story. **Recommend DEFERRING** until a customer asks — a "signed" PDF with an unmanaged key is worse than an unsigned one. |
@@ -505,6 +505,80 @@ patient's message body leaked into the panel.
 so nothing measured that clause. A second test now closes the thread through `ThreadService::close()`
 and asserts it leaves the list, which makes the conjunct load-bearing. Same shape as PT.P7's
 tenant-binding gap: a conjunct no test isolates is a conjunct that can be deleted in silence.
+---
+
+## 12 — GOV.P3 outcome (2026-08-24)
+
+**What the KB backend really holds.** `kb_articles` carries `title`, `body`, `tags` (json),
+`is_active` and timestamps — nothing else. **Edits mutate the row; there is no versioning**, so
+"edit history" in the wireframe's sense does not exist. Writes are `ai.manage`-gated and
+tenant-scoped, and each already wrote an audit row naming the actor
+(`kb.article.created|updated|activated|deactivated`).
+
+**One write path, so the seeder and the screen produce identical records.** The create/update/toggle
+logic was inline in the controller, which was fine while the controller was its only caller. GOV.P3
+needs the demo seeder to produce articles indistinguishable from ones a person really saved, so the
+three steps — write, re-embed, audit — moved into `App\Services\KbArticleService` and the controller
+delegates. Behaviour is unchanged; there is now one definition instead of the two a copy would have
+created.
+
+**G5 — read, not added.** No `updated_by` column was introduced. The audit trail already records who
+saved an article and when, and a column would be a second copy of the same fact that could drift and
+would need a backfill — which could only ever be a guess. So the controller reads the latest save row
+per article (one query, names resolved in one more) and reports:
+
+- a **real saver** for the two demo articles saved through the real path, by two *different* people;
+- an honest **"Never saved from this screen — no author on record."** for the three created directly
+  by the seeder. That is the point of the mix: an article nobody has saved is never attributed to
+  somebody who did not save it. The mutation defaulting the unknown saver to "Practice team" turns
+  the suite red.
+
+**The screen:** closed count tiles (active / archived — plain row counts, D-166), search over the
+real fields only (title, body, tags), the active/archived grouping the wireframe uses, the editor and
+archive through the existing routes, real timestamps, and the honest empty and no-match states.
+
+*A note on the search being client-side:* the controller returns the tenant's **whole** article list,
+not a page of it, so a local filter cannot disagree with the database. That is the distinction
+BILLAR.P6 and GOV.P1 draw — re-slicing a *page* is what is forbidden, because it silently narrows.
+
+**Recorded usage, shown as a count.** The draft engine really does record `{type: kb_article, id}` on
+the lines it grounds, so "Cited by N agent draft(s)" is a plain count of real refs. It is **never
+ranked, never sorted by, and never called quality** — a test asserts the list order is state-then-
+title and would fail if usage crept into it.
+
+### The refusal, restated and rendered
+
+The wireframe ranks knowledge-base **gaps** and scores article **usefulness**. Nothing in CareOS
+records either — no ungrounded-question telemetry exists anywhere — so both would be assembled from
+nothing (D-170). Neither is built, and the page carries a **"What this page does not show"** card
+naming both with the reason. The re-assertion scans for fourteen names the feature could return
+under (`kbGap`, `mostMissed`, `coverageScore`, `usefulness`, `articleRank`, `effectiveness`, …) over
+a non-empty payload, and the mutations adding a gap list or a per-article `usefulness` both turn it
+red.
+
+**Tests:** `tests/Feature/Governance/KbAdminParityTest.php` (8 tests, 91 assertions) — the
+representative fixture, the list with both states, G5 with its honest-absence control, a save
+updating the saver through the real service, archiving stopping grounding (asserted against the
+retriever's rule, not the copy), usage as a real count with the order unaffected, RBAC + cross-tenant
+404, and the re-assertion. **Mutation-checked eight ways, all red.**
+
+**A fixture count in the existing seeder test needed updating (flagged, not weakened):**
+`DemoClinicSeederTest` pinned active KB articles at 3; the representative fixture makes it 4, plus
+1 archived. The archived count was pinned beside it, so the assertion is stricter than before. I
+should have anticipated it — the same assertion block was updated in GOV.P4 — and the full check
+caught it, which is the system working.
+
+**Two of my own mistakes, both caught here rather than by review:**
+
+1. **The omission statement was pinned as copy, not as a rendered thing.** Emptying the render loop
+   (`v-for="key in []"`) left the translation file intact and the suite green — so the statement
+   could have vanished from the screen with every assertion still passing. The test now asserts the
+   page renders the keys. **The same weakness exists in GOV.P1's and GOV.P2's omission tests**, which
+   also assert only the copy; they are existing tests and out of scope for this gate, but they should
+   be strengthened the same way when those files are next touched.
+2. **`toContain($needle, $message)`** — Pest reads the second argument as *another needle*, so the
+   message text was searched for in the file and the assertion failed for the wrong reason. It is the
+   same trap recorded once before; the fix is `expect(str_contains(...))->toBeTrue($message)`.
 ---
 
 ## 8 — What this audit did not do

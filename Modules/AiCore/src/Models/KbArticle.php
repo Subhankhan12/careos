@@ -5,6 +5,7 @@ namespace Modules\AiCore\Models;
 use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Carbon;
 use Modules\Platform\Concerns\BelongsToTenant;
 
 /**
@@ -16,6 +17,8 @@ use Modules\Platform\Concerns\BelongsToTenant;
  * @property string $body
  * @property list<string>|null $tags
  * @property bool $is_active
+ * @property Carbon|null $created_at
+ * @property Carbon|null $updated_at
  */
 class KbArticle extends Model
 {

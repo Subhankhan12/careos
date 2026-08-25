@@ -463,3 +463,24 @@ category; if a clinical worklist changes, update the named list.
 **The pending count is `AgentMetricsService::pendingApprovalCount()`** — shared with the GOV.P1
 dashboard. Never re-query it locally.
 
+### GOV.P3 — KB admin + last-saved-by (2026-08-24)
+
+**All KB writes go through `App\Services\KbArticleService`** (write → re-embed → audit). The
+controller and the demo seeder both use it, so a seeded article is indistinguishable from one a
+person saved. Do not write `kb_articles` directly — an article created outside this path has no
+audit row and will honestly show "no author on record".
+
+**Last-saved-by is READ FROM THE AUDIT TRAIL, not a column.** `KbArticleService::SAVE_ACTIONS`
+is the set the controller reads back. Do not add `updated_by`: it would duplicate a fact that
+already exists, and existing rows could only be backfilled with a guess.
+
+**`kb_articles` has no versioning** — edits mutate the row. The wireframe's "edit history" does
+not exist; do not imply it.
+
+**Refused, permanently, unless a real record appears first:** the KB-gap ranking and any
+article quality/coverage/usefulness score. Nothing records ungrounded questions. The page states
+both omissions (`kb.omitted.*`) and `KbAdminParityTest` scans fourteen aliases for them.
+
+**Grounding usage IS real** (`{type: kb_article, id}` on draft lines) and may be shown as a
+count — never as a rank, and never as the list's sort order.
+

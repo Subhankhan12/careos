@@ -2,6 +2,7 @@
 
 namespace Database\Seeders;
 
+use App\Services\KbArticleService;
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
 use Database\Factories\CredentialFactory;
@@ -1963,5 +1964,31 @@ class DemoClinicSeeder extends Seeder
             'tags' => ['billing', 'invoices'],
             'is_active' => true,
         ]);
+
+        /*
+         * GOV.P3 — two more, saved through the REAL path by two DIFFERENT people, so the KB screen
+         * has genuine "last saved by" values to tell apart. The three above stay as direct creates:
+         * they are the honest "nobody has saved this through the app" case, and the screen must show
+         * them as "—" rather than attributing them to somebody who never touched them.
+         */
+        $kb = app(KbArticleService::class);
+
+        $kb->create([
+            'title' => 'Rezepte und Wiederholungsrezepte',
+            'body' => "Repeat prescriptions can be requested through the patient portal or by calling reception.\n\nPlease allow two working days. Collect from the practice during opening hours, or ask us to send it to your pharmacy.",
+            'tags' => ['prescriptions'],
+            'is_active' => true,
+        ], $this->users['reception']);
+
+        // ARCHIVED, through the real toggle — so the list carries both states, and a deactivated
+        // article demonstrably stops being grounded on (KbRetriever filters is_active = true).
+        $retired = $kb->create([
+            'title' => 'Sommeröffnungszeiten 2025',
+            'body' => "During July and August 2025 the practice closed at 16:00 on Fridays.\n\nThis notice is kept for reference; the current opening hours are in the opening-hours article.",
+            'tags' => ['opening-hours', 'archive'],
+            'is_active' => true,
+        ], $this->users['admin']);
+
+        $kb->toggle($retired, $this->users['admin']);
     }
 }

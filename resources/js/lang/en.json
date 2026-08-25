@@ -3230,7 +3230,11 @@
             "subtitle": "Active articles are the agent's source; inactive ones are kept but not grounded on.",
             "empty": "No articles yet.",
             "active": "Active",
-            "inactive": "Inactive"
+            "inactive": "Inactive",
+            "group": {
+                "active": "Active — used by the agent",
+                "archived": "Archived — not used"
+            }
         },
         "actions": {
             "edit": "Edit",
@@ -3238,6 +3242,28 @@
             "deactivate": "Deactivate",
             "save": "Save changes",
             "cancel": "Cancel"
+        },
+        "counts": {
+            "active": "Active articles",
+            "activeHint": "The agent may ground an answer on these.",
+            "archived": "Archived",
+            "archivedHint": "Kept for reference; never used in an answer."
+        },
+        "search": {
+            "label": "Search",
+            "placeholder": "Title, text or tag",
+            "noMatch": "No article matches “{term}”."
+        },
+        "savedBy": {
+            "by": "Last saved by {name} · {when}",
+            "never": "Never saved from this screen — no author on record."
+        },
+        "grounded": "Cited by {count} agent draft(s).",
+        "omitted": {
+            "title": "What this page does not show",
+            "subtitle": "Two things the design asked for that we cannot source honestly.",
+            "gaps": "No ranking of knowledge-base gaps. Nothing records the questions an agent could not answer from these articles, so there is nothing to rank — it would need that record first.",
+            "quality": "No quality or coverage score on an article. These are written by your staff; the system stores and shows them, it does not grade them."
         }
     },
     "staffTelehealth": {

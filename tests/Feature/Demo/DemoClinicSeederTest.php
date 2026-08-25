@@ -206,7 +206,11 @@ test('demo clinic seeder produces a non-trivial, tenant-scoped clinic', function
         ->and(AgentAction::query()->whereNotNull('executed_at')->count())->toBe(2)
         ->and(AgentAction::query()->where('status', AgentAction::STATUS_REJECTED)->count())->toBe(1)
         ->and(AgentAction::query()->where('status', AgentAction::STATUS_FENCE_REFUSED)->count())->toBe(1)
-        ->and(KbArticle::query()->where('is_active', true)->count())->toBe(3);
+        // GOV.P3 made the KB fixture representative: a fourth ACTIVE article and an ARCHIVED one,
+        // both saved through the real KbArticleService so the admin screen has genuine
+        // "last saved by" values to distinguish. The archived count is pinned beside it.
+        ->and(KbArticle::query()->where('is_active', true)->count())->toBe(4)
+        ->and(KbArticle::query()->where('is_active', false)->count())->toBe(1);
 
     // The demo tenant is the only tenant this seeder created, and its audit
     // chain holds end to end.
