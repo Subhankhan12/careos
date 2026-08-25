@@ -579,6 +579,34 @@ Two further wireframes were decoded from the design pack and triaged. **Neither 
     **Two mutations escaped, both defects in the FIXTURE not the code** (D-174): severity-ordering
     stayed green because the fixture made substance-order and severity-order identical; counting the
     capped page stayed green because the fixture held one thread. Both strengthened.
+  - **COMMS.P2 — DONE. THE COMMS BATCH CORE IS COMPLETE.** Telehealth sessions + join parity.
+    **The finding that shaped it: the backend cannot report live presence.** It records that a
+    session was created, that a token was ISSUED, that someone JOINED (`joined_at`) and that they
+    LEFT (`left_at`) — but `left_at` is only written when `recordLeave()` is called, so a dropped
+    connection leaves it null forever. "Joined and has not left" is NOT "is in the call". That
+    disposes of the wireframe's headline features — the pulsing "patient waiting" ring, the
+    10-minute wait threshold (also a computed urgency grading, D-169), the amber escalation and
+    "Notify running late" — all refused and STATED on screen. **A token is not a join** (D-179).
+    **A real gap found, reported, and deliberately NOT fixed: no HTTP path calls
+    `recordJoin()`/`recordLeave()`** — only tests and the new demo seeding do. Wiring `recordJoin()`
+    into the token endpoint was rejected because a token is issued BEFORE anyone connects; recording
+    it honestly needs a client-side connected callback, which is new capability, not parity.
+    **The list** now shows ENDED sessions (previously filtered out, so a clinician saw the future and
+    never the past), the linked appointment's real time, and the recorded joins. State is DERIVED
+    from status + participant rows, never read from one column.
+    **The pre-join surface** runs a browser-local device check that reports availability only — no
+    quality grade — is never posted or recorded, and **gates nothing**: `precheck: passed` and
+    `precheck: failed` produce identical server behaviour. An unconfigured provider (the deploy
+    default is `livekit.invalid` with no secret) is stated up front and Join is withheld (D-176).
+    **Omitted and stated:** recording in any form (not even a disabled button), transcript/AI
+    summary, quality score, live-presence indicator.
+    **12 mutations, 11 caught first time; one escaped — D-189 for the third time** (symmetric
+    counts fixture let a hardcoded `[1,1,1]` pass). The pattern is now routine enough to check by
+    default.
+  - **COMMS BATCH CORE COMPLETE:** P1 inbox + context pane · P2 telehealth. **Screens 2, 4 and 6
+    (Consent-Blocked Draft, Opt-in Confirmed, Request Consent Update) remain DECLINED under D-188** —
+    a per-topic/per-channel/per-household consent model plus a campaign capability the product does
+    not have. Not a parity gap; a product decision needing its own design and fence review.
 ---
 
 ## DEPLOYMENT — the primary track (authoritative; everything below this section is history)

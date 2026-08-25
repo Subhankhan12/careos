@@ -218,7 +218,7 @@ was pinned to what the system actually did.
 | Gap | Unlocks | Size |
 |---|---|---|
 | ~~**C1 · Inbox patient-context reader**~~ ✅ **DONE (COMMS.P1)** — `InboxPatientContextReader`: identity, recorded allergies, next appointment, open balance (engine reader), email-contact status. Five elements, five separate gates | Screen 1's third pane | — |
-| **C2 · Telehealth waiting/elapsed from `TelehealthParticipant`** | Screen 8's "patient waiting 2 min" and the in-session timer | **Low** — append-only rows already carry `joined_at` |
+| ~~**C2 · Telehealth waiting/elapsed**~~ ✅ **PARTLY DONE (COMMS.P2)** — recorded joins and their times are now shown. The "patient waiting 2 min" half is **refused**: it needs live presence, which nothing records | Screen 8 | — |
 | **C3 · A per-user notification feed** (table + read state + role scoping) | Screen 3 entirely | **High** — a new subsystem |
 | **C4 · Per-patient, per-topic, per-channel consent** | Screens 2, 4, 6 | **High** — a consent-model change touching the send path, the portal and the fence. **Not a parity gap** |
 | **C5 · A campaign/outreach send path + tool** | Screens 2, 4, 6 | **High**, and it would need a new autonomy ceiling decision |
@@ -254,7 +254,7 @@ as gaps would smuggle them into a parity chain.
 | Gate | Builds | Proves |
 |---|---|---|
 | ~~**COMMS.P1**~~ ✅ **DONE** | **Unified Inbox parity + the patient context pane** (C1) — five recorded facts, each permission-scoped fail-closed; the "still needs a human" filter over GOV.P2's conjunction; real counts; recorded agent provenance naming the human sender; the declined affordances stated on the page. | The draft still routes through `send-draft` → `approve()` at a **suggest** ceiling; the flagged state still offers **no** draft; unread stays derived; **the read-audit row is still exactly one per render** despite four new reads. See §14. |
-| **COMMS.P2** | **Telehealth Sessions + Join parity** — the roster framing, the pre-join device check (client-side), the elapsed timer and waiting time from `TelehealthParticipant` (C2). | Still `encounter.manage`-gated; the token is still on-demand and unstored; **no recording affordance appears**, asserted as rendered. |
+| ~~**COMMS.P2**~~ ✅ **DONE** | **Telehealth Sessions + Join parity** — ENDED sessions now visible, recorded joins shown with their real `joined_at`, the linked appointment time, state filters, plain counts, a pre-join surface with a browser-local device check, and an honest statement of what presence is and is not tracked. | Still `encounter.manage`-gated and tenant-scoped (cross-tenant 404); the token is still on-demand and **never persisted**; participant rows stay append-only; **no recording affordance anywhere**, asserted as rendered. See §15. |
 | **COMMS.P3** *(optional)* | **A "reminder sent" confirmation** for dunning — the real one: *sent*, the delivery row as evidence, the ladder position. | **No `delivered`, no undo, no portal channel.** States the LEGAL carve-out. Honest verbs only. |
 | **COMMS.P4** *(optional, larger)* | **C3 — a notification feed.** | Role-scoped fail-closed; "Needs you" reuses `NeedsHumanReader` rather than a second definition. |
 
@@ -368,6 +368,113 @@ email you".
 
 Both are D-174 in its exact form: *the fixture has to be the case that would tempt the breach*. A
 test whose fixture makes two different implementations agree is not testing the difference.
+---
+
+## 15 — COMMS.P2 outcome (2026-08-25) · **COMMS BATCH CORE COMPLETE**
+
+### The finding that shaped the gate: what presence the backend can actually report
+
+`TelehealthService` records a great deal — that a session was created, that a token was **issued**
+(an audit row), that a participant **joined** (`telehealth_participants.joined_at`), that one **left**
+(`left_at`, settable exactly once), and that the session started and ended.
+
+**What it cannot report is whether anyone is connected right now.** `left_at` is only written when
+something calls `recordLeave()`. A participant whose connection simply drops — the common case —
+leaves `left_at` null forever. So *"joined and has not left"* is **not** the same claim as *"is in the
+call"*, and nothing on these surfaces makes the second one.
+
+That single fact disposes of the wireframe's most prominent features. The pulsing "patient waiting"
+ring, the **10-minute wait threshold**, the amber escalation and the "Notify running late" action all
+rest on live presence. They are refused — and the refusal is stated on screen rather than left as a
+silent gap. The threshold would have been doubly wrong: an escalation band is also a computed urgency
+grading (D-169).
+
+**And a token is not a join (D-179).** Issuing a token means somebody asked to join, not that they
+did. The two are audited separately and the reader counts only participant rows.
+
+### A real gap found, reported, and deliberately NOT "fixed"
+
+**No HTTP path calls `recordJoin()` or `recordLeave()`.** Both are exercised only by tests and by the
+new demo seeding. In the live application, joining fetches a token and the participant table is never
+written.
+
+The tempting fix — call `recordJoin()` when the token endpoint fires — was **rejected**: a token is
+issued *before* anyone connects, so recording a join there would assert an action that may never be
+taken (D-179). Recording it honestly needs the client to report back that it actually connected,
+which is a new capability and outside a parity gate. So the surface shows what *is* recorded, says
+plainly what is not, and the gap is written down here rather than papered over.
+
+### The sessions list
+
+**ENDED sessions are now visible.** The previous controller filtered to `created`/`active` only, so a
+clinician could never see what had happened — the roster showed the future and erased the past.
+
+Each row carries the linked appointment's real time, the recorded `created_at` / `started_at` /
+`ended_at`, and the **recorded joins** with their times. The state — `scheduled` / `joined` /
+`ended` — is **derived** from the recorded status plus the participant rows, never read from a
+single column something could have written directly. Filters run over those real attributes; counts
+are `StatCard`s over the whole record (D-166/D-174). Honest empty state retained, and a clinician
+with no sessions sees an empty list rather than somebody else's.
+
+### The pre-join surface
+
+New read-only route (`GET /telehealth/{session}`), `encounter.manage`-gated and tenant-scoped.
+
+**The device check is entirely local.** It calls `getUserMedia` in the browser, notes whether a
+camera and a microphone were found, and stops the tracks immediately. The result is shown to the
+clinician and to nobody else: never posted, never recorded, never sent with the join request. It
+reports **availability only** — no bandwidth figure, no signal bars, no quality grade. We can
+honestly say a camera was found; we cannot honestly score a call that has not happened.
+
+**It gates nothing.** A request claiming `precheck: passed` and one claiming `precheck: failed`
+produce byte-identical server behaviour, because neither is read — asserted directly, so a forged
+claim is worthless by construction.
+
+**An unconfigured provider is stated up front.** The deploy template ships `livekit.invalid` with no
+credentials, and `LiveKitProvider` throws when its secret is empty — so on an unconfigured install
+every Join would fail at the moment of use. The surface says so and withholds the control instead
+(D-176), rather than offering something that cannot work.
+
+### The omissions, each stated on screen
+
+Recording in any form · transcript or AI summary · connection-quality score · live-presence
+indicator and wait-time alert. All four are named in a "what this screen does not show" card,
+asserted as **rendered** through the keys the component iterates (GOV.P3).
+
+Recording deserves its own note: rooms are created with `recording_disabled` (the provider *refuses*
+otherwise) and every token withholds `roomRecord`, `roomAdmin` and `recorder`. There is nothing to
+start, stop or list — and deliberately **no disabled button**, which would tell a reader the
+capability exists (D-176).
+
+### Mutation-checked twelve ways
+
+Eleven caught first time: the token persisted into the audit context · a fabricated `liveConnected`
+flag derived from a null `left_at` · a quality score added · the state faked instead of derived · the
+append-only participant guard removed · the server trusting a client pre-check claim · the pre-join
+permission gate dropped · the omission loop emptied · a recording control added to the component · an
+unconfigured provider reported as configured · the token endpoint un-scoped from its tenant.
+
+**One escaped — and it was D-189 for the third time.** The counts mutation (hardcoding
+`['scheduled' => 1, 'joined' => 1, 'ended' => 1]`) stayed green because the fixture had exactly one
+session in each state, so the correct implementation and the hardcoded one agreed. A fourth session
+now makes the distribution asymmetric. The pattern is now established well enough to check for by
+default: **when a test pins a derivation, the fixture must be lopsided enough that a constant cannot
+impersonate it.**
+
+### The demo fixture, driven through the real path
+
+`DemoClinicSeeder::seedTelehealth()` opens three sessions and reaches each state by **traversing the
+service**, never by writing a status: `createSessionFromAppointment()` (the provider refuses a room
+that is not recording-disabled), `recordJoin()` (which is what flips a session to ACTIVE and stamps
+`started_at`), `recordLeave()`, and `endSession()`. The provider — not the service — is swapped for
+the in-memory adapter, which is exactly what the swappable-adapter design (D-G1) exists for; every
+rule that matters is enforced by the service and is genuinely traversed.
+
+**With this gate the COMMS BATCH CORE IS COMPLETE:** COMMS.P1 (unified inbox + patient context pane)
+and COMMS.P2 (telehealth sessions + join). Screens 2, 4 and 6 — Consent-Blocked Draft, Opt-in
+Confirmed, Request Consent Update — remain **declined under D-188**: they describe a per-topic,
+per-channel, per-household consent model plus a campaign capability that this product does not have,
+and a reduced version would teach staff to promise what the practice cannot keep.
 ---
 
 ## 8 — What this audit did not do

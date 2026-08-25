@@ -3327,6 +3327,64 @@
         "status": {
             "created": "Scheduled",
             "active": "In progress"
+        },
+        "states": {
+            "scheduled": "Scheduled",
+            "joined": "Someone has joined",
+            "ended": "Ended",
+            "all": "All"
+        },
+        "counts": {
+            "scheduled": "Scheduled",
+            "scheduledHint": "Opened, with no join recorded yet.",
+            "joined": "Joined",
+            "joinedHint": "At least one person has a recorded join and the session is still open.",
+            "ended": "Ended",
+            "endedHint": "Finished and closed."
+        },
+        "appointmentAt": "Appointment",
+        "openedAt": "Session opened",
+        "startedAt": "First join",
+        "endedAt": "Ended",
+        "participants": "Recorded joins",
+        "noParticipants": "No joins recorded yet.",
+        "joinedAt": "joined {time}",
+        "leftAt": "left {time}",
+        "stillOpen": "no leave recorded",
+        "party": {
+            "staff": "Clinician",
+            "patient": "Patient"
+        },
+        "preJoin": {
+            "eyebrow": "Pre-join",
+            "title": "Ready to join?",
+            "checkTitle": "Your camera and microphone",
+            "checkIntro": "This check runs in your browser only. Nothing about it is sent to CareOS, nothing is recorded, and its result does not affect whether you can join.",
+            "run": "Check my devices",
+            "checking": "Checking…",
+            "cameraFound": "Camera available",
+            "cameraMissing": "No camera available",
+            "micFound": "Microphone available",
+            "micMissing": "No microphone available",
+            "denied": "Your browser did not grant access to the camera or microphone. You can still join — CareOS does not check this.",
+            "noGrade": "We report only whether a device was found. CareOS does not grade your connection or score call quality.",
+            "join": "Join session",
+            "back": "Back to video visits",
+            "ended": "This session has ended, so it can no longer be joined."
+        },
+        "notConfigured": "No video provider is configured on this installation, so joining cannot work yet. The sessions below are real records; the Join action is unavailable until a provider is set up.",
+        "presence": {
+            "title": "What is tracked, and what is not",
+            "tracked": "Tracked: that a session was opened, that a join token was issued, that someone joined, and when they left if their client reported it.",
+            "notTracked": "Not tracked: whether anyone is connected right now. A dropped connection records no leave, so \"joined\" never means \"currently in the call\"."
+        },
+        "omitted": {
+            "title": "What this screen does not show",
+            "subtitle": "Things the design offers that this build cannot honestly back. We would rather name the gap than draw it.",
+            "recording": "No recording, in any form. Rooms are created with recording disabled at the provider and every token withholds the recording grant, so there is nothing to start, stop or list — and no disabled button that would suggest otherwise.",
+            "transcript": "No transcript and no AI summary of a consultation. Nothing listens to the call; the visit is documented in a clinical note like any other.",
+            "quality": "No connection-quality score. We can tell you whether your browser found a camera; we cannot grade a call, and a number here would be decoration.",
+            "presence": "No live \"waiting\" indicator and no wait-time alert. Those need to know who is connected this second, which nothing records — so a timer here would be counting something we cannot see."
         }
     },
     "dentalIndex": {

@@ -3574,3 +3574,26 @@ references the old ID.
   find out is to make the wrong choice and watch the test fail. **A green suite under a mutation is
   a statement about the fixture, not about the code.**
   See [[LOG]], D-174, D-182, D-183, D-187.
+
+- **D-190 — A REQUEST to do something is not a record that it was done; and a gap you cannot close
+  honestly is reported, not approximated.** (COMMS.P2, 2026-08-25.)
+  Telehealth has a `telehealth_participants` table with an append-only join/leave proof row, and
+  `TelehealthService::recordJoin()`/`recordLeave()` to write it. **Nothing in the live application
+  calls either** — only tests, and now the demo seeder. So in production the table stays empty and
+  the sessions list can never show a join.
+  **The tempting fix was to call `recordJoin()` from the token endpoint.** It is one line, it makes
+  the table fill up, and it is wrong: a join token is minted *before* anyone connects. A person can
+  request one and never join — the network fails, they change their mind, they close the tab.
+  Recording a join at that moment writes a fact that may never have happened (D-179), into an
+  **append-only** table that by design can never be corrected.
+  **So the gap stays open and is stated instead.** The surface shows what IS recorded (joins, where
+  they exist; token issuance, in the audit trail), says plainly what is NOT (live presence, and that
+  a dropped connection records no leave), and the missing callback is written down as the real fix:
+  the client reporting that it actually connected — a new capability, not a parity gate.
+  **The general rule:** when a store is empty because nothing writes it, find out WHY before filling
+  it. If the only available write point observes a *request* rather than the *event*, filling the
+  store makes the record worse, not better — an empty table is honestly empty, whereas a table full
+  of inferred events is a record that lies. This is the append-only corollary of D-179 and the same
+  instinct as the "seeding a state must drive its real path" rule: **if you cannot observe the event,
+  do not write a row about it.**
+  See [[LOG]], [[Comms]], D-176, D-179, `docs/wireframe-parity/COMMS-BATCH-DIFF.md` §15.

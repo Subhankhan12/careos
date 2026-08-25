@@ -43,8 +43,12 @@ use Modules\Clinical\Services\EncounterService;
 use Modules\Clinical\Services\MedicationService;
 use Modules\Clinical\Services\RecallEngine;
 use Modules\Clinical\Services\ReferralService;
+use Modules\Comms\Contracts\TelehealthProvider;
+use Modules\Comms\Models\TelehealthParticipant;
 use Modules\Comms\Models\Thread;
+use Modules\Comms\Providers\Telehealth\FakeTelehealthProvider;
 use Modules\Comms\Services\NotificationService;
+use Modules\Comms\Services\TelehealthService;
 use Modules\Comms\Services\ThreadService;
 use Modules\Nursing\Models\NurseConstraint;
 use Modules\Nursing\Models\PlannedVisit;
@@ -215,6 +219,7 @@ class DemoClinicSeeder extends Seeder
         $this->seedNursing();
         $this->seedBilling();
         $this->seedComms();
+        $this->seedTelehealth();
         $this->seedAiCore();
     }
 
@@ -1706,6 +1711,56 @@ class DemoClinicSeeder extends Seeder
      * — and neither has done anything. A proposal assigns nothing and a draft
      * posts nothing until a human approves it.
      */
+    /**
+     * Telehealth: three sessions, each reaching its state through the REAL service path.
+     *
+     * NOTHING HERE IS HAND-INSERTED. `createSessionFromAppointment()` creates the room with
+     * `recording_disabled` (the provider refuses otherwise), `recordJoin()` is what flips a session to
+     * ACTIVE and stamps `started_at`, and `endSession()` is what stamps `ended_at`. A session whose
+     * status was written directly would prove nothing about the transitions the page displays.
+     *
+     * THE PROVIDER IS SWAPPED, NOT THE SERVICE. `LiveKitProvider` would make a real HTTP call to
+     * `livekit.invalid`; the fake adapter is exactly what the swappable-adapter design (D-G1) exists
+     * for. Every rule that matters — the recording-disabled assertion, the audit rows, the append-only
+     * participant guard, the status transitions — is enforced by the SERVICE and is traversed here.
+     *
+     * The three states the surface must be able to show, each with a real row behind it (D-174):
+     *   1. SCHEDULED  — created, nobody has joined
+     *   2. JOINED      — the clinician joined (a real `joined_at`); the patient has NOT
+     *   3. ENDED       — ran and finished (`ended_at`), with both parties' joins recorded
+     */
+    private function seedTelehealth(): void
+    {
+        // The demo box has no telehealth credentials, so bind the in-memory adapter for seeding.
+        app()->bind(TelehealthProvider::class, FakeTelehealthProvider::class);
+
+        $telehealth = app(TelehealthService::class);
+        $doctor = $this->users['doctor_brunner'];
+        $practitioner = $this->staff['doctor_brunner'];
+
+        $appointments = Appointment::query()
+            ->whereNotNull('patient_id')
+            ->orderBy('starts_at')
+            ->limit(3)
+            ->get();
+
+        // 1. SCHEDULED — created and waiting. No participant rows at all.
+        $telehealth->createSessionFromAppointment($appointments[0], $practitioner, $doctor);
+
+        // 2. JOINED — the clinician is in, the patient has not arrived. recordJoin() is what moves
+        //    the session to ACTIVE, so the "someone joined" state is genuinely derived.
+        $waiting = $telehealth->createSessionFromAppointment($appointments[1], $practitioner, $doctor);
+        $telehealth->recordJoin($waiting, TelehealthParticipant::TYPE_STAFF, (string) $doctor->id);
+
+        // 3. ENDED — both joined, both left, and the session was ended through the real path.
+        $finished = $telehealth->createSessionFromAppointment($appointments[2], $practitioner, $doctor);
+        $staffLeg = $telehealth->recordJoin($finished, TelehealthParticipant::TYPE_STAFF, (string) $doctor->id);
+        $patientLeg = $telehealth->recordJoin($finished, TelehealthParticipant::TYPE_PATIENT, $finished->patient_id);
+        $telehealth->recordLeave($patientLeg);
+        $telehealth->recordLeave($staffLeg);
+        $telehealth->endSession($finished, $doctor);
+    }
+
     private function seedAiCore(): void
     {
         $this->seedKbArticles();

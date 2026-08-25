@@ -164,3 +164,29 @@ or nowhere; the inbox and the governance dashboard must not drift.
 not add one — that is a new send path. The `comms.email` consent gate lives in
 `NotificationService::send()`, and the LEGAL category is never gated by it.
 
+### COMMS.P2 — telehealth surfaces (2026-08-25) · COMMS BATCH CORE COMPLETE
+
+`Modules\Comms\Services\TelehealthSessionReader` is what the telehealth surfaces may say.
+
+**WHAT THE BACKEND CAN REPORT:** a session was created; a token was ISSUED; a participant
+JOINED (`joined_at`); one LEFT (`left_at`); the session started and ended.
+
+**WHAT IT CANNOT:** whether anyone is connected RIGHT NOW. `left_at` is only written when
+`recordLeave()` is called, so a dropped connection never records one. **Never render a live
+presence, a "waiting" timer or a wait-time threshold** — and a token is NOT a join (D-179).
+
+**KNOWN GAP (reported, not fixed): no HTTP path calls `recordJoin()`/`recordLeave()`.** Only
+tests and the demo seeder do. Do NOT wire `recordJoin()` into the token endpoint — a token is
+issued before anyone connects, so that would record a join that may never happen. Doing it
+honestly needs a client-side connected callback.
+
+**NEVER add to these surfaces:** recording in any form (not even disabled), a transcript, an AI
+summary, a connection-quality score, or a participant-row mutation (append-only at model AND
+trigger). The token is never persisted — no column, no audit context.
+
+**The device pre-check is browser-local.** It reports availability only, is never posted, and
+gates nothing server-side. If you make the server read a client claim, you have broken it.
+
+**An unconfigured provider is stated up front** — `livekit.invalid` with no secret is the deploy
+default, so the surface withholds Join and says why rather than failing at the moment of use.
+

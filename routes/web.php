@@ -750,6 +750,9 @@ Route::middleware('auth')->group(function () {
     // TelehealthService (recording-disabled, short-lived, never stored/logged) — no new telehealth
     // logic, "not recorded" discipline preserved.
     Route::get('/telehealth', [StaffTelehealthController::class, 'index'])->name('telehealth.index');
+    // Pre-join (COMMS.P2): a READ-ONLY surface. The device check it runs is browser-local — it is
+    // never posted here, never recorded, and never gates the token below.
+    Route::get('/telehealth/{session}', [StaffTelehealthController::class, 'show'])->name('telehealth.show');
     Route::post('/telehealth/{session}/token', [StaffTelehealthController::class, 'token'])->name('telehealth.token');
 
     // Kiosk device provisioning (admin.manage enforced in the controller). The
