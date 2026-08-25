@@ -522,6 +522,40 @@ Two further wireframes were decoded from the design pack and triaged. **Neither 
     P3 Home/Appointments · P4 Documents/Invoices/Messages · P5 Consents · P6 invite landing ·
     P7 reset broker. **Optional leftovers only** (PT.P8: telehealth readiness + a sign-out
     interstitial). The one open security follow-up is portal session invalidation on password change.
+- **GOVERNANCE & AI BATCH — CORE COMPLETE** (audit `docs/wireframe-parity/GOVERNANCE-AI-BATCH-DIFF.md`,
+  10 screens; seven were already parity-complete from APPROVAL.P1–P7 + AGENT.P1–P6):
+  **GOV.P4** `ec54c5b` demo governance data reached through the REAL approve/reject/fence paths ·
+  **GOV.P1** `1b54b13` the windowed metrics reader (G1) + dashboard, with SEVEN omissions stated on
+  the page rather than faked (the nine invented ACTING tool keys, "0 breaches", the confidence score,
+  the "escalated" slice, the KB-gap ranking, the AUTO tier, the clinical red flag) ·
+  **GOV.P2** `e268207` the "needs a human" reader (G2) — two real categories out of ten candidates,
+  each excluded one named with its reason; `clinician_attention_at` is set and NEVER cleared, so the
+  count is a conjunction of three facts a human action can actually clear ·
+  **GOV.P3** `57afa3f` KB admin parity + last-saved-by (G5) ·
+  **GOV.P5** `8f0b2e8` the ledger exporter (G3) — column-by-column PHI classification, PHI OFF by
+  default behind a SECOND permission, a non-optional hash manifest shipped in the same ZIP, its own
+  audit row, and the new `audit.export` permission. `audit_events` is deliberately NOT exported
+  row-by-row; only its integrity state travels. The wireframe's signed PDF was NOT built (no signing
+  key) and the omission is stated on the page.
+- **COMMS BATCH — AUDITED, NOT BUILT** (`docs/wireframe-parity/COMMS-BATCH-DIFF.md`, 8 screens,
+  audit only, no app code). Three screens are already live and were never compared (Unified Inbox ·
+  Telehealth Sessions · Telehealth Join) and need **chrome plus two small readers**; those are the
+  two gates worth taking (COMMS.P1, COMMS.P2).
+  **The finding that matters: three of the eight screens describe a consent model the product does
+  not have.** CareOS enforces exactly ONE outbound-comms consent — `comms.email`, per patient,
+  all-or-nothing for non-legal mail, with the LEGAL carve-out never gated. The mocks assume
+  per-TOPIC + per-CHANNEL consent, a client/HOUSEHOLD grouping and a CAMPAIGN feature; **none of the
+  four exists** (verified by query — two consent templates, no household/campaign/client table).
+  SMS is drawn on four screens and **is not wired** (one driver; an SMS template fails closed twice).
+  Also refused: a `delivered` state (`NotificationDelivery` records `sent`, never a receipt) and a
+  17-second **undo/recall** (there is no unsend — PT.P6 refused the identical affordance).
+  **Recommendation: screens 2, 4 and 6 should NOT enter a parity chain.** They are not a parity gap;
+  they are a different consent architecture plus a marketing capability the build deliberately lacks,
+  and a reduced version (a topic list holding one topic, a channel matrix with one live column) would
+  teach the user something false about what the practice can promise a patient. Revisit only as a
+  product decision with its own fence review and autonomy ceiling. A per-user notification feed
+  (screen 3) is a genuine, separable feature; GOV.P2's `NeedsHumanReader` is the honest subset that
+  already exists.
 ---
 
 ## DEPLOYMENT — the primary track (authoritative; everything below this section is history)

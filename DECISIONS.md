@@ -3530,3 +3530,23 @@ references the old ID.
   **And for tenant binding specifically:** mutate the SOURCE of the tenant (session instead of token), not
   the scoping of the query. That one turns red immediately, because it is the thing the binding actually is.
   See [[LOG]], D-182, D-183.
+
+- **D-188 — A wireframe that assumes a different ARCHITECTURE is not a parity gap, and must not be
+  reduced into one.** (Comms batch audit, 2026-08-25.)
+  Three of the eight Comms wireframes (Consent-Blocked Draft · Opt-in Confirmed · Request Consent
+  Update) rest on **per-topic, per-channel, per-household contact consent** and a **campaign/outreach
+  send path**. Verified by query: CareOS has **two** consent templates mapping to **two** scopes
+  (`portal.access`, `comms.email`); there is no household, client or campaign table; and only
+  `EmailNotificationDriver` is wired, so the SMS shown on four screens fails closed twice. Outbound
+  consent here is **one flag per patient, all-or-nothing for non-legal mail**, with the LEGAL
+  carve-out never gated (D-F7, D-184).
+  **The decision: those three screens are marked not-for-build against the current model** rather
+  than entering the COMMS chain. The tempting move — ship a reduced version — is the worse one: a
+  topic list that only ever holds one topic, or a channel matrix with one live column, is an
+  **unbacked presence** (D-176) that teaches staff the practice can make promises to a patient that
+  it cannot keep. The right form is a product decision with its own design, fence review and
+  autonomy ceiling, not a chrome gate.
+  **The general rule:** when a mock's premise is a different data model rather than missing pixels,
+  say so and stop. D-170 forbids fabricating a backend; this is its companion — **do not fabricate a
+  SHRUNKEN backend either**, because a half-built model reads as a whole one.
+  See [[LOG]], D-170, D-176, D-184, `docs/wireframe-parity/COMMS-BATCH-DIFF.md`.
