@@ -4,6 +4,8 @@ import { computed, reactive, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import EmptyState from '@/Components/EmptyState.vue';
+import StatCard from '@/Components/StatCard.vue';
+import { formatDateOnly } from '@/lib/date';
 
 const { t } = useI18n();
 const page = usePage();
@@ -19,17 +21,41 @@ type ThreadSummary = {
     last_message_at: string | null;
     unread: number;
 };
-type Message = { id: string; author_type: string; body: string; ai_assisted: boolean; sent_at: string };
+type Message = {
+    id: string;
+    author_type: string;
+    body: string;
+    ai_assisted: boolean;
+    // The human whose explicit Send posted this message. Null for patient/system messages.
+    sender: string | null;
+    sent_at: string;
+};
+
+/*
+ * The context pane, exactly as the server scopes it. Every element carries its own `visible`
+ * flag: false means THIS VIEWER MAY NOT SEE IT, which the page must render as a restriction —
+ * never as an empty value, because "none recorded" and "you may not look" are different claims.
+ */
+type PatientContext = {
+    identity: { visible: boolean; name?: string; dateOfBirth?: string | null; mrn?: string };
+    allergies: { visible: boolean; items: Array<{ id: string; substance: string; reaction: string | null; severity: string }> };
+    nextAppointment: { visible: boolean; appointment: { id: string; startsAt: string; status: string } | null };
+    balance: { visible: boolean; formatted: string | null };
+    emailContact: { consented: boolean };
+    links: { patient?: string };
+};
 
 const props = defineProps<{
-    filters: { type: string | null; status: string; scope: string };
+    filters: { type: string | null; status: string; scope: string; needsHuman: boolean };
     threads: ThreadSummary[];
+    counts: { open: number; needsHuman: number };
     activeThread:
         | (ThreadSummary & {
               messages: Message[];
               clinician_attention_at: string | null;
               clinician_attention_reason: string | null;
               aiDraft: { action_id: string; body: string; lines: Array<{ text: string; source: Record<string, string> }> } | null;
+              context: PatientContext | null;
           })
         | null;
     staff: Array<{ id: number; name: string }>;
@@ -45,10 +71,20 @@ const assigneeName = computed(
 const showContext = computed(() => props.activeThread?.type === 'patient');
 
 function reload(threadId?: string): void {
-    router.get('/comms/inbox', { ...filters, thread_id: threadId ?? props.activeThread?.id }, { preserveState: false, replace: true });
+    router.get(
+        '/comms/inbox',
+        // The server owns every filter — the page re-requests and the query re-runs. A client-side
+        // re-slice could only narrow what was already fetched, which is not the same answer.
+        { ...filters, needs_human: filters.needsHuman ? '1' : undefined, thread_id: threadId ?? props.activeThread?.id },
+        { preserveState: false, replace: true },
+    );
 }
 function setFilter(key: 'type' | 'status' | 'scope', value: string | null): void {
     filters[key] = value as never;
+    reload();
+}
+function toggleNeedsHuman(): void {
+    filters.needsHuman = !filters.needsHuman;
     reload();
 }
 function openThread(id: string): void {
@@ -94,6 +130,33 @@ function timeLabel(value: string): string {
     }
 }
 
+/**
+ * The provenance line under a message. Two recorded facts, stated together: a draft was involved,
+ * and THIS PERSON sent it. Where the sender was not recorded the copy falls back to the practice
+ * rather than inventing a name (D-179 — never assert an action by someone who may not have taken it).
+ */
+function provenanceLabel(message: Message): string {
+    if (message.ai_assisted) {
+        return message.sender ? t('comms.inbox.provenance.assisted', { name: message.sender }) : t('comms.inbox.provenance.assistedUnknown');
+    }
+    return message.sender ? t('comms.inbox.provenance.sentBy', { name: message.sender }) : '';
+}
+
+/** A full timestamp (not date-only) — safe to parse directly; see lib/date.ts. */
+function dateTimeLabel(value: string): string {
+    const d = new Date(value);
+    if (Number.isNaN(d.getTime())) return value;
+    try {
+        return new Intl.DateTimeFormat(locale.value, { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }).format(d);
+    } catch {
+        return value;
+    }
+}
+
+// The declined affordances, named on the page. Iterated so a key that is removed from the copy
+// disappears from the render too, and the test that asserts the RENDERED text notices (GOV.P3).
+const omittedKeys = ['channels', 'delivered', 'undo', 'topics'] as const;
+
 const typeFilters = [
     { key: 'type', value: null, label: 'comms.inbox.filters.all' },
     { key: 'type', value: 'patient', label: 'comms.inbox.filters.patient' },
@@ -111,6 +174,13 @@ const typeFilters = [
                 <p class="mt-1 text-sm text-ink-muted">{{ t('comms.inbox.subtitle') }}</p>
             </div>
 
+            <!-- Plain counts of rows that exist, counted server-side over the whole record (D-174).
+                 The closed StatCard takes a value and a hint and computes nothing (D-166). -->
+            <div class="grid gap-4 sm:grid-cols-2">
+                <StatCard :label="t('comms.inbox.counts.open')" :value="String(counts.open)" :hint="t('comms.inbox.counts.openHint')" />
+                <StatCard :label="t('comms.inbox.counts.needsHuman')" :value="String(counts.needsHuman)" :hint="t('comms.inbox.counts.needsHumanHint')" />
+            </div>
+
             <div class="grid gap-5" :class="showContext ? 'xl:grid-cols-[300px_1fr_290px]' : 'lg:grid-cols-[300px_1fr]'">
                 <!-- Left: filters + thread list -->
                 <div class="glass-card flex flex-col gap-3 p-3">
@@ -126,6 +196,18 @@ const typeFilters = [
                             <button type="button" class="rounded-full px-3 py-1.5 text-xs font-medium transition" :class="filters.scope === 'all' ? 'nav-pill-active text-ink' : 'text-ink-muted hover:text-ink'" @click="setFilter('scope', 'all')">{{ t('comms.inbox.filters.everyone') }}</button>
                             <button type="button" class="rounded-full px-3 py-1.5 text-xs font-medium transition" :class="filters.scope === 'mine' ? 'nav-pill-active text-ink' : 'text-ink-muted hover:text-ink'" @click="setFilter('scope', 'mine')">{{ t('comms.inbox.filters.mine') }}</button>
                         </div>
+                        <!-- "Still needs a human" — the conjunction, not the raw flag. The flag is
+                             never cleared, so filtering on it alone would offer a list no reply
+                             could ever shorten (GOV.P2). -->
+                        <button
+                            type="button"
+                            class="inline-flex w-full items-center justify-between gap-2 rounded-full px-3 py-1.5 text-xs font-medium transition"
+                            :class="filters.needsHuman ? 'nav-pill-active text-ink' : 'bg-euca-50/70 text-ink-muted hover:text-ink'"
+                            @click="toggleNeedsHuman"
+                        >
+                            <span>{{ t('comms.inbox.needsHuman') }}</span>
+                            <span class="rounded-full bg-white/70 px-1.5 py-0.5 text-[0.65rem] font-semibold text-ink">{{ counts.needsHuman }}</span>
+                        </button>
                         <p class="px-1 text-xs text-ink-subtle">{{ t('comms.inbox.listNote') }}</p>
                     </div>
 
@@ -200,9 +282,20 @@ const typeFilters = [
                                         <div class="rounded-2xl px-4 py-2.5 text-sm" :class="message.author_type === 'patient' ? 'bg-surface-2 text-ink' : 'bg-euca-100 text-ink'">
                                             <p class="whitespace-pre-line">{{ message.body }}</p>
                                         </div>
-                                        <p class="mt-1 flex items-center gap-1.5 text-xs text-ink-subtle" :class="message.author_type === 'patient' ? '' : 'justify-end'">
+                                        <p class="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-ink-subtle" :class="message.author_type === 'patient' ? '' : 'justify-end'">
                                             {{ t(`comms.inbox.author.${message.author_type}`) }} · {{ timeLabel(message.sent_at) }}
                                             <span v-if="message.ai_assisted" class="rounded-full bg-warning-soft px-1.5 py-0.5 text-warning">✦ {{ t('comms.inbox.aiAssisted') }}</span>
+                                        </p>
+                                        <!-- Recorded provenance, staff-facing: a draft was involved AND this
+                                             person sent it. PT.P4 left the PORTAL-side wording an open
+                                             decision; this is the staff side, where naming the colleague who
+                                             pressed Send is simply the accountability record. -->
+                                        <p
+                                            v-if="provenanceLabel(message)"
+                                            class="mt-0.5 text-xs text-ink-subtle"
+                                            :class="message.author_type === 'patient' ? '' : 'text-right'"
+                                        >
+                                            {{ provenanceLabel(message) }}
                                         </p>
                                     </div>
                                 </div>
@@ -266,8 +359,105 @@ const typeFilters = [
                             <dd class="font-medium text-ink">{{ assigneeName }}</dd>
                         </div>
                     </dl>
+
+                    <!-- RECORDED FACTS ONLY. Each element is scoped by the SERVER; `visible: false`
+                         means this viewer may not see it, and is rendered as a restriction rather
+                         than as an empty value. -->
+                    <template v-if="activeThread.context">
+                        <div class="mt-5 border-t border-line/70 pt-4">
+                            <p class="text-xs font-semibold uppercase tracking-[0.14em] text-ink-subtle">{{ t('comms.inbox.context.title') }}</p>
+
+                            <!-- Identity -->
+                            <dl class="mt-3 space-y-2 text-sm">
+                                <template v-if="activeThread.context.identity.visible">
+                                    <div class="flex justify-between gap-3">
+                                        <dt class="text-ink-muted">{{ t('comms.inbox.context.dateOfBirth') }}</dt>
+                                        <dd class="font-medium text-ink">{{ formatDateOnly(activeThread.context.identity.dateOfBirth, locale) }}</dd>
+                                    </div>
+                                    <div class="flex justify-between gap-3">
+                                        <dt class="text-ink-muted">{{ t('comms.inbox.context.mrn') }}</dt>
+                                        <dd class="font-mono text-xs font-medium text-ink">{{ activeThread.context.identity.mrn }}</dd>
+                                    </div>
+                                </template>
+                                <p v-else class="text-xs italic text-ink-subtle">{{ t('comms.inbox.context.identity') }}: {{ t('comms.inbox.context.restricted') }}</p>
+                            </dl>
+
+                            <!-- Recorded allergies. The clinician's own words; ordered by substance,
+                                 never by severity, and never tinted by it (D-169/D-173). -->
+                            <div class="mt-4">
+                                <p class="text-xs font-medium text-ink-muted">{{ t('comms.inbox.context.allergies') }}</p>
+                                <template v-if="activeThread.context.allergies.visible">
+                                    <ul v-if="activeThread.context.allergies.items.length" class="mt-1.5 flex flex-wrap gap-1.5">
+                                        <li
+                                            v-for="allergy in activeThread.context.allergies.items"
+                                            :key="allergy.id"
+                                            class="rounded-full border border-warning/40 bg-warning-soft px-2 py-0.5 text-xs text-ink"
+                                        >
+                                            {{ allergy.substance }}<span v-if="allergy.reaction"> — {{ allergy.reaction }}</span>
+                                            <span class="text-ink-muted"> ({{ allergy.severity }})</span>
+                                        </li>
+                                    </ul>
+                                    <p v-else class="mt-1 text-xs text-ink-subtle">{{ t('comms.inbox.context.allergiesNone') }}</p>
+                                </template>
+                                <p v-else class="mt-1 text-xs italic text-ink-subtle">{{ t('comms.inbox.context.restricted') }}</p>
+                            </div>
+
+                            <!-- Next appointment -->
+                            <div class="mt-4">
+                                <p class="text-xs font-medium text-ink-muted">{{ t('comms.inbox.context.nextAppointment') }}</p>
+                                <template v-if="activeThread.context.nextAppointment.visible">
+                                    <p v-if="activeThread.context.nextAppointment.appointment" class="mt-1 text-sm font-medium text-ink">
+                                        {{ dateTimeLabel(activeThread.context.nextAppointment.appointment.startsAt) }}
+                                    </p>
+                                    <p v-else class="mt-1 text-xs text-ink-subtle">{{ t('comms.inbox.context.nextAppointmentNone') }}</p>
+                                </template>
+                                <p v-else class="mt-1 text-xs italic text-ink-subtle">{{ t('comms.inbox.context.restricted') }}</p>
+                            </div>
+
+                            <!-- Open balance, from the engine reader. The page never sums or divides. -->
+                            <div class="mt-4">
+                                <p class="text-xs font-medium text-ink-muted">{{ t('comms.inbox.context.balance') }}</p>
+                                <p v-if="activeThread.context.balance.visible" class="mt-1 text-sm font-medium text-ink">{{ activeThread.context.balance.formatted }}</p>
+                                <p v-else class="mt-1 text-xs italic text-ink-subtle">{{ t('comms.inbox.context.restricted') }}</p>
+                            </div>
+
+                            <!-- Email contact. The "no" case states the LEGAL carve-out, because
+                                 non-consent does NOT mean this patient is never emailed (D-184). -->
+                            <div class="mt-4">
+                                <p class="text-xs font-medium text-ink-muted">{{ t('comms.inbox.context.email') }}</p>
+                                <p class="mt-1 text-xs text-ink-muted">
+                                    {{ activeThread.context.emailContact.consented ? t('comms.inbox.context.emailYes') : t('comms.inbox.context.emailNo') }}
+                                </p>
+                            </div>
+
+                            <a
+                                v-if="activeThread.context.links.patient"
+                                :href="activeThread.context.links.patient"
+                                class="mt-4 inline-block text-sm font-semibold text-euca-700 transition hover:text-euca-900"
+                            >
+                                {{ t('comms.inbox.context.openRecord') }} →
+                            </a>
+                            <p class="mt-3 text-xs text-ink-subtle">{{ t('comms.inbox.context.note') }}</p>
+                        </div>
+                    </template>
+
                     <p class="mt-4 text-xs text-ink-subtle">{{ t('comms.inbox.contextNote') }}</p>
                 </div>
+            </div>
+
+            <!-- What the design offers that this build cannot honestly back. Naming the gap is the
+                 alternative to drawing a channel with no driver or a state nothing reports
+                 (D-176) — a reader who expected them learns they have no source, not that the
+                 screen is broken. Same card as the governance dashboard. -->
+            <div class="glass-card p-5">
+                <p class="text-sm font-semibold text-ink">{{ t('comms.inbox.omitted.title') }}</p>
+                <p class="mt-1 text-xs text-ink-muted">{{ t('comms.inbox.omitted.subtitle') }}</p>
+                <ul class="mt-3 space-y-1.5 text-sm text-ink-muted">
+                    <li v-for="key in omittedKeys" :key="key" class="flex items-start gap-2">
+                        <span class="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-ink-subtle" />
+                        <span>{{ t(`comms.inbox.omitted.${key}`) }}</span>
+                    </li>
+                </ul>
             </div>
         </div>
     </AppLayout>

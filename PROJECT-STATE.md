@@ -556,6 +556,29 @@ Two further wireframes were decoded from the design pack and triaged. **Neither 
   product decision with its own fence review and autonomy ceiling. A per-user notification feed
   (screen 3) is a genuine, separable feature; GOV.P2's `NeedsHumanReader` is the honest subset that
   already exists.
+  - **COMMS.P1 — DONE.** Unified inbox parity + **the patient context pane**. The inbox's spine was
+    already correct and was left alone; this added a context pane, a "still needs a human" filter,
+    two real counts, a provenance line and an omission card, and **changed no rule**.
+    **`InboxPatientContextReader` — five elements, five SEPARATE gates**, enforced in the reader:
+    identity (`patient.view`) · recorded allergies (**`encounter.manage`**, deliberately stricter
+    than the chart's `patient.view` — the inbox is operational and reception works in it, and where
+    the gate is arguable GOV.P5's rule says take the stricter one) · next appointment
+    (`appointment.manage`) · open balance (`billing.view`, via `PatientBalanceReader` — no page
+    arithmetic) · email-contact status. **A refused element returns NO VALUE**, never a zero:
+    "none recorded" and "you may not look" are different claims. Pinned with users the CATALOGUE
+    DOES NOT BUILD (one permission each), because the seeded reception role bundles `comms.manage`
+    with `patient.view` and would have hidden the identity gate entirely.
+    **The GOV.P2 conjunction moved onto the model** as `Thread::scopeWaitingForClinician()`, with
+    `NeedsHumanReader` delegating to it, so the inbox and the governance dashboard cannot describe
+    different sets. Conjunction unchanged; GOV.P2's suite green unmodified.
+    **A reconciliation surfaced rather than papered over:** the gate asked for a reply "refused at
+    the service with a recorded reason row", but **a thread reply does not email anyone** —
+    `ThreadService` never calls `NotificationService`. Building one would have been the new send
+    path the gate itself forbids, so the consent refusal is pinned where it lives
+    (`NotificationService::send()` → `skipped`/`no_consent`, called directly).
+    **Two mutations escaped, both defects in the FIXTURE not the code** (D-174): severity-ordering
+    stayed green because the fixture made substance-order and severity-order identical; counting the
+    capped page stayed green because the fixture held one thread. Both strengthened.
 ---
 
 ## DEPLOYMENT — the primary track (authoritative; everything below this section is history)

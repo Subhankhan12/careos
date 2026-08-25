@@ -2338,6 +2338,43 @@
                 "staff": "Care team",
                 "patient": "Patient",
                 "system": "System"
+            },
+            "needsHuman": "Needs a clinician",
+            "counts": {
+                "open": "Open threads",
+                "openHint": "Every open thread in this practice, not just the page below.",
+                "needsHuman": "Waiting on a person",
+                "needsHumanHint": "Flagged by the fence, still open, and no staff reply since the flag."
+            },
+            "provenance": {
+                "assisted": "Drafted with assistance, sent by {name}",
+                "assistedUnknown": "Drafted with assistance, sent by the practice",
+                "sentBy": "Sent by {name}"
+            },
+            "context": {
+                "title": "About this patient",
+                "restricted": "Your role does not include this.",
+                "identity": "Identity",
+                "dateOfBirth": "Date of birth",
+                "mrn": "Record number",
+                "allergies": "Recorded allergies",
+                "allergiesNone": "No allergies recorded.",
+                "nextAppointment": "Next appointment",
+                "nextAppointmentNone": "No upcoming appointment booked.",
+                "balance": "Open balance",
+                "email": "Email contact",
+                "emailYes": "Consented to email. Withdrawing it stops appointment reminders and other non-legal mail.",
+                "emailNo": "No email consent, so no reminders or other non-legal mail are sent. Legally required notices — such as an invoice reminder — are still sent, because consent does not gate those.",
+                "openRecord": "Open patient record",
+                "note": "Recorded facts only. Nothing here is a judgment, a score or a summary."
+            },
+            "omitted": {
+                "title": "What this screen does not show",
+                "subtitle": "Things the design offers that this build cannot honestly back. We would rather name the gap than draw it.",
+                "channels": "No SMS, phone or WhatsApp. Email is the only channel with a driver, so a second column — even greyed out — would tell you a channel exists that does not.",
+                "delivered": "No \"delivered\" or \"read\" state. The record says a message was handed to the mailer; nothing reports back that it arrived or was opened.",
+                "undo": "No undo or recall. Once a message is sent it is sent — there is no unsend to offer, so no timer is drawn.",
+                "topics": "No per-topic or per-channel consent switches. This product enforces one email consent per patient, all-or-nothing for non-legal mail."
             }
         }
     },

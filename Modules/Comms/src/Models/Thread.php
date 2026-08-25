@@ -2,6 +2,7 @@
 
 namespace Modules\Comms\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -120,6 +121,38 @@ class Thread extends Model
     public function isPatientThread(): bool
     {
         return $this->type === self::TYPE_PATIENT;
+    }
+
+    /**
+     * THE one definition of "the fence flagged this and a human still has not answered".
+     *
+     * GOV.P2 established the shape and the reason for it: `clinician_attention_at` is SET by
+     * `InboxAgent::refuseClinical()` and **nothing anywhere clears it**. Counting the raw flag would
+     * produce a worklist no human action can ever empty — worse than no worklist at all. So "still
+     * waiting" is a CONJUNCTION of three real facts, each cleared by a real human action:
+     *
+     *   1. the fence flagged it            (`clinician_attention_at` is set)
+     *   2. the thread is still OPEN        (cleared by closing the thread)
+     *   3. no staff message since the flag (cleared by replying)
+     *
+     * It lives HERE, on the model, rather than in the reader that first needed it, so the governance
+     * dashboard's count and the inbox's filter cannot drift into describing different sets — the
+     * same one-definition rule GOV.P1 applied to `approvedAsIsPct`. `NeedsHumanReader` delegates to
+     * this scope; if you change the conjunction, both surfaces change together or neither does.
+     *
+     * @param  Builder<Thread>  $query
+     */
+    public function scopeWaitingForClinician($query): void
+    {
+        $query->whereNotNull('clinician_attention_at')
+            ->where('status', self::STATUS_OPEN)
+            ->whereNotExists(function ($sub): void {
+                $sub->selectRaw('1')
+                    ->from('messages')
+                    ->whereColumn('messages.thread_id', 'threads.id')
+                    ->where('messages.author_type', Message::AUTHOR_STAFF)
+                    ->whereColumn('messages.sent_at', '>=', 'threads.clinician_attention_at');
+            });
     }
 
     protected function auditPatientId(): ?string

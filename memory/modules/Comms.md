@@ -136,3 +136,31 @@ a real SMS provider/channel. See the DIFF doc + [[Platform]].
 - G.2 notification engine; G.3 unified inbox UI (adds `thread_reads` + `assigned_to`); G.4 telehealth;
   G.6 Inbox agent (`ai_assisted` drafts).
 - SMS channel/provider is unwired (SETTINGS.P5 renders an inert SMS seam only).
+
+### COMMS.P1 — the inbox context pane + the shared "needs a human" scope (2026-08-25)
+
+`Modules\Comms\Services\InboxPatientContextReader` is the patient context beside a thread.
+**Five elements, five SEPARATE permission gates, enforced in the reader:** identity
+(`patient.view`) · recorded allergies (**`encounter.manage`** — stricter than the chart's
+`patient.view` on purpose) · next appointment (`appointment.manage`) · open balance
+(`billing.view`, via `PatientBalanceReader`) · email-contact status.
+
+**If you add an element, gate it and pin it with a single-permission user.** The seeded roles
+bundle permissions, so a catalogue role can never prove an individual gate — build the user the
+catalogue does not.
+
+**A refused element returns NO VALUE** — never a zero, never an empty list. "None recorded" and
+"you may not look" are different claims.
+
+**NEVER add to this payload:** a diagnosis, acuity, risk, triage, priority, SLA/overdue marker
+or computed summary. Allergies are ordered BY SUBSTANCE — ordering by severity would assert a
+priority nobody recorded.
+
+**`Thread::scopeWaitingForClinician()` is THE definition of "still needs a human"** — flagged
+AND open AND no staff reply since the flag. `NeedsHumanReader` delegates to it. Change it here
+or nowhere; the inbox and the governance dashboard must not drift.
+
+**A thread reply does NOT email anyone.** `ThreadService` never calls `NotificationService`. Do
+not add one — that is a new send path. The `comms.email` consent gate lives in
+`NotificationService::send()`, and the LEGAL category is never gated by it.
+

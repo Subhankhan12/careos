@@ -3550,3 +3550,27 @@ references the old ID.
   say so and stop. D-170 forbids fabricating a backend; this is its companion — **do not fabricate a
   SHRUNKEN backend either**, because a half-built model reads as a whole one.
   See [[LOG]], D-170, D-176, D-184, `docs/wireframe-parity/COMMS-BATCH-DIFF.md`.
+
+- **D-189 — A test whose fixture makes two different implementations agree is not testing the
+  difference.** (COMMS.P1, 2026-08-25.)
+  Twelve mutations, ten caught. The two that escaped were both defects in **my own fixture**, and
+  both had the same shape: the data made the correct implementation and the wrong one produce
+  *identical output*, so the assertion had nothing to discriminate on.
+  1. **"Allergies are ordered by substance, never by severity."** The fixture recorded Aspirin as
+     *mild* and Penicillin as *severe*. Alphabetically `mild` < `severe`, so ordering by substance
+     and ordering by severity both yielded `[Aspirin, Penicillin]`. The mutation swapping the
+     `orderBy` column changed nothing observable. Aspirin is now recorded *unknown*, which sorts
+     after `severe` alphabetically and before it by any clinical reading — the two orderings now
+     genuinely disagree.
+  2. **"The count is the record's, not the visible page's."** The fixture held ONE thread, which was
+     also the flagged one, so the capped list and the record-wide count were both `1`. A second,
+     unflagged thread now makes the list longer than the count.
+  **This is D-174 (the vacuous scan) in a sharper form.** D-174 was about a guard that scanned an
+  empty subject. This is about a guard whose subject is non-empty but *degenerate*: it contains no
+  case on which the two implementations differ. The positive control does not catch it either —
+  the assertion passes, the data is real, and the test reads as thorough.
+  **The rule:** when a test pins a CHOICE (this column not that one, this source not that one),
+  the fixture must contain a case where the two choices give different answers — and the way to
+  find out is to make the wrong choice and watch the test fail. **A green suite under a mutation is
+  a statement about the fixture, not about the code.**
+  See [[LOG]], D-174, D-182, D-183, D-187.

@@ -217,7 +217,7 @@ was pinned to what the system actually did.
 
 | Gap | Unlocks | Size |
 |---|---|---|
-| **C1 · Inbox patient-context reader** (next appointment + chart link for the open thread) | Screen 1's third pane | **Low** — both facts exist |
+| ~~**C1 · Inbox patient-context reader**~~ ✅ **DONE (COMMS.P1)** — `InboxPatientContextReader`: identity, recorded allergies, next appointment, open balance (engine reader), email-contact status. Five elements, five separate gates | Screen 1's third pane | — |
 | **C2 · Telehealth waiting/elapsed from `TelehealthParticipant`** | Screen 8's "patient waiting 2 min" and the in-session timer | **Low** — append-only rows already carry `joined_at` |
 | **C3 · A per-user notification feed** (table + read state + role scoping) | Screen 3 entirely | **High** — a new subsystem |
 | **C4 · Per-patient, per-topic, per-channel consent** | Screens 2, 4, 6 | **High** — a consent-model change touching the send path, the portal and the fence. **Not a parity gap** |
@@ -253,7 +253,7 @@ as gaps would smuggle them into a parity chain.
 
 | Gate | Builds | Proves |
 |---|---|---|
-| **COMMS.P1** | **Unified Inbox parity** — the header band, avatared bubbles, Today divider, pinned internal chip, and the **patient context pane** (C1). | The draft still routes through `send-draft` → `approve()`; the flagged state still offers **no** draft; unread stays derived; the read-audit row stays one per render. |
+| ~~**COMMS.P1**~~ ✅ **DONE** | **Unified Inbox parity + the patient context pane** (C1) — five recorded facts, each permission-scoped fail-closed; the "still needs a human" filter over GOV.P2's conjunction; real counts; recorded agent provenance naming the human sender; the declined affordances stated on the page. | The draft still routes through `send-draft` → `approve()` at a **suggest** ceiling; the flagged state still offers **no** draft; unread stays derived; **the read-audit row is still exactly one per render** despite four new reads. See §14. |
 | **COMMS.P2** | **Telehealth Sessions + Join parity** — the roster framing, the pre-join device check (client-side), the elapsed timer and waiting time from `TelehealthParticipant` (C2). | Still `encounter.manage`-gated; the token is still on-demand and unstored; **no recording affordance appears**, asserted as rendered. |
 | **COMMS.P3** *(optional)* | **A "reminder sent" confirmation** for dunning — the real one: *sent*, the delivery row as evidence, the ladder position. | **No `delivered`, no undo, no portal channel.** States the LEGAL carve-out. Honest verbs only. |
 | **COMMS.P4** *(optional, larger)* | **C3 — a notification feed.** | Role-scoped fail-closed; "Needs you" reuses `NeedsHumanReader` rather than a second definition. |
@@ -273,6 +273,101 @@ autonomy ceiling. Building a reduced version would be worse than leaving them ou
 only ever holds one topic, or a channel matrix with one live column, teaches the user something
 false about what the practice can promise a patient.
 
+---
+
+## 14 — COMMS.P1 outcome (2026-08-25)
+
+### What was already right, and therefore left alone
+
+The inbox's spine did not need rebuilding. The dark thread header, the filter pills, the derived
+unread marker, the internal-thread chip, the clinician-attention banner, the dashed agent-draft card
+with its source chips, and the absence of a "request draft" button on a flagged thread were all
+already there and already correct. **This gate added a context pane, a filter, two counts, a
+provenance line and an omission card — and changed no rule.**
+
+### The context pane — five elements, five separate gates
+
+The pane is the risk on this screen, so each element is gated on the permission that owns the data,
+enforced in the reader (not the controller, not the page), and refused with **no value at all**.
+
+| Element | Gate | Why that gate |
+|---|---|---|
+| Identity (name, DOB, record no.) | `patient.view` | the least a correspondent needs to know who they are writing to |
+| Recorded allergies | **`encounter.manage`** | clinical content. The chart shows allergies at `patient.view`, but the chart is a clinical surface opened deliberately; the inbox is operational and reception works in it. Where the right gate is arguable, GOV.P5's rule applies — **take the stricter one**, because a disclosure cannot be recalled |
+| Next appointment | `appointment.manage` | scheduling fact |
+| Open balance | `billing.view` | via `PatientBalanceReader::present()` — the same figure AR shows; **no page arithmetic** |
+| Email-contact status | (the inbox's own `comms.manage`) | a fact about the correspondence already being conducted |
+
+**Refused means EMPTY, not a plausible default.** A `0.00` balance or an empty allergy list would
+tell the viewer something false about the record — "none recorded" and "you may not look" are
+different claims, and the pane renders them differently. A mutation returning `'0.00'` for a refused
+balance turns the suite red.
+
+**What the pane deliberately does NOT carry:** no diagnosis, acuity, risk, triage or priority; no
+computed summary of the patient or the conversation; no SLA or overdue marker. The recorded severity
+of an allergy travels as **the clinician's own word**, and allergies are ordered **by substance** —
+ordering by severity would be the system asserting a priority nobody recorded (D-169/D-173).
+
+### One definition of "still needs a human", not two
+
+GOV.P2 established that `clinician_attention_at` is set by the fence and **never cleared**, so a
+filter on the raw flag would offer a worklist no reply could ever shorten. The conjunction —
+flagged **and** still open **and** no staff message since the flag — has now moved onto the model as
+`Thread::scopeWaitingForClinician()`, and `NeedsHumanReader` delegates to it. The inbox filter, the
+inbox count and the governance dashboard therefore cannot drift into describing different sets; a
+test asserts the two surfaces agree. The conjunction itself is unchanged, and GOV.P2's suite is
+green without modification.
+
+### Provenance: both facts, together
+
+An agent-drafted message shows that a draft was involved **and names the person whose Send posted
+it**. That is not an inference — `DraftReplyTool::execute()` passes the HUMAN as the actor, so
+`author_staff_user_id` genuinely is the sender. PT.P4 left the *portal-side* wording an open
+decision; this is the staff side, where naming the colleague who pressed Send is simply the
+accountability record.
+
+### The declined affordances, stated on the page
+
+Four things the wireframes draw that this build cannot honestly back, now named in a "what this
+screen does not show" card rather than silently omitted: **SMS/phone/WhatsApp** (one driver is
+wired; a greyed-out second column would assert a channel exists), **"delivered"/"read"** (the record
+says a message was handed to the mailer; nothing reports back), **undo/recall** (there is no
+unsend — PT.P6 refused the identical affordance), and **per-topic/per-channel consent switches**
+(D-188). The card is asserted as **rendered** via the keys the component iterates — GOV.P3's lesson,
+where copy-only assertions left the render loop free to be emptied.
+
+### A reconciliation the gate's own wording assumed otherwise
+
+The gate asked for "a reply … refused at the SERVICE with a recorded reason row". **A thread reply
+does not email anyone.** `ThreadService` never calls `NotificationService`; a staff reply is an
+in-portal message the patient reads behind the three-layer portal check. Building an email-on-reply
+would have been exactly the new send path the gate's own rules forbid. So the consent refusal is
+pinned where it actually lives — `NotificationService::send()` returning
+`skipped`/`no_consent` for a real template, called directly (D-183), with the positive control that
+granting consent makes the identical call send. The three patient-side visibility layers are pinned
+separately in the same file, each with the other two left satisfied.
+
+### Mutation-checked twelve ways — and two of them found defects in the tests
+
+Ten mutations were caught first time: the allergy gate deleted · the balance gate deleted · a
+refused element returning `0.00` · a computed risk score added · the raw flag replacing the
+conjunction · the "no staff reply" conjunct inverted · provenance dropping the sender · an SMS
+symbol on the page · the omission loop emptied · the consent copy over-claiming "we will never
+email you".
+
+**Two escaped, and both were the same defect in my fixture rather than in the code.**
+
+1. **Ordering by severity stayed green.** The fixture recorded Aspirin as *mild* and Penicillin as
+   *severe* — so ordering by substance and ordering by severity produced the *same list*, and the
+   assertion could not tell them apart. Aspirin is now recorded *unknown*, which sorts after
+   `severe` alphabetically and before it by any clinical reading, so the two orderings genuinely
+   disagree.
+2. **Counting the capped page instead of the record stayed green.** With one thread in the fixture,
+   the visible list and the record-wide count were both 1. A second, unflagged thread now makes the
+   list longer than the count, so the two can disagree.
+
+Both are D-174 in its exact form: *the fixture has to be the case that would tempt the breach*. A
+test whose fixture makes two different implementations agree is not testing the difference.
 ---
 
 ## 8 — What this audit did not do

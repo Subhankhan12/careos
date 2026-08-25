@@ -9,7 +9,6 @@ use Modules\AiCore\Models\AgentAction;
 use Modules\AiCore\Services\AgentRegistry;
 use Modules\AiCore\Services\ApprovalQueue;
 use Modules\Clinical\Services\OrderService;
-use Modules\Comms\Models\Message;
 use Modules\Comms\Models\Thread;
 use Modules\Comms\Services\ThreadService;
 use Modules\Platform\Models\User;
@@ -209,16 +208,13 @@ class NeedsHumanReader
      */
     private function waitingForClinician()
     {
-        return Thread::query()
-            ->whereNotNull('clinician_attention_at')
-            ->where('status', Thread::STATUS_OPEN)
-            ->whereNotExists(function ($sub): void {
-                $sub->selectRaw('1')
-                    ->from('messages')
-                    ->whereColumn('messages.thread_id', 'threads.id')
-                    ->where('messages.author_type', Message::AUTHOR_STAFF)
-                    ->whereColumn('messages.sent_at', '>=', 'threads.clinician_attention_at');
-            });
+        /*
+         * COMMS.P1 moved the conjunction itself onto the model, because the inbox now offers the
+         * same "still needs a human" filter. Two copies of this query would be two definitions of
+         * the same claim on two screens a user reads minutes apart — the drift GOV.P1 removed from
+         * `approvedAsIsPct`. The conjunction is unchanged; only its home is.
+         */
+        return Thread::query()->waitingForClinician();
     }
 
     /**
