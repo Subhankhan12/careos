@@ -3074,7 +3074,8 @@
             "confidence": "No confidence score. The agents produce no confidence signal, so any number here would be decoration.",
             "breaches": "No \"breaches\" count. Nothing records a breach, so a zero would be unfalsifiable — the refusals above are what is actually countable.",
             "kbGaps": "No ranking of knowledge-base gaps. Nothing yet records the questions an agent could not ground, so there is nothing to rank.",
-            "escalated": "No \"escalated\" outcome. Handing a thread to a clinician is flagged on the thread itself, not as an agent-action outcome — it is shown in the inbox, where it can be acted on."
+            "escalated": "No \"escalated\" outcome. Handing a thread to a clinician is flagged on the thread itself, not as an agent-action outcome — it is shown in the inbox, where it can be acted on.",
+            "signedPdf": "No signed PDF. The design offers one, but there is no signing key in this build — a \"signed\" file with an unmanaged key would be worse than an unsigned one. The export ships a checksum manifest instead."
         },
         "needsHuman": {
             "title": "Waiting on a person",
@@ -3106,6 +3107,17 @@
             "unproducible": {
                 "operator_access_request": "Support-access requests would also wait on the practice owner, but operator mode is switched off in this build, so none can be raised."
             }
+        },
+        "export": {
+            "title": "Export the ledger",
+            "subtitle": "For an auditor or a regulator. The file carries governance facts — who did what, when, and how it was decided.",
+            "window": "Covers the period shown above: {from} to {to}.",
+            "freeText": "Also include free-text fields",
+            "freeTextHint": "Adds the notes and reasons people typed, which can contain anything they wrote. Off unless you choose it, and recorded in the export's own audit entry.",
+            "freeTextLocked": "Free-text fields are left out. Adding them needs tenant administration.",
+            "download": "Download export",
+            "manifestNote": "The download is a ZIP: the ledger file and a manifest recording the row count, the period, the filters, who exported it and a checksum. Re-hash the file and compare — a missing or altered row will not match.",
+            "auditNote": "Exporting is itself recorded in the audit log."
         }
     },
     "aiQueue": {

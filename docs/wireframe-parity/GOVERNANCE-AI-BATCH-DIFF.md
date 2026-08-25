@@ -269,7 +269,7 @@ audited components. Only the range picker and the export panel are new.
 |---|---|---|
 | ~~**G1 · A windowed governance-metrics reader**~~ ✅ **DONE (GOV.P1)** — `AgentMetricsService::window()`: counts by real status, by canonical agent, by REGISTERED tool (with each tool's real ceiling), the ledger by outcome, the fence-refusal count and the live queue depth | The dashboard; the export summary panel when GOV.P5 lands | — |
 | ~~**G2 · An "actions needing a human" reader**~~ ✅ **DONE (GOV.P2)** — `NeedsHumanReader`: pending approvals + threads still awaiting a clinician, each permission-scoped fail-closed, with the excluded worklists named on screen | The dashboard panel | — |
-| **G3 · A governance-ledger exporter** (filtered range → CSV/JSON, chain manifest, private-disk stream, **its own audit row**) | Screen 10 entirely | **Med-High**, security-sensitive |
+| ~~**G3 · A governance-ledger exporter**~~ ✅ **DONE (GOV.P5)** — windowed CSV + a non-optional manifest, in a ZIP; `audit.export`-gated; PHI off by default behind a second gate; its own audit row | Screen 10 | — |
 | ~~**G4 · Demo governance data**~~ ✅ **DONE (GOV.P4)** — executed (as-is + edited), rejected, fence-refused, spread across 12 days, every state driven through its real path | Screens 4 and 5 are demonstrable; AGENT.P5's approved-as-is % has a real denominator | — |
 | ~~**G5 · Last-saved-by on a KB article**~~ ✅ **DONE (GOV.P3)** — read from the audit trail, no new column; honest "—" where nobody has saved it | The KB card's provenance line | — |
 
@@ -310,7 +310,7 @@ designed*, and listing them as gaps would smuggle them into a parity chain.
 | ~~**GOV.P2**~~ ✅ **DONE** | **G2 — "needs a human".** Pending approvals + threads still awaiting a clinician, each with a real count, its items and a link to where a person acts. | Every category is a real state with a cited setter and clearer; the excluded worklists are NAMED so an empty panel is not a false all-clear; no urgency, SLA or priority; the patient's message body never reaches the panel. See §11. |
 | ~~**GOV.P3**~~ ✅ **DONE** | **KB Admin parity** — closed count tiles, search over real fields, active/archived grouping, last-saved-by (G5), recorded grounding usage. | Deactivation still stops grounding immediately (asserted against the retriever's own rule); no "draft" state invented for a boolean column; **the gap ranking and quality score refused and stated on screen**. See §12. |
 | ~~**GOV.P4**~~ ✅ **DONE** | **G4 — demo governance data**: one executed as-is, one edited-then-approved, one rejected, the fence refusal kept, spread across 12 days. | Screens 4/5 demonstrable; the outcome mix non-degenerate. **Every state driven through its real path** — the mutation that hand-sets a status turns the suite red. See §9. |
-| **GOV.P5** | **G3 — the ledger exporter.** Filtered range → CSV/JSON, chain manifest, private-disk stream, **its own audit row**, `audit.view`-gated. | The export is itself ledgered; the hash manifest is **not optional**; **PHI (message bodies) defaults OFF and is a separate, permission-checked decision** — and if the practice cannot justify it, it should not be a toggle at all. **Security-sensitive: pair with a review.** |
+| ~~**GOV.P5**~~ ✅ **DONE** | **G3 — the ledger exporter.** Windowed CSV + non-optional manifest, shipped together as a ZIP; gated on the NEW `audit.export`. | The export is itself audited; the manifest detects truncation and alteration; **free text is OFF by default behind a second permission**; tenant isolation pinned where no middleware answers first; reading mutates nothing. See §13. |
 | **GOV.P6** *(optional)* | **Signed PDF export.** | Needs a signing key and a key-management story. **Recommend DEFERRING** until a customer asks — a "signed" PDF with an unmanaged key is worse than an unsigned one. |
 
 **Realistic gate count: 5 core + 1 optional.**
@@ -579,6 +579,85 @@ caught it, which is the system working.
 2. **`toContain($needle, $message)`** — Pest reads the second argument as *another needle*, so the
    message text was searched for in the file and the assertion failed for the wrong reason. It is the
    same trap recorded once before; the fix is `expect(str_contains(...))->toBeTrue($message)`.
+---
+
+## 13 — GOV.P5 outcome (2026-08-25) · **GOVERNANCE & AI BATCH CORE COMPLETE**
+
+### The column-by-column classification — the gate's core decision
+
+Every `ai_interactions` column, classified before any code was written. **The rule for an unclear
+column is OUT**, because a file that leaves the building cannot be recalled.
+
+| Column | Default | Why |
+|---|---|---|
+| `id`, `occurred_at` | **IN** | the row's identity and when it happened |
+| `agent` (+ resolved `agent_name`), `feature`, `outcome` | **IN** | which agent did what, and how it ended |
+| `tool` | **IN** | lifted from `tool_calls[0]` — a registry key, never free text |
+| `provider`, `model`, `model_version`, `prompt_hash` | **IN** | which engine; a hash, not a prompt |
+| `input_tokens`, `output_tokens`, `cost_minor`, `latency_ms` | **IN** | counters |
+| `approver_id` | **IN** | which STAFF member approved. An accountability record with no actor is not an audit trail |
+| `output_ref` | **IN** | a pointer to the agent_action — an id, no content travels with it |
+| `metadata` | **OUT** | caller-supplied JSON. The demo's own rows carry staff prose (`why`), and nothing stops a future caller putting a patient's words there |
+| `error_message` | **OUT** | provider errors, which can echo the payload that failed |
+| `tool_calls` (raw) | **OUT** | argument data; only the tool key is lifted out |
+| `tenant_id`, `label`, `created_at`, `updated_at` | **NEVER** | internal bookkeeping of no value to a recipient |
+
+**`audit_events` is not exported row-by-row at all.** It carries `patient_id` on most rows and a
+free-text `reason` that in this very demo reads *"Patient ist erkrankt"* and *"Weight was measured
+during the consultation"* — clinical content in a column no filter could sanitise reliably. What the
+export takes from it is its **integrity state**: the chain's verdict and event count at the moment of
+export, in the manifest. The recipient gets the guarantee without the content.
+
+### The properties
+
+**Minimisation.** Proven the only way it can be: the test first asserts the source rows *genuinely
+contain* the prose, then asserts the default file does not — and that no patient id appears. The
+mutation making free text default turns it red. (A second mutation, making the value-writer ignore
+the flag, is a **no-op**: the column list gates it, so that check can never fire. Recorded as such
+per D-187 rather than counted as a caught bug.)
+
+**Integrity.** Every export ships a manifest — there is no option to omit it, and the download is a
+ZIP of payload + manifest so the two cannot be separated by accident. It records the window,
+filters, row count, actor, moment, opt-ins, a SHA-256 of the exact payload bytes, the byte length,
+and the chain state. Truncation and alteration are both proven detectable.
+
+**Self-audit.** One row on the existing path (`governance.ledger_exported`) with the actor, window,
+filters, row count, opt-ins and payload hash. It is written **after** the snapshot, so it cannot be
+inside its own export — and the manifest **says so** rather than leaving a reader to wonder (D-179).
+
+**Scope.** A new permission, **`audit.export`**, added the ARDETAIL.P6 way rather than overloading
+`audit.view`: three roles may read the log on screen, one may take it out as a file. Both halves are
+asserted — the records officer opens the dashboard and is refused the export. Tenant isolation is
+pinned at the exporter, called directly, against a second tenant's row that sits inside the window
+and carries a distinctive marker, with the free-text opt-in ON — the widest the export can ever be.
+
+**No mutation.** The ledger row count is unchanged and `verifyChain()` still passes *after* the
+export's own audit row is appended.
+
+### Omitted, and stated on the page
+
+The wireframe offers a **signed PDF**. There is no signing key in this build, and a "signed" file
+with an unmanaged key is worse than an unsigned one — it invites trust it cannot support. The export
+ships a checksum manifest instead, and the dashboard's "what this page does not show" card now names
+the omission with that reason. Asserted as **rendered**, per GOV.P3's lesson.
+
+### A gap mutation found, and one it did not
+
+**The free-text opt-in's own gate was unpinned.** Deleting it left the suite green, because the only
+seeded role holding `audit.export` (org_admin) also holds `admin.manage` — the outer gate always
+answered first. A new test builds the user the catalogue does not: a role with `audit.export` and
+nothing else. They can export, and are refused the free text. Now the inner gate is the deciding
+factor, and removing it turns the suite red. Same shape as PT.P7's tenant binding and GOV.P2's
+`status = OPEN` conjunct: **a guard behind another guard needs a subject that only it can refuse.**
+
+**A note on the environment:** Redis was down for this gate and is not installed on this machine. It
+does not affect the suite (phpunit uses array cache/session/queue) and nothing in the exporter
+touches it; the browser check ran with a file cache. I also stated "Redis PONG" in the GOV.P3 report
+when that probe had printed nothing — the claim was unverified and is corrected here.
+
+**With this gate the GOVERNANCE & AI BATCH CORE IS COMPLETE:** seven screens already parity-complete
+from APPROVAL.P1–P7 and AGENT.P1–P6, plus GOV.P1 (dashboard + windowed reader), GOV.P3 (KB admin +
+last-saved-by) and GOV.P5 (ledger export), over GOV.P4's demo data and GOV.P2's needs-a-human reader.
 ---
 
 ## 8 — What this audit did not do

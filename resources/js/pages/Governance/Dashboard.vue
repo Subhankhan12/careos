@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Head, Link, router, usePage } from '@inertiajs/vue3';
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import Card from '@/Components/Card.vue';
@@ -62,6 +62,12 @@ const props = defineProps<{
     range: string;
     ranges: string[];
     fenceInvariants: string[];
+    /*
+     * GOV.P5 — the ledger export. `canExport` is the narrower audit.export permission;
+     * `canExportFreeText` is the second gate on the PHI-adjacent opt-in, which is off unless a
+     * person deliberately ticks it.
+     */
+    ledgerExport: { url: string; canExport: boolean; canExportFreeText: boolean };
     agentsUrl: string;
     dashboardUrl: string;
 }>();
@@ -90,6 +96,19 @@ function verifyNow(): void {
  */
 function selectRange(range: string): void {
     router.get(props.dashboardUrl, { range }, { preserveScroll: true, preserveState: false });
+}
+
+/*
+ * The export form. `includeFreeText` starts FALSE and is never pre-ticked: a box that is already
+ * ticked is not a decision, and this one puts staff prose into a file that leaves the building.
+ */
+const includeFreeText = ref(false);
+
+function exportUrl(): string {
+    const params = new URLSearchParams({ from: props.metrics.from, to: props.metrics.to });
+    if (includeFreeText.value) params.set('include_free_text', '1');
+
+    return `${props.ledgerExport.url}?${params.toString()}`;
 }
 
 // The REAL agent-action statuses. Nothing else may appear: "escalated" is not one of them (the
@@ -369,6 +388,31 @@ function pct(value: number | null): string {
                 </div>
             </Card>
 
+            <!-- ── GOV.P5 · take the ledger out ───────────────────────────────────────────────── -->
+            <Card v-if="ledgerExport.canExport" :title="t('governance.export.title')" :subtitle="t('governance.export.subtitle')">
+                <p class="text-sm text-ink-muted">{{ t('governance.export.window', { from: metrics.from, to: metrics.to }) }}</p>
+
+                <!-- The default export carries governance facts only. The opt-in is shown ONLY to
+                     someone who could actually use it, and starts unticked (D-176). -->
+                <label v-if="ledgerExport.canExportFreeText" class="mt-4 flex items-start gap-2 text-sm text-ink">
+                    <input v-model="includeFreeText" type="checkbox" class="mt-0.5 rounded border-line text-euca-700" />
+                    <span>
+                        {{ t('governance.export.freeText') }}
+                        <span class="mt-0.5 block text-xs text-ink-muted">{{ t('governance.export.freeTextHint') }}</span>
+                    </span>
+                </label>
+                <p v-else class="mt-4 text-xs text-ink-subtle">{{ t('governance.export.freeTextLocked') }}</p>
+
+                <a
+                    :href="exportUrl()"
+                    class="btn-glow mt-5 inline-flex rounded-xl px-4 py-2 text-sm font-semibold"
+                >
+                    {{ t('governance.export.download') }}
+                </a>
+
+                <p class="mt-3 text-xs text-ink-subtle">{{ t('governance.export.manifestNote') }}</p>
+                <p class="mt-1 text-xs text-ink-subtle">{{ t('governance.export.auditNote') }}</p>
+            </Card>
             <!-- The fence vault — the SAME code-enforced invariants the agent page shows (AGENT.P3),
                  display-only. There is no toggle here, or anywhere. -->
             <Card :title="t('governance.vault.title')" :subtitle="t('governance.vault.subtitle')">
@@ -388,7 +432,7 @@ function pct(value: number | null): string {
                  wireframe learns that they have no source, rather than assuming a bug. -->
             <Card :title="t('governance.omitted.title')" :subtitle="t('governance.omitted.subtitle')">
                 <ul class="space-y-1.5 text-sm text-ink-muted">
-                    <li v-for="key in ['confidence', 'breaches', 'kbGaps', 'escalated']" :key="key" class="flex items-start gap-2">
+                    <li v-for="key in ['confidence', 'breaches', 'kbGaps', 'escalated', 'signedPdf']" :key="key" class="flex items-start gap-2">
                         <span class="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-ink-subtle" />
                         <span>{{ t(`governance.omitted.${key}`) }}</span>
                     </li>

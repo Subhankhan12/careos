@@ -134,6 +134,14 @@ class GovernanceDashboardController
             'fenceInvariants' => AgentConfigController::FENCE_INVARIANTS,
             'agentsUrl' => route('governance.agents.index'),
             'dashboardUrl' => route('governance.dashboard'),
+            // GOV.P5 — the export panel. `canExport` reflects the NARROWER audit.export
+            // permission, and `canExportFreeText` the second gate on top of it; the page shows
+            // the opt-in only to someone who could actually use it (D-176).
+            'ledgerExport' => [
+                'url' => route('governance.ledger.export'),
+                'canExport' => Gate::allows('audit.export'),
+                'canExportFreeText' => Gate::allows('admin.manage'),
+            ],
             'chain' => $this->chainStatus($audit, $tenantId),
             'reconciliation' => $this->reconciliationStatus($settings),
             'ai' => $this->aiUsage($settings),

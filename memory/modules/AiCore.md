@@ -484,3 +484,23 @@ both omissions (`kb.omitted.*`) and `KbAdminParityTest` scans fourteen aliases f
 **Grounding usage IS real** (`{type: kb_article, id}` on draft lines) and may be shown as a
 count — never as a rank, and never as the list's sort order.
 
+### GOV.P5 — the ledger exporter (2026-08-25) · GOVERNANCE CORE COMPLETE
+
+`App\Services\GovernanceLedgerExporter` exports the `ai_interactions` ledger for a window, gated
+on the NEW **`audit.export`** permission (narrower than `audit.view`, which three roles hold).
+
+**The column classification is the contract.** `DEFAULT_COLUMNS` is governance-only;
+`OPT_IN_COLUMNS` (`metadata`, `error_message`) are free text and reachable only through the
+`free_text` opt-in, which needs `admin.manage` ON TOP of `audit.export`. **If you add a column,
+classify it first — the rule for anything unclear is OUT.**
+
+**`audit_events` is deliberately NOT exported row-by-row** (it carries `patient_id` and a
+free-text `reason` with real clinical content). Only its integrity state goes in the manifest.
+
+**The manifest is not optional** — the download is a ZIP of payload + manifest, and the manifest
+carries a SHA-256 of the payload bytes so truncation and alteration are detectable. Do not add a
+path that emits the payload alone.
+
+**Not built:** the wireframe's signed PDF. There is no signing key; a "signed" file with an
+unmanaged key invites trust it cannot support. Stated on the dashboard.
+

@@ -11,6 +11,7 @@ use App\Http\Controllers\ClinicalSummaryInsertController;
 use App\Http\Controllers\Comms\InboxAgentController;
 use App\Http\Controllers\EdDispositionController;
 use App\Http\Controllers\GovernanceDashboardController;
+use App\Http\Controllers\GovernanceLedgerExportController;
 use App\Http\Controllers\KbArticleController;
 use App\Http\Controllers\NotificationSettingsController;
 use App\Http\Controllers\PatientAccessLogController;
@@ -715,6 +716,12 @@ Route::middleware('auth')->group(function () {
     // bind. Actions resolve by string id (FIX.1) so cross-tenant ids fail closed as 404.
     Route::get('/governance', [GovernanceDashboardController::class, 'index'])->name('governance.dashboard');
     Route::post('/governance/verify-chain', [GovernanceDashboardController::class, 'verifyChain'])->name('governance.verify-chain');
+    /*
+     * GOV.P5 — the ledger export. Gated on `audit.export`, NARROWER than the audit.view that
+     * opens the dashboard: reading the log on screen and taking it out as a file are different
+     * acts. Returns a ZIP of the CSV plus its non-optional integrity manifest.
+     */
+    Route::get('/governance/ledger/export', GovernanceLedgerExportController::class)->name('governance.ledger.export');
     Route::get('/governance/approvals', [AiApprovalQueueController::class, 'index'])->name('governance.approvals.index');
     Route::post('/governance/approvals/bulk-approve', [AiApprovalQueueController::class, 'bulkApprove'])->name('governance.approvals.bulk_approve');
     Route::post('/governance/approvals/{id}/approve', [AiApprovalQueueController::class, 'approve'])->name('governance.approvals.approve');
