@@ -224,7 +224,7 @@ Severity: **High** = fence or safety · **Med** = real gap a user notices · **L
 |---|---|---|
 | **S1 · A waitlist create route + UI** (`WaitlistService::create()` exists, unreachable) | Screens 2 and 4 — without it the waitlist cannot be entered at all | **Low–Med** |
 | **S2 · Availability admin surface** over `ResourceAvailability` (template + dated exceptions) | Screen 5 almost entirely; W8c was deferred and flagged in the readiness check | **Med** — the model is already there |
-| **S3 · Service catalog CRUD** over real columns | Screens 6 and 7 | **Low** |
+| ~~**S3 · Service catalog CRUD**~~ ✅ **DONE (SCHED.P2)** — `ServiceCatalogController` over the existing `ServiceCatalog` service; list + editor + archive | Screens 6 and 7 | — |
 | **S4 · Day-Board reads `legalTransitionsFrom()`** | Fence 4.4 coherence; kills the `booked → arrived` refusal | **Low** |
 | **S5 · Booking confirmation notification** (transactional, consent-gated like reminders) | Screen 3's promise; also the waitlist "confirmation sent" line | **Low–Med** |
 | **B4 · `Resource` capability field** | Dental Chair Scheduling **and** APPT.P4; not needed by these 8, but named because both wait on it | **Med** |
@@ -258,7 +258,7 @@ double-book override, per-channel consent. Each is a decision the build has take
 | Gate | Builds | Proves |
 |---|---|---|
 | **SCHED.P1** | **Day-Board parity** — glance band (real counts only), waiting-room strip from `checked_in_at`, per-lane utilisation as a plain untinted ratio, status legend, online markers, and **S4** (actions from `legalTransitionsFrom()`). | Quick-book still goes through the finder + `BookingService`; **no ranked resolver, no override, no "on schedule"**; the omission card names them. |
-| **SCHED.P2** | **Service Catalog + Create (S3)** — one gate, two screens, plain CRUD over real columns. | `active` / `bookable_online` gates asserted end-to-end (an inactive service leaves board, quick-book and public form at once). **No price field** — stated on the page, with the invoice named as the legal figure. |
+| ~~**SCHED.P2**~~ ✅ **DONE** | **Service Catalog + Create (S3)** — list, editor and archive over the real columns, through the existing `ServiceCatalog` write path. | One source proven: a duration edited on the screen changes the FINDER's slot length. No price field anywhere, with the omission naming Billing. No delete affordance — `ON DELETE RESTRICT` means archiving is the safe verb. See §16. |
 | **SCHED.P3** | **Provider Availability (S2)** — weekly template + dated exceptions over `ResourceAvailability`. | An edit **never** moves or cancels a booked appointment; the conflict warning lists affected appointments read-only; **no granularity/min-notice controls** unless the backend gains them. |
 | **SCHED.P4** | **Waitlist: create + list (S1)** — make the feature reachable, and give `priority` a written operational meaning. | Ranking is operational and stated; **no urgency, no clinical label, no auto-send**; the "hold" is described honestly as a queue place, not a slot reservation. |
 | **SCHED.P5** *(optional)* | **Booking confirmation (S5)** — a transactional, consent-gated notification, with the LEGAL carve-out worded as PT.P5 words it. | "Confirmation sent" becomes true. Until then screen 3's copy must not claim it. |
@@ -283,6 +283,108 @@ because the model is already there; the waitlist needs its `priority` decision m
 - **B4 (`Resource` capability)** stays deferred: none of these 8 screens needs it, and it is owned by
   the Dental chair gate and APPT.P4.
 
+---
+
+## 16 — SCHED.P2 outcome (2026-08-29)
+
+### What already existed, and was therefore not rebuilt
+
+`ServiceCatalog` was already a complete service-layer write path — `create`/`update`/`delete` inside
+transactions, with real validation (name and code non-empty, duration > 0, buffers >= 0, at least
+one resource type), a **per-tenant unique code**, and branch links guarded against a cross-tenant
+branch id. The audit's S3 was therefore a UI gap, not a backend one. This gate wrote **no new
+domain rule**; the controller validates request SHAPE and delegates.
+
+One thing was missing at the edge: the catalog's `InvalidArgumentException` (duplicate code, bad
+duration) would have surfaced as a **500**. The controller now converts it to a validation error and
+a cross-tenant branch id to a 404 — **without restating any rule**, so the service stays the single
+authority.
+
+### The screen states what the engine reads
+
+A service is not a label. Four of its fields are read at booking time, and the page says so in
+words, because an admin shortening a duration is editing the booking engine:
+
+| Field | What it does | Where |
+|---|---|---|
+| `default_duration_minutes` | the length of every generated slot | `AvailableSlotFinder` |
+| `buffer_before/after_minutes` | widen the no-double-book window around each appointment | `BookingService::assertNoOverlap` (in the SQL) |
+| `requires_resource_types` | which resources must be free and assigned | `BookingService::assertResourceTypesMatch` |
+| `active` | gates the day-board quick-book list **and** public exposure | `DayBoardController`, `PublicBookingController` |
+| `bookable_online` | gates public exposure only | `PublicBookingController` |
+
+**One source, proven rather than asserted.** A test edits a duration *through the screen* and then
+asks the **finder** for slots: the generated slot length moves 30 → 90. The mutation that makes the
+finder ignore `default_duration_minutes` turns it red. The slot stride is now
+`AvailableSlotFinder::SLOT_STRIDE_MINUTES`, a public constant the page displays — so the number an
+admin reads is literally the one the scan uses, instead of a `30` retyped in a template.
+
+### Archive, never delete — and the guard is the database
+
+`appointments.service_id` carries **`ON DELETE RESTRICT`**. A service any appointment references
+cannot be removed at all: the database refuses. That is the right guarantee — a booked visit must
+keep knowing what it was for — but it surfaces as a raw driver error, which is no answer for an
+admin.
+
+**So the screen offers no delete.** `active = false` is the soft state that stops NEW use while every
+existing appointment keeps its service intact — the BRANCH.P1 shape. The test proves both halves:
+an **unreferenced** service deletes cleanly (the positive control, so the refusal is about the
+reference and not about deletion being broken), and the referenced one throws while its appointment
+survives. The route list is asserted to contain **no destroy route at all**.
+
+### The omissions, stated on the page
+
+**No price or tariff code.** Money lives in the tenant-authored Billing tariff catalog, and the
+issued invoice is the legal figure; a price here would be a second source for the same number. The
+test asserts no money-shaped column on `services` and no money-shaped key in the payload — **with a
+positive control that pricing genuinely exists in Billing** (a real `TariffItem` at
+`unit_price_minor`), so the assertion cannot be satisfied by a product that simply has no pricing.
+
+**No slot-granularity setting, no minimum-notice-online, no per-provider buffers.** None of the
+three is persisted or read by anything, so a control for them would record a value the engine
+ignores (D-176). **No suggested or typical duration** — duration is what somebody set, not what the
+system predicts.
+
+All five are named in the "what this page does not show" card and asserted as **rendered** through
+the keys the component iterates (GOV.P3).
+
+### D-191 — the ordering column that isn't
+
+The audit flagged `WaitlistEntry.priority` as an undocumented ordering column. **`Service` has no
+such column at all** — verified against the live schema: no `sort`, `order`, `rank`, `position` or
+`priority`. `ServiceCatalog::list()` orders by `name`. So the UI writes no ordering field, and this
+gate deliberately did not add one; D-191 remains a live constraint for SCHED.P4, not for this screen.
+
+### Mutation-checked twelve ways — and three found defects in the tests
+
+Nine caught first time: a price field added to the payload · the permission dropped to
+`appointment.manage` · the update path un-scoped from its tenant · the controller writing the model
+directly instead of through the service · the stride replaced by a duplicated literal · the usage
+count faked · the omission loop emptied · the price omission no longer naming Billing · the finder
+ignoring the service duration.
+
+**Three escaped, and each was a defect in the test rather than the code.**
+
+1. **Hardcoded counts stayed green** — the fixture's counts were `3 / 2 / 1`, exactly what the
+   hardcoded triple said. **D-189 for the fourth time.** The test now adds a service and asserts the
+   counts *move* to `4 / 3 / 2`.
+2. **A granularity field added to the form stayed green** — the scan looked for the template binding
+   `form.granularity`, which a field added to the reactive object never produces. Each declined
+   concept is now **counted**: it may appear exactly where the omission list names it and nowhere
+   else.
+3. **Deleting `ServiceCatalog`'s duration rule stayed green** — the controller's own `min:1` request
+   rule answered first, so the service's guard was never the deciding factor. The same
+   guard-behind-a-guard shape as GOV.P5's free-text opt-in and PT.P7's tenant binding. The service
+   rule is now pinned by **calling the service directly** (D-183), with a positive control.
+
+### Stated, not silently accepted
+
+**Service-catalog writes are not audited.** Nothing in `Modules\Scheduling` writes an audit row
+directly — the module is architecturally barred from `Modules\Audit\Models`, and appointment
+transitions reach the trail by dispatching `AppointmentTransitioned` for an app-layer listener to
+record. Adding an event and a listener for service changes is the in-pattern fix, but it is a design
+decision that deserves its own gate rather than being smuggled into a UI parity gate. **Flagged, not
+built:** a tenant-configuration change that alters what patients can book currently leaves no trail.
 ---
 
 ## 8 — What this audit did not do

@@ -113,6 +113,7 @@ use Modules\Scheduling\Http\Controllers\DayBoardActionController;
 use Modules\Scheduling\Http\Controllers\DayBoardController;
 use Modules\Scheduling\Http\Controllers\PortalAppointmentController;
 use Modules\Scheduling\Http\Controllers\PublicBookingController;
+use Modules\Scheduling\Http\Controllers\ServiceCatalogController;
 use Modules\Scheduling\Http\Controllers\WaitlistOfferController;
 use Modules\Surgery\Http\Controllers\CaseSuppliesController;
 use Modules\Surgery\Http\Controllers\SurgicalBillingController;
@@ -809,6 +810,16 @@ Route::middleware('auth')->group(function () {
     Route::post('/admin/branches/{branch}/primary', [BranchController::class, 'setPrimary'])->name('admin.branches.primary');
     Route::post('/admin/branches/{branch}/deactivate', [BranchController::class, 'deactivate'])->name('admin.branches.deactivate');
     Route::post('/admin/branches/{branch}/activate', [BranchController::class, 'activate'])->name('admin.branches.activate');
+
+    // Service catalog (SCHED.P2) — the definition the slot finder and the booking guard read
+    // (duration, buffers, required resource types) plus the two exposure gates (active,
+    // bookable_online). admin.manage-gated, like Branches: this is tenant configuration.
+    // Writes go through the existing ServiceCatalog service. There is deliberately NO destroy
+    // route: `appointments.service_id` is ON DELETE RESTRICT, so archiving is the safe verb.
+    Route::get('/admin/services', [ServiceCatalogController::class, 'index'])->name('admin.services.index');
+    Route::post('/admin/services', [ServiceCatalogController::class, 'store'])->name('admin.services.store');
+    Route::post('/admin/services/{service}/update', [ServiceCatalogController::class, 'update'])->name('admin.services.update');
+    Route::post('/admin/services/{service}/active', [ServiceCatalogController::class, 'deactivate'])->name('admin.services.active');
 
     // Bookable-resource CRUD (CLINIC.W8c) — app-layer controller (deactivation guard spans
     // Scheduling's Resource + its appointments); soft-deactivate blocked when future

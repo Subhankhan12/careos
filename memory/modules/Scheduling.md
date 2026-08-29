@@ -350,3 +350,32 @@ preferences · a booking-CONFIRMATION notification (only `appointment.reminder`)
 **Better backed than expected:** `ResourceAvailability` already does weekly template AND dated
 exceptions with a reason — Provider Availability is mostly UI over an existing model.
 
+### SCHED.P2 — the service catalog screen (2026-08-29)
+
+`ServiceCatalogController` (admin.manage, the Branches precedent) over the EXISTING
+`ServiceCatalog` service. **The controller writes nothing itself** — it validates request shape
+and delegates; `ServiceCatalog` owns duration/buffer/resource-type/unique-code rules. If you add
+a rule, add it THERE.
+
+**The five engine-read fields** (say so on any screen that edits them): `default_duration_minutes`
+= slot length · `buffer_before/after_minutes` = the no-double-book window widening ·
+`requires_resource_types` = what must be free · `active` = day-board + public · `bookable_online`
+= public only.
+
+**`AvailableSlotFinder::SLOT_STRIDE_MINUTES` is public** so a screen can show the real stride.
+Do not retype 30 anywhere.
+
+**NEVER put money on a Service.** Pricing is Billing's tariff catalog; the issued invoice is the
+legal figure. Also absent by design: slot granularity as a setting, min-notice-online,
+per-provider buffers, suggested duration.
+
+**NO DELETE AFFORDANCE.** `appointments.service_id` is ON DELETE RESTRICT — a referenced service
+cannot be removed, and the raw error is not an answer. Archive (`active = false`) is the verb.
+
+**`services` has NO ordering column** — no sort/rank/position/priority. Do not add one without a
+written operational meaning (D-191).
+
+**KNOWN GAP (flagged, not built): service-catalog writes are not audited.** Scheduling reaches
+the audit trail by dispatching events for an app-layer listener (`AppointmentTransitioned`);
+service changes dispatch nothing. That is the in-pattern fix when someone takes it.
+

@@ -13,6 +13,17 @@ use Modules\Scheduling\Models\Service;
 class AvailableSlotFinder
 {
     /** Default scan window (07:00–19:00) for branches that have not configured opening hours. */
+    /**
+     * The stride the scan advances by when looking for the next candidate start.
+     *
+     * It is a CONSTANT, not a setting: nothing persists a per-tenant or per-service granularity, and
+     * SCHED.P2 deliberately did not add a control for one (a control that persists nothing the
+     * finder reads would be an unbacked affordance, D-176). It is public so the service-catalog
+     * screen can show admins the real value their durations are scanned against rather than
+     * restating "30" in a template — one source, the same rule the duration and buffers follow.
+     */
+    public const SLOT_STRIDE_MINUTES = 30;
+
     private const DEFAULT_OPEN_MINUTES = 7 * 60;
 
     private const DEFAULT_CLOSE_MINUTES = 19 * 60;
@@ -74,7 +85,7 @@ class AvailableSlotFinder
                 ];
             }
 
-            $cursor = $cursor->addMinutes(30);
+            $cursor = $cursor->addMinutes(self::SLOT_STRIDE_MINUTES);
         }
 
         return $slots;

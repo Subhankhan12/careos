@@ -633,6 +633,26 @@ Two further wireframes were decoded from the design pack and triaged. **Neither 
   **DECLINED (D-188): No-Show Follow-Up as drawn** — its organising idea is "triage by clinical
   risk", which nothing records and the fence centrally prohibits. A plain no-show worklist is
   buildable and should be specified as its own screen.
+  - **SCHED.P2 — DONE.** The service catalog: list, editor and archive, at `/admin/services`
+    (`admin.manage`). **`ServiceCatalog` already existed** as a full service-layer write path with
+    real validation, so this gate wrote no new domain rule — the controller validates shape and
+    delegates. One real defect fixed: a duplicate code would have surfaced as a **500**; it is now a
+    validation error, and a cross-tenant branch id a 404, without restating any rule.
+    **One source proven, not asserted:** a duration edited through the screen changes the FINDER's
+    generated slot length (30 → 90), and the slot stride is now the finder's own public constant
+    rather than a literal retyped in a template.
+    **Archive, never delete:** `appointments.service_id` is ON DELETE RESTRICT, so a referenced
+    service cannot be removed at all; the screen exposes no destroy route and `active = false` is
+    the soft state (BRANCH.P1's shape).
+    **Omissions rendered:** no price/tariff (money is Billing's, with a positive control that
+    pricing really exists there), no slot granularity, no min-notice-online, no per-provider
+    buffers, no suggested duration. **D-191 does not bite here:** `services` has no ordering column
+    at all, verified against the schema.
+    **12 mutations, 9 caught first time; three escaped, all defects in the tests** — hardcoded
+    counts (D-189's fourth appearance), a form field the binding-name scan could not see, and
+    `ServiceCatalog`'s duration rule sitting behind the controller's own `min:1`.
+    **Flagged, not built:** service-catalog writes are not audited. Scheduling reaches the trail via
+    events for an app-layer listener; service changes dispatch none.
 ---
 
 ## DEPLOYMENT — the primary track (authoritative; everything below this section is history)

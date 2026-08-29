@@ -3984,5 +3984,83 @@
         "signOff": {
             "note": "Signing is permanent. Corrections afterwards happen as visible amendments."
         }
+    },
+    "serviceCatalog": {
+        "eyebrow": "Settings · Scheduling",
+        "title": "Service catalog",
+        "subtitle": "What the practice offers — and what the booking engine measures every slot against.",
+        "counts": {
+            "total": "Services",
+            "totalHint": "Every service in this tenant, archived ones included.",
+            "active": "Active",
+            "activeHint": "Bookable internally on the day-board and in quick-book.",
+            "online": "Offered online",
+            "onlineHint": "Also shown on public booking, where the branch allows it."
+        },
+        "filters": {
+            "all": "All",
+            "active": "Active",
+            "archived": "Archived",
+            "online": "Online",
+            "category": "Category",
+            "anyCategory": "Any category"
+        },
+        "table": {
+            "service": "Service",
+            "duration": "Duration",
+            "buffers": "Buffers",
+            "resources": "Needs",
+            "online": "Online",
+            "active": "Active",
+            "usage": "Appointments"
+        },
+        "engine": {
+            "title": "What the booking engine reads",
+            "body": "Four of these fields are not labels — the engine reads them every time someone books. Duration is the length of every slot generated for this service. The buffers widen the no-double-book window around each appointment, so a 10-minute before-buffer blocks the resource 10 minutes earlier. Required resources decide which practitioner, room or chair must be free. Changing any of them changes what can be booked from the next search onwards; appointments already in the book are never moved.",
+            "stride": "Slots are scanned every {minutes} minutes. That stride is fixed in the engine, not a setting on this page.",
+            "exposure": "Active governs everything: an inactive service disappears from the day-board, quick-book and public booking at once. Bookable online governs public booking only — and a branch that has paused online bookings still shows nothing, whatever this says."
+        },
+        "editor": {
+            "newTitle": "New service",
+            "newSubtitle": "Add a service staff or patients can book.",
+            "editTitle": "Editing service",
+            "name": "Service name",
+            "code": "Code",
+            "codeHint": "Unique within this tenant.",
+            "category": "Category",
+            "duration": "Duration",
+            "minutes": "min",
+            "bufferBefore": "Buffer before",
+            "bufferAfter": "Buffer after",
+            "resourceTypes": "Required resources",
+            "resourceTypesHint": "At least one. Booking refuses unless every type listed here is assigned and free.",
+            "branches": "Available at",
+            "branchesHint": "Leave empty to offer it at every branch.",
+            "activeLabel": "Active",
+            "activeHint": "Bookable on the day-board and in quick-book right away.",
+            "onlineLabel": "Bookable online",
+            "onlineHint": "Off by default — turn it on when you are ready to show patients.",
+            "save": "Save service",
+            "create": "Create service",
+            "cancel": "Cancel",
+            "archive": "Archive service",
+            "restore": "Make active again"
+        },
+        "archived": "Archived",
+        "inUse": "{count} appointment | {count} appointments",
+        "notUsed": "Not used yet",
+        "archiveNote": "Archiving stops new bookings without touching the ones already made. A service that appointments reference cannot be deleted at all — the record of what a visit was for has to survive.",
+        "empty": "No services yet.",
+        "emptyHint": "A service defines how long a booking lasts and what has to be free for it. Add the first one to start booking.",
+        "emptyFiltered": "No services match this filter.",
+        "omitted": {
+            "title": "What this page does not show",
+            "subtitle": "Things the design offers that this build cannot honestly back. We would rather name the gap than draw a control that changes nothing.",
+            "price": "No price and no tariff code. Money lives in the billing tariff catalog, which the practice authors itself, and an issued invoice is the legal figure. A price here would be a second source for the same number — and the one nobody reconciles.",
+            "granularity": "No slot-granularity setting. The engine scans on a fixed stride; there is nothing to persist a different one, so a dropdown here would change nothing and imply otherwise.",
+            "minNotice": "No minimum-notice rule for online booking. Nothing records one, so the public form cannot honour it — drawing the field would promise patients a cut-off the engine does not keep.",
+            "providerBuffer": "No per-provider buffers. Buffers belong to the service, and that is the value the guard actually widens the window by. A per-provider field would be recorded and then ignored.",
+            "suggestedDuration": "No suggested or typical duration. Duration is what somebody set, not what the system predicts a visit will take."
+        }
     }
 }
