@@ -316,3 +316,37 @@ Locked by the APPT.P3 half of `tests/Feature/Scheduling/AppointmentDetailTest.ph
 - (POLISH.1, D-110) The recurring-series **end** action is now surfaced on the day-board (an
   "active recurring series" panel -> the existing `scheduling.series.end` route; `DayBoardController`
   passes `activeSeries` + `seriesEndUrl`). Presentational/additive only; no series domain logic changed.
+
+### Scheduling batch audit (2026-08-29) — what the surfaces may and may not say
+
+**The booking guard is absolute and single.** Staff `book()`, `bookOnline()`, quick-book,
+series, reschedule and **waitlist accept** all funnel through `createBooking()` →
+`lockResource()` (FOR UPDATE) → `assertNoOverlap()` (widened by the SERVICE's buffers). There is
+**no override parameter** — do not build a "keep both" button, and never render a move
+optimistically before the server confirms.
+
+**`booked → arrived` is NOT legal** (confirmation first). `legalTransitionsFrom()` is the
+server-authoritative read — **Appointment Detail uses it, the Day-Board does not** (S4). Fix that
+before adding actions to the board.
+
+**`WaitlistEntry.priority` is an UNDOCUMENTED int that ranking orders by FIRST.** Give it a
+written operational meaning before any UI touches it, and never offer a clinical label
+("Urgent · clinical") for it.
+
+**The waitlist "hold" does NOT reserve a slot.** `OPEN_STATUSES` only blocks a second open offer
+to the SAME entry; `assertNoOverlap` never reads `waitlist_offers`. Do not print "no one loses
+the slot to silence".
+
+**`WaitlistService::create()` has no route and no UI** — the waitlist is unreachable in
+production. First thing any waitlist gate must fix (S1).
+
+**Soft-suspend is ONLINE-ONLY:** `accepts_online_bookings` gates `SOURCE_ONLINE` alone; staff
+booking into a suspended branch is deliberate.
+
+**Does NOT exist:** a price/tariff on `Service` (Billing owns it) · slot granularity as a setting
+(hardcoded 30-min stride) · min-notice-online · per-provider buffers · waitlist day/time
+preferences · a booking-CONFIRMATION notification (only `appointment.reminder`).
+
+**Better backed than expected:** `ResourceAvailability` already does weekly template AND dated
+exceptions with a reason — Provider Availability is mostly UI over an existing model.
+

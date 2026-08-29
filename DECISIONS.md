@@ -3597,3 +3597,22 @@ references the old ID.
   instinct as the "seeding a state must drive its real path" rule: **if you cannot observe the event,
   do not write a row about it.**
   See [[LOG]], [[Comms]], D-176, D-179, `docs/wireframe-parity/COMMS-BATCH-DIFF.md` §15.
+
+- **D-191 — An undocumented ordering column is a fence hole waiting for a label.** (Scheduling batch
+  audit, 2026-08-29.)
+  `WaitlistEntry.priority` is a bare `int`, default 0, with no docblock and no stated semantics, and
+  `WaitlistService::matchingForSlot()` orders by it **first**, ahead of wait time. Nothing in the
+  code says what it means. Nothing enforces that it is operational.
+  **That is safe only while no screen exists.** The Waitlist wireframe wants to label it
+  `Priority: Normal / Urgent · clinical` and to route "urgent or clinical" cases differently — and
+  the moment a UI writes that label, a clinical judgment has entered a scheduling ranking through a
+  column that was never designed to carry one. The electric fence would be breached not by new code
+  but by a caption over old code.
+  **The rule:** before any UI writes to an ordering or classification column, that column must have
+  a **written, enforced meaning** — a docblock stating what it ranks and, where the distinction
+  matters, a constrained set of values rather than a free integer. "Operational by convention" is
+  not a fence; it is an absence of one.
+  **The general shape:** a fence is usually thought of as a guard that refuses something. This is the
+  other kind — a *definition* that makes the wrong use unsayable. An unnamed number invites whatever
+  meaning the next screen needs, and screens are written by people who did not read the migration.
+  See [[LOG]], [[Scheduling]], D-169, D-188, `docs/wireframe-parity/SCHEDULING-BATCH-DIFF.md` §4.2.

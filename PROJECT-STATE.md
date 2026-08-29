@@ -607,6 +607,32 @@ Two further wireframes were decoded from the design pack and triaged. **Neither 
     (Consent-Blocked Draft, Opt-in Confirmed, Request Consent Update) remain DECLINED under D-188** —
     a per-topic/per-channel/per-household consent model plus a campaign capability the product does
     not have. Not a parity gap; a product decision needing its own design and fence review.
+- **SCHEDULING BATCH — AUDITED, NOT BUILT** (`docs/wireframe-parity/SCHEDULING-BATCH-DIFF.md`,
+  8 screens, audit only, no app code). Sixth and final buildable domain batch.
+  **Scheduling is the strongest backend in the product, so the gap is judgment, not capability:**
+  one locked booking path (`lockResource` → `assertNoOverlap`, buffers included) that EVERY write
+  funnels through, a closed transition machine, `ResourceAvailability` already carrying both the
+  weekly template AND dated exceptions, and a real waitlist with offers/TTL/expiry at an APPROVE
+  ceiling.
+  **Refused:** the Day-Board's ranked conflict resolver and its "keep both (override)" (there is no
+  override parameter); waitlist auto-send at "Level 1" (refused once already in Dental); waitlist
+  "Urgent · clinical" priority; and no-show **risk triage**.
+  **Two findings worth carrying:** (1) **`WaitlistEntry.priority` is an undocumented int that
+  ranking orders by FIRST** — a fence hole waiting for a UI; give it a written operational meaning
+  before building over it (D-191). (2) **The waitlist "slot held" copy is an over-claim** — the hold
+  is one open offer per ENTRY; `assertNoOverlap` never reads `waitlist_offers`, so the slot can be
+  taken and the acceptance then fails.
+  **Blocker confirmed: `WaitlistService::create()` has no route and no UI** — the waitlist is
+  unreachable in production; first thing any waitlist gate must fix.
+  **Also not real:** a price/tariff on `Service` (Billing owns price), slot granularity as a setting
+  (hardcoded 30-min stride), min-notice-online, per-provider buffers, and a booking-CONFIRMATION
+  notification — so Public Booking's "a confirmation is on its way" asserts an email nobody sends.
+  **Proposed chain: 4 core + 1 optional** — P2 service catalog+create · P1 Day-Board parity (incl.
+  making the board read `legalTransitionsFrom()`, which today only Appointment Detail does) ·
+  P3 availability · P4 waitlist create+list · optional P5 booking confirmation.
+  **DECLINED (D-188): No-Show Follow-Up as drawn** — its organising idea is "triage by clinical
+  risk", which nothing records and the fence centrally prohibits. A plain no-show worklist is
+  buildable and should be specified as its own screen.
 ---
 
 ## DEPLOYMENT — the primary track (authoritative; everything below this section is history)
