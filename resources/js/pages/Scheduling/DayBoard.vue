@@ -5,6 +5,7 @@ import { useI18n } from 'vue-i18n';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import EmptyState from '@/Components/EmptyState.vue';
 import ScheduleGrid from '@/Components/ScheduleGrid.vue';
+import StatCard from '@/Components/StatCard.vue';
 import SlotPicker from '@/Components/SlotPicker.vue';
 
 const { t } = useI18n();
@@ -19,7 +20,11 @@ const props = defineProps<{
     filters: { date: string; branch_id: string };
     branches: Array<{ id: string; name: string }>;
     resources: Array<{ id: string; name: string; type: string }>;
-    appointments: Array<{ id: string; patient_id: string | null; patient: string | null; service_id: string; service: string | null; starts_at: string; ends_at: string; status: string; resource_ids: string[] }>;
+    // `actions` is the SERVER's answer for this appointment's true status (SCHED.P1); the board
+    // renders exactly those and decides nothing itself. `checked_in_at` is the recorded arrival.
+    appointments: Array<{ id: string; patient_id: string | null; patient: string | null; service_id: string; service: string | null; starts_at: string; ends_at: string; status: string; resource_ids: string[]; actions: string[]; checked_in_at: string | null; waiting_minutes: number | null }>;
+    counts: { total: number; waiting: number; inProgress: number; completed: number; online: number };
+    utilisation: Record<string, { bookedMinutes: number; availableMinutes: number; percent: number | null }>;
     services: Array<{ id: string; name: string; duration: number }>;
     patients: Array<{ id: string; name: string; mrn: string }>;
     slotPreview: Array<{ starts_at: string; ends_at: string; resource_ids: string[] }>;
@@ -234,6 +239,10 @@ const views = [
     { key: 'room', label: 'scheduling.dayBoard.viewRooms' },
 ] as const;
 
+// The refused affordances, iterated — a key removed from this list disappears from the render,
+// which is what the rendered-output test watches (GOV.P3).
+const omittedKeys = ['override', 'ranked', 'autofill', 'noShowRisk', 'predictedDuration', 'onSchedule'] as const;
+
 const legend = [
     { key: 'booked', dot: 'bg-euca-300' },
     { key: 'arrived', dot: 'bg-euca-500' },
@@ -296,7 +305,15 @@ const legend = [
                 :action-href="canSetupResources ? '/admin/branches' : undefined"
             />
             <template v-else>
-                <ScheduleGrid :resources="visibleResources" :appointments="appointments" @action="transition" @open-encounter="openEncounter" />
+                <!-- Plain counts of rows that exist, counted server-side over the whole day (D-166/D-174). -->
+                <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                    <StatCard :label="t('scheduling.dayBoard.counts.total')" :value="String(counts.total)" :hint="t('scheduling.dayBoard.counts.totalHint')" />
+                    <StatCard :label="t('scheduling.dayBoard.counts.waiting')" :value="String(counts.waiting)" :hint="t('scheduling.dayBoard.counts.waitingHint')" />
+                    <StatCard :label="t('scheduling.dayBoard.counts.inProgress')" :value="String(counts.inProgress)" :hint="t('scheduling.dayBoard.counts.inProgressHint')" />
+                    <StatCard :label="t('scheduling.dayBoard.counts.online')" :value="String(counts.online)" :hint="t('scheduling.dayBoard.counts.onlineHint')" />
+                </div>
+
+                <ScheduleGrid :resources="visibleResources" :appointments="appointments" :utilisation="utilisation" @action="transition" @open-encounter="openEncounter" />
 
                 <div class="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-ink-subtle">
                     <span class="font-semibold uppercase tracking-wide">{{ t('scheduling.dayBoard.statusEdges') }}</span>
@@ -310,6 +327,11 @@ const legend = [
             <div class="glass-card p-6">
                 <h2 class="text-lg font-semibold tracking-tight text-ink">{{ t('scheduling.waitlist.title') }}</h2>
                 <p class="mt-1 text-sm text-ink-muted">{{ t('scheduling.waitlist.subtitle') }}</p>
+                <!-- The honest account of what an outstanding offer does. The batch audit found the
+                     design claiming the slot is held and "no one loses it to silence" — the hold is
+                     one open offer per ENTRY, and the overlap guard never reads waitlist_offers, so
+                     the time can be booked out from under it and the acceptance is then refused. -->
+                <p class="mt-2 text-sm text-ink-muted">{{ t('scheduling.dayBoard.waitlistHold') }}</p>
                 <div class="mt-4 space-y-5">
                     <div class="flex flex-col gap-3 sm:flex-row sm:items-end">
                         <label class="block sm:w-2/3">
@@ -493,6 +515,18 @@ const legend = [
                     </table>
                 </div>
             </div>
+
+            <!-- What the design offers that this board refuses, each with its reason. -->
+            <div class="glass-card p-5">
+                <p class="text-sm font-semibold text-ink">{{ t('scheduling.dayBoard.omitted.title') }}</p>
+                <p class="mt-1 text-xs text-ink-muted">{{ t('scheduling.dayBoard.omitted.subtitle') }}</p>
+                <ul class="mt-3 space-y-1.5 text-sm text-ink-muted">
+                    <li v-for="key in omittedKeys" :key="key" class="flex items-start gap-2">
+                        <span class="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-ink-subtle" />
+                        <span>{{ t(`scheduling.dayBoard.omitted.${key}`) }}</span>
+                    </li>
+                </ul>
+            </div>
         </div>
 
         <!-- Quick-book slide-over -->
@@ -532,6 +566,7 @@ const legend = [
                     </button>
                 </form>
             </div>
+
         </div>
     </AppLayout>
 </template>

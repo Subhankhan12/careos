@@ -653,6 +653,27 @@ Two further wireframes were decoded from the design pack and triaged. **Neither 
     `ServiceCatalog`'s duration rule sitting behind the controller's own `min:1`.
     **Flagged, not built:** service-catalog writes are not audited. Scheduling reaches the trail via
     events for an app-layer listener; service changes dispatch none.
+  - **SCHED.P1 — DONE.** Day-board parity. **The board now derives every tile's actions from the
+    machine** via the new `AppointmentService::boardActionsFor()`, the same `legalTransitionsFrom()`
+    Appointment Detail uses — so the product no longer answers "what may I do?" two different ways.
+    **The D-156 compose is preserved without being special-cased:** `arrive` from `booked` is offered
+    because the method asks whether both edges are legal, so removing either would stop it on its own.
+    **An offered action can never be refused — proven by DRIVING every (status, action) pair** the
+    board offers and asserting the appointment moved; a forged un-offered action is still refused by
+    the service.
+    **A CORRECTION to the scheduling audit:** it claimed "Arrive on a booked appointment is offered
+    and refused". Wrong — the compose always handled that one. The real refusals were `start`/
+    `complete` on a booked appointment, `arrive` on an arrived one, and any action on a terminal one.
+    Corrected in the diff doc.
+    **No override:** a conflicting quick-book is refused, `override`/`keep_both`/`force` are read
+    nowhere, and the positive control books the same shape at a free hour.
+    **Carve-outs plain:** utilisation is booked-minutes ÷ the branch scan window, idle lane shown at
+    0, no tint/band/rank; waiting is elapsed since the recorded `checked_in_at` with no threshold.
+    **Waitlist copy corrected** to "holds the queue place, not the slot" — the audit's over-claim is
+    not repeated.
+    **12 mutations: 11 caught, 1 NO-OP recorded (D-187)** — the cancelled-status filter is redundant
+    because cancelling deletes the resource links, proven from the code and kept deliberately with a
+    comment. Three test defects found first, including the omission-names-it trap for the third time.
 ---
 
 ## DEPLOYMENT — the primary track (authoritative; everything below this section is history)

@@ -379,3 +379,30 @@ written operational meaning (D-191).
 the audit trail by dispatching events for an app-layer listener (`AppointmentTransitioned`);
 service changes dispatch nothing. That is the in-pattern fix when someone takes it.
 
+### SCHED.P1 — the day-board's actions (2026-08-29)
+
+**`AppointmentService::boardActionsFor($status)` is THE source for what a tile may offer.** It
+maps the board's verbs onto target statuses and asks `legalTransitionsFrom()`. Any new screen
+that offers a lifecycle action must use it — do not hand-roll a second answer.
+
+**The D-156 compose is expressed as a QUESTION, not a special case:** `arrive` from `booked` is
+offered only because `booked→confirmed` and `confirmed→arrived` are both legal. Remove either
+edge and the compose stops being offered by itself.
+
+**The contract: an action the board offers is an action the server accepts.** It grants nothing —
+`transition()` re-asserts legality inside the row lock, so a forged request is still refused.
+
+**Utilisation is a plain ratio** (booked minutes ÷ the branch scan window) with an honest `null`
+when there is no window. Never tint, band, rank or order lanes by it (D-169). The idle lane is
+shown at 0, never hidden.
+
+**Waiting time is elapsed minutes since the recorded `checked_in_at`**, `null` when nobody checked
+in. **No threshold, ever** — do not compare it to anything or bind a class to it.
+
+**There is no override parameter.** `BookingService` reads no `override`/`keep_both`/`force`; a
+conflict is refused. Do not add a "keep both" affordance.
+
+**The waitlist hold is the QUEUE PLACE, not the slot** — `assertNoOverlap` never reads
+`waitlist_offers`, so the time can be booked away and the acceptance then fails. Do not write
+copy claiming the slot is held.
+

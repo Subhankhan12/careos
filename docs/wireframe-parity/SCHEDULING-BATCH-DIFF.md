@@ -178,7 +178,7 @@ Severity: **High** = fence or safety · **Med** = real gap a user notices · **L
 | Finding | Verdict |
 |---|---|
 | Appointment Detail derives its actions from `legalTransitionsFrom()` | **correctly-more-real** (APPT.P2) |
-| **The Day-Board does not.** `DayBoardActionController` accepts `arrive,start,complete,cancel,no_show` for any appointment, and the Vue renders actions without consulting the machine — the mock describes this accurately ("all actions render on hover… the server enforces") | **backend/UI gap, not a breach.** The server is authoritative either way, but **the same product answers "what may I do?" two different ways on two screens.** The `booked → arrived` case is live: Arrive on a `booked` appointment is offered and refused |
+| ~~The Day-Board does not.~~ ✅ **FIXED in SCHED.P1** — the board now derives its actions from the same machine. **CORRECTION to this audit's original wording:** it said "the `booked → arrived` case is live: Arrive on a `booked` appointment is offered and refused". **That was wrong.** `DayBoardActionController` COMPOSES confirm → arrive for a booked appointment (D-156), so that particular action always succeeded. The real refusals were the others the board offered unconditionally — `start` or `complete` on a `booked` appointment, `arrive` on an already-arrived one, and **any** action on a completed, cancelled or no-show appointment. The finding stands; the example was mis-chosen |
 | Any status outside the eight | None drawn | fine |
 
 ### 4.5 Soft-suspend + online gates
@@ -225,7 +225,7 @@ Severity: **High** = fence or safety · **Med** = real gap a user notices · **L
 | **S1 · A waitlist create route + UI** (`WaitlistService::create()` exists, unreachable) | Screens 2 and 4 — without it the waitlist cannot be entered at all | **Low–Med** |
 | **S2 · Availability admin surface** over `ResourceAvailability` (template + dated exceptions) | Screen 5 almost entirely; W8c was deferred and flagged in the readiness check | **Med** — the model is already there |
 | ~~**S3 · Service catalog CRUD**~~ ✅ **DONE (SCHED.P2)** — `ServiceCatalogController` over the existing `ServiceCatalog` service; list + editor + archive | Screens 6 and 7 | — |
-| **S4 · Day-Board reads `legalTransitionsFrom()`** | Fence 4.4 coherence; kills the `booked → arrived` refusal | **Low** |
+| ~~**S4 · Day-Board reads `legalTransitionsFrom()`**~~ ✅ **DONE (SCHED.P1)** — via `AppointmentService::boardActionsFor()`, which also expresses the D-156 compose as a question to the machine rather than a special case | Fence 4.4 coherence | — |
 | **S5 · Booking confirmation notification** (transactional, consent-gated like reminders) | Screen 3's promise; also the waitlist "confirmation sent" line | **Low–Med** |
 | **B4 · `Resource` capability field** | Dental Chair Scheduling **and** APPT.P4; not needed by these 8, but named because both wait on it | **Med** |
 | **S6 · Waitlist preference model** (days/times/earliest) | Screen 4's pool table as drawn | **Med** — a schema change |
@@ -257,7 +257,7 @@ double-book override, per-channel consent. Each is a decision the build has take
 
 | Gate | Builds | Proves |
 |---|---|---|
-| **SCHED.P1** | **Day-Board parity** — glance band (real counts only), waiting-room strip from `checked_in_at`, per-lane utilisation as a plain untinted ratio, status legend, online markers, and **S4** (actions from `legalTransitionsFrom()`). | Quick-book still goes through the finder + `BookingService`; **no ranked resolver, no override, no "on schedule"**; the omission card names them. |
+| ~~**SCHED.P1**~~ ✅ **DONE** | **Day-Board parity** — real counts, waiting elapsed from `checked_in_at`, per-lane utilisation as a plain untinted ratio, and **S4**: the board now derives every tile's actions from the machine, via the new `AppointmentService::boardActionsFor()`. | An offered action can never be refused — every one is DRIVEN in test. Quick-book still goes through `BookingService`; a conflict is refused and **no override parameter exists anywhere**; the omission card names all six refusals. See §17. |
 | ~~**SCHED.P2**~~ ✅ **DONE** | **Service Catalog + Create (S3)** — list, editor and archive over the real columns, through the existing `ServiceCatalog` write path. | One source proven: a duration edited on the screen changes the FINDER's slot length. No price field anywhere, with the omission naming Billing. No delete affordance — `ON DELETE RESTRICT` means archiving is the safe verb. See §16. |
 | **SCHED.P3** | **Provider Availability (S2)** — weekly template + dated exceptions over `ResourceAvailability`. | An edit **never** moves or cancels a booked appointment; the conflict warning lists affected appointments read-only; **no granularity/min-notice controls** unless the backend gains them. |
 | **SCHED.P4** | **Waitlist: create + list (S1)** — make the feature reachable, and give `priority` a written operational meaning. | Ranking is operational and stated; **no urgency, no clinical label, no auto-send**; the "hold" is described honestly as a queue place, not a slot reservation. |
@@ -385,6 +385,126 @@ transitions reach the trail by dispatching `AppointmentTransitioned` for an app-
 record. Adding an event and a listener for service changes is the in-pattern fix, but it is a design
 decision that deserves its own gate rather than being smuggled into a UI parity gate. **Flagged, not
 built:** a tenant-configuration change that alters what patients can book currently leaves no trail.
+---
+
+## 17 — SCHED.P1 outcome (2026-08-29)
+
+### One answer, not two
+
+`AppointmentService::boardActionsFor($status)` is new, and it is the only thing this gate added to the
+domain. It maps the board's five verbs onto the statuses they move to, and asks
+`legalTransitionsFrom()` — the accessor Appointment Detail already used (APPT.P2) — whether each is
+reachable.
+
+**The D-156 compose is preserved without being special-cased.** `arrive` on a `booked` appointment is
+legitimate: the board runs confirm → arrive, two legal edges, each asserted inside its own row lock
+and each audited. `boardActionsFor()` offers it because it asks whether **both** edges are legal, not
+because the verb is hardcoded. If either edge were ever removed from `LEGAL_TRANSITIONS`, the compose
+would stop being offered on its own.
+
+What the board now shows, over the fixture's awkward spread:
+
+| status | offered | why |
+|---|---|---|
+| `booked` | arrive · cancel · no_show | arrive via the D-156 compose |
+| `confirmed` | arrive · cancel · no_show | arrive is directly legal |
+| `arrived` | start · cancel | **no arrive** — it is not a legal edge from `arrived` |
+| `in_progress` | complete | the only legal edge |
+| `completed` · `cancelled` · `no_show` | **nothing** | terminal |
+
+**No offered action can be refused, and that is proven by driving them.** The test walks every
+(status, action) pair the board actually offers, posts it through the real transition route, and
+asserts the appointment MOVED. A separate test forges an action the board does *not* offer and
+confirms the service still refuses it — the action list grants nothing; the machine remains the
+authority.
+
+**A correction to this document's own audit.** §4.4 originally gave "Arrive on a booked appointment"
+as the live refusal. It is not: the compose has always handled it. The real refusals were `start` or
+`complete` on a booked appointment, `arrive` on an already-arrived one, and every action on a
+terminal appointment. The finding was right; the example was wrong, and it is corrected above.
+
+### No override, and the guard is untouched
+
+Every book still runs `lockResource` → `assertNoOverlap`. The test books into an occupied slot
+through the board's own quick-book route and asserts the refusal, with a positive control that the
+identical booking succeeds at a free hour — so the refusal is the guard, not a broken fixture. It
+then repeats the conflicting request carrying `override`, `keep_both` and `force`, asserts it is
+*still* refused, and asserts that `BookingService` reads none of those parameters. Removing
+`assertNoOverlap` turns it red.
+
+### The carve-outs, kept plain
+
+**Utilisation** is booked minutes over the branch's own scan window — two recorded quantities and a
+division. The idle lane is present at `0`, not hidden. No tint, band, rank or "best lane": the test
+scans the payload for any such key and asserts the lane order is the resource order. Adding a
+`band` field turns it red; hiding the idle lane turns it red.
+
+**Waiting** is elapsed minutes since the recorded `checked_in_at`, and an appointment nobody checked
+in carries `null` rather than a zero. There is no threshold anywhere — the test asserts the component
+never *compares* the elapsed value, and that the line carries no class bound to it. Tinting it turns
+it red.
+
+### Honest waitlist copy
+
+The panel's behaviour is unchanged — `scheduler.fill_from_waitlist` still sits at the **APPROVE**
+ceiling and acceptance still routes through `BookingService`. What changed is the copy: the audit
+found the design claiming the slot is held and *"no one loses the slot to silence"*. It is not held.
+The board now says an outstanding offer holds the patient's **place in the queue, not the slot**, and
+a test asserts both that the new wording is there and that `assertNoOverlap` never consults
+`waitlist_offers`.
+
+### Mutation-checked twelve ways
+
+Caught: the board offering every verb · the compose dropped · terminal statuses offering cancel · the
+overlap guard removed · a tint band on utilisation · the idle lane hidden · `checked_in_at` faked ·
+the waiting line tinted · the grid ignoring the server's list · the omission loop emptied · the
+waitlist over-claim restored.
+
+**One was a NO-OP, recorded rather than counted (D-187).** Removing the
+`whereNotIn([cancelled, rescheduled])` from the utilisation query changes nothing: `transition()`
+deletes an appointment's resource links when it moves to either status, and the sum is per *link*, so
+such an appointment already contributes zero. The filter is kept deliberately — it states the intent
+independently of that implementation detail — and the comment now says so.
+
+**A twelfth mutation found a real test gap.** Making the grid's `offers()` return `true`
+unconditionally left every assertion green — they all checked the PAYLOAD, and none checked that the
+COMPONENT consults it. Pest cannot execute a template, so the test now reads the component and
+asserts that `offers()` answers from the list and that all five action buttons — exactly five — are
+gated by it. **A payload can be right while the screen ignores it.**
+
+### Two defects only the browser could find
+
+Both were invisible to a green suite, and both were real.
+
+**1. The omission card rendered nowhere.** It had landed *inside the quick-book slide-over*
+(`v-if="quickBookOpen"`), so it existed only while that dialog was open. The test asserted the
+iterated keys and the `t()` call were present in the component — GOV.P3's rendered-output rule — and
+they were. **Source presence is not reachability.** Moved into the main column; the test now also
+asserts the card appears before the modal's own block, so it cannot drift back inside.
+
+**2. The waiting time was wrong twice, for two different reasons.** It first showed `0 min`, then
+`152 min`, for a check-in 34 minutes old. A naive `Y-m-d H:i:s` is ambiguous:
+
+- the **viewer's** machine was UTC−7, and a naive string parses as browser-local, so a check-in half
+  an hour ago read as hours in the *future* and clamped to zero; and
+- `ApplyTenantLocaleTimezone` sets PHP's default zone to the practice's (Europe/Zurich here) while
+  `config('app.timezone')` stays UTC, so **Eloquent re-labels the UTC-stored string as Zurich** and
+  shifts it two hours. That middleware's own docblock already notes that per-widget
+  datetime→timezone display conversion is an open follow-up.
+
+The fix reads the **raw** column, parses it as UTC — the documented storage contract — and computes
+the elapsed **on the server**, so neither ambiguity can reach the screen. This is D-091's family: the
+bug is always someone interpreting a naive timestamp in a zone other than the one it was written in.
+
+**Worth carrying forward:** any *other* widget that renders an absolute time from a naive timestamp
+is subject to the same two-hour relabel. This gate fixed the one it introduced; the general
+follow-up remains open, as the middleware says.
+
+**Three further test defects were found before the code was cleared**, all the same shape as previous gates:
+a scan that forbade `amber` and `noShowRisk`, which appear **only** in the comment and omission list
+that decline them (third occurrence of this trap — COMMS.P2 and SCHED.P2 hit it too); a `text-danger`
+scan that matched the pre-existing Cancel button; and an expectation of 240 booked minutes where the
+honest figure is 210, because a cancelled appointment releases its resource links.
 ---
 
 ## 8 — What this audit did not do

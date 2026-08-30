@@ -1623,7 +1623,31 @@
             "emptyResourcesAction": "Set up resources",
             "close": "Close",
             "book": "Book",
-            "actionReason": "Updated from day-board"
+            "actionReason": "Updated from day-board",
+            "waitingSince": "checked in {minutes} min ago",
+            "utilisation": "{percent}% booked · {booked} of {available} min",
+            "utilisationUnknown": "no opening hours set for this day",
+            "counts": {
+                "total": "Appointments today",
+                "totalHint": "Every appointment on this day at this branch, all statuses.",
+                "waiting": "Checked in",
+                "waitingHint": "Arrived and not yet started. A recorded pair of statuses, not a judgment about waiting.",
+                "inProgress": "In progress",
+                "inProgressHint": "Started and not yet completed.",
+                "online": "Booked online",
+                "onlineHint": "Recorded as having come from the public booking form."
+            },
+            "omitted": {
+                "title": "What this board does not do",
+                "subtitle": "Things the design offers that this build refuses. We would rather name them than draw a control that lies.",
+                "override": "No \"keep both\" override on a conflict. Every booking and move goes through the same locked check, and a clash is refused rather than waved through — there is no parameter that would let one past, and a button offering it would be a promise the engine breaks.",
+                "ranked": "No ranked conflict resolution. The board can tell you a slot is free or taken, because that is recorded. Which move is \"best\" is a judgment about the day, the people and the room, and it belongs to whoever is standing there.",
+                "autofill": "No auto-fill, gap-closing or \"optimise the day\". Nothing moves or books an appointment without a person deciding — the waitlist agent may draft an offer, and a human sends it.",
+                "noShowRisk": "No no-show risk score. Nothing records who is likely not to arrive, and a number invented for that would follow a patient around.",
+                "predictedDuration": "No predicted duration or \"likely to run late\". A booking lasts as long as the service says it lasts — that is a setting somebody chose, not a forecast.",
+                "onSchedule": "No \"on schedule\" verdict. The counts above are real; whether the day is going well is a judgment nobody recorded."
+            },
+            "waitlistHold": "An outstanding offer holds the patient's place in the queue — not the slot. Nothing stops this time being booked while they think about it, and if that happens their acceptance is refused like any other clash."
         },
         "status": {
             "booked": "Booked",

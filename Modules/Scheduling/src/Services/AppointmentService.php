@@ -63,6 +63,71 @@ class AppointmentService
         return self::LEGAL_TRANSITIONS[$status] ?? [];
     }
 
+    /**
+     * The board's action verbs, mapped to the status each one moves an appointment to.
+     *
+     * The day-board speaks in verbs ("arrive", "start") while the machine speaks in statuses. This
+     * is the one place the two vocabularies meet, so a screen never has to guess.
+     */
+    private const BOARD_ACTION_TARGETS = [
+        'arrive' => Appointment::STATUS_ARRIVED,
+        'start' => Appointment::STATUS_IN_PROGRESS,
+        'complete' => Appointment::STATUS_COMPLETED,
+        'cancel' => Appointment::STATUS_CANCELLED,
+        'no_show' => Appointment::STATUS_NO_SHOW,
+    ];
+
+    /**
+     * SCHED.P1 — which day-board actions are ACTUALLY available for an appointment in this status.
+     *
+     * The board used to render all five verbs on every tile and let the server refuse the ones that
+     * were illegal. The server stayed authoritative, so nothing unsafe happened — but the screen was
+     * answering "what may I do?" differently from the machine, and a receptionist learned the answer
+     * by being told no. Appointment Detail already derived its actions from
+     * {@see self::legalTransitionsFrom()} (APPT.P2); this gives the board the same source.
+     *
+     * **THE COMPOSE IS PRESERVED (D-156).** `arrive` on a `booked` appointment is legitimate: the
+     * board runs confirm → arrive, two legal edges, each asserted inside its own row lock and each
+     * audited. So this method offers `arrive` from `booked` — not by special-casing it, but by
+     * asking the machine whether BOTH edges are legal. If either edge were ever removed from
+     * LEGAL_TRANSITIONS, the compose would stop being offered on its own.
+     *
+     * The contract this establishes: **an action the board offers is an action the server accepts.**
+     * It grants nothing — {@see self::transition()} re-asserts legality inside the lock, so a forged
+     * request is still refused.
+     *
+     * @return list<string>
+     */
+    public static function boardActionsFor(string $status): array
+    {
+        $direct = self::legalTransitionsFrom($status);
+
+        $available = [];
+
+        foreach (self::BOARD_ACTION_TARGETS as $action => $target) {
+            if (in_array($target, $direct, true)) {
+                $available[] = $action;
+
+                continue;
+            }
+
+            // The D-156 compose, expressed as a question to the machine rather than a hardcoded
+            // exception: can we reach the target in two legal hops via the intermediate status?
+            if ($action === 'arrive' && self::composesTo($status, Appointment::STATUS_CONFIRMED, $target)) {
+                $available[] = $action;
+            }
+        }
+
+        return $available;
+    }
+
+    /** True when `from → via → to` is two legal edges. */
+    private static function composesTo(string $from, string $via, string $to): bool
+    {
+        return in_array($via, self::legalTransitionsFrom($from), true)
+            && in_array($to, self::legalTransitionsFrom($via), true);
+    }
+
     public function confirm(Appointment $appointment, User $actor): Appointment
     {
         return $this->transition($appointment, Appointment::STATUS_CONFIRMED, $actor);
