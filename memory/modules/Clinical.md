@@ -285,7 +285,7 @@ NEVER built homemade. The only allergy block is the pre-existing deterministic e
 - Computed drug-allergy safety (cross-reactivity / class-match / contraindication / substitution) is a
   certified-partner medical-device NON-GOAL — the `MedicationSafetyProvider` seam awaits a licensed partner.
 
-## PC.P2 — Patient Chart visual parity (2026-08-21, `<pending>`)
+## PC.P2 — Patient Chart visual parity (2026-08-21, `de55f43`)
 
 Second gate of the **PC chain**. Visual parity over the EXISTING chart backend. **P0D.GU.**
 

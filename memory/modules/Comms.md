@@ -1,5 +1,15 @@
 # Comms module memory
 
+> **STATE as of `cc0ed68` (2026-08-30).** The COMMS wireframe-parity batch is **COMPLETE**: two core gates —
+> **COMMS.P1 `11cf333`** (unified inbox + the patient context pane) and **COMMS.P2 `ab9e62c`** (telehealth
+> sessions + join). **Wireframe screens 2, 4 and 6 were DECLINED under D-188** — they rest on a per-topic /
+> per-channel consent model, a household grouping and a campaign feature this product does not have; a reduced
+> version would teach staff to promise what the practice cannot keep. **There is no COMMS parity work left —
+> do not invent a P3.** One OPEN GAP is recorded and deliberate: **a telehealth join is never recorded from
+> any HTTP path** (`recordJoin()`/`recordLeave()` are called only by tests and the demo seeder). **Do NOT wire
+> `recordJoin()` to token issuance** — a token is minted before anyone connects, so that writes a join that may
+> never have happened into an **append-only** table (**D-190**). See `DEFERRED.md` (d).
+
 ## Status
 
 **Phase G COMPLETE** (P0G.C). The staff-facing surface is FROZEN for the design pass;

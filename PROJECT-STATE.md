@@ -32,10 +32,65 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
 > way the audits exposed and fixed two High live security defects (AUTH-SEC.1, AUTH-SEC.2). Items deliberately
 > left open are recorded as honest gaps, not silently filled.
 
-## STATUS: BUILD COMPLETE + AUDITED (3 audits, ZERO must-fix) · EIGHT VERTICALS · DEMOABLE HOSPITAL TENANT · CURRENT STAGE = DEPLOYMENT · WIREFRAME-PARITY PASS **COMPLETE — ALL 9 PAGES** ( Admin Settings · Approval Queue P1→P7 · Branches P1→P5 · Agent&Tool Config P1→P6 COMPLETE · Billing & AR P1→P7 COMPLETE · Allergy Alert safe-part [ALLERGY.P1] · Billing&AR audit + BILLAR.P1 write-off/adjustment ledger + BILLAR.P2 AR roll-forward + BILLAR.P3 DSO/collection-rate + BILLAR.P4 by-payer + BILLAR.P5 charged-vs-collected trend + BILLAR.P6 management-report grid + BILLAR.P7 top-overdue+drill — Billing & AR PARITY COMPLETE · AR Account Detail COMPLETE: ARDETAIL.P1 per-account running-balance ledger + P2 dunning timeline + P3 hero/Swiss-format/links + P4 record-payment through the guarded PaymentService + P5 payment-plan model + P6 Betreibung escalation [operator-only, agent-excluded by construction] · Appointment Detail APPT.P1->P3 CORE COMPLETE · Auth Screens: AUTH-SEC.1+.2 security fixes + AUTH-VIS enrolment manual-secret fallback — PASS COMPLETE)
+## STATUS: BUILD COMPLETE · DEPLOY-READY 🟢 GO · THE BUILDABLE PARITY PROGRAMME IS COMPLETE — ONE TRACK REMAINS: **DEPLOYMENT + PARTNERSHIPS**
 
-> **RECONCILED as of `8a9a867` (AUTH-VIS, 2026-08-17) — the build, the three QA audits, the deploy-prep and the
-> NINE-PAGE wireframe-parity pass are ALL COMPLETE. The single remaining track is DEPLOYMENT + partnerships.**
+### THE WIREFRAME-PARITY PROGRAMME — COMPLETE (nine pages + six domain batches)
+
+**The original nine pages** — Admin Settings `e7cabf0` · Approval Queue `ea0e9b3` · Branches `a865a31` ·
+Agent & Tool Config `d0199e3` · Allergy Alert **safe part only** `46e45d1` (computed drug-allergy checking is a
+certified-partner MEDICAL-DEVICE non-goal, grep-proven absent) · Billing & AR `aa82ea0` ·
+AR Account Detail `3ddc7ab` · Appointment Detail core `ca90273` · Auth Screens (the security sprint below).
+
+**The six domain batches:**
+
+| Batch | Tip | Screens | Deferred / declined, and why |
+|---|---|---|---|
+| **Dental** | `7d7f354` | 9 of 13 | Four net-new subsystems deferred; **~20 computed-clinical-judgment items refused** |
+| **Patients & Clinical** | `4d50cba` | 9 of 12 | Allergy Alert partner-gated · Care Plan Review **~70% refused** · two net-new subsystems deferred |
+| **Portal** | `ae00b5a` | **11 of 11** | — complete |
+| **Governance & AI** | `8f0b2e8` | **10 of 10** | 7 were already parity-complete from APPROVAL/AGENT |
+| **Comms** | `ab9e62c` | 2 core (P1 inbox · P2 telehealth) | **Screens 2/4/6 DECLINED under D-188** — they rest on a per-topic / per-channel consent model, a household grouping and a campaign feature the product does not have |
+| **Scheduling** | `cc0ed68` | 3 core (P2 catalog · P1 day-board · P3 availability) | **P4 waitlist create+list DEFERRED by decision** (the create path does not exist, so the feature is unreachable in production; deferring keeps **D-191 closed by absence**) · **No-Show Follow-Up DECLINED under D-188** (its organising idea is triage by clinical risk) |
+
+### SECURITY WORK (fixes, not parity)
+
+| Fix | Commit | What it closed |
+|---|---|---|
+| **AUTH-SEC.1** | `4334017` | Remember-me no longer bypasses the 2FA challenge — **a ~400-day standing bypass** |
+| **AUTH-SEC.2** | `39c0413` | Password-reset views bound + a **guest-route smoke**, so a public 500 cannot ship green |
+| **AUTH-VIS** | `8a9a867` | 2FA enrolment manual-secret fallback (the user's own real secret) |
+| **OPMODE.G1** | `41a8dea` | **The LIVE super-admin containment gap** — `Gate::before` AND `PermissionService::has` both replaced with a fail-closed, grant-gated rule, regression-guarded |
+| **D-185** | (PT.P6 chain) | Invite refusals made **indistinguishable in shape** — a tenant-enumeration oracle closed |
+| **PT.P7** | `ae00b5a` | The portal password-reset broker — **patients previously had no self-service recovery at all** |
+
+### OPERATOR MODE — security core DONE, UI deliberately deferred
+
+**G1 `41a8dea` · G2 `0afaa67` · G3 `c086de5`** = the security core plus the full approval backend. **DONE and
+LIVE-SAFE.**
+
+**G4–G11 are DELIBERATELY DEFERRED (D-164)** — operator-facing UI. The backend is **inert: there is no HTTP
+route** (verified: zero operator routes in the route table), it adds no safety property G1–G3 do not already
+enforce, it does **not** block deploy, and it is **not unfinished by accident**. The build plan is
+`docs/features/OPERATOR-MODE-MAP.md`. **Do not "finish" it.**
+
+> **RECONCILED as of `cc0ed68` (SCHED.P3, 2026-08-30) — the build, the three QA audits, the deploy-prep and the
+> ENTIRE BUILDABLE PARITY PROGRAMME are COMPLETE. The single remaining track is DEPLOYMENT + partnerships.**
+>
+> **THERE IS NO BUILDABLE PARITY WORK LEFT, AND NO VERTICAL LEFT TO BUILD.** If a task asks for a new vertical,
+> parity page or batch, verify against the repo before starting — three re-pasted gates were caught this
+> programme by checking that HEAD already contained the work.
+>
+> **What is done:** eight verticals + the offline Nurse PWA · three full-system QA audits (zero must-fix) ·
+> A11Y.1 · the deploy-readiness runbook audit + production `.env` template · **DEPLOY.PROV `b006d07`**
+> (`plans:seed` · `tenant:create` · `tenant:add-admin`), which moved the readiness verdict to **🟢 GO** ·
+> **four auth/portal/platform security fixes** · **Operator Mode's security core (G1–G3)**, with G4–G11
+> deliberately deferred · and the **wireframe-parity programme: the original NINE pages + SIX domain batches.**
+>
+> **Suite (measured 2026-08-30):** **1497 passed · 2 skipped · 41276 assertions** in 6249s, with Pint green and
+> PHPStan L5 green over 864 files, and `test:smoke` 4/4. The single red line was
+> `BedClaimParallelHammerTest` timing out at the 30s per-subprocess ceiling — a **known load-flake that passes in
+> isolation**, not a regression. **Read the LOG TEXT for the verdict: the harness exit code reported `0` on this
+> very run while pest reported a failure.** **Decisions:** D-001 → D-191.
 > CareOS is a multi-tenant, agentic, EU-first healthcare-operations SaaS. **Stack:** Laravel 12, Inertia v2 +
 > Vue 3 + TS + Tailwind v4 (Eucalyptus Glow) + a separate offline Nurse PWA; dev MariaDB 10.4 @3306, prod+CI
 > MySQL 8 + Redis 7 + Node 22; Horizon via Memurai locally. **20 modules on disk, all PSR-4-registered**

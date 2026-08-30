@@ -1,118 +1,136 @@
 # CareOS — Onboarding (read this FIRST)
 
-The single file a new session (Claude Code **or** Codex) reads first. After this, the read order below gives you
-the COMPLETE, accurate context of everything built: **EIGHT verticals** (clinic · dental · home-care · inpatient ·
-pharmacy · surgery · ED · lab · radiology) on one shared multi-tenant platform. **THE BUILD IS COMPLETE — all
-hospital phases are built.** The next progress is **deployment + certified-partner integrations, not more code** —
-AND, running alongside deploy prep, a page-by-page **WIREFRAME-PARITY PASS** (bring each app page up to its designed
-wireframe without weakening a single enforced gate). See §5.
-
-> **WIREFRAME-PARITY PASS — COMPLETE, all NINE pages (D-149 → D-160).** The loop that ran it, per page: **decode** the self-unpacking "bundler-shell"
-> wireframe HTML → readable HTML in the **gitignored** `resources/prototype/` (no app change, no commit) → **AUDIT**
-> the live page against it into `docs/wireframe-parity/<PAGE>-DIFF.md` (report-only commit) → **FIX** per-part as
-> `P0D.GU` gates, **one part = one commit + STOP**, GATE REPORT + CI-green each. **The discipline (non-negotiable):
-> match the LOCKED/CAPPED visual, but NEVER weaken a real enforced server gate (suggest-cap, mandatory 2FA,
-> required reject-reason, the AutonomyPolicy ceiling, approve = re-authorise + re-ground + still-pending); never
-> regress a "correctly-more-real" item; RBAC is reflect-only (server Gate stays authoritative); surface-don't-
-> fabricate (every permission/ceiling/source shown is REAL or an honest absence — no faked control/count/copy).**
-> **Where each page stands — ALL NINE COMPLETE; the pass is CLOSED (AUTH-VIS, `8a9a867`).** Beyond the seven
-> listed here, **Appointment Detail** core (APPT.P1–P3, `ca90273`; the real APPT.P2 tip is the CI-fix `27fa22c`)
-> and **Auth Screens** (AUTH-SEC.1 `4334017` + AUTH-SEC.2 `39c0413` + AUTH-VIS `8a9a867`) closed it.
-> **No parity page remains — do not invent one.** The seven:
-> Admin Settings (SETTINGS.P1–P6, `e7cabf0`) ·
-> Approval Queue (APPROVAL.P1–P7, `ea0e9b3`) · Branches (BRANCH.P1–P5, `a865a31`) · Agent & Tool Config (AGENT.P1–P6,
-> `d0199e3`) · Allergy Alert **safe-part** (ALLERGY.P1, `46e45d1` — record-display only; computed drug-allergy checking
-> is a certified-partner MEDICAL-DEVICE non-goal, NOT built) · **Billing & AR (BILLAR.P1–P7, `aa82ea0`)** · **AR Account
-> Detail — COMPLETE (ARDETAIL.P1–P6)**: P1 per-account running-balance ledger → P2 dunning timeline
-> (real state machine, read-only) → P3 hero + Swiss `CHF x'xxx.xx` + status/dunning pills + chart/PDF links → **P4
-> record-payment through the guarded `PaymentService`** (the first consequential write — over-allocation guard held
-> through the page path, reconciles δ=0, operator-gated, audited, agent-EXCLUDED; D-152) → **P5 payment-plan**
-> (installments TIE to the real outstanding δ=0 — an exact engine partition, never more than is owed — settled via
-> the P4 guarded path so the plan moves no money; operator-created, agent-EXCLUDED; D-153) → **P6 Betreibung /
-> debt-enforcement escalation** (a human legal act: the NEW, deliberately narrower `billing.escalate` permission
-> [org_admin + billing only — charge-capturing clinical roles hold `billing.manage` and are refused];
-> eligibility = the real dunning machine exhausted at its terminal level, fail-closed; an EXPLICIT operator
-> confirmation + recorded reason; append-only + audited; **AGENT-EXCLUDED BY CONSTRUCTION** — no AiTool, no AiCore
-> reference, and the only files reaching the service are the service, the model and the operator-gated controller,
-> asserted as an exact list, so "0 auto-escalated" is structural; D-154). **NO decoded pages remain:** Appointment
-> Detail CORE COMPLETE (APPT.P1–P3) and Auth Screens COMPLETE (AUTH-SEC.1 + AUTH-SEC.2 security fixes, then AUTH-VIS
-> — the enrolment manual-secret fallback rendering the user OWN real secret; D-160) closed the pass. Along the way the
-> audits found and fixed TWO High **live security defects**, which is the pass earning its keep. The one item left
-> open on purpose is the password-policy **product** decision. Do NOT invent a new page or gate.
-
-> **⏸️ OPERATOR MODE — PAUSED AFTER ITS SECURITY CORE. READ THIS BEFORE ASSUMING ANYTHING IS UNFINISHED.**
-> A second track opened and stopped **on purpose** (D-164; detail in `memory/modules/OperatorMode.md`, plan in
-> `docs/features/OPERATOR-MODE-MAP.md`).
-> **DONE + LIVE-SAFE — G1–G3**, which shipped a **real security fix**: `Gate::before` and
-> `PermissionService::has()` both returned an unconditional `true` for any super-admin, and the only thing
-> keeping one out of a clinic's PHI was never being handed a tenant context — **containment by accident, not by
-> decision**. A super-admin now reaches tenant data ONLY through an ACTIVE, UNEXPIRED, IN-SCOPE, IN-TIER,
-> owner-approved `OperatorGrant`, fail-closed at both former bypass points and **regression-guarded** (D-161);
-> **requesting is not granting** (D-162); **the owner — the tenant's `org_admin` — is the gate**, and approval
-> is the only activation path (D-163). 40 tests.
-> **DELIBERATELY DEFERRED — G4–G11** (elevated-session mechanics · mid-session revoke + expiry + receipt · the
-> ~7 operator/owner screens). They are **operator-facing convenience UI**, to be built **after the first
-> customer is live**, and they add **no safety property G1–G3 do not already enforce**.
-> **There is NO HTTP route and NO UI — Operator Mode is backend-only and inert**, unreachable over the wire.
-> **Do NOT treat it as unfinished work blocking deploy, and do NOT "finish" it unprompted.** To resume: read
-> the MAP and start at **G4**. One question to answer first if it might be "yes": *is an "all patient records"
-> scope ever permitted?* — currently **fail-closed, no wildcard exists**.
-
-> **📋 WAITLIST MANAGEMENT — AUDITED, NOT BUILT.** A tenth wireframe, decoded and audited after the nine-page
-> pass closed (it does **not** reopen that pass): `docs/wireframe-parity/WAITLIST-MANAGEMENT-DIFF.md`. ~70% of
-> it renders an already-rich backend; the **blocker** is that nothing can add anyone to the waitlist today
-> (`WaitlistService::create()` has one caller in the repo — `DemoClinicSeeder`). The **auto-send tier must be
-> omitted** (the agent's ceiling is APPROVE) and SMS/phone are a seam (email only). **No fix chain has been
-> issued.** Priority: below DEPLOY. *(The other decoded wireframe, "Waiting On Approval", turned out **not** to
-> be a parity page — it is one screen of the Operator Mode family and was folded into that MAP.)*
-
-> **One-liner to paste at the start of a new session:**
-> *"CareOS is a multi-tenant, agentic healthcare-operations SaaS (Laravel 12 · Inertia/Vue 3 · Eucalyptus Glow ·
-> offline Nurse PWA). THE BUILD IS COMPLETE — EIGHT built + green verticals on one platform: CLINIC (delivered +
-> admin), DENTAL (G1–G9), HOME-CARE/SPITEX, INPATIENT/ADT (Hospital P1), PHARMACY (P2), LAB/LIS (P3), RADIOLOGY/RIS
-> (P4), SURGERY/OR (P5), ED (P6) — ALL hospital phases built. Current focus is DEPLOY + PARTNERSHIPS, NOT building
-> (there are no more verticals to build); the page-by-page WIREFRAME-PARITY pass is now COMPLETE (all NINE pages —
-> Admin Settings · Approval Queue · Branches · Agent&Tool Config · Allergy safe-part · Billing & AR · AR Account
-> Detail [P1 ledger → P2 dunning → P3 visual → P4 record-payment → P5 payment-plan → P6 Betreibung, operator-only +
-> agent-excluded by construction] · Appointment Detail P1-P3 · Auth Screens [AUTH-SEC.1/.2 + AUTH-VIS] — NOTHING REMAINS; the rule was: match the visual, NEVER weaken a gate, surface-don't-fabricate, one
-> part = one commit; D-149/D-150/D-151 + docs/wireframe-parity/). Read docs/ONBOARDING.md → AGENTS.md → PROJECT-STATE.md → DECISIONS.md →
-> DEFERRED.md → memory/LOG.md first. HARD RULES: electric fence (record-not-judge; no AI in the clinical-decision
-> path; checklists RECORD not ENFORCE; ranges/results DISPLAYED not FLAGGED; reports/acuity/ASA AUTHORED/ASSIGNED
-> not computed; every safety judgment — drug interactions, triage, HL7, DICOM/CAD — is a certified-partner seam,
-> null-object, never homemade), fail-closed tenancy, integer-minor money, append-only ledgers + DB triggers,
-> reconcile-to-the-unit, P0D.GU. Execute ONLY the pasted gate; open with `git log --oneline -1`, end with composer
-> check + smoke green + ONE commit, verify CI, then STOP."*
+The single file a new session (Claude Code **or** Codex) reads first. Read it in this order; after it, §1's read
+order gives you the complete, accurate context.
 
 ---
+
+## 0. The five things that decide what you should do
+
+### 1. THE BUILD IS COMPLETE AND AUDITED
+
+**EIGHT verticals** on one shared multi-tenant platform — clinic · dental · home-care (Spitex) · inpatient/ADT ·
+pharmacy · surgery/OR · ED · lab (LIS) · radiology (RIS) — plus a separate **offline Nurse PWA**. Three
+full-system QA audits, zero must-fix. A11Y.1 done. Deploy-readiness audited, production `.env` template written,
+and **first-customer provisioning built and tested** (`plans:seed` · `tenant:create` · `tenant:add-admin`,
+`b006d07`, D-165) — the readiness verdict is **🟢 GO**.
+
+**HL7/FHIR (LAB.G7) and DICOM/PACS (RAD.G6) are correctly ABSENT** — they are certified-partner seams, wired as
+interfaces with a Manual/Null implementation bound (`LabConnectivity` → `ManualLabConnectivity`;
+`ImagingConnectivity` → `NullImagingConnectivity`). There is no HL7 parser or DICOM client in `composer.json`,
+and there must not be a homemade one.
+
+### 2. THE BUILDABLE WIREFRAME-PARITY PROGRAMME IS COMPLETE — DO NOT INVENT WORK
+
+**The original NINE pages** — Admin Settings `e7cabf0` · Approval Queue `ea0e9b3` · Branches `a865a31` ·
+Agent & Tool Config `d0199e3` · Allergy Alert **safe part only** `46e45d1` · Billing & AR `aa82ea0` ·
+AR Account Detail `3ddc7ab` · Appointment Detail core `ca90273` · Auth Screens (§3 security work).
+
+**And SIX domain batches:**
+
+| Batch | Tip | Screens | Deferred / declined |
+|---|---|---|---|
+| Dental | `7d7f354` | 9 of 13 | four net-new subsystems deferred; **~20 computed-clinical-judgment items refused** |
+| Patients & Clinical | `4d50cba` | 9 of 12 | Allergy Alert partner-gated · Care Plan Review ~70% refused · two subsystems deferred |
+| Portal | `ae00b5a` | **11/11** | — |
+| Governance & AI | `8f0b2e8` | **10/10** | 7 already parity-complete from APPROVAL/AGENT |
+| Comms | `ab9e62c` | 2 core | **screens 2/4/6 DECLINED (D-188)** — a per-topic/per-channel consent, household and campaign model the product does not have |
+| Scheduling | `cc0ed68` | 3 core | **P4 waitlist DEFERRED by decision** (create path does not exist → feature unreachable; keeps **D-191 closed by absence**) · **No-Show Follow-Up DECLINED (D-188)** — triage by clinical risk |
+
+> **DO NOT invent a vertical, a parity page or a batch.** There is none left. If a pasted task names one,
+> verify it against the repo first (see §4's re-paste rule).
+
+### 3. SECURITY WORK — fixes, not parity
+
+| Fix | Commit | What it closed |
+|---|---|---|
+| **AUTH-SEC.1** | `4334017` | Remember-me no longer bypasses the 2FA challenge — **a ~400-day standing bypass** |
+| **AUTH-SEC.2** | `39c0413` | Password-reset views bound + a **guest-route smoke**, so a public 500 cannot ship green |
+| **AUTH-VIS** | `8a9a867` | 2FA enrolment manual-secret fallback (the user's own real secret) |
+| **OPMODE.G1** | `41a8dea` | **The LIVE super-admin containment gap** — `Gate::before` AND `PermissionService::has` both made fail-closed and grant-gated, regression-guarded |
+| **D-185** | PT.P6 chain | Invite refusals made **indistinguishable in shape** — a tenant-enumeration oracle |
+| **PT.P7** | `ae00b5a` | The portal password-reset broker — patients had **no self-service recovery at all** |
+
+### 4. OPERATOR MODE — the security core is DONE; G4–G11 are DELIBERATELY DEFERRED
+
+**G1 `41a8dea` · G2 `0afaa67` · G3 `c086de5`** = the security core + the full approval backend, **done and
+live-safe**.
+
+**G4–G11 are deferred on purpose (D-164):** operator-facing UI. The backend is **inert — there is no HTTP
+route** (verify: zero operator routes in `route:list`). It adds no safety property G1–G3 do not already enforce,
+does not block deploy, and is **not unfinished by accident**. Plan: `docs/features/OPERATOR-MODE-MAP.md`.
+**Do not "finish" it.**
+
+### 5. THE ONE REMAINING TRACK IS DEPLOYMENT + PARTNERSHIPS
+
+If asked *"what's next?"* — the answer is **DEPLOY**. ⚠️ An **undiagnosed staging error** is still parked and
+**no detail about it was ever captured**; expect to reproduce it from scratch. Everything else is in
+`DEFERRED.md`, prioritised, including the open gaps this programme surfaced (portal session invalidation,
+the unrecorded telehealth join, unguarded availability withdrawal, unaudited catalog/availability writes, the
+waitlist create-path blocker, the two Appointment follow-ons, and the password-policy product decision).
+
+---
+
+## 0b. The durable rules this programme produced
+
+The fences are in §3. These are the **formulations** that made them hold — the programme's most reusable output.
+Full text in `DECISIONS.md` (which runs **D-001 → D-191**, no gaps).
+
+**The four guard-vacuity rules — a green assertion that proves nothing is the recurring failure:**
+
+- **D-174** — an absence assertion over an **empty collection is vacuously true**. Always add a **positive
+  control** proving the subject was non-empty and the fixture would have tempted the breach.
+- **D-182** — a refusal test must be one that would **SUCCEED without its guard**. Make the refused thing
+  genuinely reachable, or you are asserting nothing.
+- **D-183** — **a guard behind another guard cannot be tested through the front door.** Pin each layer with a
+  subject only IT can refuse (call the service directly).
+- **D-189** — **a symmetric fixture lets a hardcoded assertion pass.** If a test pins a *choice*, the fixture
+  must contain a case where the two choices give different answers. (Appeared six times.)
+
+**The honesty rules — what may appear on a screen:**
+
+- **D-170** — never invent a backend, agent or tool to match a mock. Omit and **state the omission**.
+- **D-176** — **an unbacked PRESENCE is worse than an absence.** A disabled control still says the capability
+  exists.
+- **D-179** — never assert an action never taken.
+- **D-188** — when a wireframe assumes a **different architecture**, decline it rather than shipping a
+  misleading reduction.
+
+**The rest, all load-bearing:** D-166 (a stat tile is CLOSED — no computed value enters one) · D-169 (a severity
+ramp needs no judgment word — the rule lives in the **styling**) · D-171 (licensed data kept out by a repo-wide
+scan) · D-172 (on a clinical image the breach is **DRAWING**) · D-173 (a guard dies on a file **MOVE** — scans
+must resolve their subject) · D-181 (patient-facing and staff-facing components do not merge) · D-184 (prove the
+**carve-out**, not just the rule) · D-187 (a mutation that changes nothing proves nothing — a no-op is not a
+catch) · D-190 (do not write a record that may be false into an **append-only** table) · D-191 (an undocumented
+ordering column is a fence hole waiting for a label).
 
 ## 1. Read order
 
 1. **`AGENTS.md`** — single source of truth: project, stack, hard rules, workflow, module map, MEMORY PROTOCOL.
 2. **`PROJECT-STATE.md`** — authoritative "where we are" snapshot (BUILD COMPLETE · eight verticals · all hospital
    phases · focus = deploy + partnerships · latest commit + suite counts).
-3. **`DECISIONS.md`** — architecture decision log, **D-001 → D-164**, verified with **no gaps and no duplicates**
-   (append-only; never edit past entries). **D-149** = the wireframe-parity discipline, **D-150** = the Billing & AR
-   reconcile extension + engine-computed reporting, **D-151** = AR Account Detail read-only-over-the-engine + the
-   agent-never-commits-money / never-escalates-Betreibung line, **D-152** = the AR record-payment gate WIRES the
-   guarded `PaymentService` rather than becoming a second payment path, **D-153** = payment plans SCHEDULE money
-   against a real balance and never create or move it, **D-154** = Betreibung is a human legal act — operator-only
-   on a dedicated narrower permission, eligibility-gated, append-only, and agent-excluded BY CONSTRUCTION,
-   **D-155/156/157** = the Appointment Detail chain (real display · the real `LEGAL_TRANSITIONS` action row · the
-   real slot-finder + overlap guard), **D-158** = remember-me must not bypass 2FA, **D-159** = public pages are
-   smoked because an unauthenticated 500 is the worst kind, **D-160** = the enrolment fallback shows the user's
-   OWN real secret or nothing (and closes the pass), **D-161/162/163** = the Operator Mode chain (the
-   fail-closed grant-gated super-admin containment replacing the emergent bypass · requesting-is-not-granting ·
-   owner=org_admin and approval-is-the-only-activation-path), **D-164** = Operator Mode is **PAUSED after its
-   security core, deliberately**, with no HTTP surface.
+3. **`DECISIONS.md`** — architecture decision log, **D-001 → D-191** (191 entries), verified with **no gaps and
+   no duplicates** (append-only; **never edit a past entry**). The ones a new session actually needs are
+   collected in **§0b above** — the four guard-vacuity rules (**D-174/D-182/D-183/D-189**) and the four honesty
+   rules (**D-170/D-176/D-179/D-188**). Also load-bearing: **D-149** (the wireframe-parity discipline itself),
+   **D-155/156/157** (the Appointment Detail chain — real display · the real `LEGAL_TRANSITIONS` action row ·
+   the real slot-finder + overlap guard; **D-156** is why the day-board may compose confirm→arrive),
+   **D-158/159/160** (the auth security sprint), **D-161→D-164** (the Operator Mode chain, ending in *paused
+   after its security core, deliberately, with no HTTP surface*), **D-165** (first-customer provisioning) and
+   **D-185** (refusals must be indistinguishable in shape).
 4. **`DEFERRED.md`** — the parked backlog, each item with its pull-forward TRIGGER (the certified-partner seams +
    medical-device non-goals + earlier parked items).
-5. **`memory/LOG.md`** — one line per completed gate; the full build history (Phases 0/A–G · P0P · CLINIC.W1–W10 ·
-   FIX.1–5 · POLISH.1–3 · UI.F1–2 · DENTAL.G1–9 · HOSPITAL.G1–7 · PHARMACY.G1–5 · SURGERY.G1–5 · ED.G1–6 ·
-   LAB.G1–6 · RAD.G1–5 · A11Y.1 · the WIREFRAME-PARITY gates [SETTINGS.P1–6 · APPROVAL.P1–7 · BRANCH.P1–5 ·
-   AGENT.P1–6 · ALLERGY.P1 · BILLAR.P1–7 · ARDETAIL.P1–6 · APPT.P1–3 · **AUTH-SEC.1 · AUTH-SEC.2 · AUTH-VIS**] ·
-   the reconciliation entries). **212 entries, and as of this reconciliation EVERY ONE carries a real, resolvable
-   commit hash** — the 185 stale `(pending)` markers (written before their commit existed and never backfilled)
-   were resolved against `git log`, so a LOG line now maps to the commit that shipped it.
+5. **`memory/LOG.md`** — one line per completed gate; the full build history (Phases 0/A–G · P0P ·
+   CLINIC.W1–W10 · FIX.1–5 · POLISH.1–3 · UI.F1–2 · DENTAL.G1–9 · HOSPITAL.G1–7 · PHARMACY.G1–5 ·
+   SURGERY.G1–5 · ED.G1–6 · LAB.G1–6 · RAD.G1–5 · A11Y.1 · the OPMODE.G1–G3 security core · the original
+   parity gates [SETTINGS.P1–6 · APPROVAL.P1–7 · BRANCH.P1–5 · AGENT.P1–6 · ALLERGY.P1 · BILLAR.P1–7 ·
+   ARDETAIL.P1–6 · APPT.P1–3 · AUTH-SEC.1 · AUTH-SEC.2 · AUTH-VIS] · **the six domain batches**
+   [DENTAL-B.P1–6 · PC.P1–7 · PT.P1–7 · GOV.P1–3 · COMMS.P1–2 · SCHED.P1–3] · the reconciliation entries).
+   **~254 entries, and EVERY marker carries a real, resolvable commit hash** — a LOG line maps to the commit
+   that shipped it. **The marker convention is repo-wide, not LOG-only:** sweep with
+   `grep -rn "<pending>" memory/ docs/ *.md`, because module files carry their own markers and an earlier
+   file-scoped sweep left nine of them stale for ten days. Never backfill by `--amend` (it re-hashes the
+   commit); backfill in the *following* commit.
 6. **`memory/modules/*.md`** — per-module deep notes (21, incl. the cross-module **`OperatorMode.md`** — read it
    before touching anything operator-related): Platform, Audit, AiCore, People, Patients, Scheduling,
    Clinical, Billing, Comms, FrontDesk, Nursing, Reporting, Import, **Dental, Hospital, Pharmacy, Surgery, ED,
@@ -127,17 +145,16 @@ wireframe without weakening a single enforced gate). See §5.
 11. **The audit reports** — `docs/QA-AUDIT-REPORT.md` (live-browser QA + FIX.1–5), `docs/DEEP-AUDIT-REPORT.md`,
     `docs/FULL-EXERCISE-AUDIT-REPORT.md` (all-roles exercise). Plus `docs/ONBOARDING-REHEARSAL-REPORT.md`,
     `docs/DISCOVERY.md`, `docs/SCREENS.md`, `docs/AGENT-EVALS.md`, `docs/DEPLOY-RUNBOOK.md`.
-14. **`docs/wireframe-parity/*.md`** — the wireframe-parity pass (D-149 → D-160): per-page audit/diff reports +
-    per-part progress. **NINE docs, ALL COMPLETE/RESOLVED — the pass is CLOSED:** `ADMIN-SETTINGS-DIFF.md`,
+11b. **`docs/wireframe-parity/*.md`** — the parity programme's audit/diff reports. **SEVENTEEN docs, ALL
+    COMPLETE/RESOLVED — the programme is CLOSED.** The original nine: `ADMIN-SETTINGS-DIFF.md`,
     `APPROVAL-QUEUE-DIFF.md`, `BRANCHES-DIFF.md`, `AGENT-TOOL-CONFIG-DIFF.md`, `ALLERGY-ALERT-DIFF.md`,
-    `BILLING-AR-DIFF.md`, `AR-ACCOUNT-DETAIL-DIFF.md` (every punch-list item RESOLVED across ARDETAIL.P1–P6),
-    `APPOINTMENT-DETAIL-DIFF.md` (core RESOLVED across APPT.P1–P3), and `AUTH-SCREENS-DIFF.md` (§4.1/§4.2 resolved
-    by the AUTH-SEC security sprint, §3 by AUTH-VIS). The remaining notes across the pass are **HONEST BACKEND
-    GAPS, not parity failures** — the real Swiss QR-bill [IBAN/reference], send-QR-bill/reminder-from-the-page
-    (sending stays inside the existing `DunningService` + agent-cap path), the two optional Appointment follow-ons
-    (APPT.P4 room-capability, APPT.P5 preferred-practitioner) — plus the ONE open product decision, the password
-    policy. The decoded wireframes live in the **gitignored** `resources/prototype/` (regenerate by decoding the
-    bundle, never committed).
+    `BILLING-AR-DIFF.md`, `AR-ACCOUNT-DETAIL-DIFF.md`, `APPOINTMENT-DETAIL-DIFF.md`, `AUTH-SCREENS-DIFF.md`.
+    The six batch diffs: `DENTAL-BATCH-DIFF.md`, `PATIENTS-CLINICAL-BATCH-DIFF.md`, `PORTAL-BATCH-DIFF.md`,
+    `GOVERNANCE-AI-BATCH-DIFF.md`, `COMMS-BATCH-DIFF.md`, `SCHEDULING-BATCH-DIFF.md`. Plus
+    `WIREFRAME-INVENTORY.md` and `WAITLIST-MANAGEMENT-DIFF.md`. **What is still noted in them are HONEST
+    BACKEND GAPS and DELIBERATE DECLINES, not parity failures** — see `DEFERRED.md` (d) and (e). The decoded
+    wireframes live in the **gitignored** `resources/prototype/` (regenerate by decoding the bundle; never
+    committed).
 12. **The scoping doc** (`careos-hospital-expansion-scoping.md`) — **NOT in-repo** (external); the hospital build is
     captured in the six HOSPITAL-PHASE maps above.
 13. **this file** (`docs/ONBOARDING.md`).
@@ -310,8 +327,11 @@ factory TOTP secret is the fixed **`JBSWY3DPEHPK3PXP`** — derive the current O
 - **MAP-FIRST for a new vertical — but there are NONE left.** Every new vertical/phase started with a
   reconciliation/scope MAP before code (the "don't force the wrong abstraction" analysis; net-new entities each
   earned their own model — `Bed`/`Stay`, `TheatreSlot`, `EdVisit`, `Specimen`, `ImagingStudy` — while
-  orders/results/notes were REUSED from Clinical). **All eight verticals and all six hospital phases are built:
-  do NOT invent a new vertical, and do NOT invent a new wireframe-parity page — that pass is closed.**
+  orders/results/notes were REUSED from Clinical). **All eight verticals and all hospital phases are built,
+  and the BUILDABLE PARITY PROGRAMME — the original nine pages AND all six domain batches — is COMPLETE.**
+  **Do NOT invent a vertical, a parity page or a batch.** The repo-reality rule above caught **three re-pasted
+  gates** during this programme (COMMS.P2, SCHED.P1 and one earlier); each time HEAD already contained the work,
+  and the right move was to report that rather than rebuild it.
 - **Open every gate with `git log --oneline -1`** (state it) + confirm CI green for that commit. **Close with
   `git log --oneline -2`** (confirm your gate is on top). *(The open/close git-log bookend is the anti-skip guard.)*
 - **End state per gate:** `composer check` FULLY green (verified from the log text, not the exit code) + `composer
@@ -335,7 +355,10 @@ factory TOTP secret is the fixed **`JBSWY3DPEHPK3PXP`** — derive the current O
 
 ---
 
-## 5. What's built (the EIGHT verticals) + current focus
+## 5. What's built (the EIGHT verticals)
+
+> **Current focus lives in §0.5: DEPLOYMENT + partnerships.** Nothing in this section is queued work — it is
+> the inventory of what exists.
 
 **THE BUILD IS COMPLETE.** One shared platform (Phases 0/A/B/C/D/E/F/G + Phase-P hardening P0P.G1–G16) carries
 **eight built + green verticals; ALL hospital phases are built:**
@@ -388,9 +411,11 @@ findings were 2 Low a11y items, **both fixed (D-148)**. There are **no more vert
 verticals (clinic/dental/home-care) target **2–3 prospective paying customers** (DONE, NOT deployed); the hospital
 build was driven by a **committed mid-size general-hospital buyer** (now complete).
 
-**🏁 AND THE NINE-PAGE WIREFRAME-PARITY PASS IS COMPLETE TOO (closed by AUTH-VIS, `8a9a867`, 2026-08-17).**
-Admin Settings · Approval Queue · Branches · Agent & Tool Config · Billing & AR · Allergy Alert (safe part) ·
-AR Account Detail · Appointment Detail (core) · Auth Screens. It ran under one rule — **match the visual, but
+**🏁 AND THE ENTIRE BUILDABLE WIREFRAME-PARITY PROGRAMME IS COMPLETE TOO (tip `cc0ed68`, SCHED.P3,
+2026-08-30).** Its first leg — the NINE pages — closed by AUTH-VIS (`8a9a867`, 2026-08-17): Admin Settings ·
+Approval Queue · Branches · Agent & Tool Config · Billing & AR · Allergy Alert (safe part) · AR Account Detail ·
+Appointment Detail (core) · Auth Screens. **Then the SIX domain batches closed the rest — see §0.2.** It ran
+under one rule — **match the visual, but
 surface the real thing or nothing, and never weaken an enforced gate** — and it earned its keep: auditing the
 auth screens against their wireframe exposed **TWO High LIVE SECURITY DEFECTS**, both since fixed and both
 STRENGTHENING the floor: **AUTH-SEC.1** (a session restored from the remember-me cookie reached the app with no

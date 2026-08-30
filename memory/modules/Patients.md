@@ -141,7 +141,7 @@ read-logged private-disk PDF streaming — NO payment processing (PSP deferred).
 - MySQL 8 CI should verify the `WITH PARSER ngram` path; local MariaDB 10.4 lacks the ngram parser
   and uses the migration fallback FULLTEXT index.
 
-## PC.P1 — shared clinical components + B1, the recorded-allergy wiring (2026-08-21, `<pending>`)
+## PC.P1 — shared clinical components + B1, the recorded-allergy wiring (2026-08-21, `c5f4772`)
 
 First gate of the **PC chain** (`docs/wireframe-parity/PATIENTS-CLINICAL-BATCH-DIFF.md` §7).
 Presentational (P0D.GU) plus **one narrow read-only payload addition**.

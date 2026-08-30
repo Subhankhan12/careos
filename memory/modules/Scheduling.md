@@ -1,5 +1,17 @@
 # Module: Scheduling (`Modules\Scheduling`)
 
+> **STATE as of `cc0ed68` (2026-08-30).** The SCHEDULING wireframe-parity batch is **COMPLETE**, and with it the
+> whole buildable parity programme: **SCHED.P2 `a5b3e8d`** (service catalog), **SCHED.P1 `09f6c5b`** (day-board
+> actions), **SCHED.P3 `cc0ed68`** (provider/resource availability). **SCHED.P4 (waitlist create + list) was
+> DEFERRED by decision** — `WaitlistService::create()` has no route and no UI, so the feature is unreachable in
+> production; deferring also keeps **D-191 closed by absence**, since `WaitlistEntry.priority` gains no UI
+> writer. **No-Show Follow-Up was DECLINED under D-188** (its organising idea is triage by clinical risk).
+> **There is no SCHEDULING parity work left — do not invent a gate.** OPEN GAPS, each recorded rather than
+> papered over: **availability withdrawal is unguarded over booked appointments** (`assertWithinAvailability()`
+> runs at BOOKING time only; the page warns and counts the impact, and **a test pins the gap**) · **catalog and
+> availability writes are unaudited** · the **waitlist "slot held" over-claim** (an offer holds one open offer
+> per ENTRY, never the slot — `assertNoOverlap` never reads `waitlist_offers`). See `DEFERRED.md` (d).
+
 ## Purpose
 
 Scheduling and front-desk workflow: service catalog, bookable resources, no-double-book booking,

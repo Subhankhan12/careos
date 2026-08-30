@@ -2,24 +2,46 @@
 
 Deliberately deferred work. Not forgotten — parked until the right phase.
 
-> **READ THIS FIRST (state as of `c086de5`, OPMODE.G3, 2026-08-17).** The BUILD is complete — eight verticals,
-> all six hospital phases, three clean QA audits — the **nine-page wireframe-parity pass is CLOSED**, and the
-> **Operator Mode SECURITY CORE (G1–G3) is DONE**, which closed a live super-admin containment gap.
+> **READ THIS FIRST (state as of `cc0ed68`, SCHED.P3, 2026-08-30).** The BUILD is complete — eight verticals,
+> all hospital phases, three clean QA audits — the **BUILDABLE WIREFRAME-PARITY PROGRAMME IS COMPLETE** (the
+> original nine pages + six domain batches), and the **Operator Mode SECURITY CORE (G1–G3) is DONE**, which
+> closed a live super-admin containment gap.
 >
-> **THE BUILDABLE WORK, IN PRIORITY ORDER:**
+> **THERE IS NO BUILDABLE PARITY WORK LEFT AND NO VERTICAL LEFT TO BUILD.**
+>
+> **THE WORK, IN PRIORITY ORDER:**
 >
 > | # | Track | State |
 > |---|---|---|
-> | **(a)** | **DEPLOYMENT to the paying customers** | **THE REAL NEXT VALUE.** Runbook + `.env` template + rehearsed onboarding ready, and **first-customer provisioning now exists** (`plans:seed` / `tenant:create` / `tenant:add-admin`, D-165) — the readiness verdict is **🟢 GO**. ⚠️ An **undiagnosed staging error** is still parked — expect to reproduce it first. |
-> | **(b)** | **Waitlist Management** | AUDITED (`docs/wireframe-parity/WAITLIST-MANAGEMENT-DIFF.md`), **fix chain NOT started**. Blocker: nothing can add anyone to the waitlist today. |
-> | **(c)** | **Operator Mode G4–G11** | **DELIBERATELY DEFERRED to post-first-customer (D-164)** — operator convenience UI. Backend inert, no HTTP surface. **NOT unfinished by accident.** |
-> | **(d)** | Two optional Appointment follow-ons | APPT.P4 room-capability field · APPT.P5 preferred-practitioner filter. Real backend gaps the page honestly omits. |
-> | **(e)** | ⚠️ The password-policy **decision** | Not a defect and not a build task — needs the product owner. |
-> | **(f)** | The certified-partner seams | Drug-safety · HL7/FHIR · PACS/DICOM · anaesthesia device-data · triage acuity. Business conversations, not gates. |
-> | **(g)** | The earlier parked items | Everything below, each with its TRIGGER. |
+> | **(a)** | **DEPLOYMENT to the paying customers** | **THE REAL NEXT VALUE — and the only track that is actually queued.** Runbook + `.env` template + rehearsed onboarding ready, and first-customer provisioning exists (`plans:seed` / `tenant:create` / `tenant:add-admin`, `b006d07`, D-165) — verdict **🟢 GO**. ⚠️ **An undiagnosed staging error is still parked, and NO DETAIL ABOUT IT WAS EVER CAPTURED ANYWHERE.** Expect to reproduce it from scratch. |
+> | **(b)** | **Certified-partner seams** | Business conversations, not gates. **Drug-safety** (`MedicationSafetyProvider` — display-only null object today) · **HL7/FHIR** (`LabConnectivity` interface, `ManualLabConnectivity` bound) · **PACS/DICOM + 3D scan** (`ImagingConnectivity` interface, `NullImagingConnectivity` bound) · **anaesthesia device-data** · **insurance/claims clearinghouse**. Each is wired as a seam so a partner drops in; never a homemade engine. |
+> | **(c)** | **Operator Mode G4–G11** | **DELIBERATELY DEFERRED to post-first-customer (D-164)** — operator convenience UI. Backend **inert: zero HTTP routes**. Adds no safety property G1–G3 do not already enforce. **NOT unfinished by accident.** Plan: `docs/features/OPERATOR-MODE-MAP.md`. |
+> | **(d)** | **Open gaps the parity programme surfaced** | Real, small, and each recorded where it was found — see the table below. |
+> | **(e)** | **Declined screens (D-188)** | Not gaps. See the table below. |
 >
-> **If asked "what's next?", the answer is DEPLOY.** The security-critical work that was worth doing ahead of
-> deployment is done. Do not invent a vertical or a parity page.
+> ### (d) The open gaps, each surfaced by a gate and left honest
+>
+> | Gap | Where | Why it is open |
+> |---|---|---|
+> | **Portal session invalidation on password change** | PT.P7 | Sessions are not tracked per portal account, so the page does not claim "signed out everywhere else". Needs the portal middleware stack changed. |
+> | **A telehealth join is never recorded from any HTTP path** | COMMS.P2, **D-190** | `recordJoin()`/`recordLeave()` are called only by tests and the demo seeder. **Do NOT wire `recordJoin()` to token issuance** — a token is minted before anyone connects, so that would write a join that may never have happened into an append-only table. The honest fix is a client-side connected callback. |
+> | **Availability withdrawal is unguarded over booked appointments** | SCHED.P3 | `assertWithinAvailability()` runs at BOOKING time only; withdrawing hours later leaves the appointment silently outside them. The page WARNS and counts the impact; **a test pins the gap**, so adding a guard must be an explicit decision. |
+> | **Service-catalog and availability writes are unaudited** | SCHED.P2 · SCHED.P3 | Scheduling reaches the audit trail by dispatching events for an app-layer listener; neither of these dispatches one. In-pattern fix, own gate. |
+> | **The waitlist create path does not exist** | Scheduling audit · **D-191** | `WaitlistService::create()` has no route and no UI, so the feature is unreachable in production. **SCHED.P4 was DEFERRED by decision** — which also keeps D-191 closed by absence, since `WaitlistEntry.priority` gains no UI writer. If it is ever built, give `priority` a written operational meaning FIRST. |
+> | **The "slot held" over-claim** | Scheduling audit | An outstanding waitlist offer holds one open offer per ENTRY — **not the slot**. `assertNoOverlap` never reads `waitlist_offers`, so the time can be booked away and the acceptance then fails. The day-board copy now says so; do not restore the old wording. |
+> | **Two optional Appointment follow-ons** | APPT | **B4 room/resource capability field** (also blocks Dental chair scheduling) · **preferred-practitioner filter**. Real backend gaps the page honestly omits. |
+> | **The PT.P4 portal AI-provenance decision** | PT.P4 | Staff-side provenance is settled (COMMS.P1 names the human sender). Whether the PATIENT sees that a reply was agent-drafted is still an open product decision. |
+> | **⚠️ The password-policy decision** | AUTH-SEC | `Password::default()` — min 8 chars, no complexity rule, no breach check. **Not a defect and not a build task** — it needs the product owner. |
+>
+> ### (e) Declined screens — D-188, not gaps
+>
+> | Screen | Batch | Why declining beats a reduction |
+> |---|---|---|
+> | **Consent-Blocked Draft · Opt-in Confirmed · Request Consent Update** | Comms | They rest on per-topic and per-channel consent, a household grouping, and a campaign feature. The product has ONE outbound consent (`comms.email`, per patient, all-or-nothing for non-legal mail) and no household or campaign model. A reduced version — a topic list holding one topic, a channel matrix with one live column — would teach staff to promise what the practice cannot keep. |
+> | **No-Show Follow-Up** | Scheduling | Its organising idea is *triage by clinical risk*: deciding which missed appointments matter. Nothing records that and computing it is the electric fence's central prohibition. A plain no-show **worklist** is buildable and should be specified as its own screen. |
+>
+> **If asked "what's next?", the answer is DEPLOY.** The security-critical work worth doing ahead of deployment
+> is done. **Do not invent a vertical, a parity page or a batch** — verify against the repo first.
 >
 > **Nothing else in this file is queued work.** Every remaining item is one of four things:
 > 1. **A certified-partner seam** — wired as a null-object so a partner can drop in; never a homemade engine.

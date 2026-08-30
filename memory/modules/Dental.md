@@ -267,7 +267,7 @@ clinical/tenancy/RBAC logic changed, no existing behavior test modified. See [[D
 - All later gates keep the fence: build the prototype's AI-diagnosis / AI-overlay / auto-grade features
   WITHOUT the interpretation; dental agents ship draft-only with `tests/Evals/` locks.
 
-## DENTAL-B.P1 — shared dental components (2026-08-20, `<pending>`)
+## DENTAL-B.P1 — shared dental components (2026-08-20, `506762a`)
 
 First gate of the **DENTAL-B chain** (`docs/wireframe-parity/DENTAL-BATCH-DIFF.md` §7), the batch's leverage
 gate: build/extract the components that carry ~a third of the batch's visual surface so P2–P6 reuse them.
@@ -326,7 +326,7 @@ be what trips the scan. **The assertions were mutation-checked**: adding a `tren
 band, no AI finding was reintroduced — asserted for both the page and the widget, plus the on-screen chart-key
 note ("not its severity") is re-asserted.
 
-## DENTAL-B.P2 — Odontogram visual parity (2026-08-20, `<pending>`)
+## DENTAL-B.P2 — Odontogram visual parity (2026-08-20, `0b8c481`)
 
 Second gate of the **DENTAL-B chain**. Visual parity for the odontogram over the EXISTING
 tooth-chart backend. **P0D.GU** — no new clinical computation, no fabricated per-tooth field.
@@ -393,7 +393,7 @@ scan a **non-alphanumeric-stripped** copy of the source for compound §5.1 phras
 deliberately still permitted — it is Vue's own reactive primitive, and banning a framework API
 teaches the next author to weaken the scan. Re-running the mutation now turns both suites red.
 
-## DENTAL-B.P3 — Perio grid ergonomics + raw values over time (2026-08-20, `<pending>`)
+## DENTAL-B.P3 — Perio grid ergonomics + raw values over time (2026-08-20, `3f500d5`)
 
 Third gate of the **DENTAL-B chain**. Layout + entry ergonomics over the EXISTING raw-measurement
 backend. **P0D.GU** — nothing computed, nothing fabricated.
@@ -455,7 +455,7 @@ exposed it), renamed to `pgd*`; and `v-for="site in group.value"` rendered ZERO 
 template refs are auto-unwrapped, so `.value` was undefined — the suite was green while the grid was
 empty on screen. **Only the browser check caught that one.**
 
-## DENTAL-B.P4 — Treatment Plan visual parity (2026-08-20, `<pending>`)
+## DENTAL-B.P4 — Treatment Plan visual parity (2026-08-20, `bc24b5f`)
 
 Fourth gate of the **DENTAL-B chain**. Visual parity over the EXISTING plan + billing backend,
 with **two fences** different from P2/P3: money, and the agent.
@@ -516,7 +516,7 @@ pathway/prognosis/urgency; the only "auto-suggested" text on the page is the exi
 apostrophe, and set no tenant `currency` setting so the page rendered EUR — the DISPLAY currency is
 a tenant setting, independent of the tariff item's own currency. Pint then caught a fully-qualified
 inline class reference alongside its import, and an unused `TreatmentPlan` import.
-## DENTAL-B.P5 — Fee Schedule visual parity (2026-08-20, `<pending>`)
+## DENTAL-B.P5 — Fee Schedule visual parity (2026-08-20, `ff6ad80`)
 
 Fifth gate of the **DENTAL-B chain**. Visual half only, over the EXISTING tenant-authored
 catalog. The line here is **LICENSING, not clinical**.
@@ -573,7 +573,7 @@ column**; and a **doctor (dental.chart, no billing.manage) gets 403** on the pag
 **My own slips:** two Pint failures (a fully-qualified class alongside its import; then quote/spacing
 style) and two PHPStan warnings (`?->` unnecessary on the left of `??` after I made `$item` non-null
 in practice). All fixed before green.
-## DENTAL-B.P6 — Scan Library + Upload visual parity (2026-08-20, `<pending>`) — **DENTAL-B CORE COMPLETE**
+## DENTAL-B.P6 — Scan Library + Upload visual parity (2026-08-20, `7d7f354`) — **DENTAL-B CORE COMPLETE**
 
 Final core gate of the **DENTAL-B chain**. 2D only, over the existing image backend. **P0D.GU.**
 
