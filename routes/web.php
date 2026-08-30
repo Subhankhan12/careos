@@ -109,6 +109,7 @@ use Modules\Radiology\Http\Controllers\RadiologyOrderController;
 use Modules\Radiology\Http\Controllers\RadiologyWorklistController;
 use Modules\Reporting\Http\Controllers\ReportingDashboardController;
 use Modules\Scheduling\Http\Controllers\AppointmentSeriesController;
+use Modules\Scheduling\Http\Controllers\AvailabilityController;
 use Modules\Scheduling\Http\Controllers\DayBoardActionController;
 use Modules\Scheduling\Http\Controllers\DayBoardController;
 use Modules\Scheduling\Http\Controllers\PortalAppointmentController;
@@ -189,6 +190,22 @@ Route::middleware('auth')->group(function () {
         ->name('scheduling.day-board.slots');
     Route::post('/scheduling/day-board/open-encounter', OpenEncounterFromAppointmentController::class)
         ->name('scheduling.day-board.open-encounter');
+
+    // Resource availability (SCHED.P3) — the weekly templates and dated exceptions the slot finder
+    // reads. appointment.manage-gated on the branch: this is scheduling capacity, not tenant config.
+    // `impact` is read-only and does NOT veto an edit — withdrawing availability is not guarded
+    // against existing appointments, so the page states the consequence rather than pretending to
+    // prevent it.
+    Route::get('/scheduling/availability', [AvailabilityController::class, 'index'])
+        ->name('scheduling.availability.index');
+    Route::post('/scheduling/availability', [AvailabilityController::class, 'store'])
+        ->name('scheduling.availability.store');
+    Route::post('/scheduling/availability/impact', [AvailabilityController::class, 'impact'])
+        ->name('scheduling.availability.impact');
+    Route::post('/scheduling/availability/{availability}/update', [AvailabilityController::class, 'update'])
+        ->name('scheduling.availability.update');
+    Route::post('/scheduling/availability/{availability}/delete', [AvailabilityController::class, 'destroy'])
+        ->name('scheduling.availability.destroy');
 
     // Waitlist auto-fill (P0P.G9): surface candidates for a freed slot, offer,
     // then accept/decline. All appointment.manage-gated on the branch.

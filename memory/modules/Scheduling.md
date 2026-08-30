@@ -406,3 +406,35 @@ conflict is refused. Do not add a "keep both" affordance.
 `waitlist_offers`, so the time can be booked away and the acceptance then fails. Do not write
 copy claiming the slot is held.
 
+### SCHED.P3 — availability (2026-08-30) · SCHEDULING BATCH CORE COMPLETE
+
+**Precedence — state it, never re-derive it.** `AvailabilityService::windowsFor()`: a dated
+AVAILABLE row **replaces** the weekly template for that date; dated UNAVAILABLE rows are
+**subtracted**; a **full-day block** (dated, unavailable, no times) empties the day.
+
+**That reader IS the slot finder's** (`AvailableSlotFinder` line 150, and
+`BookingService::assertWithinAvailability`). Any surface showing availability must call it —
+never recompute windows in a controller or a template.
+
+**`AvailabilityWriter` is the write path** (new in SCHED.P3; before it, only seeders wrote).
+It is deliberately thin — the MODEL validates the shapes in its `booted()` hooks. Add rules
+there, not in the writer or the controller.
+
+**WITHDRAWING AVAILABILITY OVER A BOOKED APPOINTMENT IS UNGUARDED.** `assertWithinAvailability`
+runs at BOOKING time only; nothing re-checks afterwards, so the appointment is silently left
+outside its hours. The page WARNS (counting what a withdrawal would sit over) and a test PINS
+the gap. **If you add a guard, that test will fail — make the decision explicit.**
+
+**Availability writes are NOT audited** (same as service-catalog writes). Scheduling reaches the
+trail via events for an app-layer listener; availability changes dispatch none.
+
+**Exception reasons are printed verbatim** — never parsed, categorised or tinted.
+
+**Gotcha:** `ResourceAvailability`'s docblock says `date` is `string|null`, but the `date:Y-m-d`
+cast yields a Carbon. Parse explicitly rather than trusting either.
+
+**Mutation-harness hygiene (learned here):** the harness snapshots and restores the file it
+mutates, so NEVER run two mutation runs concurrently — one restore clobbers the other and leaves a
+mutation in the tree while the suite still reads green. Run them sequentially and scan every touched
+file for residue afterwards.
+

@@ -223,7 +223,7 @@ Severity: **High** = fence or safety · **Med** = real gap a user notices · **L
 | Gap | Unlocks | Size |
 |---|---|---|
 | **S1 · A waitlist create route + UI** (`WaitlistService::create()` exists, unreachable) | Screens 2 and 4 — without it the waitlist cannot be entered at all | **Low–Med** |
-| **S2 · Availability admin surface** over `ResourceAvailability` (template + dated exceptions) | Screen 5 almost entirely; W8c was deferred and flagged in the readiness check | **Med** — the model is already there |
+| ~~**S2 · Availability admin surface**~~ ✅ **DONE (SCHED.P3)** — `AvailabilityController` + the new `AvailabilityWriter`; the read side reuses `AvailabilityService`, which is what the slot finder reads | Screen 5 | — |
 | ~~**S3 · Service catalog CRUD**~~ ✅ **DONE (SCHED.P2)** — `ServiceCatalogController` over the existing `ServiceCatalog` service; list + editor + archive | Screens 6 and 7 | — |
 | ~~**S4 · Day-Board reads `legalTransitionsFrom()`**~~ ✅ **DONE (SCHED.P1)** — via `AppointmentService::boardActionsFor()`, which also expresses the D-156 compose as a question to the machine rather than a special case | Fence 4.4 coherence | — |
 | **S5 · Booking confirmation notification** (transactional, consent-gated like reminders) | Screen 3's promise; also the waitlist "confirmation sent" line | **Low–Med** |
@@ -259,7 +259,7 @@ double-book override, per-channel consent. Each is a decision the build has take
 |---|---|---|
 | ~~**SCHED.P1**~~ ✅ **DONE** | **Day-Board parity** — real counts, waiting elapsed from `checked_in_at`, per-lane utilisation as a plain untinted ratio, and **S4**: the board now derives every tile's actions from the machine, via the new `AppointmentService::boardActionsFor()`. | An offered action can never be refused — every one is DRIVEN in test. Quick-book still goes through `BookingService`; a conflict is refused and **no override parameter exists anywhere**; the omission card names all six refusals. See §17. |
 | ~~**SCHED.P2**~~ ✅ **DONE** | **Service Catalog + Create (S3)** — list, editor and archive over the real columns, through the existing `ServiceCatalog` write path. | One source proven: a duration edited on the screen changes the FINDER's slot length. No price field anywhere, with the omission naming Billing. No delete affordance — `ON DELETE RESTRICT` means archiving is the safe verb. See §16. |
-| **SCHED.P3** | **Provider Availability (S2)** — weekly template + dated exceptions over `ResourceAvailability`. | An edit **never** moves or cancels a booked appointment; the conflict warning lists affected appointments read-only; **no granularity/min-notice controls** unless the backend gains them. |
+| ~~**SCHED.P3**~~ ✅ **DONE** | **Provider Availability (S2)** — weekly templates, dated exceptions with their recorded reasons, and the effective hours read from the slot finder's own reader. | One source proven by effect: an exception added through the page moves the FINDER's slots. An edit never moves or cancels a booked appointment — **because nothing guards it at all**, which the page states and a test pins. See §18. |
 | **SCHED.P4** | **Waitlist: create + list (S1)** — make the feature reachable, and give `priority` a written operational meaning. | Ranking is operational and stated; **no urgency, no clinical label, no auto-send**; the "hold" is described honestly as a queue place, not a slot reservation. |
 | **SCHED.P5** *(optional)* | **Booking confirmation (S5)** — a transactional, consent-gated notification, with the LEGAL carve-out worded as PT.P5 words it. | "Confirmation sent" becomes true. Until then screen 3's copy must not claim it. |
 
@@ -505,6 +505,110 @@ a scan that forbade `amber` and `noShowRisk`, which appear **only** in the comme
 that decline them (third occurrence of this trap — COMMS.P2 and SCHED.P2 hit it too); a `text-danger`
 scan that matched the pre-existing Cancel button; and an expectation of 240 booked minutes where the
 honest figure is 210, because a cancelled appointment releases its resource links.
+---
+
+## 18 — SCHED.P3 outcome (2026-08-30) · **SCHEDULING BATCH CORE COMPLETE**
+
+### The model, and how the two halves combine
+
+`ResourceAvailability` carries `resource_id`, `weekday`, `start_time`, `end_time`, `date`,
+`is_available` and `reason`, in two shapes the model itself validates in its `booted()` hooks:
+
+- **recurring** — `weekday` 0–6 plus a timed window;
+- **dated** — a `date`, plus either a timed window or (for an unavailability) no times at all.
+
+`AvailabilityService::windowsFor()` combines them, and the precedence is not obvious enough to
+restate loosely, so the page states it in words:
+
+1. a **dated available** row **REPLACES** the weekly template for that date — it does not add to it;
+2. **dated unavailable** rows are **SUBTRACTED** from whatever base remains;
+3. a **full-day block** (dated, unavailable, no times) **empties the day entirely**.
+
+### One source, proven by effect
+
+The page's "effective hours" are not computed in the controller or the template — they are
+`windowsFor()`, the same method `AvailableSlotFinder` calls at its line 150 and
+`BookingService::assertWithinAvailability()` uses to refuse an out-of-hours booking.
+
+The test proves it by **effect**, not by inspection: it withdraws a Friday morning *through the page*
+and then asks the **finder** — every remaining slot starts at or after 13:00, there are fewer of
+them, and the page's effective hours agree because they come from the same reader. A mutation making
+the controller compute its own windows turns it red, as do mutations to the precedence rules
+themselves.
+
+### Two things that did not exist
+
+**There was no write path.** `ResourceAvailability` rows were created *only by seeders* —
+`AvailabilityService` reads and nothing wrote, the same shape as the waitlist-create blocker this
+audit found. So `AvailabilityWriter` is new, and deliberately thin: the model already owns the shape
+rules and they are not restated. The controller converts the model's `InvalidArgumentException` into
+a validation error rather than a 500, exactly as SCHED.P2 did for the service catalog.
+
+**Availability writes are not audited** — no audit action exists for them, the same finding SCHED.P2
+recorded for the service catalog. Scheduling reaches the audit trail by dispatching events for an
+app-layer listener; availability changes dispatch none. Flagged, not built.
+
+### The consequence — an unguarded gap, stated and pinned
+
+**Withdrawing availability under a booked appointment is not blocked, warned about, or recorded
+anywhere.** `assertWithinAvailability()` runs at BOOKING time only; nothing re-checks when
+availability later changes. The appointment simply ends up outside its resource's hours, still
+booked, with nobody told.
+
+This gate **did not invent a guard**. Refusing edits that the rest of the system permits would
+diverge from what booking actually enforces, and a control that implies protection it has not got is
+the D-176 failure. Instead:
+
+- the page **counts** what a withdrawal would sit over and says so before saving, in plain words —
+  *"Saving will NOT move, cancel or flag them… those appointments stay exactly where they are,
+  outside these hours, and nobody is told"*;
+- the omission card names the missing guard as a refusal with its reason;
+- and a test **pins the gap**: it drives the withdrawal, asserts the appointment is untouched, and
+  asserts the resource genuinely has no hours left that day. If a future gate adds a guard, that test
+  fails and forces the decision to be explicit rather than arriving by accident.
+
+**This is the finding most likely to matter operationally**, and it is now written down in three
+places rather than discovered by a receptionist.
+
+### The carve-outs and the refusals
+
+Counts are plain and asymmetric; the resource with **no template at all** is shown honestly rather
+than filtered out (a mutation hiding it turns the suite red). Exception reasons are printed **exactly
+as written** — never parsed, categorised or tinted. Refused and named on the page: suggested hours,
+demand forecast, auto-generated templates, provider utilisation ranking, and the absent withdrawal
+guard.
+
+**BRANCH.P1 stated, not implied:** a soft-suspended branch still has availability and staff still
+book into it — `accepts_online_bookings` gates the public form alone. The page says so, and the test
+asserts both directions.
+
+### Mutation-checked thirteen ways
+
+The page computing its own hours · a dated available row adding instead of replacing · a full-day
+block no longer emptying the day · the exception reason dropped · the empty template hidden · counts
+hardcoded · the controller writing the row directly · the impact count faked as zero · the
+permission dropped · the update path un-scoped from its tenant · the soft-suspend flag inverted ·
+the omission loop emptied · and the unguarded-withdrawal warning softened into a false promise.
+
+### A small inaccuracy found in passing
+
+`ResourceAvailability`'s docblock declares `@property string|null $date`, but its `date:Y-m-d` cast
+yields a Carbon at runtime. PHPStan caught the mismatch. The controller parses explicitly (as
+`AvailabilityService` already does) and the comment names the discrepancy rather than relying on it;
+correcting the docblock is a small follow-up that would touch every reader of that property.
+
+---
+
+**WITH THIS GATE THE SCHEDULING BATCH CORE IS COMPLETE** — SCHED.P2 (service catalog), SCHED.P1
+(day-board), SCHED.P3 (availability).
+
+- **P4 (waitlist create + list) is DEFERRED by decision.** The create path does not exist, so the
+  feature is unreachable in production; deferring also keeps **D-191 closed by absence**, because
+  `WaitlistEntry.priority` gains no UI writer.
+- **No-Show Follow-Up remains DECLINED under D-188** — its organising idea is triage by clinical risk.
+
+**And with it, the BUILDABLE PARITY PROGRAMME across six domain batches is complete**: Dental core,
+Patients & Clinical core, Portal (11/11), Governance & AI (10/10), Comms core, Scheduling core.
 ---
 
 ## 8 — What this audit did not do

@@ -653,6 +653,33 @@ Two further wireframes were decoded from the design pack and triaged. **Neither 
     `ServiceCatalog`'s duration rule sitting behind the controller's own `min:1`.
     **Flagged, not built:** service-catalog writes are not audited. Scheduling reaches the trail via
     events for an app-layer listener; service changes dispatch none.
+  - **SCHED.P3 — DONE. THE SCHEDULING BATCH CORE IS COMPLETE, AND WITH IT THE BUILDABLE PARITY
+    PROGRAMME.** Provider / resource availability at `/scheduling/availability`
+    (`appointment.manage`): weekly templates, dated exceptions with their recorded reasons, and the
+    effective hours.
+    **The precedence, stated on the page because it is not obvious:** a dated AVAILABLE row REPLACES
+    the weekly template for that date; dated UNAVAILABLE rows are SUBTRACTED; a FULL-DAY block empties
+    the day. **One source proven by effect** — an exception added through the page moves the FINDER's
+    slots, because the page's effective hours ARE `AvailabilityService::windowsFor()`, the reader
+    `AvailableSlotFinder` and `assertWithinAvailability` both use.
+    **Two things did not exist: a write path** (rows were created only by seeders — hence the new,
+    deliberately thin `AvailabilityWriter`, with the model keeping its own shape validation), **and an
+    audit trail** for availability writes (flagged, not built — same as the service catalog).
+    **THE OPERATIONAL FINDING: withdrawing availability under a booked appointment is UNGUARDED.**
+    `assertWithinAvailability()` runs at booking time only; nothing re-checks afterwards, so the
+    appointment is silently left outside its hours. **No guard was invented** — that would diverge
+    from what booking enforces. The page counts what a withdrawal would sit over and says plainly
+    that nothing will move, the omission card names the missing guard, and **a test pins the gap** so
+    a future guard must be an explicit decision.
+    **BRANCH.P1 stated:** a soft-suspended branch still has availability; only the public form is
+    gated. 9 tests green first time, **13 mutations**, PHPStan fixed structurally (and it surfaced an
+    inaccurate `date` docblock on `ResourceAvailability`, flagged not relied on).
+  - **SCHEDULING BATCH CORE COMPLETE:** P2 service catalog · P1 day-board · P3 availability.
+    **P4 (waitlist create + list) is DEFERRED by decision** — the create path does not exist, so the
+    feature is unreachable in production, and deferring keeps **D-191 closed by absence**
+    (`WaitlistEntry.priority` gains no UI writer). **No-Show Follow-Up stays DECLINED under D-188.**
+  - **THE BUILDABLE PARITY PROGRAMME IS COMPLETE** across six domain batches: Dental core · Patients
+    & Clinical core · Portal 11/11 · Governance & AI 10/10 · Comms core · Scheduling core.
   - **SCHED.P1 — DONE.** Day-board parity. **The board now derives every tile's actions from the
     machine** via the new `AppointmentService::boardActionsFor()`, the same `legalTransitionsFrom()`
     Appointment Detail uses — so the product no longer answers "what may I do?" two different ways.

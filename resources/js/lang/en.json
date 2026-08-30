@@ -4086,5 +4086,94 @@
             "providerBuffer": "No per-provider buffers. Buffers belong to the service, and that is the value the guard actually widens the window by. A per-provider field would be recorded and then ignored.",
             "suggestedDuration": "No suggested or typical duration. Duration is what somebody set, not what the system predicts a visit will take."
         }
+    },
+    "availability": {
+        "eyebrow": "Scheduling",
+        "title": "Availability",
+        "subtitle": "The hours each resource is bookable — and the exceptions to them. Every free slot the practice offers is drawn from these.",
+        "counts": {
+            "resources": "Resources",
+            "resourcesHint": "Active resources at this branch.",
+            "withoutTemplate": "No weekly hours",
+            "withoutTemplateHint": "Nothing can be booked against these until hours are set.",
+            "exceptions": "Dated exceptions",
+            "exceptionsHint": "One-off changes to the weekly pattern, in either direction."
+        },
+        "filters": {
+            "allTypes": "All types",
+            "week": "Week of"
+        },
+        "engine": {
+            "title": "How these combine",
+            "body": "A weekly window repeats every week. A dated exception marked available REPLACES the weekly hours for that date — it does not add to them. A dated exception marked unavailable is subtracted from whatever remains, and one with no times at all clears the day entirely. The effective hours below are read from the same place the booking engine reads them, so what you see is what patients can be booked into.",
+            "onlineSuspended": "Online booking is paused for this branch, so patients cannot self-book here. These hours are unaffected — staff booking continues exactly as it does anywhere else.",
+            "onlineOpen": "This branch accepts online bookings, so these hours are what patients see on the public form as well as what staff book into."
+        },
+        "template": {
+            "title": "Weekly hours",
+            "none": "No weekly hours set. Nothing can be booked against this resource until some are.",
+            "add": "Add a window"
+        },
+        "exceptions": {
+            "title": "Dated exceptions",
+            "none": "No exceptions.",
+            "available": "Extra hours",
+            "blocked": "Unavailable",
+            "fullDay": "all day",
+            "reasonLabel": "Reason as recorded",
+            "noReason": "No reason recorded.",
+            "add": "Add an exception"
+        },
+        "effective": {
+            "title": "Effective hours this week",
+            "none": "Nothing bookable this week.",
+            "note": "Read from the same source the slot finder uses."
+        },
+        "editor": {
+            "newWindow": "New weekly window",
+            "newException": "New dated exception",
+            "edit": "Edit",
+            "resource": "Resource",
+            "weekday": "Day",
+            "date": "Date",
+            "from": "From",
+            "to": "To",
+            "kind": "This date is",
+            "kindAvailable": "Extra hours (replaces the weekly pattern)",
+            "kindBlocked": "Unavailable",
+            "fullDay": "All day",
+            "reason": "Reason",
+            "reasonHint": "Shown exactly as you write it. Nobody interprets or categorises it.",
+            "save": "Save",
+            "cancel": "Cancel",
+            "remove": "Remove"
+        },
+        "impact": {
+            "checking": "Checking what this would affect…",
+            "none": "Nothing is booked in these hours.",
+            "some": "This would sit over {count} booked appointment. | This would sit over {count} booked appointments.",
+            "warning": "Saving will NOT move, cancel or flag them. Availability is checked when an appointment is booked, not afterwards — so those appointments stay exactly where they are, outside these hours, and nobody is told. If they should move, reschedule them on the day-board.",
+            "unknown": "A weekly window repeats indefinitely, so there is no single set of appointments to count against it."
+        },
+        "weekdays": [
+            "Sunday",
+            "Monday",
+            "Tuesday",
+            "Wednesday",
+            "Thursday",
+            "Friday",
+            "Saturday"
+        ],
+        "empty": "No resources at this branch.",
+        "emptyHint": "Availability is set per resource — add a practitioner, room or chair first.",
+        "omitted": {
+            "title": "What this page does not do",
+            "subtitle": "Things the design offers that this build refuses. We would rather name them than draw a control that guesses.",
+            "suggested": "No suggested hours. Nothing knows what hours a practice should keep — that is a decision about people's lives, and it belongs to whoever is arranging them.",
+            "forecast": "No demand forecast. We do not predict how busy a day will be; nothing records that, and a number invented for it would shape real rotas.",
+            "autoTemplate": "No auto-generated template. Hours are typed by somebody who knows the arrangement, not inferred from last month.",
+            "ranking": "No provider utilisation ranking. Booked minutes over available minutes is a plain ratio and is shown as one — never sorted into best and worst, and never coloured.",
+            "guardedWithdrawal": "No block on withdrawing hours that already hold appointments. The system does not guard it — availability is checked at booking time only — so this page warns instead of pretending to prevent it."
+        }
     }
 }
