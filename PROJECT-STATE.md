@@ -34,6 +34,30 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
 
 ## STATUS: BUILD COMPLETE · DEPLOY-READY 🟢 GO · THE BUILDABLE PARITY PROGRAMME IS COMPLETE — ONE TRACK REMAINS: **DEPLOYMENT + PARTNERSHIPS**
 
+### 🔎 A ROLE-BY-ROLE QA AUDIT IS IN PROGRESS — `docs/qa/ROLE-AUDIT.md` (cumulative, 10 phases)
+
+**Phase 1 (reception / front-desk) is DONE** (`06a3f78`): 18 findings — 1 CRITICAL, 3 HIGH, 8 MEDIUM,
+6 LOW — every page **driven in a real browser** via Playwright MCP. Findings are **recorded, not
+fixed**, so the audit stays an honest snapshot; fixes are separate gates that cite finding IDs.
+
+**Two findings were pulled forward because they blocked Phase 2** (a clock skew makes every later
+phase's timestamp observation suspect, and past-time booking was live on the public path):
+
+| Finding | Gate | State |
+|---|---|---|
+| **P1-C1** web requests wrote tenant-local wall-clock into UTC columns (incl. the append-only audit ledger) | **QA-FIX.1a** | ✅ FIXED — D-192/D-193 |
+| **P1-H3** the slot finder offered past times and the system booked them | **QA-FIX.1b** | Part 2 of the same gate |
+
+**⚠️ ONE NEW OPEN PRODUCT DECISION (D-193): the historical +2 h skew is RECORDED, NOT REWRITTEN.**
+Rows written by web requests before QA-FIX.1a carry the practice's wall clock in UTC columns (non-UTC
+tenants only; `audit_events`/`messages`/`appointments`/web-minted `expires_at`; CLINIC.W8b →
+QA-FIX.1a). A bulk correction over append-only, hash-chained tables cannot be done honestly. No
+customer is live, so it is cheap to decide now — leave as-is (recommended) or fund a scoped gate.
+
+**Storage is now UTC from every path** (web, CLI, queue, scheduler); tenant-local time is a DISPLAY
+concern resolved at the presentation boundary (`App\Services\DisplayTimezone`). Do not reintroduce a
+process-wide `date_default_timezone_set()`.
+
 ### THE WIREFRAME-PARITY PROGRAMME — COMPLETE (nine pages + six domain batches)
 
 **The original nine pages** — Admin Settings `e7cabf0` · Approval Queue `ea0e9b3` · Branches `a865a31` ·

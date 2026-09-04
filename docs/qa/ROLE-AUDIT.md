@@ -41,6 +41,54 @@ missing · `LOW` cosmetic / polish.
 | 1 — Reception / front-desk | 1 | 3 | 8 | 6 | 18 |
 | **Total to date** | **1** | **3** | **8** | **6** | **18** |
 
+## Fix status
+
+Findings are recorded here permanently and are **never removed when fixed** — a fixed finding keeps
+its ID, its evidence and its reproduction, and gains a FIXED banner naming the gate and commit that
+closed it. That way a later phase can tell "this was never a problem" apart from "this was a problem
+and here is what was done about it".
+
+Two findings were pulled forward out of phase order because they blocked Phase 2: a clock skew makes
+every later phase's timestamp observation suspect, and past-time booking was live on the public path.
+
+| ID | Severity | Status | Gate | Commit |
+|---|---|---|---|---|
+| `P1-C1` | CRITICAL | ✅ **FIXED** | QA-FIX.1a | `<pending>` |
+| `P1-H3` | HIGH | ⏳ in the same gate (Part 2) | QA-FIX.1b | — |
+| all others | — | 📋 recorded, not fixed | — | — |
+
+*(A commit cannot contain its own hash. Per the repo-wide marker convention, `<pending>` is backfilled
+in the FOLLOWING commit — never by amending, which would re-hash the commit and invalidate the hash
+just written.)*
+
+### Open decisions raised by the fixes
+
+- **The historical +2 h skew is NOT rewritten (D-193).** Rows written by web requests before QA-FIX.1a
+  carry the tenant's local wall clock in UTC columns. Scope: any tenant whose `timezone` is not UTC
+  (all four demo tenants are Europe/Zurich); columns `audit_events.occurred_at`, `messages.created_at`,
+  `appointments.created_at`/`status_changed_at`, and any `expires_at` minted on a web path; window
+  CLINIC.W8b → QA-FIX.1a. A bulk correction is a data migration over append-only, hash-chained tables
+  and cannot be done honestly — the per-row offset depends on the tenant zone AND the DST state on that
+  date, and rewriting `occurred_at` would either break `verifyChain()` or require re-hashing the chain.
+  **No customer is live, so this is cheap to decide now.** Product owner's call: leave history as-is
+  (recommended) or fund a scoped correction with its own gate and a base-marker column. Do not let a
+  future session tidy these rows silently.
+  **Scope is narrower than "every web write":** the mutation was on the **web group only**; the API
+  group never had it and **portal requests self-skipped** (portal tenant context is a route-level
+  alias that runs after group middleware). A remediation assuming otherwise would over-correct.
+
+- **`appointments.starts_at` is a SECOND, undeclared time base — surfaced, not created, by QA-FIX.1a.**
+  It holds a **naive local wall clock** (derived from a date + opening-hour offset, never from `now()`).
+  Six `where('starts_at', '>=', now())` comparisons lined up **by accident** while web-path `now()` was
+  also local; with `now()` correctly UTC they are now uniformly off by the tenant offset. Sites:
+  `BranchService.php:132` · `ResourceService.php:46` · `PortalHomeController.php:31,69` ·
+  `InboxPatientContextReader.php:145` · `InboxDraftEngine.php:207` · the cancel window at
+  `PortalAppointmentController.php:159`. **Direction:** the two deactivation guards become more
+  conservative; the "next appointment" readers may name a just-passed appointment; **the portal cancel
+  window is the only one that loosens.** None of the six has a test. **Not patched in this gate** —
+  the honest repair is to declare `starts_at`'s base (a migration with its own gate), not zone
+  conversions across six untested call sites. Recorded in `DEFERRED.md` with a trigger.
+
 ---
 
 ## Phase 1 — Reception / Front-desk
@@ -120,6 +168,17 @@ patient pairs for dedupe testing.
 ### CRITICAL
 
 #### `P1-C1` — Web requests write **tenant-local wall-clock into UTC datetime columns**, including the append-only audit ledger
+
+> ✅ **FIXED — QA-FIX.1a, commit `<pending>` (D-192, D-193).** The process-wide
+> `date_default_timezone_set()` is removed; storage is UTC from web, CLI, queue and scheduler alike,
+> and the tenant's zone is resolved explicitly at the presentation boundary
+> (`App\Services\DisplayTimezone`) so the shared `timezone` prop keeps the same value.
+> **Re-measured in the browser, same steps as below:** CLI `21:41:45` UTC (Zurich local `23:41:45`)
+> vs stored `messages.created_at` `21:40:58` and audit `occurred_at` `21:40:25`–`21:40:59` — a **48 s**
+> gap that is just elapsed time, against **+7200 s** before. `audit:verify-chains` → `CHAIN:OK` on all
+> four tenants. **Historical rows are deliberately NOT rewritten — see the open decision above.**
+> Guarded by `tests/Feature/Platform/TimezoneStorageParityTest.php` (9, mutation-checked: reintroducing
+> the mutation turns 4 red; every test runs on a non-UTC tenant with an explicit offset positive control).
 
 - **Role:** both (any role; surfaced while driving reception)
 - **Page/route:** every authenticated write path. Observed on

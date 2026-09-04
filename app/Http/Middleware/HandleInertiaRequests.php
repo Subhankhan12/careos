@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Services\DisplayTimezone;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
 use Modules\Platform\Models\User;
@@ -54,9 +55,18 @@ class HandleInertiaRequests extends Middleware
         return [
             ...parent::share($request),
             'appName' => config('app.name'),
-            // Lazy so they reflect ApplyTenantLocaleTimezone, which runs AFTER share() is called.
+            // Lazy so the locale reflects ApplyTenantLocaleTimezone, which runs AFTER share().
             'locale' => fn () => app()->getLocale(),
-            'timezone' => fn () => date_default_timezone_get(),
+            /*
+             * The tenant's DISPLAY zone, resolved explicitly (QA-FIX.1a, D-192).
+             *
+             * This used to read `date_default_timezone_get()`, which only had a tenant value
+             * because a middleware mutated the process-wide default — the same mutation that
+             * made Eloquent write the practice's wall clock into UTC columns. The prop's value
+             * is unchanged; where it comes from is not. Storage stays UTC on every path and the
+             * client converts for display using this zone.
+             */
+            'timezone' => fn () => app(DisplayTimezone::class)->forCurrentTenant(),
             'auth' => [
                 'user' => fn () => $this->authUser($request),
             ],

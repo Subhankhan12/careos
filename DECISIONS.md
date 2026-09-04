@@ -3616,3 +3616,119 @@ references the old ID.
   other kind — a *definition* that makes the wrong use unsayable. An unnamed number invites whatever
   meaning the next screen needs, and screens are written by people who did not read the migration.
   See [[LOG]], [[Scheduling]], D-169, D-188, `docs/wireframe-parity/SCHEDULING-BATCH-DIFF.md` §4.2.
+
+- **D-192 — Storage is UTC from every path; tenant-local time is a DISPLAY concern resolved at the
+  presentation boundary, never a process-wide mutation (QA-FIX.1a, closing P1-C1).**
+  `ApplyTenantLocaleTimezone` called `date_default_timezone_set($tenantZone)` on every authenticated
+  web request. `now()` then returned a Carbon in the practice's zone and Eloquent serialised that
+  **wall clock** verbatim, so every datetime written during a web request was stored as local time in
+  a column every other consumer reads as UTC — while CLI, queue and scheduler writes stayed true UTC.
+  One column, two time bases. Measured on a Europe/Zurich tenant: `appointments.created_at`,
+  `messages.created_at` and the append-only hash-chained `audit_events.occurred_at` all **+2 h**.
+  **THE DOCBLOCK IS HOW IT SURVIVED REVIEW.** Lines 16-21 asserted the opposite of what the code did —
+  *"it does NOT touch `config('app.timezone')`, so Eloquent keeps serialising timestamps in UTC (stored
+  data is unchanged)"*. That sentence is false: `config('app.timezone')` governs the framework default,
+  but `now()` reads PHP's **process** default, which the middleware had just changed. D-095 records the
+  same wrong reasoning, and both are corrected here. A comment asserting a safety property is a claim
+  like any other — it needs a test, or it is just a confident sentence next to a defect.
+  **THE FIX — two separable concerns, separated.** (1) The mutation is **removed**; the middleware now
+  applies the tenant LOCALE only. Storage is UTC from web, CLI, queue and scheduler alike. (2) The
+  display contract is preserved by resolving the tenant's zone **explicitly** at the presentation
+  boundary: the new `App\Services\DisplayTimezone::forCurrentTenant()` reads the tenant setting (falling
+  back to `config('app.timezone')` for guests, unset tenants and unknown identifiers), and
+  `HandleInertiaRequests` shares it as the same `timezone` prop it always shared. The prop's VALUE is
+  byte-identical; only its provenance changed — it used to be `date_default_timezone_get()`, which only
+  had a tenant value because something had mutated the process.
+  **WHAT THE MUTATION WAS ACTUALLY BUYING: almost nothing.** A repo-wide sweep found exactly TWO sites
+  touching the process zone — the mutation itself and that one prop read. No model overrides
+  `serializeDate`/`$dateFormat`; server-side datetime formatting is essentially absent; and
+  `VisitPlanGenerator` / `AppointmentSeriesService` carry their own explicit zones for RRULE/DST work,
+  so they never depended on the default. **No frontend component consumes the shared `timezone` prop
+  for rendering today** — per-widget tenant-local display remains the standing deferred item. The
+  mutation therefore cost a CRITICAL data defect and fed a prop nothing reads yet.
+  **IT ALSO CORRUPTED READS, and a prior gate had already met that half.**
+  `DayBoardController::appointmentPayload()` reads `getRawOriginal('checked_in_at')` and parses it as
+  UTC precisely because the middleware "RE-LABELS the UTC-stored string as Zurich, shifting it two
+  hours" (its own words). SCHED.P1 diagnosed the read symptom and worked around it locally without
+  seeing that the same mechanism was corrupting writes. That workaround is left in place: reading the
+  raw column and parsing it as UTC is correct either way, and removing it is not this gate's business.
+  **NOTHING WAS WEAKENED.** The append-only guards, the DB triggers, the hash chain, `AuditService`'s
+  strictly-monotonic `occurred_at` (the GOV.P4 `prevTime + 1µs` clamp) and the P0P.G15 `dateTime()`
+  convention are all untouched. `audit:verify-chains` returns `CHAIN:OK` for all four demo tenants
+  after web writes.
+  **THE MONOTONIC CLAMP IS WHY THIS FIX IS SAFE TO DEPLOY ONTO SKEWED DATA.** On a tenant that already
+  holds +2 h rows, correcting `now()` makes the next web-written audit row EARLIER than the last stored
+  one. `AuditService::record()` clamps it to `prevTime + 1µs` rather than writing it out of order, so
+  the chain's stored order keeps matching its hash-link order and `verifyChain()` keeps passing. The
+  cost is that for a window equal to the tenant's offset, new `occurred_at` values are monotonic but
+  not true — they trail real UTC until the wall clock passes the highest skewed value, then self-heal.
+  Integrity is preserved in preference to timestamp accuracy, which is the right trade for a ledger.
+  **Guarded by** `tests/Feature/Platform/TimezoneStorageParityTest.php` (9). Every test uses a
+  **Europe/Zurich** tenant and asserts the offset is non-zero first — on a UTC tenant every assertion
+  would pass regardless of the code, the vacuity D-174 warns about. Mutation-checked: reintroducing
+  `date_default_timezone_set()` turns **4** of them red (web-row-is-true-UTC, web-vs-CLI-same-base,
+  no-process-mutation, and the TTL agreement). The other five are deliberate "do not weaken" invariants
+  that hold in both worlds. The TTL test mints its token **over HTTP** rather than by calling the
+  service — a direct service call never meets request middleware, so the first draft passed under the
+  mutation and proved nothing.
+  **⚠️ ONE KNOWN CONSEQUENCE, STATED RATHER THAN SHIPPED SILENTLY — `starts_at` IS A SECOND, SEPARATE
+  TIME BASE.** `appointments.starts_at` holds the practice's **naive local wall clock** (it is derived
+  from a date plus an opening-hour offset, never from `now()`, so its digits are zone-invariant). Six
+  comparisons of the shape `where('starts_at', '>=', now())` therefore compared local digits against
+  whatever base `now()` had: on the old WEB path `now()` was also local, so they lined up **by
+  accident**; on CLI they were already wrong. Making `now()` UTC everywhere makes those six *uniformly*
+  wrong instead of *inconsistently* wrong — `now()` reads one offset EARLIER than the practice's clock,
+  so "upcoming" over-includes by up to the offset. Sites: `app/Services/BranchService.php:132`,
+  `app/Services/ResourceService.php:46`, `app/Http/Controllers/Portal/PortalHomeController.php:31,69`,
+  `Modules/Comms/src/Services/InboxPatientContextReader.php:145`,
+  `app/AiCore/Support/InboxDraftEngine.php:207`, and the cancel window at
+  `Modules/Scheduling/src/Http/Controllers/PortalAppointmentController.php:159`. **Direction of the
+  error:** the two deactivation guards become MORE conservative (they block while a just-past
+  appointment still counts as future), the "next appointment" readers may name an appointment that
+  started up to an offset ago, and the portal cancel window becomes correspondingly more permissive —
+  the only one that loosens a rule. **NOT fixed here, deliberately:** the honest repair is to give
+  `starts_at` a single declared base (a data migration with its own risk profile), not to sprinkle
+  zone conversions across six untested call sites inside a gate scoped to the storage base. No test
+  covers any of the six. Recorded in `DEFERRED.md` with its trigger so it is decidable rather than
+  discovered. See [[Platform]], [[Scheduling]], `docs/qa/ROLE-AUDIT.md` (P1-C1), D-095 (corrected),
+  D-066, D-091, D-191 (an undocumented column invites the wrong meaning — the same shape), [[LOG]].
+
+- **D-193 — The historical +2 h skew is RECORDED, not rewritten (QA-FIX.1a).**
+  Rows written by web requests before D-192 carry the tenant's local wall clock in UTC columns. They are
+  **deliberately left as they are.** A bulk correction is a data migration over append-only, DB-trigger-
+  protected, hash-chained tables, and it cannot be done honestly: the offset that applied to any given
+  row depends on the tenant's zone AND the DST state on that date, the rows carry no marker saying which
+  base they used, and rewriting `audit_events.occurred_at` would either break `verifyChain()` or require
+  re-hashing the chain — which is precisely the capability an append-only ledger exists to deny.
+  **THE SCOPE, so it is decidable rather than silent — and it is NARROWER than "every web write".**
+  Affected: any tenant whose `timezone` setting is not UTC (of the demo set, all four are Europe/Zurich),
+  and only rows written by an authenticated **STAFF** web request. `ApplyTenantLocaleTimezone` is
+  appended to the **web group only** (`bootstrap/app.php:43-48`); the **api group never had it**
+  (`:50-53`); and **PORTAL requests self-skipped**, because portal tenant context comes from the
+  route-level `portal-tenant` alias (`routes/web.php:917`) which runs AFTER group middleware, so
+  `TenantContext` was still unset when the mutation ran and its `has()` guard declined. A remediation
+  that assumes "every web-era row is +2h" would therefore OVER-CORRECT portal- and API-written rows.
+  Affected columns: notably `audit_events.occurred_at`, `messages.created_at`,
+  `appointments.created_at`/`status_changed_at`, and any `expires_at` minted on a staff web path.
+  Window: from whenever `ApplyTenantLocaleTimezone` began setting the zone (CLINIC.W8b, D-095) until
+  QA-FIX.1a.
+  **PRACTICAL CONSEQUENCES that remain true of the old rows:** they sort late relative to CLI-written
+  rows; a web-minted TTL read by a CLI sweeper looks longer-lived by the offset (the waitlist-offer
+  expiry sweep is the concrete instance); and any report bucketing by hour or day boundary may place an
+  old row in the adjacent bucket.
+  **AND ONE DISPLAY CONSEQUENCE, worth stating because it will be noticed first:** a legacy staff-web
+  row now HYDRATES as UTC (correctly, per D-192) but its digits are still local, so any surface that
+  emits `toIso8601String()` re-dates it by the offset — a pre-fix audit row will render an offset LATE
+  in the browser. New rows are correct; only history reads late. This is the visible face of the same
+  decision and is not a new defect.
+  **TWO SHORT, SELF-HEALING TRANSIENTS AT DEPLOY, so nobody reads them as tampering:** (1) for up to
+  one offset after the change, `AuditService`'s monotonic clamp stamps new rows `prevTime + 1µs`
+  instead of real UTC, producing a dense microsecond cluster around the cutover that `verifyChain()`
+  correctly certifies; (2) a legacy waitlist offer stays acceptable for roughly one offset longer than
+  its TTL, because its `expires_at` is still local while `now()` is now UTC. Both drain on their own.
+  **NO CUSTOMER IS LIVE**, so the affected data is demo and pilot data only — which is exactly why this
+  is cheap to decide now and expensive to decide later. **OPEN DECISION for the product owner:** leave
+  history as-is (recommended — it is internally consistent per-path and the ledger stays untouched), or
+  fund a scoped, per-tenant, per-table correction with its own gate, its own audit trail and a marker
+  column recording which base each row used. Do not let a future session "tidy" these rows silently.
+  See [[Platform]], `docs/qa/ROLE-AUDIT.md` (P1-C1), D-192, [[LOG]].

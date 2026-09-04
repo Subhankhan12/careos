@@ -444,3 +444,35 @@ The four BLOCKERS (M1–M4) were closed by DEPLOY.PROV (D-165). These two remain
   types `--class=Demo…`. The residual risk is human error — copying the runbook's §10 demo line onto a
   customer host. **TRIGGER:** cheap hardening whenever convenient — add an
   `app()->environment('production')` refusal to each demo seeder.
+
+## `starts_at` is a second, undeclared time base — surfaced by QA-FIX.1a (D-192)
+
+**Not fixed by QA-FIX.1a, and deliberately so.** `appointments.starts_at` holds the practice's **naive
+local wall clock**: its digits come from a date plus an opening-hour offset, never from `now()`, so they
+are zone-invariant. Six comparisons of the shape `where('starts_at', '>=', now())` therefore compare
+local digits against `now()`. While the process-timezone mutation ran, web-path `now()` was also local
+and they lined up **by accident**; on CLI they were already wrong. Making `now()` UTC everywhere makes
+them *uniformly* wrong instead of *inconsistently* wrong — `now()` now reads one tenant offset EARLIER
+than the practice's clock, so "upcoming" over-includes by up to that offset.
+
+**The sites (none covered by a test):** `app/Services/BranchService.php:132` ·
+`app/Services/ResourceService.php:46` · `app/Http/Controllers/Portal/PortalHomeController.php:31,69` ·
+`Modules/Comms/src/Services/InboxPatientContextReader.php:145` ·
+`app/AiCore/Support/InboxDraftEngine.php:207` · the cancel window at
+`Modules/Scheduling/src/Http/Controllers/PortalAppointmentController.php:159`.
+
+**Direction of the error:** the two deactivation guards become MORE conservative (they keep blocking
+while a just-past appointment still counts as future); the "next appointment" readers may name an
+appointment that started up to an offset ago; **the portal cancel window is the only one that LOOSENS**
+— a patient can cancel closer to the appointment than the configured minimum by up to the offset.
+
+**Why it was not fixed in the same commit:** the honest repair is to give `starts_at` a single declared
+base (a data migration with its own risk profile and its own gate), not to sprinkle zone conversions
+across six untested call sites inside a gate scoped to the storage base. Patching the call sites would
+also entrench the undeclared convention rather than name it — the D-191 shape: an unnamed value invites
+whatever meaning the next caller needs.
+
+**TRIGGER:** before the first customer goes live in a non-UTC tenant (all four demo tenants are
+Europe/Zurich), or the first report of an "upcoming" list showing a just-passed appointment. Start by
+deciding `starts_at`'s base and writing it down; then fix the six sites against that decision, with a
+test per site (each currently has none).

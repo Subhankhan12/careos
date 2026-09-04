@@ -17,6 +17,7 @@ use Modules\Platform\Models\Role;
 use Modules\Platform\Models\RoleAssignment;
 use Modules\Platform\Models\Tenant;
 use Modules\Platform\Models\User;
+use Modules\Platform\Services\SettingsService;
 use Modules\Platform\Services\TenantContext;
 use Modules\Scheduling\Exceptions\WaitlistException;
 use Modules\Scheduling\Models\Appointment;
@@ -350,4 +351,46 @@ test('offers are tenant isolated and every lifecycle change is audited', functio
     // A second tenant sees none of alpha's offers.
     woTenant('beta');
     expect(WaitlistOffer::query()->count())->toBe(0);
+});
+
+/*
+ * QA-FIX.1a / D-192 — THE DISPLAY BOUNDARY REACHES THE PATIENT'S EMAIL.
+ *
+ * `expires_at` is a true instant and storage is UTC, so rendering it raw would quote the patient a
+ * deadline one or two hours EARLY. The app-layer listener converts it to the practice's zone before
+ * interpolation. This test is written on a NON-UTC tenant on purpose: on a UTC tenant the converted
+ * and unconverted strings are identical and the assertion would be vacuous (D-174).
+ */
+test('the waitlist offer email quotes the deadline in the practice timezone, not UTC', function () {
+    Notification::fake();
+    $tenant = woTenant('wo-tz');
+    woCtx()->set($tenant);
+    app(SettingsService::class)->set('timezone', 'Europe/Zurich');
+
+    $actor = woUser($tenant, 'org_admin');
+    $branch = woBranch();
+    $service = woService();
+    woResource($branch);
+
+    $patient = woPatient(['first_name' => 'Zeitzone']);
+    woEmail($patient);
+    woGrantEmailConsent($patient, $actor);
+    $entry = woWaitlistEntry($patient, $service, $branch);
+
+    $offer = app(WaitlistOfferService::class)
+        ->offer($entry, $branch->id, WO_SLOT_START, WO_SLOT_END, [], $actor);
+
+    $delivery = NotificationDelivery::query()
+        ->where('template_key', 'waitlist.offer')
+        ->where('recipient_id', $patient->id)
+        ->firstOrFail();
+
+    $utcRendering = $offer->expires_at->copy()->setTimezone('UTC')->toDateTimeString();
+    $localRendering = $offer->expires_at->copy()->setTimezone('Europe/Zurich')->toDateTimeString();
+
+    // POSITIVE CONTROL: the fixture must be able to tell the two apart.
+    expect($localRendering)->not->toBe($utcRendering);
+
+    expect($delivery->rendered_body)->toContain($localRendering)
+        ->and($delivery->rendered_body)->not->toContain($utcRendering);
 });

@@ -18,6 +18,7 @@ use App\Clinical\NursingVisitVitalsReader;
 use App\Comms\AgentInboxDraftProvider;
 use App\Comms\EngineAppointmentReminderChannel;
 use App\Comms\EngineDunningChannel;
+use App\Services\DisplayTimezone;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\ServiceProvider;
 use Modules\AiCore\Events\AgentActionLifecycleChanged;
@@ -700,8 +701,22 @@ class AppServiceProvider extends ServiceProvider
                 'waitlist.offer',
                 $patient,
                 [
+                    /*
+                     * THE DISPLAY BOUNDARY, applied to an email (QA-FIX.1a, D-192). Note the two
+                     * values are NOT alike and must not be treated alike:
+                     *
+                     *  - `slot_starts_at` is the appointment's NAIVE LOCAL wall clock (derived from a
+                     *    date + opening-hour offset, never from now(), so its digits are already the
+                     *    practice's clock). Converting it would shift it a second time.
+                     *  - `expires_at` is a TRUE INSTANT (now() + TTL). Since storage is UTC, rendering
+                     *    it raw would quote the patient a UTC deadline — an hour or two early — so it
+                     *    is converted to the practice's zone here, at the presentation boundary.
+                     */
                     'starts_at' => $offer->slot_starts_at->toDateTimeString(),
-                    'expires_at' => $offer->expires_at->toDateTimeString(),
+                    'expires_at' => $offer->expires_at
+                        ->copy()
+                        ->setTimezone($this->app->make(DisplayTimezone::class)->forCurrentTenant())
+                        ->toDateTimeString(),
                 ],
                 NotificationTemplate::CATEGORY_TRANSACTIONAL,
             );

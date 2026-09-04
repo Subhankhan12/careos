@@ -1,5 +1,25 @@
 # Module: Platform (`Modules\Platform`)
 
+> **TIME BASE — STORAGE IS UTC FROM EVERY PATH (QA-FIX.1a, D-192). Do not reintroduce a process-wide
+> timezone mutation.** `ApplyTenantLocaleTimezone` used to call `date_default_timezone_set($tenantZone)`
+> on every authenticated web request. `now()` then returned a Carbon in the practice's zone and Eloquent
+> serialised that **wall clock** verbatim — so web writes were stored as local time in columns that CLI,
+> queue and scheduler writes filled with true UTC (measured +2 h on Europe/Zurich, including the
+> append-only hash-chained `audit_events.occurred_at`). Its docblock claimed the opposite, which is how
+> it survived review; D-095 carried the same wrong reasoning and is superseded by D-192.
+>
+> The middleware now applies the **locale only**. Tenant-local time is a **DISPLAY** concern:
+> `App\Services\DisplayTimezone::forCurrentTenant()` resolves the zone explicitly and
+> `HandleInertiaRequests` shares it as the same `timezone` prop (same value, different provenance).
+> A surface needing tenant-local rendering converts from that zone — it never changes the default.
+>
+> Guarded by `tests/Feature/Platform/TimezoneStorageParityTest.php` (9), all on a **non-UTC** tenant with
+> an explicit offset positive control (on a UTC tenant they would be vacuous, D-174); reintroducing the
+> mutation turns 4 of them red. **Historical rows are deliberately NOT rewritten — D-193 records the
+> scope as an open product decision.** The GOV.P4 strictly-monotonic `occurred_at` clamp is what makes
+> the fix safe to deploy onto already-skewed data: a corrected `now()` writes earlier than the last
+> skewed row, and `prevTime + 1µs` keeps stored order matching hash-link order.
+
 ## Purpose
 
 The tenancy + identity + access foundation: tenants, org hierarchy, users/auth, RBAC, per-tenant

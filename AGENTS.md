@@ -86,6 +86,15 @@ Market packs:
   double-book or double-spend (beds, theatres, slots, stock).
 - **Portability:** use `dateTime()` (not `timestamp()`) for mutable moments (P0P.G15), and never assert on
   serialised JSON text — `json_decode` and assert the meaning (MySQL 8 re-serialises JSON columns).
+- **ONE TIME BASE: STORAGE IS UTC FROM EVERY PATH — web, CLI, queue and scheduler (D-192).** Never mutate
+  the process-wide default timezone (`date_default_timezone_set()`). `now()` reads PHP's *process*
+  default, and Eloquent serialises that wall clock verbatim, so mutating it makes web requests write the
+  practice's local time into columns every other path fills with UTC — one column, two time bases,
+  silently, including the append-only hash-chained `audit_events`. That shipped once and was caught only
+  by a QA audit; the middleware's own docblock had claimed the opposite, which is how it survived review.
+  **Tenant-local time is a DISPLAY concern:** resolve the zone explicitly at the presentation boundary
+  (`App\Services\DisplayTimezone`) and convert there. A comment asserting a safety property is a claim
+  like any other — it needs a test.
 - **AI is draft-until-approved**, visibly labeled, and logged.
 - **i18n keys only** — no hardcoded UI strings.
 - **Cross-module contact goes through services + domain events, never cross-module Eloquent.**
