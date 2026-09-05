@@ -33,6 +33,18 @@ class BookingService
     ) {}
 
     /**
+     * Book a slot, or RECORD one that already happened.
+     *
+     * `$allowPastStart` is the booking-vs-recording distinction (QA-FIX.1b, D-194) and it is a
+     * CALL-SITE CONSTANT — never request-derived. It defaults to `true` because this method is
+     * also the repo's historical-recording path: both demo seeders lay down a real past week
+     * through it, and a large number of fixtures book at fixed dates that have since become past.
+     *
+     * **A CALLER THAT REPRESENTS A PERSON CHOOSING A SLOT MUST PASS `false`.** All four
+     * interactive paths do: the day-board quick-book, the staff reschedule, the waitlist
+     * acceptance and the recurring series. `bookOnline()` does not take the flag at all — the
+     * patient portal and the public form can never backdate.
+     *
      * @param  list<string>  $resourceIds
      */
     public function book(
@@ -47,6 +59,7 @@ class BookingService
         ?string $rescheduledFromId = null,
         ?string $seriesId = null,
         ?string $occurrenceDate = null,
+        bool $allowPastStart = true,
     ): Appointment {
         return $this->createBooking(
             $serviceId,
@@ -61,10 +74,22 @@ class BookingService
             $rescheduledFromId,
             $seriesId,
             $occurrenceDate,
+            $allowPastStart,
         );
     }
 
     /**
+     * The ONLINE booking path (patient portal + public form).
+     *
+     * `$allowPastStart` DEFAULTS TO FALSE here — the opposite of `book()` — because every request
+     * that reaches this method is a person choosing a slot. Neither controller passes the argument,
+     * so the patient-facing paths are strict without having to remember anything, and nothing a
+     * client sends can relax it (QA-FIX.1b, D-194).
+     *
+     * The flag exists only for RECORDING an online booking that already happened: the demo seeders
+     * lay down historical online-sourced appointments, and those must keep `booked_by = null` and
+     * `source = online` (D-031), which routing them through `book()` would change.
+     *
      * @param  list<string>  $resourceIds
      */
     public function bookOnline(
@@ -74,6 +99,7 @@ class BookingService
         CarbonInterface|string $startsAt,
         array $resourceIds,
         ?string $notes = null,
+        bool $allowPastStart = false,
     ): Appointment {
         return $this->createBooking(
             $serviceId,
@@ -85,6 +111,7 @@ class BookingService
             false,
             Appointment::SOURCE_ONLINE,
             $notes,
+            allowPastStart: $allowPastStart,
         );
     }
 
@@ -104,6 +131,7 @@ class BookingService
         ?string $rescheduledFromId = null,
         ?string $seriesId = null,
         ?string $occurrenceDate = null,
+        bool $allowPastStart = true,
     ): Appointment {
         $tenantId = $this->tenantContext->id();
 
@@ -141,6 +169,23 @@ class BookingService
         $ends = $starts->addMinutes($service->default_duration_minutes);
         $heldStart = $starts->subMinutes($service->buffer_before_minutes);
         $heldEnd = $ends->addMinutes($service->buffer_after_minutes);
+
+        /*
+         * A BOOKING CANNOT START IN THE PAST (P1-H3, D-194) — enforced HERE, in the funnel every
+         * write path shares, so it holds for a stale or forged request even though the finder no
+         * longer offers such a slot. The finder not offering something is not the server refusing
+         * it; these are two different guarantees and the audit found the second one missing.
+         *
+         * `$allowPastStart` is the BOOKING-vs-RECORDING distinction, and it is a CALL-SITE
+         * CONSTANT — never derived from the request, so nothing a client sends can relax it.
+         * Recording an appointment that already happened (the demo seeders' historical week, an
+         * import) is a legitimate act and stays permitted; a person choosing a slot is not, and
+         * every interactive caller passes `false`. `bookOnline()` hardcodes `false`: a patient or
+         * the public form can never backdate.
+         */
+        if (! $allowPastStart && $starts->lessThanOrEqualTo($this->nowInBranchClock($branchId))) {
+            throw BookingUnavailableException::startsInThePast($starts->toDateTimeString());
+        }
 
         // The branch must be open then. Unconfigured branches impose no constraint; a
         // configured branch rejects a start outside its opening hours (or on a closed day).
@@ -258,6 +303,39 @@ class BookingService
                 throw new InvalidArgumentException("Resource type {$actualType} is not required by this service.");
             }
         }
+    }
+
+    /**
+     * "Now" as the PRACTICE'S WALL CLOCK, in the same naive base an appointment's `starts_at` uses.
+     *
+     * `starts_at` is a naive local value (a chosen date + time-of-day, never derived from `now()`),
+     * so comparing it against a UTC `now()` would be wrong by the tenant's offset. Converting the
+     * clock into the branch's zone and re-reading it as naive digits puts both sides in the same
+     * base. `AvailableSlotFinder` does the identical thing, so the finder that OFFERS a slot and
+     * the guard that REFUSES one cannot disagree about what "now" means for this practice.
+     */
+    private function nowInBranchClock(string $branchId): CarbonImmutable
+    {
+        return CarbonImmutable::parse(
+            CarbonImmutable::now($this->branchTimezone($branchId))->format('Y-m-d H:i:s')
+        );
+    }
+
+    /**
+     * The zone the branch's clock runs in — the one a slot's wall-clock digits belong to.
+     *
+     * Same resolution as `AvailableSlotFinder::branchTimezone()` and the branch fallback
+     * `AppointmentSeriesService` uses.
+     */
+    private function branchTimezone(string $branchId): string
+    {
+        $timezone = (string) (Branch::query()->find($branchId)?->getAttribute('timezone') ?? '');
+
+        if ($timezone === '' || ! in_array($timezone, timezone_identifiers_list(), true)) {
+            return (string) config('app.timezone');
+        }
+
+        return $timezone;
     }
 
     private function assertWithinAvailability(

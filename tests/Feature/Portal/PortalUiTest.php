@@ -1,5 +1,6 @@
 <?php
 
+use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
@@ -367,6 +368,16 @@ test('self-booking goes through the BookingService safe path', function () {
     $fx = g5Fixture();
     $setup = g5BookableSetup($fx);
     $monday = '2026-07-13'; // a Monday inside availability
+
+    /*
+     * QA-FIX.1b — CLOCK FROZEN FOR THIS TEST ONLY, assertions untouched.
+     *
+     * The fixed Monday has since elapsed, and a start in the past is now refused (P1-H3), so the
+     * self-booking below would be declined rather than accepted. Freezing "now" just before that
+     * morning restores the temporal assumption the test was written under. It is scoped to this
+     * test rather than the file, because other tests here lean on their own dates.
+     */
+    Carbon::setTestNow(CarbonImmutable::parse($monday.' 00:30:00'));
 
     g5AsPortal($this, $fx)
         ->post(route('portal.appointments.store'), [

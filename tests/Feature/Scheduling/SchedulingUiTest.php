@@ -1,6 +1,8 @@
 <?php
 
+use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
 use Inertia\Testing\AssertableInertia as Assert;
 use Modules\Patients\Models\Patient;
 use Modules\Patients\Services\PatientService;
@@ -17,6 +19,27 @@ use Modules\Scheduling\Models\Service;
 use Modules\Scheduling\Services\BookingService;
 
 uses(RefreshDatabase::class);
+
+/*
+ * QA-FIX.1b — CLOCK FROZEN, ASSERTIONS UNTOUCHED.
+ *
+ * This file books against the fixed Monday 2026-07-13. It was written when that date was in the
+ * future and kept passing afterwards only because the slot finder and the booking path ignored the
+ * clock — the defect P1-H3 records (elapsed slots were offered, and booking them succeeded). Now
+ * that a start in the past is refused, a fixture date that has since elapsed would be refused too.
+ *
+ * Freezing "now" before that day's opening restores the temporal assumption the file was written
+ * under and makes it deterministic at any future date. A FIXTURE CORRECTION, not a weakening:
+ * every assertion below is unchanged. 00:30 UTC is before opening whether the fixture branch runs
+ * on UTC or Europe/Zurich.
+ */
+beforeEach(function () {
+    Carbon::setTestNow(CarbonImmutable::parse('2026-07-13 00:30:00'));
+});
+
+afterEach(function () {
+    Carbon::setTestNow();
+});
 
 function c6Tenant(string $slug): Tenant
 {

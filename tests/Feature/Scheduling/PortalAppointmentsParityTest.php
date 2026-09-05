@@ -279,7 +279,20 @@ test('THE BOOKING GUARD: real finder slots, a soft-suspended branch offers none 
             'starts_at' => $date.' 09:00:00',
             'resource_ids' => [$fx['resource']->id],
         ])
-        ->assertStatus(500);
+        /*
+         * QA-FIX.1b — CORRECTED, and this is a STRENGTHENING, not a weakening.
+         *
+         * This previously asserted HTTP 500: the refusal escaped `PortalAppointmentController`
+         * uncaught and reached the patient as a crash. A refusal is an ANSWER — the branch is
+         * soft-suspended, and saying so is not an error condition. That controller now catches
+         * `BookingUnavailableException` and redirects back with a field error, so the assertion
+         * moves from "it blew up" to "it was refused cleanly". A 500 on a patient-facing POST is
+         * exactly the class the FIX.5 route smoke exists to prevent.
+         *
+         * THE SUBSTANTIVE ASSERTION IS UNCHANGED and still immediately below: nothing was written.
+         */
+        ->assertRedirect()
+        ->assertSessionHasErrors('starts_at');
 
     ptcCtx()->set($fx['tenant']);
     expect(Appointment::query()->where('patient_id', $fx['patient']->id)->count())->toBe($before);

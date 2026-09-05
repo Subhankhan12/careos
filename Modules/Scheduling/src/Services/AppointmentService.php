@@ -165,6 +165,18 @@ class AppointmentService
     /**
      * @param  list<string>  $resourceIds
      */
+    /**
+     * Move an appointment, or RECORD that it moved.
+     *
+     * `$allowPastStart` carries the same booking-vs-recording distinction as
+     * `BookingService::book()` and for the same reason (QA-FIX.1b, D-194): the demo seeders build
+     * their historical week by rescheduling real appointments into the past, and that is recording,
+     * not booking. It is a CALL-SITE CONSTANT, never request-derived.
+     *
+     * **THE INTERACTIVE RESCHEDULE PASSES `false`** — that path is the one the audit reproduced,
+     * where confirming an offered morning slot late in the day moved a patient 742 minutes into
+     * the past.
+     */
     public function reschedule(
         Appointment $appointment,
         CarbonInterface|string $startsAt,
@@ -173,6 +185,7 @@ class AppointmentService
         string $reason,
         ?string $branchId = null,
         ?string $notes = null,
+        bool $allowPastStart = true,
     ): Appointment {
         if (trim($reason) === '') {
             throw new InvalidArgumentException('Reschedule requires a reason.');
@@ -183,7 +196,7 @@ class AppointmentService
         $this->assertLegal($oldStatus, Appointment::STATUS_RESCHEDULED);
 
         /** @var array{old: Appointment, new: Appointment, resource_ids: list<string>} $result */
-        $result = DB::transaction(function () use ($appointment, $startsAt, $resourceIds, $actor, $reason, $branchId, $notes): array {
+        $result = DB::transaction(function () use ($appointment, $startsAt, $resourceIds, $actor, $reason, $branchId, $notes, $allowPastStart): array {
             $locked = Appointment::query()->whereKey($appointment->id)->lockForUpdate()->firstOrFail();
             $fromStatus = $locked->status;
             $this->assertLegal($fromStatus, Appointment::STATUS_RESCHEDULED);
@@ -210,6 +223,7 @@ class AppointmentService
                 $locked->source,
                 $notes ?? $locked->notes,
                 $locked->id,
+                allowPastStart: $allowPastStart,
             );
 
             return [

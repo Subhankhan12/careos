@@ -476,3 +476,29 @@ whatever meaning the next caller needs.
 Europe/Zurich), or the first report of an "upcoming" list showing a just-passed appointment. Start by
 deciding `starts_at`'s base and writing it down; then fix the six sites against that decision, with a
 test per site (each currently has none).
+
+---
+
+## The past-start guard is strict on the four interactive paths only (QA-FIX.1b, D-194)
+
+`BookingService::book()` keeps `$allowPastStart = true` as its DEFAULT, because it is simultaneously
+the product's interactive booking path AND its historical-RECORDING path: both demo seeders build a
+real elapsed week through it, and a practice entering a visit it forgot needs the same door. Inverting
+the default would have broken both seeders and 13 existing behaviour fixtures whose assertions are
+correct — outside a gate whose brief was explicitly "do not break a legitimate backdated entry path".
+
+**What IS strict today:** `bookOnline()` defaults to refusing (so the portal and public controllers are
+strict without having to remember), day-board quick-book passes `false`, and
+`AppointmentService::reschedule()` passes `false` from `AppointmentDetailController`. Those are the
+four paths `P1-H3` covers, and all four are asserted in `tests/Feature/Scheduling/PastSlotGuardTest.php`.
+
+**What is NOT strict:** waitlist-accept and recurring-series creation still reach `book()` with the
+permissive default, and any FUTURE interactive caller added to `book()` would inherit it. The finder
+means a legitimate UI cannot produce a past slot in the first place, and a waitlist offer's ~30-minute
+TTL keeps that window narrow, so this is a residual rather than a live hole — but it is a default that
+fails OPEN, which is the wrong direction for a guard.
+
+**TRIGGER:** the next gate that touches `BookingService` call sites, or the first new interactive
+booking entry point. The repair is to invert `book()`'s default to refusing and pass
+`allowPastStart: true` explicitly from the recording call sites (the two seeders and the historical
+fixtures), which makes the permissive case visible at every site that uses it instead of silent.

@@ -13,6 +13,7 @@ use Modules\Patients\Models\PatientContact;
 use Modules\Patients\Models\PortalAccount;
 use Modules\Platform\Models\Branch;
 use Modules\Platform\Services\SettingsService;
+use Modules\Scheduling\Exceptions\BookingUnavailableException;
 use Modules\Scheduling\Models\Appointment;
 use Modules\Scheduling\Models\Service;
 use Modules\Scheduling\Services\AppointmentService;
@@ -128,14 +129,20 @@ class PortalAppointmentController
 
         // The SAFE booking path: BookingService's locked no-double-book flow,
         // authenticated variant. The patient is the session's patient, always.
-        $bookings->bookOnline(
-            $service->id,
-            $account->patient_id,
-            $data['branch_id'],
-            $data['starts_at'],
-            array_values($data['resource_ids']),
-            'portal self-booking',
-        );
+        try {
+            $bookings->bookOnline(
+                $service->id,
+                $account->patient_id,
+                $data['branch_id'],
+                $data['starts_at'],
+                array_values($data['resource_ids']),
+                'portal self-booking',
+            );
+        } catch (BookingUnavailableException $e) {
+            // The slot went stale between rendering and submitting (or the start has already
+            // passed — QA-FIX.1b). The patient gets a plain refusal, never a 500.
+            return back()->withErrors(['starts_at' => $e->getMessage()]);
+        }
 
         return redirect()->route('portal.appointments');
     }

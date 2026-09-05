@@ -53,8 +53,8 @@ every later phase's timestamp observation suspect, and past-time booking was liv
 
 | ID | Severity | Status | Gate | Commit |
 |---|---|---|---|---|
-| `P1-C1` | CRITICAL | ✅ **FIXED** | QA-FIX.1a | `<pending>` |
-| `P1-H3` | HIGH | ⏳ in the same gate (Part 2) | QA-FIX.1b | — |
+| `P1-C1` | CRITICAL | ✅ **FIXED** | QA-FIX.1a | `78a05db` |
+| `P1-H3` | HIGH | ✅ **FIXED** | QA-FIX.1b | `<pending>` |
 | all others | — | 📋 recorded, not fixed | — | — |
 
 *(A commit cannot contain its own hash. Per the repo-wide marker convention, `<pending>` is backfilled
@@ -88,6 +88,17 @@ just written.)*
   window is the only one that loosens.** None of the six has a test. **Not patched in this gate** —
   the honest repair is to declare `starts_at`'s base (a migration with its own gate), not zone
   conversions across six untested call sites. Recorded in `DEFERRED.md` with a trigger.
+
+- **The past-start guard is strict on the four interactive paths only — waitlist-accept and recurring
+  series are deliberately NOT strict (D-194).** `book()` keeps a permissive default because it is also
+  the repo's historical-RECORDING path; making it strict by default would break both demo seeders and
+  13 existing behaviour fixtures that legitimately book elapsed dates, which this gate forbade
+  touching. The four paths the finding covers (day-board quick-book, staff reschedule, portal
+  self-booking, public booking) each pass or inherit the strict value, and the finder means a
+  legitimate UI cannot produce a past slot in the first place. **The residual:** a FUTURE interactive
+  caller added to `book()` would inherit the permissive default, and waitlist-accept / recurring-series
+  can still place a past start (a waitlist offer's ~30 min TTL keeps that exposure narrow). Product
+  owner's call whether to invert the default and fix the fixtures in a gate of its own.
 
 ---
 
@@ -169,7 +180,7 @@ patient pairs for dedupe testing.
 
 #### `P1-C1` — Web requests write **tenant-local wall-clock into UTC datetime columns**, including the append-only audit ledger
 
-> ✅ **FIXED — QA-FIX.1a, commit `<pending>` (D-192, D-193).** The process-wide
+> ✅ **FIXED — QA-FIX.1a, commit `78a05db` (D-192, D-193).** The process-wide
 > `date_default_timezone_set()` is removed; storage is UTC from web, CLI, queue and scheduler alike,
 > and the tenant's zone is resolved explicitly at the presentation boundary
 > (`App\Services\DisplayTimezone`) so the shared `timezone` prop keeps the same value.
@@ -276,6 +287,29 @@ patient pairs for dedupe testing.
   registered through the UI, and the clerk gets no explanation.
 
 #### `P1-H3` — The slot finder offers **times in the past**, and the system books them
+
+> ✅ **FIXED — QA-FIX.1b, commit `<pending>` (D-194).** Two independent layers, because they answer
+> different questions. **The finder** (`AvailableSlotFinder`) now skips any slot whose start has
+> already passed in the **branch's** clock, so every consumer inherits it — day-board, staff
+> reschedule, portal self-booking and the public form. **The booking funnel** (`createBooking`, which
+> both `book()` and `bookOnline()` reach) refuses a past start anyway, because the finder not offering
+> something is only a UI fact: a stale tab or a forged POST arrives at the service directly (D-183).
+> **The boundary is strictly "has already started"** — SCHED.P2 established there is no min-notice
+> setting, so a notice window would be invented policy (D-170).
+> **Backdated RECORDING is preserved:** `$allowPastStart` is a call-site constant, never read from a
+> request, so nothing a client sends can relax it; `bookOnline()` defaults to refusing while `book()`
+> stays permissive because it is also the repo's historical-recording path (both demo seeders build a
+> real elapsed week through it). The four interactive callers pass the strict value.
+> **Three controllers were letting the refusal escape as HTTP 500** — day-board, portal and public —
+> and now redirect back with a field error; on the public form that 500 would have met an anonymous
+> visitor.
+> **Re-measured in the browser, same panel as below:** for the elapsed working day `2026-09-04` the
+> finder returned **0 slots** (was: 08:00 "soonest"), while the future Tuesday `2026-09-08` returned
+> **19** — the positive control that proves the finder is filtering, not simply broken. A forged
+> past quick-book POST returned **302 with "has already passed"**, not a 500, and created **0**
+> appointments, while the same POST at a future time created 1.
+> Guarded by `tests/Feature/Scheduling/PastSlotGuardTest.php` (10, mutation-checked: neutralising the
+> finder filter turns 2 red, neutralising the booking guard turns 5 — the layers fail independently).
 
 - **Role:** `reception`
 - **Page/route:** `/scheduling/appointments/{id}` → reschedule panel; also the day-board Quick-book

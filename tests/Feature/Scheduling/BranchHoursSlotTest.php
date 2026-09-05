@@ -1,6 +1,8 @@
 <?php
 
+use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
 use Modules\Patients\Models\Patient;
 use Modules\Patients\Services\PatientService;
 use Modules\Platform\Models\Branch;
@@ -18,6 +20,31 @@ use Modules\Scheduling\Services\AvailableSlotFinder;
 use Modules\Scheduling\Services\BookingService;
 
 uses(RefreshDatabase::class);
+
+/*
+ * QA-FIX.1b — CLOCK FROZEN, ASSERTIONS UNTOUCHED.
+ *
+ * These tests exercise OPENING-HOURS logic against the fixed Monday 2026-07-13. They were written
+ * when that date was in the future, and they only ever passed afterwards because the slot finder
+ * ignored the clock entirely — the very defect P1-H3 records (it offered slots that had already
+ * started, and the booking path accepted them). Now that the finder refuses an elapsed slot, a
+ * fixture date in the past would correctly yield nothing and the opening-hours assertions could
+ * never run.
+ *
+ * Freezing "now" just before the fixture's opening time restores the temporal assumption the file
+ * was written under and makes it deterministic on any machine, at any future date. This is a
+ * FIXTURE CORRECTION, not a weakening: every assertion below is unchanged.
+ */
+beforeEach(function () {
+    // Anchored in the BRANCH'S zone (the fixture branch is Europe/Zurich), because that is the
+    // clock the finder now compares against. Freezing at 06:00 UTC would already be 08:00 in the
+    // practice and the 07:00 opening slot would correctly be gone.
+    Carbon::setTestNow(CarbonImmutable::parse('2026-07-13 05:00:00', 'Europe/Zurich'));
+});
+
+afterEach(function () {
+    Carbon::setTestNow();
+});
 
 /*
  * CLINIC.W8b — the booking/slot engine respects a branch's configured opening hours.

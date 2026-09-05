@@ -5,6 +5,7 @@ namespace Modules\Scheduling\Services;
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Facades\DB;
+use Modules\Platform\Models\Branch;
 use Modules\Platform\Services\BranchHoursService;
 use Modules\Scheduling\Models\Appointment;
 use Modules\Scheduling\Models\Resource;
@@ -62,7 +63,43 @@ class AvailableSlotFinder
         $cursor = $date->addMinutes($window['open']);
         $endOfDay = $date->addMinutes($window['close']);
 
+        /*
+         * "Now", expressed as the PRACTICE'S WALL CLOCK, in the same naive base the cursor uses.
+         *
+         * The cursor is a naive local value: this scan builds it from a date plus an opening-hour
+         * offset, and `resource_availability` windows are naive local times too, so the whole scan
+         * lives in the practice's clock. Comparing it against a UTC `now()` would be wrong by the
+         * tenant's offset — and anchoring the cursor to a real zone instead would silently
+         * de-synchronise it from those availability windows (measured: it shifted the first offered
+         * slot from 07:00 to 09:00 on a Europe/Zurich branch).
+         *
+         * So the clock is converted to the branch's zone and re-read as naive digits. Nothing about
+         * the emitted slots changes; only the comparison becomes honest.
+         */
+        $nowLocal = CarbonImmutable::parse(
+            CarbonImmutable::now($this->branchTimezone($branchId))->format('Y-m-d H:i:s')
+        );
+
         while ($cursor->lessThanOrEqualTo($endOfDay) && count($slots) < $limit) {
+            /*
+             * NEVER OFFER A SLOT THAT HAS ALREADY STARTED (QA-FIX.1b, P1-H3, D-194).
+             *
+             * The scan used to walk from the branch's opening time to its closing time with no
+             * reference to the clock, so on the CURRENT day it offered the whole morning back —
+             * labelled "soonest" — and the reschedule/quick-book paths booked it. Every consumer
+             * of this finder inherits the fix: the day-board quick-book, staff reschedule, portal
+             * self-booking and the public booking form.
+             *
+             * The boundary is strictly "has already started", not "starts within N minutes".
+             * SCHED.P2 established there is no min-notice setting anywhere in the product, and
+             * inventing one here would be an unbacked policy the backend cannot honour (D-170).
+             */
+            if ($cursor->lessThanOrEqualTo($nowLocal)) {
+                $cursor = $cursor->addMinutes(self::SLOT_STRIDE_MINUTES);
+
+                continue;
+            }
+
             $ends = $cursor->addMinutes($service->default_duration_minutes);
             $resourceIds = [];
 
@@ -89,6 +126,24 @@ class AvailableSlotFinder
         }
 
         return $slots;
+    }
+
+    /**
+     * The zone the branch's clock runs in — the one a slot's wall-clock digits belong to.
+     *
+     * Mirrors the branch→config fallback `AppointmentSeriesService` already uses for RRULE
+     * expansion, so the two places that must agree about "the practice's clock" resolve it the
+     * same way. Reading Platform's `Branch` from Scheduling is the established direction.
+     */
+    private function branchTimezone(string $branchId): string
+    {
+        $timezone = (string) (Branch::query()->find($branchId)?->getAttribute('timezone') ?? '');
+
+        if ($timezone === '' || ! in_array($timezone, timezone_identifiers_list(), true)) {
+            return (string) config('app.timezone');
+        }
+
+        return $timezone;
     }
 
     /**

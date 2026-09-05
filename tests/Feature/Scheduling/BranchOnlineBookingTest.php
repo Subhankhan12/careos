@@ -1,6 +1,7 @@
 <?php
 
 use App\Services\BranchService;
+use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
 use Modules\Audit\Models\AuditEvent;
@@ -21,6 +22,20 @@ use Modules\Scheduling\Services\AvailableSlotFinder;
 use Modules\Scheduling\Services\BookingService;
 
 uses(RefreshDatabase::class);
+
+/*
+ * QA-FIX.1b — CLOCK FROZEN, ASSERTIONS UNTOUCHED. This file books on Monday 2026-07-13, a date
+ * that has since elapsed; with a past start now refused (P1-H3) the fixture could never book.
+ * 2026-07-12 08:00 is the anchor this file already uses for its hard-guard test below, so the
+ * whole file now shares one explicit "now". A fixture correction, not a weakening.
+ */
+beforeEach(function () {
+    Carbon::setTestNow(CarbonImmutable::parse('2026-07-12 08:00:00'));
+});
+
+afterEach(function () {
+    Carbon::setTestNow();
+});
 
 /*
  * BRANCH.P1 — per-branch accepts_online_bookings (the SOFT-SUSPEND) + phone. Turning online bookings

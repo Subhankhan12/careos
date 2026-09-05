@@ -1,6 +1,8 @@
 <?php
 
+use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Http;
 use Modules\AiCore\Agents\FrontDeskAgent;
 use Modules\AiCore\Models\AgentAction;
@@ -30,6 +32,10 @@ use Modules\Scheduling\Models\WaitlistEntry;
 use Modules\Scheduling\Services\WaitlistService;
 
 uses(RefreshDatabase::class);
+
+// Any test that freezes the clock resets it here (a no-op for tests that never set it), so a frozen
+// instant can never leak into a later test even if the freezing test fails mid-way.
+afterEach(fn () => Carbon::setTestNow());
 
 function c8Tenant(string $slug): Tenant
 {
@@ -226,6 +232,14 @@ test('Scheduler suggest-slots proposes available slots without booking', functio
     $branch = c8Branch();
     $service = c8Service();
     c8Resource($branch);
+
+    // The finder no longer offers a slot that has already started (D-194), so this fixture's fixed
+    // date has to be in the future for the tool to have anything to propose — before QA-FIX.1b the
+    // finder ignored the clock entirely, so the date could elapse without the test noticing. Pinned
+    // to 00:30 on the requested day (before the branch opens) rather than made relative, so the two
+    // expected slots are the same two every run. Scoped to this test: no other test here reaches the
+    // finder. The assertion is unchanged.
+    Carbon::setTestNow(CarbonImmutable::parse('2026-07-13 00:30:00'));
 
     $result = app(AgentRuntime::class)->runTool(
         'scheduler.suggest_slots',

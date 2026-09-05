@@ -24,4 +24,16 @@ class BookingUnavailableException extends RuntimeException
     {
         return new self("Branch {$branchId} is not accepting online bookings.");
     }
+
+    /**
+     * The requested start has already passed (QA-FIX.1b, P1-H3, D-194).
+     *
+     * A booking is an appointment to keep; a start in the past cannot be kept. This is raised for
+     * a stale or forged slot, independently of what the slot finder offered — the finder not
+     * offering something is not the same as the server refusing it.
+     */
+    public static function startsInThePast(string $startsAt): self
+    {
+        return new self("The requested start {$startsAt} has already passed.");
+    }
 }

@@ -3732,3 +3732,65 @@ references the old ID.
   fund a scoped, per-tenant, per-table correction with its own gate, its own audit trail and a marker
   column recording which base each row used. Do not let a future session "tidy" these rows silently.
   See [[Platform]], `docs/qa/ROLE-AUDIT.md` (P1-C1), D-192, [[LOG]].
+
+- **D-194 — A booking may not start in the past; the FINDER not offering a slot and the SERVER refusing
+  it are two different guarantees, and both are now built (QA-FIX.1b, closing P1-H3).**
+  The audit reproduced this in a browser: at 22:21 local the reschedule panel offered TODAY at 08:00
+  — labelled **"soonest"** — and confirming it created a real appointment `starts_at 08:00`, status
+  `booked`, **742 minutes in the past**, with no warning. `AvailableSlotFinder` walked from the
+  branch's opening time to its closing time with **no reference to the clock at all**, and
+  `BookingService` had **no past-start guard**, so nothing anywhere refused it.
+  **TWO LAYERS, because they answer different questions.** (1) The FINDER no longer offers a slot
+  that has already started, so every consumer inherits it — day-board quick-book, staff reschedule,
+  portal self-booking and the public form. (2) The BOOKING FUNNEL (`createBooking`, which
+  `book()` and `bookOnline()` both delegate to) refuses one anyway. The second is not redundant: the
+  finder not offering something is a UI fact, while a stale tab or a forged POST reaches the service
+  directly. Pinned in the funnel means a direct service call meets it with nothing else answering
+  first (D-183). Proven by mutation: neutralising the finder turns 2 tests red and leaves the 8
+  booking tests green; neutralising the guard turns 5 red — the layers fail independently.
+  **THE BOUNDARY IS STRICTLY "HAS ALREADY STARTED", NOT "starts within N minutes."** SCHED.P2
+  established there is no min-notice setting anywhere in the product, so a notice window would be an
+  invented policy the backend cannot honour (D-170). A slot at `now()` exactly is refused; anything
+  later is offered and bookable.
+  **BOOKING vs RECORDING — the distinction the guard had to make.** Recording an appointment that
+  already happened is legitimate: both demo seeders build a real historical week through these same
+  methods, and a practice may enter a visit it forgot. So `$allowPastStart` is a **CALL-SITE
+  CONSTANT** — never read from a request, so nothing a client sends can relax it. Its DEFAULT
+  DIFFERS BY METHOD, deliberately: `bookOnline()` defaults to **refusing** (every request reaching
+  it is a person choosing a slot, and neither the portal nor the public controller passes the
+  argument, so they are strict without having to remember), while `book()` defaults to **allowing**
+  because it is also the repo's historical-recording path — both seeders and a large number of
+  fixtures book at fixed dates that have since elapsed. The four interactive callers pass `false`
+  explicitly: day-board quick-book, `AppointmentService::reschedule()` (via
+  `AppointmentDetailController` — the path the audit reproduced), and the portal and public forms by
+  inheriting `bookOnline()`'s default.
+  **THE RESIDUAL, STATED:** `book()` being permissive by default means a FUTURE interactive caller
+  could forget the flag. The alternative was to break 13 existing behaviour tests and both seeders,
+  which the gate forbade. Mitigations: the finder means a legitimate UI cannot produce a past slot in
+  the first place, and the test file enumerates the interactive entry points and asserts each refuses.
+  **WAITLIST-ACCEPT AND RECURRING SERIES ARE DELIBERATELY NOT STRICT** — they are outside the four
+  paths in scope, and both have fixtures that legitimately book historical slots. A waitlist offer
+  has a ~30-minute TTL, so the exposure is narrow; making them strict is a follow-up decision, not a
+  silent omission.
+  **A DESIGN THAT LOOKED RIGHT AND WAS WRONG, recorded because the next person will try it.** The
+  first implementation anchored the scan date in the branch's zone so the cursor became a real
+  instant. It type-checked, read well, and **silently moved the first offered slot from 07:00 to
+  09:00 on a Europe/Zurich branch** — because `resource_availability` windows are naive local times
+  compared in the process zone, so a zone-anchored cursor de-synchronised from them. Twenty-four
+  tests went red and an empirical probe of the finder's actual output found it. The correct shape is
+  the opposite: leave the cursor naive and convert the CLOCK into the branch's zone, re-read as naive
+  digits (`nowInBranchClock()`), so both sides of the comparison sit in the practice's clock. This is
+  the same `starts_at`-is-a-naive-local-wall-clock fact D-192 recorded, met from the other side.
+  **REFUSALS ARE ANSWERS, NOT CRASHES.** `DayBoardActionController`, `PortalAppointmentController`
+  and `PublicBookingController` did not catch `BookingUnavailableException`, so the new refusal
+  surfaced as **HTTP 500** — the C-1 class the FIX.5 route smoke exists to prevent, and on the public
+  form it would have met an anonymous visitor. All three now redirect back with a field error. On the
+  public path the whole attempt rolls back, so a refused booking also leaves no half-created patient.
+  **Guarded by** `tests/Feature/Scheduling/PastSlotGuardTest.php` (10), clock-frozen LATE IN THE DAY
+  so each refusal test would SUCCEED without its guard (D-182) and with an explicit positive control
+  that the afternoon IS still offered (D-174) — a finder returning nothing would otherwise pass every
+  absence assertion. One test pins that the comparison uses the BRANCH clock, not the server's: at
+  06:00 UTC a Zurich branch has lost its 07:00 slot while a UTC branch has not.
+  See [[Scheduling]], `docs/qa/ROLE-AUDIT.md` (P1-H3), D-192 (the same naive-local fact),
+  D-170 (no invented policy), D-182/D-183 (the test shapes), D-031 (online rows keep
+  `booked_by = null`), [[LOG]].

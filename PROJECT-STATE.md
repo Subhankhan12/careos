@@ -46,7 +46,7 @@ phase's timestamp observation suspect, and past-time booking was live on the pub
 | Finding | Gate | State |
 |---|---|---|
 | **P1-C1** web requests wrote tenant-local wall-clock into UTC columns (incl. the append-only audit ledger) | **QA-FIX.1a** | ✅ FIXED — D-192/D-193 |
-| **P1-H3** the slot finder offered past times and the system booked them | **QA-FIX.1b** | Part 2 of the same gate |
+| **P1-H3** the slot finder offered past times and the system booked them | **QA-FIX.1b** | ✅ FIXED — D-194 |
 
 **⚠️ ONE NEW OPEN PRODUCT DECISION (D-193): the historical +2 h skew is RECORDED, NOT REWRITTEN.**
 Rows written by web requests before QA-FIX.1a carry the practice's wall clock in UTC columns (non-UTC
@@ -57,6 +57,16 @@ customer is live, so it is cheap to decide now — leave as-is (recommended) or 
 **Storage is now UTC from every path** (web, CLI, queue, scheduler); tenant-local time is a DISPLAY
 concern resolved at the presentation boundary (`App\Services\DisplayTimezone`). Do not reintroduce a
 process-wide `date_default_timezone_set()`.
+
+**A booking may not start in the past, on two layers** (D-194): `AvailableSlotFinder` never offers a
+slot that has already started in the **branch's** clock, and `BookingService::createBooking()` refuses
+one anyway — the finder is a UI fact, the guard also catches a stale tab or a forged POST. The
+boundary is strictly "has already started" (there is no min-notice setting — D-170). **Backdated
+RECORDING still works:** `$allowPastStart` is a call-site constant, never request-driven, permissive
+on `book()` (the historical-recording path both demo seeders use) and refusing on `bookOnline()`.
+**⚠️ SECOND OPEN DECISION (D-194):** waitlist-accept and recurring series stay permissive, and a
+future interactive caller of `book()` would inherit the permissive default — inverting it means
+fixing 13 fixtures and both seeders, which needs its own gate.
 
 ### THE WIREFRAME-PARITY PROGRAMME — COMPLETE (nine pages + six domain batches)
 

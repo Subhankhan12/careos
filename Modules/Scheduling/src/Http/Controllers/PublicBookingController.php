@@ -15,6 +15,7 @@ use Modules\Patients\Services\PatientService;
 use Modules\Platform\Models\Branch;
 use Modules\Platform\Models\Tenant;
 use Modules\Platform\Services\TenantContext;
+use Modules\Scheduling\Exceptions\BookingUnavailableException;
 use Modules\Scheduling\Models\Service;
 use Modules\Scheduling\Services\AvailableSlotFinder;
 use Modules\Scheduling\Services\BookingService;
@@ -90,17 +91,27 @@ class PublicBookingController
             ->where('active', true)
             ->findOrFail($data['service_id']);
 
-        DB::transaction(function () use ($data, $patients, $duplicates, $bookings, $service): void {
-            $patient = $this->patientForPublicBooking($data, $patients, $duplicates);
+        try {
+            DB::transaction(function () use ($data, $patients, $duplicates, $bookings, $service): void {
+                $patient = $this->patientForPublicBooking($data, $patients, $duplicates);
 
-            $bookings->bookOnline(
-                $service->id,
-                $patient->id,
-                $data['branch_id'],
-                $data['starts_at'],
-                array_values($data['resource_ids']),
-            );
-        });
+                $bookings->bookOnline(
+                    $service->id,
+                    $patient->id,
+                    $data['branch_id'],
+                    $data['starts_at'],
+                    array_values($data['resource_ids']),
+                );
+            });
+        } catch (BookingUnavailableException $e) {
+            /*
+             * A public visitor must never meet a 500. The transaction rolls back, so a refusal
+             * here also means NO patient record was created from the attempt — the duplicate
+             * detector's work is undone with it, which is the behaviour we want for a booking
+             * that never happened (QA-FIX.1b).
+             */
+            return back()->withErrors(['starts_at' => $e->getMessage()]);
+        }
 
         return redirect()->route('public.booking.index', $tenant->slug);
     }

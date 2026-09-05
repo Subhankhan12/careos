@@ -7,6 +7,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 use Modules\Platform\Models\User;
+use Modules\Scheduling\Exceptions\BookingUnavailableException;
 use Modules\Scheduling\Models\Appointment;
 use Modules\Scheduling\Models\Service;
 use Modules\Scheduling\Services\AppointmentService;
@@ -65,16 +66,25 @@ class DayBoardActionController
 
         abort_unless($actor instanceof User, 403);
 
-        $bookings->book(
-            $data['service_id'],
-            $data['patient_id'],
-            $data['branch_id'],
-            $data['starts_at'],
-            array_values($data['resource_ids']),
-            $actor,
-            Appointment::SOURCE_STAFF,
-            $data['notes'] ?? null,
-        );
+        try {
+            $bookings->book(
+                $data['service_id'],
+                $data['patient_id'],
+                $data['branch_id'],
+                $data['starts_at'],
+                array_values($data['resource_ids']),
+                $actor,
+                Appointment::SOURCE_STAFF,
+                $data['notes'] ?? null,
+                // Quick-book is a person choosing a slot, so a past start is refused server-side
+                // even if the posted `starts_at` is stale or forged (QA-FIX.1b, P1-H3).
+                allowPastStart: false,
+            );
+        } catch (BookingUnavailableException $e) {
+            // A refusal is an ANSWER, not a crash: the board shows why and nothing was written.
+            // (Leaving it to surface as a 500 is the C-1 class the FIX.5 smoke exists to catch.)
+            return back()->withErrors(['starts_at' => $e->getMessage()]);
+        }
 
         return back();
     }

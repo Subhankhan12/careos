@@ -257,6 +257,11 @@ class AppointmentDetailController extends Controller
                 $match['resource_ids'],
                 $actor,
                 $validated['reason'],
+                // A person picked this slot, so it may not land in the past. THIS IS THE PATH THE
+                // AUDIT REPRODUCED: confirming an offered morning slot late in the day moved a
+                // patient 742 minutes backwards (P1-H3). The finder no longer offers such a slot;
+                // this refuses it anyway, for a stale or forged submission.
+                allowPastStart: false,
             );
         } catch (BookingConflictException|BookingUnavailableException|IllegalAppointmentTransitionException|InvalidArgumentException $e) {
             // The overlap guard (or the machine, or the reason rule) refused it. Nothing moved.

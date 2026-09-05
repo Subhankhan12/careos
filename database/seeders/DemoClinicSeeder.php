@@ -801,7 +801,15 @@ class DemoClinicSeeder extends Seeder
         // seedClinical(), which documents the consult on this appointment.
         $this->appointmentInProgress = $book('consult', 0, $this->weekday(3)->setTime(10, 30), ['doctor_brunner', 'room_1']);
 
-        // Two online self-bookings through the public path.
+        /*
+         * Two online self-bookings through the public path.
+         *
+         * `allowPastStart: true` because this is RECORDING a demo week that has partly elapsed, not
+         * performing an online booking (QA-FIX.1b, D-194). The live portal and public form never
+         * pass this — `bookOnline()` defaults to refusing a past start — so a patient still cannot
+         * backdate. These stay on `bookOnline()` rather than `book()` so the seeded rows keep the
+         * shape a real online booking has: `source = online` and `booked_by = null` (D-031).
+         */
         $booking->bookOnline(
             $this->services['consult']->id,
             $this->patients[3]->id,
@@ -809,6 +817,7 @@ class DemoClinicSeeder extends Seeder
             $this->weekday(5)->setTime(9, 30),
             [$this->resources['doctor_keller']->id, $this->resources['room_2']->id],
             'Online gebucht über die Website.',
+            allowPastStart: true,
         );
 
         $booking->bookOnline(
@@ -818,6 +827,7 @@ class DemoClinicSeeder extends Seeder
             $this->weekday(5)->setTime(16, 0),
             [$this->resources['doctor_brunner']->id],
             'Videosprechstunde, online gebucht.',
+            allowPastStart: true,
         );
 
         app(WaitlistService::class)->create([
