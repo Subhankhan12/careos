@@ -24,7 +24,7 @@ missing · `LOW` cosmetic / polish.
 | # | Role group | Status |
 |---|---|---|
 | **1** | **Reception / front-desk** (`reception`, `admissions_clerk`) | ✅ **DONE** — 2026-09-04 |
-| 2 | Clinical (`doctor`, `nurse`, `hospitalist`, `ward_nurse`, `charge_nurse`) | ⏳ planned |
+| **2** | **Clinician / physician** (`doctor` — medical **and** dental, `ed_physician` driven; `hospitalist`, `surgeon`, `anesthetist`, `pathologist`, `radiologist` compared but not driven) | ✅ **DONE** — 2026-09-05 |
 | 3 | Billing (`billing`) | ⏳ planned |
 | 4 | Nursing / Spitex (`coordinator`, field nurse + Nurse PWA) | ⏳ planned |
 | 5 | Pharmacy (`pharmacist`, `pharmacy_technician`) | ⏳ planned |
@@ -39,7 +39,8 @@ missing · `LOW` cosmetic / polish.
 | Phase | CRITICAL | HIGH | MEDIUM | LOW | Total |
 |---|---|---|---|---|---|
 | 1 — Reception / front-desk | 1 | 3 | 8 | 6 | 18 |
-| **Total to date** | **1** | **3** | **8** | **6** | **18** |
+| 2 — Clinician (doctor / dentist) | 1 | 4 | 9 | 5 | 19 |
+| **Total to date** | **2** | **7** | **17** | **11** | **37** |
 
 ## Fix status
 
@@ -54,7 +55,7 @@ every later phase's timestamp observation suspect, and past-time booking was liv
 | ID | Severity | Status | Gate | Commit |
 |---|---|---|---|---|
 | `P1-C1` | CRITICAL | ✅ **FIXED** | QA-FIX.1a | `78a05db` |
-| `P1-H3` | HIGH | ✅ **FIXED** | QA-FIX.1b | `<pending>` |
+| `P1-H3` | HIGH | ✅ **FIXED** | QA-FIX.1b | `f6b619a` |
 | all others | — | 📋 recorded, not fixed | — | — |
 
 *(A commit cannot contain its own hash. Per the repo-wide marker convention, `<pending>` is backfilled
@@ -288,7 +289,7 @@ patient pairs for dedupe testing.
 
 #### `P1-H3` — The slot finder offers **times in the past**, and the system books them
 
-> ✅ **FIXED — QA-FIX.1b, commit `<pending>` (D-194).** Two independent layers, because they answer
+> ✅ **FIXED — QA-FIX.1b, commit `f6b619a` (D-194).** Two independent layers, because they answer
 > different questions. **The finder** (`AvailableSlotFinder`) now skips any slot whose start has
 > already passed in the **branch's** clock, so every consumer inherits it — day-board, staff
 > reschedule, portal self-booking and the public form. **The booking funnel** (`createBooking`, which
@@ -551,12 +552,594 @@ These were actively probed, not assumed:
 
 ---
 
+## Phase 2 — Clinician (doctor / dentist)
+
+**Date:** 2026-09-05 · **HEAD at audit:** `f6b619a` (QA-FIX.1b) · **CI at audit:** check-run `check`
+→ `completed / success`, read from the GitHub check-run API before starting · tree clean apart from
+untracked `docs/marketing-site/`.
+
+### Roles covered
+
+`RbacProvisioner::ROLE_TEMPLATES` defines **26** role templates. The **clinician (physician) group**
+is these seven:
+
+| Template | Permissions | Driven in a browser |
+|---|---|---|
+| `doctor` | 11 | ✅ **twice** — medical practice AND dental practice |
+| `ed_physician` | 7 | ✅ specialist variant |
+| `hospitalist` | 11 | ❌ permissions compared only |
+| `surgeon` | 7 | ❌ permissions compared only |
+| `anesthetist` | 5 | ❌ permissions compared only |
+| `pathologist` | 7 | ❌ permissions compared only |
+| `radiologist` | 7 | ❌ permissions compared only |
+
+**THE STRUCTURAL FACT THAT SHAPED THIS PHASE: there is no `dentist` role template.** The gate asked
+for "doctor vs dentist". They are **the same template** — the dental practice's clinician
+(`luca.ferrari@zahnarztpraxis-morgenstern.test`) holds `doctor`, exactly as the medical practice's
+(`matthias.brunner@praxis-lindenhof.test`) does. So both were driven separately, in their own
+tenants, and the comparison below is a *vertical* comparison, not a template one.
+
+**Excluded, with reasons.** Nursing (`nurse`, `ward_nurse`, `charge_nurse`, `scrub_nurse`,
+`triage_nurse`, `ed_charge_nurse`) — a separate role group with its own planned phase. Pharmacy
+(`pharmacist`, `pharmacy_technician`), technical lab/imaging (`lab_tech`, `phlebotomist`,
+`radiographer`), front-desk/ops (`reception`, `coordinator`, `admissions_clerk`,
+`surgical_scheduler`, `bed_manager`, `him_records`) and admin/finance (`org_admin`, `billing`) —
+none is a clinician; several have their own phases already scheduled.
+
+### Environment
+
+- **Playwright MCP throughout.** Every page below was driven in a real browser. **No restart was
+  needed** — the local install from Phase 1 (`~/.claude/mcp-local/`, configs pointing at
+  `node .../cli.js`) started first time. Login is real: password + TOTP (fixed factory secret) for
+  each of the three accounts.
+- **Re-seeded before starting**: `migrate:fresh --seed` + all four demo seeders, 0 exceptions.
+- **Redis: UP, stated honestly** — a Memurai process (dev licence) started manually in an earlier
+  session, not a restored service. `cache=redis queue=redis session=database`.
+- **PERFORMANCE IS OUT OF SCOPE** (MariaDB + a dev box); deferred to staging.
+- **Browser environment, and why it matters below:** `Intl` timezone `America/Los_Angeles`,
+  locale `en-US`, while the tenant is `Europe/Zurich` and `<html lang="de">`. That three-way split
+  is what made `P2-H3` visible; it is stated so the reader can separate my machine from the defect.
+
+**Data verified BY QUERY before driving** (per tenant): `praxis-lindenhof` 15 patients · 6 encounters
+· 7 notes for the index patient (6 current + **1 amendment chain**) · 3 allergies at **severe /
+moderate / mild** (the D-169 control set) · 15 vitals · 8 problems · 6 medications · 1 referral ·
+3 recalls · 2 pending agent drafts. `zahnarztpraxis-morgenstern` **10 charted teeth · 2 perio exams
+· 24 perio measurements · 2 treatment plans · 1 dental image**. `klinik-bergblick` 5 orderable items
+· 7 orders · 4 lab orders · 3 imaging studies.
+
+**One data gap, stated:** **no appointment exists for today.** Today is Saturday 2026-09-05 and the
+seeders build a weekday week (2026-08-31 → 2026-09-04, all eight statuses present). I therefore drove
+the day-board at `?date=2026-09-04` for appointment actions and used today only to check the empty
+state. I did not create an appointment for today, because the finder correctly offers no Saturday
+slots (availability is weekdays 1–5) and manufacturing one would have meant changing seeded data.
+
+### Surfaces driven (explicit, so gaps are visible)
+
+| Surface | doctor (medical) | doctor (dental) | ed_physician |
+|---|---|---|---|
+| `/app` landing | ✅ | ✅ | ✅ |
+| `/patients` directory | ✅ | ✅ | ✅ (403 on register) |
+| Patient 360 `/patients/{id}` | ✅ | — | — |
+| Clinical chart — **all 8 tabs** | ✅ | — | ✅ |
+| Note editor: draft → **sign** → **amend** | ✅ **end to end, twice** | — | — |
+| Day-board + appointment actions | ✅ | ✅ (sweep) | 403 (correct) |
+| Odontogram (chart a tooth) | — | ✅ **recorded a condition** | — |
+| Perio charting | — | ✅ | — |
+| Diagnoses | — | ✅ | — |
+| Treatment plan | — | ✅ | — |
+| Imaging library | — | ✅ | — |
+| Dental fee schedule | 403 | **403** | — |
+| Orders (place an order) | ✅ (empty catalogue) | — | ✅ **placed 2 orders** |
+| Lab results review | ✅ | ✅ (sweep) | ✅ |
+| Recalls (**completed one**) | ✅ | ✅ (sweep) | ✅ |
+| Approval queue | **403** | **403** | **403** |
+| Inbox | **403** | **403** | **403** |
+| Ward board | ✅ | ✅ (sweep) | ✅ |
+| ED board | 403 | 403 | ✅ |
+| Snippets | ✅ (sweep) | ✅ (sweep) | ✅ (sweep) |
+| Telehealth | ✅ (sweep) | ✅ (sweep) | ✅ (sweep) |
+| Narrow viewport 375×844 | ✅ | — | — |
+| Forged POSTs (RBAC) | ✅ 4 endpoints | — | — |
+| Session expiry mid-form | — | — | ✅ |
+
+**Route sweeps** were run in-session over **47 GET routes** for the doctor and **24** for the dentist
+(byte-identical results) and **16** for the ED physician.
+
+### CRITICAL
+
+#### `P2-C1` — A signed clinical note is **attributed to a clinician who neither wrote nor signed it**
+
+- **Role:** `doctor` · **Route:** `/scheduling/day-board` → "Document" → `/clinical/notes/{id}/edit`
+- **What I did:** Logged in as **Dr. med. Matthias Brunner** (`users.id = 3`). Opened the day-board
+  at `2026-09-04`. The 09:30 appointment for Beatrice Weber is assigned to the practitioner resource
+  **"Dr. Keller"** (`appointment_resources` → `resources.id 01m1s7mmq06ryfx9ege04z9xzb` →
+  `staff_profile_id 01m1s7me3j2cjwy0z15rej306t` = **Dr. med. Sofia Keller**, `user_id = 4`). Clicked
+  **Document**. Typed into Subjective: *"QA Phase 2 authorship probe: this text was typed by Dr.
+  Matthias Brunner while logged in as Brunner."* Clicked **Sign note**, typed `SIGN`, confirmed
+  **Sign permanently**.
+- **What happened:** The note editor showed **"Dr. med. Sofia Keller"** as the version author from
+  the moment it opened, and after signing the page states:
+
+  > **Signed · Dr. med. Sofia Keller · 2026-09-05 17:13:32**
+
+  In the database: `author_id = 01m1s7me3j2cjwy0z15rej306t` → **Sofia Keller**, while
+  `signed_by = 3` → **Matthias Brunner**, and the audit row `note.signed` correctly carries
+  `actor_id = 3`. **Brunner wrote every word and pressed every button; the clinical record names
+  Keller.**
+- **What should have happened:** the note should be authored to the clinician who wrote it, or —
+  if attributing to the appointment's practitioner is deliberate — the screen must not present that
+  person as the *signatory*.
+- **Cause:** `ClinicalNote.author_id` is populated from the **encounter's practitioner**, which
+  "Document" derives from the appointment's practitioner resource, not from the authenticated user.
+  The encounter created by that click carries `practitioner_id` = the same Keller profile.
+- **Why this is CRITICAL:** it is wrong clinical data in the medico-legal record, and a **D-179
+  breach** (an asserted action never taken — the UI asserts a signature Keller never made). The truth
+  survives only in the audit chain, which is not what a clinician reads. It is also **not** house
+  style: `tooth_records.charted_by` and `orders.ordered_by` both correctly record the acting user
+  (verified — see the guards section). The note path is the outlier.
+- **Sub-finding (STRUCTURE):** `author_id` and `signed_by` sit on the same row but reference
+  **different identity tables** — `author_id` → `staff_profiles.id` (ULID), `signed_by` → `users.id`
+  (integer). `tooth_records.charted_by` and `orders.ordered_by` also use `users.id`. Three "who"
+  columns across the clinical tables, two identity namespaces, no agreement.
+
+### HIGH
+
+#### `P2-H1` — Opening a note silently marks the patient **arrived** and the appointment **in progress**
+
+- **Role:** `doctor` · **Route:** `/scheduling/day-board` → "Document"
+- **What I did:** Clicked **Document** once, to write a note. Nothing else.
+- **What happened:** the audit shows three status transitions fired at the same instant
+  (17:11:12, `actor_id = 3`): **`appointment.confirmed` → `appointment.arrived` →
+  `appointment.in_progress`**. The appointment moved `booked` → `in_progress`. **`checked_in_at` is
+  NULL and `check_in_source` is NULL** — the record asserts the patient arrived while holding no
+  evidence that they did. No confirmation was requested, no warning shown, no undo offered.
+- **What should have happened:** writing a note is documentation, not attendance. Either the
+  transition is confirmed by the user, or it is not performed.
+- **Why HIGH:** attendance drives reporting and billing, and a no-show documented by a clinician
+  opening the wrong row is now indistinguishable from a real arrival. **D-179.**
+- **CROSS-PHASE:** this is Phase 1's `P1-M1` (status `arrived` with `checked_in_at` NULL) recurring
+  from a **different entry point and a different role** — evidence the pair is systemic, not local.
+
+#### `P2-H2` — A clinician's landing page is a wall of dead ends; for the ED physician **every link 403s**
+
+- **Roles:** `ed_physician`, `doctor`, dentist · **Route:** `/app`
+- **What I did:** enumerated every `<a href>` inside `<main>` on the landing page and fetched each
+  one in-session.
+- **What happened:** for **`ed_physician`** the landing page contains exactly **four** unique links
+  and **all four return 403**:
+
+  | Link | Status |
+  |---|---|
+  | `/patients/register` (hero CTA **and** a quick action) | **403** |
+  | `/scheduling/day-board` (hero CTA, "Today's schedule" card, and its footer link) | **403** |
+  | `/nursing/dispatch` (quick action) | **403** |
+  | `/comms/inbox` (quick action) | **403** |
+
+  For **`doctor` and the dentist**, two of the three quick actions — "Nursing dispatch" and
+  "Unified inbox" — are 403.
+- **What should have happened:** the landing page should offer what the role can do.
+- **Cause:** the **top nav is permission-aware and correct** (it shrinks to Dashboard / Patients /
+  Orders / Telehealth for the ED physician, hiding Scheduling and Dental), but the **page body is
+  not** — the hero CTAs, the schedule card and the quick-action list are rendered unconditionally.
+- **Why HIGH:** the primary landing surface for a clinical role is entirely non-functional, and the
+  role cannot tell which links are real until it clicks them.
+- **CROSS-PHASE:** Phase 1's `P1-M2` / `P1-H1` "ungated control in front of a correctly-gated
+  server", now at its worst.
+
+#### `P2-H3` — Clinical timestamps are shown in **two wrong clocks**, never the practice's
+
+- **Roles:** `doctor`, dentist · **Routes:** the chart, the note editor, dental tooth history,
+  imaging, order results
+- **What I did:** the tenant setting is `timezone = Europe/Zurich` (UTC+2 on this date) and storage
+  is UTC since `QA-FIX.1a`. I created a note amendment at a known wall clock and read back what the
+  screen said.
+- **What happened:** at the single instant `2026-09-05T17:04:51Z` the note editor displayed **three
+  different clocks and none of them was Zurich**:
+
+  | Shown as | Value | What it actually is |
+  |---|---|---|
+  | version list / "Signed ·" | `2026-09-05 17:03:53` | raw **UTC** |
+  | "Draft saved · " | `10:04 AM` | the **viewer's machine** zone (America/Los_Angeles), US 12-hour |
+  | *(correct)* | `19:03` | tenant **Europe/Zurich** |
+
+  I signed a note at **19:05:50 Zurich**; the record reads `2026-09-05 17:05:50`. The **dental**
+  surfaces differ again: tooth history and imaging render `9/5/2026, 9:51:12 AM` — the **browser's**
+  timezone in US format. Lab results on the chart render raw UTC (`2026-09-05 16:51:31`).
+  Meanwhile appointment times are correct (`starts_at 09:30` displays `09:30`) because `starts_at`
+  is a **naive local wall clock**, not an instant.
+- **What should have happened:** one declared display zone — the practice's — everywhere.
+- **Cause:** storage is right; the **display boundary is missing on clinical surfaces**. Some
+  components print the stored UTC verbatim; others hand the instant to `toLocaleString()`, which
+  resolves to whatever machine the clinician is sitting at. `QA-FIX.1a` corrected storage and
+  thereby *revealed* this: while writes were tenant-local, printing raw looked right.
+- **Why HIGH not CRITICAL:** the stored values are correct and internally consistent, and the audit
+  chain is truthful; the defect is presentational. It is HIGH rather than MEDIUM because a
+  medico-legal signature time is off by the tenant offset, and because the dental variant differs
+  **per viewer**, so two clinicians reading the same record see different times.
+- **CROSS-PHASE:** Phase 1's `P1-L2` (inbox raw UTC vs appointment history local) generalised — the
+  divergence is not two screens, it is two *mechanisms*, and it now touches the clinical record.
+
+#### `P2-H4` — The clinical chart cannot record anything the clinician is permitted to record
+
+- **Role:** `doctor` · **Route:** `/clinical/chart/{patient}`
+- **What I did:** opened all eight tabs and enumerated every visible control on each.
+- **What happened:**
+
+  | Tab | Controls offered |
+  |---|---|
+  | Timeline | search box only — encounter rows are plain `<div>`s, `cursor:auto`, no link |
+  | Notes | `Open →` on existing notes. **No "new note".** |
+  | Problems | none |
+  | Vitals | none |
+  | Medications | none — **no prescribe / record** |
+  | Documents | `Download` only — **no upload** |
+  | Orders | `<select>` + reason + Routine/Urgent + **Place order** ← the only create affordance |
+  | Care | none |
+
+  The `doctor` template holds **`note.write`, `note.sign`, `medication.prescribe`,
+  `encounter.manage`, `patient.edit`** — the chart exposes an affordance for **none** of them.
+  Notes turn out to be creatable **only** from a day-board appointment's "Document" button, so a
+  clinician looking at a patient's chart must leave it, find the right date on the day-board and
+  click there; and a patient with no appointment appears to have no note path at all.
+- **What should have happened:** a granted clinical capability should have a surface, and the chart
+  is where a clinician expects it.
+- **Why HIGH:** core clinical operations (write a note about the patient in front of you, record a
+  medication, record a vital) have no route from the patient's own record.
+
+### MEDIUM
+
+#### `P2-M1` — No clinician can reach the approval queue; only an administrator can approve an agent draft
+
+`/governance/approvals` is **403** for `doctor`, the dentist and `ed_physician`. Querying
+`permission_role` shows **`ai.manage` is held by `org_admin` alone**. So a clinical agent draft can
+only ever be reviewed by an administrator, not by a clinician — the inverse of the intended safety
+property. The 403 page itself is good (see guards), and the nav correctly does **not** advertise the
+queue. **Stated honestly:** the two drafts seeded in this tenant are operational
+(`scheduler.fill_from_waitlist`, `comms.draft_reply`), so **I could not exercise a clinical draft end
+to end**; the finding rests on the permission map plus the 403s, not on a clinical approval I saw.
+
+#### `P2-M2` — Five of the seven physician roles cannot prescribe
+
+| Role | vs `doctor` |
+|---|---|
+| `hospitalist` | `+ admission.manage`, `− dental.chart` |
+| `surgeon` | `+ surgery.manage, surgery.schedule` · **`− medication.prescribe`**, `− allergy.override, appointment.manage, patient.edit, snippet.manage.shared` |
+| `anesthetist` | `+ surgery.manage` · **`− medication.prescribe`, `− order.manage`** (+ the same others) |
+| `ed_physician` | `+ admission.manage, ed.manage` · **`− medication.prescribe`** (+ the same others) |
+| `pathologist` | `+ lab.catalog, lab.result` · **`− medication.prescribe`** |
+| `radiologist` | `+ radiology.catalog, radiology.study` · **`− medication.prescribe`** |
+
+All seven can write and sign notes. A **pathologist** or **radiologist** not prescribing is
+defensible; a **surgeon** and an **ED physician** unable to prescribe reads as accidental, and an
+**anaesthetist who can neither prescribe nor order** (`− order.manage`) cannot request a pre-op
+investigation. **Honesty:** this is **not observable in the UI**, because no prescribing surface
+exists anywhere (`P2-H4`) — the evidence is the role template and the permission tables, not the
+browser.
+
+#### `P2-M3` — The same kind of date renders in **four** formats, one of them US month/day in a de-CH tenant
+
+Measured across surfaces driven in this phase:
+
+| Surface | Rendering | Style |
+|---|---|---|
+| `/patients`, `/dental` lists | `12.03.1954` | Swiss `DD.MM.YYYY` |
+| Patient 360, chart header | `1954-03-12`, `1954-03-12 (72)` | ISO |
+| Chart allergy "Recorded" / "Confirmed" | `9/5/2026`, `9/5/2024` | **US `M/D/YYYY`** |
+| Dental chart header | `05/22/1979` | **US `MM/DD/YYYY`** |
+| Perio, one page, one date | `09/01/2026` **and** `2026-09-01` | both, together |
+| Chart timeline, note versions | `2026-08-03 09:00:00` | ISO datetime |
+| "Draft saved", tooth history, imaging | `10:04 AM`, `9/5/2026, 9:51:12 AM` | US 12-hour, viewer's zone |
+
+`9/5/2026` is genuinely ambiguous to a Swiss reader (5 September vs 9 May). This **extends Phase 1's
+`P1-M3`** from three formats on the reception surfaces to four across the clinical ones, and the
+perio screen prints the *same date* in two formats simultaneously.
+
+#### `P2-M4` — No navigation below 768 px, and for this role **Search is gone too**
+
+At **375 × 844** on `/clinical/chart/{id}`, measured by bounding box and computed style: the only
+visible header control is **"Sign out"**. Hidden: all six nav links, **Search** and Notifications.
+`header nav` renders 0 visible links; `<main>` offers 2 in-page links. The Search button carries
+`hidden … sm:flex`, so it disappears below 640 px as well — Phase 1 recorded the nav gap (`P1-M4`),
+and for the clinician **the search escape hatch is also unavailable**. No horizontal overflow
+(`scrollWidth 360 ≤ 375`), so the page reads fine; it simply cannot be left.
+
+#### `P2-M5` — Encounters are listed but cannot be opened
+
+The chart Timeline lists six encounters with type, status and timestamp. Each row is a plain `<div>`
+with `cursor: auto`, no anchor inside and no anchor ancestor. There is no encounter detail surface
+reachable from the chart, so a clinician can see that an encounter exists but not open it.
+
+#### `P2-M6` — The dentist cannot view the dental fee schedule, but a pharmacist can
+
+`/dental/fee-schedule` is **403** for the dentist in their own dental practice.
+`FeeScheduleController:29,59,76` authorises **`billing.manage`**, held by `org_admin`, `billing` and
+**`pharmacist`** — not by `doctor`. The dentist *does* see the resulting estimates inside the
+treatment plan (`CHF 900.00`), so they can quote a fee they cannot inspect or correct. Reading a
+price list arguably wants a read-level permission rather than `billing.manage`.
+
+#### `P2-M7` — An amended note's primary link opens the **superseded** version
+
+On the chart's Notes tab, the amended note's card is headed **"Version 1"** and its primary
+**`Open →`** points at the superseded v1 (`…9dzc2k`). The current v2 (`…zjgvf6`) is reachable only
+through the nested **"Open version →"** entry beneath it. A clinician clicking the note in the list
+lands on the outdated text; the amendment is what the record means to say.
+
+#### `P2-M8` — The order form renders in full against an empty catalogue, with no empty state
+
+`praxis-lindenhof` has `orderableItems = 0`. The Orders tab still renders the complete form — an
+**empty `<select>`**, a "Reason (documented)" field and Routine/Urgent — with no message explaining
+that nothing is orderable. **The "Place order" button is correctly `disabled`**, so this is a
+missing-state problem and *not* an unbacked control (D-176 holds).
+
+#### `P2-M9` — Session expiry mid-form discards typed input
+
+Filled the order form, then deleted every row from `sessions` (the session driver is `database`, so
+this is a real expiry, and the gate noted Phase 1 could not test this). Submitting produced a clean
+branded **419** page — *"Your session expired · For your security your session timed out. Please
+sign in again and retry."* — with a "Back to dashboard" link. **The handling is good** (see guards);
+the gap is that the typed content is gone, with no warning beforehand and no restoration after
+signing back in.
+
+### LOW
+
+#### `P2-L1` — The allergy is rendered twice on Patient 360
+
+The dark hero band and the amber banner directly beneath it carry the identical text
+(*"Penicillin · Anaphylaxis requiring adrenaline and admission. · severe"*), one above the other.
+
+#### `P2-L2` — `<html lang="de">` while the entire interface is English
+
+The document declares German and dates on the dashboard and day-board render in German
+("Samstag, 5. September 2026", "Fr., 4. September 2026"), but every label, heading and dialog is
+English — including the signing gate, which asks a Swiss-German clinician to **"Type SIGN to
+confirm"**. **No raw i18n keys were found rendering** (see guards); this is untranslated UI, not
+broken translation.
+
+#### `P2-L3` — Validation runs before authorization, leaking the schema to unauthorized callers
+
+Forged POSTs from the `doctor` session to `/comms/inbox/*` return **422 with the full validation
+message** ("The thread id field is required", "The action field is required") and only return **403**
+once the payload is complete. The action is correctly blocked either way; an unauthorized caller
+simply learns the field names first.
+
+#### `P2-L4` — Age is abbreviated differently on the medical and dental charts
+
+`72 y` on the medical chart and Patient 360; `47 yrs` on the dental chart header.
+
+#### `P2-L5` — A medical practice is offered dental charting for every patient
+
+`praxis-lindenhof` is a general medical practice, yet the doctor's nav carries **Dental**, `/dental`
+lists all 15 medical patients with "Open dental chart →", and every Patient-360 hero shows a
+prominent **"Dental chart →"** button. This follows from `doctor` holding `dental.chart` and both
+demo tenants sharing one `plan_id`. **Not a cross-tenant leak** — the patients listed are the
+practice's own — but it puts an unused vertical in front of every clinician.
+
+### Guards verified holding (probed in the browser, not assumed)
+
+These were actively attacked and held. This is evidence the programme's fences survive contact.
+
+**The clinical judgment fence — record, don't judge**
+
+- **Vitals stay raw.** All BP values on the chart (77, 81, 125, 128, 132) render with a
+  **byte-identical** class `py-1 pr-3 tabular-nums text-ink`, colour `rgb(42,51,42)`, transparent
+  background, `font-weight 400` — an elevated 132/81 is styled exactly like a normal 125/77. Zero
+  matches for *normal|high|low|elevated|abnormal|critical|flag|score|trend|percentile|range*. Zero
+  trend arrows. Zero `<canvas>`. The four `<svg>` are 14–20 px icons, not sparklines.
+- **No drug-allergy computation, and the product says so:** *"These are recorded facts — CareOS
+  surfaces them, it does not compute drug-allergy conflicts."* and *"No automated medication-safety
+  checking is configured… drug-allergy interaction, cross-reactivity and contraindication checking is
+  a certified-partner function and is not performed here… they are never automatic and never block a
+  prescription."*
+- **Odontogram:** *"Colour marks the condition the dentist charted — **not its severity**. Nothing
+  here is scored, graded, or flagged."* No DMFT, no index, no finding count, no "sites to watch".
+- **Perio:** *"These are raw measurements only… Nothing here is staged, graded, scored, or flagged.
+  You read the numbers and interpret them."* **No BOP %, no mean pocket depth, no total, no stage or
+  grade, no trend.** Prior exams are shown as raw values (`3/0 4/0• 6/0•`) captioned *"Raw values as
+  recorded"*.
+- **Diagnosis:** *"You write the diagnosis. Nothing here suggests, proposes, ranks, or auto-fills a
+  diagnosis, and no diagnosis is derived from the charting, perio, or imaging. The status is your
+  determination."* The clinician's own term list is *"Not a coded set, not ranked, not suggested."*
+- **Treatment plan:** *"You author this plan — nothing is auto-suggested."* and *"Estimating is not
+  billing — a procedure is charged only when it's performed."* No auto-selected procedure or code.
+- **Recall worklist:** *"it is a date sort, not a priority ranking, and no recall is scored, ranked
+  or highlighted as more important than another."*
+
+**D-169 — no severity-keyed styling (positive-controlled twice)**
+
+- **Allergies:** a **severe** allergy (Erika Baumgartner, Penicillin) and a **mild** one
+  (Reto Zimmermann, Pollen) produce the **byte-identical** class string
+  `border border-warning/40 bg-warning-soft`, computed background `rgb(245,236,216)` and the same
+  border. The word *severe* itself renders `text-ink-muted` `rgb(90,102,90)`, weight 400. The amber
+  means "this patient has allergies", **not** "how bad".
+- **Perio pockets:** `2/0`, `3/0`, `4/0`, `5/0` and `6/0` all render `font-mono`,
+  colour `rgb(90,102,90)`, transparent background, weight 400. **A 6 mm pocket is not tinted.**
+
+**D-172 — nothing is drawn on a clinical image**
+
+The imaging library states *"This is a viewer. The system does not analyse images — no AI, no
+auto-findings, no overlay, no caries or pathology detection"*, *"Zoom and drag change what you see,
+not what is recorded. **Nothing is marked on the image**"*, and carries a "WHAT THIS VIEWER DOES NOT
+DO" block. **Measured: 0 `<canvas>` and 0 `<svg>` on the page — there is no drawing layer at all.**
+
+**The note editor's agent boundary**
+
+*"You author this note. CareOS stores and versions your text — it does not write, complete, rephrase
+or suggest clinical content, and nothing is inserted or signed without you."* and *"Vitals and
+results appear as the raw documented values. The editor never colours or interprets them."* Driving
+draft → sign → amend twice, **nothing was auto-inserted and nothing auto-signed**.
+
+**A signed note is not editable in place**
+
+On a signed note the SOAP fields render as plain text:
+`document.querySelectorAll('textarea:not([readonly]):not([disabled])').length === 1` — and that one
+is the *amendment reason*. Verified before signing (on a seeded note) and again on the note I signed
+myself. The only action offered is **Create amendment**, described as *"Creates a fresh editable
+version prefilled from the signed note. The original stays exactly as signed."*
+
+**The version chain is append-only and complete**
+
+*"Every version stays reachable, including the original. Nothing here deletes."* After I signed v2,
+v1 remained signed and openable. The Notes tab's count (**6**) correctly counts *current* versions
+against 7 stored rows — the superseded original is retained but not double-counted.
+
+**Signing is a deliberate act**
+
+Signing opens a modal — *"Signing permanently locks this note. Corrections afterwards happen only as
+visible amendments"* — showing patient, encounter and `0 of 0 required sections filled`, and the
+**"Sign permanently" button stays `disabled` until "SIGN" is typed**. Verified by a click that was
+refused.
+
+**Storage is one time base (QA-FIX.1a still holding)**
+
+My browser-written note recorded `created_at 2026-09-05 17:03:53` and `signed_at 17:05:50`, and the
+audit rows `note.amended` / `note.signed` landed at `17:03:53.568` / `17:05:50.633` — **agreeing with
+CLI `now()` in UTC to the second**. The tooth record I charted stored `17:24:27` and the order I
+placed stored `17:30:16`, both UTC. Web writes and CLI share one base.
+
+**Attribution is correct everywhere except notes**
+
+`tooth_records.charted_by = 21` = the logged-in dentist's `users.id`; `orders.ordered_by = 36` = the
+logged-in ED physician's `users.id`; every audit row carried the acting user. Only
+`clinical_notes.author_id` names someone else (`P2-C1`).
+
+**RBAC holds in both directions**
+
+- The two surprising 200s are **correct by design**: `hospital/wards` authorises `patient.view`
+  (`WardBoardController:44`) and gates writes separately on `bed.manage` (`:124`), computing
+  `$canManageBeds` / `$canAdmit` so unavailable actions are never rendered; `lab/results/review`
+  authorises `order.manage` (`LabReviewController:36`) and results route to the ordering clinician.
+- **Forged POSTs are refused.** With a valid CSRF token and a valid `thread_id`, the doctor's
+  session got `403 "This user cannot manage communications."` on `/comms/inbox/reply` and
+  `/comms/inbox/status`, and `403 "This user cannot run this AI tool."` on `/comms/inbox/ai-draft`.
+  **No RBAC hole was found in the "should not be able to" direction.**
+- The nav correctly **hides** what a role cannot reach (Approvals never advertised; Scheduling and
+  Dental absent for the ED physician). The failure is confined to the page *body* (`P2-H2`).
+
+**Error and edge states are handled, not raw**
+
+- **403** → *"You don't have access to this area"*, explains the cause, offers "Back to dashboard".
+- **419 session expiry** → *"Your session expired… Please sign in again and retry"*, with a way back.
+- **404** on a mistyped dental URL → *"Page not found · CareOS"*, branded.
+- **Empty states are honest:** the day-board on a Saturday reads all zeros with *"Arrived and not yet
+  started. A recorded pair of statuses, not a judgment about waiting"*; the ward board says *"No wards
+  yet"*; the diagnosis list says *"No terms yet — add your own, or just use free text above."*
+- **Consent is enforced and explained:** a recall row states *"No comms consent on record — a message
+  cannot be sent to this patient until they consent."*
+
+**No raw i18n keys**
+
+Walking every visible text node on the chart for `^[a-z_]+(\.[a-z_]+){1,3}$` returned **zero**
+suspects. (A naive scan of raw HTML appears to find permission keys, but those are the Inertia
+`data-page` JSON payload, not rendered text — ruled out by measuring the live DOM.)
+
+**Keyboard reachability**
+
+The perio grid documents and provides keyboard navigation: *"Arrow keys move between sites and teeth;
+Enter moves down."* Primary actions (Record, Save draft, Sign note, Place order, Mark Completed) are
+real `<button>` elements reachable by tab.
+
+### Ruled out after measurement (recorded so they are not re-reported)
+
+- **Patient-360 page title looked like a bare "CareOS".** An Inertia mount race **in my observation
+  only** — `document.title` settles to `Erika Baumgartner · CareOS`. Not a defect.
+- **A lab result appeared to run into its timestamp** (`4.22026-09-05 16:51:31`). Measured rects show
+  two inline spans on one line with an **8 px gap**; it was an `innerText` artifact. Not a defect.
+- **`hospital/wards` / `lab/results/review` reachable by a GP.** Correct by design (above).
+- **Notes tab shows 6 against 7 stored rows.** 7 = 6 current + 1 superseded; the count is right.
+
+### Not tested, and why
+
+- **`hospitalist`, `surgeon`, `anesthetist`, `pathologist`, `radiologist` were not driven in a
+  browser.** Their permission sets were compared (`P2-M2`) but no session was opened as them. Four of
+  the five belong to phases already scheduled (6 Surgery, 7 ED, 8 Lab + Radiology), so driving them
+  here would duplicate that work; `hospitalist` is the one genuine gap.
+- **A clinical agent draft was never approved.** Only operational drafts were pending, and no
+  clinician can reach the queue anyway (`P2-M1`). The approve path's re-authorisation and re-grounding
+  behaviour is therefore **unverified in this phase** — it needs a phase whose role holds `ai.manage`.
+- **No appointment exists today**, so appointment actions were driven on `2026-09-04` (see
+  Environment). The "today" path was exercised only as an empty state.
+- **Referrals were not driven.** One referral exists in the seed data, but no referral surface
+  appeared in the clinician's navigation or in the 47-route sweep, and I did not locate a create path
+  from the chart or Patient 360. Whether a clinician-reachable referral surface exists is **open**.
+- **Image upload was not exercised.** The imaging library's upload form was inspected and its fences
+  measured, but I did not upload a file.
+- **`him_records` / medical-records roles** are out of this group and belong to phase 9.
+- **Performance** is out of scope by instruction (dev box, MariaDB, array/dev drivers).
+- **The planned code-survey workflow did not complete** and was stopped. It was a targeting aid only;
+  every finding above is browser-derived, with code read solely to explain a cause already observed.
+
+---
+
 ## Cross-phase patterns
 
-*Empty — this section fills as phases accumulate.* Once two or more phases are complete, recurring
-themes (a guard that fails the same way across roles, a component reused with the same defect, a
-permission template shaped wrongly in the same direction) are recorded here with the finding IDs
-they generalise. Candidates already visible from Phase 1, to be confirmed or dropped against later
-evidence: **ungated UI controls in front of correctly-gated servers** (`P1-H1`, `P1-M2`, `P1-L5`)
-and **timestamp / locale rendering divergence between sibling screens** (`P1-C1`, `P1-M3`,
-`P1-L2`).
+Two phases are now complete, so this section carries real weight. Each pattern below is stated with
+the finding IDs it generalises, and with what the second phase *added* to the Phase 1 candidate.
+
+### 1. Ungated UI controls in front of correctly-gated servers — **CONFIRMED, and worse**
+
+`P1-H1` · `P1-M2` · `P1-L5` → `P2-H2` · `P2-M1`
+
+Phase 1 flagged this as a candidate. Phase 2 confirms it and finds the extreme case: for
+`ed_physician`, **every one of the four links on the landing page returns 403**, and for `doctor` and
+the dentist two of the three quick actions do. The shape is consistent across both phases — **the
+server is right and the page is wrong**. Phase 2 also isolates *where* the split lives: the top nav
+**is** permission-aware (it correctly hides Scheduling, Dental and Approvals from roles that lack
+them), while hero CTAs, dashboard cards and quick-action lists are rendered unconditionally. A fix
+that teaches the page body what the nav already knows would close this class in both phases at once.
+
+### 2. Timestamp and locale rendering divergence between sibling screens — **CONFIRMED, and now clinical**
+
+`P1-C1` · `P1-M3` · `P1-L2` → `P2-H3` · `P2-M3` · `P2-L4`
+
+Phase 1 saw the inbox print raw UTC while appointment history printed local, and three date formats
+across reception surfaces. Phase 2 shows the divergence is not two screens but **two mechanisms**,
+now reaching the clinical record: some components print the stored UTC verbatim, others hand the
+instant to a browser locale API that resolves to **the viewer's own machine zone**. At one instant
+the note editor showed `17:03:53` (UTC), `10:04 AM` (viewer's zone) and *should* have shown `19:03`
+(the practice's). Date formats went from three to **four**, including US `M/D/YYYY` in a de-CH
+tenant — and the perio screen prints the same date in two formats at once. `QA-FIX.1a` did not cause
+this; by making storage honest it **removed the accident that was hiding it**. The remedy is the one
+`D-192` already names: a display boundary, applied at every clinical surface rather than at the
+Inertia prop alone.
+
+### 3. A recorded status asserted without the event that earns it — **NEW, spans two phases**
+
+`P1-M1` → `P2-H1`
+
+Phase 1 found the day-board setting `status = arrived` while `checked_in_at` stayed NULL. Phase 2
+finds the same pair produced from a completely different entry point and role: a clinician clicking
+**"Document"** to write a note silently fires `confirmed → arrived → in_progress`, again leaving
+`checked_in_at` and `check_in_source` NULL. Two roles, two surfaces, one defect shape — attendance is
+inferred from an unrelated action. This is the clearest **D-179** pattern in the audit so far, and
+its blast radius is reporting and billing, not just the board.
+
+### 4. A granted permission with no surface to exercise it — **NEW**
+
+`P1-H1` → `P2-H4` · `P2-M2` · `P2-M6`
+
+Phase 1's `P1-H1` was the inverse (a surface offered to a role lacking the permission). Phase 2 finds
+the mirror image and it is more common: `doctor` holds `note.write`, `medication.prescribe`,
+`patient.edit` and `encounter.manage`, and **the clinical chart exposes an affordance for none of
+them**; five of seven physician roles lack `medication.prescribe` in a product that has no
+prescribing screen at all; the dentist is refused the fee schedule whose prices they are shown.
+Permission templates and UI affordances are drifting apart in **both** directions, which suggests
+they are maintained independently and never reconciled.
+
+### 5. The fences hold — **CONFIRMED across both phases**
+
+`P1` positives → the Phase 2 "guards verified holding" section
+
+Worth recording as a pattern in its own right: across two role groups and every clinical surface in
+this phase, **no computed clinical judgment was found**, vitals stayed raw, `D-169` held under
+positive control **twice** (severe vs mild allergy; 6 mm vs 2 mm pocket, both byte-identical),
+`D-172` held with **no drawing layer present at all** (0 `<canvas>`, 0 `<svg>`), the note editor's
+agent boundary held, a signed note was not editable in place, and forged POSTs were refused with
+clear 403s. The programme's hard rules are not eroding — the defects this audit is finding are in
+**presentation, navigation and attribution**, not in the fences.
+
+### Still open as a candidate
+
+**Identity references are inconsistent at the schema level** (`P2-C1` sub-finding): `author_id` →
+`staff_profiles.id`, `signed_by` / `charted_by` / `ordered_by` → `users.id`. One phase is not enough
+to call this a pattern; if a later phase finds a third namespace or another mis-attribution, it
+becomes one.
