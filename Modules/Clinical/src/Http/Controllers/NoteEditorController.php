@@ -159,7 +159,19 @@ class NoteEditorController
             'reason' => ['required', 'string', 'max:1000'],
         ]);
 
-        $amendment = $notes->amend($record, [], $data['reason'], $this->authorFor($record), $actor);
+        // AN AMENDMENT IS A NEW VERSION, AND ITS AUTHOR IS WHOEVER IS WRITING IT (QA-FIX.2a, D-195).
+        // This used to pass $this->authorFor($record) — the SUPERSEDED version's author — so a
+        // correction written by Dr. B was recorded as Dr. A's work. The original version keeps its
+        // own author untouched; that is what the version chain is for.
+        $author = StaffProfile::forUser($actor);
+
+        if (! $author instanceof StaffProfile) {
+            return back()->withErrors([
+                'reason' => 'Your user account has no staff profile, so an amendment cannot record who wrote it.',
+            ]);
+        }
+
+        $amendment = $notes->amend($record, [], $data['reason'], $author, $actor);
 
         return redirect()->route('clinical.notes.edit', $amendment->id);
     }
@@ -240,6 +252,13 @@ class NoteEditorController
             'status' => $note->status,
             'signed_at' => $note->signed_at?->toDateTimeString(),
             'signed_by' => $note->signed_by,
+            // THE SIGNATURE NAMES THE SIGNATORY, NOT THE AUTHOR (QA-FIX.2a, D-195). The lock line
+            // used to render author_name under a "Signed ·" label, so the screen asserted a
+            // signature by whoever the note was attributed to. These are genuinely different people
+            // in real data — the seeded radiology reports are authored by the radiologist and signed
+            // by another clinician — so both are surfaced and the view shows them distinctly.
+            'signed_by_name' => $this->signatoryName($note),
+            'signed_by_is_author' => $this->signatoryIsAuthor($note),
             'version' => $note->version,
             'supersedes_id' => $note->supersedes_id,
             'amendment_reason' => $note->amendment_reason,
@@ -311,6 +330,52 @@ class NoteEditorController
     private function staffName(StaffProfile $profile): string
     {
         return $profile->display_name !== '' ? $profile->display_name : trim($profile->first_name.' '.$profile->last_name);
+    }
+
+    /**
+     * The name of the person who SIGNED the note, resolved from `signed_by`.
+     *
+     * `signed_by` holds a `users.id` while `author_id` holds a `staff_profiles.id` — two identity
+     * namespaces on one row (D-196 records that, and this gate deliberately does not deepen it).
+     * So the signatory is resolved through the user, preferring their staff profile's display name
+     * so both lines read the same way, and falling back to the user's own name.
+     */
+    private function signatoryName(ClinicalNote $note): ?string
+    {
+        if ($note->signed_by === null) {
+            return null;
+        }
+
+        $user = User::query()->whereKey($note->signed_by)->first();
+
+        if (! $user instanceof User) {
+            return null;
+        }
+
+        $profile = StaffProfile::forUser($user);
+
+        return $profile instanceof StaffProfile ? $this->staffName($profile) : $user->name;
+    }
+
+    /**
+     * Whether the signatory is the same person as the author.
+     *
+     * Compared across the namespace split: the author's `staff_profiles.user_id` against the note's
+     * `signed_by` (`users.id`). When they differ the view names both, because a note drafted by one
+     * clinician and signed by another is a real, legitimate state — the seeded radiology reports are
+     * exactly that — and collapsing them is how `P2-C1` presented a signature nobody had made.
+     */
+    private function signatoryIsAuthor(ClinicalNote $note): bool
+    {
+        if ($note->signed_by === null) {
+            return true;
+        }
+
+        $author = StaffProfile::query()->whereKey($note->author_id)->first();
+
+        return $author instanceof StaffProfile
+            && $author->user_id !== null
+            && (string) $author->user_id === (string) $note->signed_by;
     }
 
     /**

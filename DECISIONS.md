@@ -3794,3 +3794,115 @@ references the old ID.
   See [[Scheduling]], `docs/qa/ROLE-AUDIT.md` (P1-H3), D-192 (the same naive-local fact),
   D-170 (no invented policy), D-182/D-183 (the test shapes), D-031 (online rows keep
   `booked_by = null`), [[LOG]].
+
+- **D-195 — A clinical note is authored by the clinician who WROTE it; the encounter keeps the
+  clinician the visit is WITH; and the rendered signature names the SIGNATORY (QA-FIX.2a, closing
+  P2-C1).**
+  Phase 2 measured this in a browser: logged in as Dr. Brunner, clicking **Document** on an
+  appointment booked with Dr. Keller and signing the note produced `author_id` = **Keller**,
+  `signed_by` = **Brunner**, audit `actor_id` = **Brunner** — and the screen said
+  **"Signed · Dr. med. Sofia Keller"**. Brunner wrote every word. The medico-legal record named
+  someone else, and the truth survived only in the audit chain, which is not what a clinician reads.
+  **THE CAUSE WAS ONE ARGUMENT.** `OpenEncounterFromAppointmentController` resolved the
+  appointment's practitioner once and passed it to BOTH calls: to `EncounterService::open()` (right)
+  and to `ClinicalNoteService::saveDraft()` (wrong), where it becomes `author_id`
+  (`ClinicalNoteService:69`).
+  **TWO DIFFERENT QUESTIONS, NOW ANSWERED SEPARATELY.** *"Whose visit is this?"* is the ENCOUNTER,
+  and the answer is legitimately the booked clinician — an encounter is the appointment made real,
+  so **the encounter is deliberately UNCHANGED** and a test asserts it still equals the
+  appointment's practitioner, proving the fix stayed surgical. *"Who wrote this down?"* is the NOTE,
+  and the answer is the authenticated user. Only the note moved.
+  **THE SAME PRINCIPLE FIXED THE AMENDMENT PATH.** `NoteEditorController::amend()` passed
+  `authorFor($record)` — the SUPERSEDED version's author — so a correction written by Dr. B was
+  recorded as Dr. A's work. An amendment is a new version, and its author is whoever wrote that
+  version; the original keeps its own author, which is what the chain is for.
+  **REFUSE, DO NOT GUESS.** `StaffProfile::forUser()` is the one place that answers "who is acting?",
+  and it returns **null** rather than falling back to an arbitrary profile. A caller that cannot
+  identify the actor refuses to write the note. Guessing an author is the defect itself, and the
+  repo already contained a fallback of exactly that shape (`ImagingReportController:160` falls back
+  to the first profile by display name) — it was not copied.
+  **THE SIGNATURE NAMES THE SIGNATORY.** `NoteEditor.vue` rendered `author_name` under a
+  "Signed ·" label. It now renders `signed_by_name`, resolved from `signed_by`. **Author and
+  signatory can legitimately differ** — one clinician drafts, another signs — and that is not
+  hypothetical: the seeded radiology reports are authored by Dr. Lang and signed by Dr. Berg. So
+  when they differ the view names **both, distinctly** ("Written by X · Signed by Y · date") rather
+  than letting one stand in for the other. Comparing them crosses the namespace split (D-196):
+  the author's `staff_profiles.user_id` against the note's `signed_by`.
+  **WHAT THIS ALSO REPAIRED, unnoticed until the study:** two features filter notes by `author_id`
+  meaning "mine". `UnsignedNotesWorklist:24-29` builds "my unsigned notes" from the actor's staff
+  profiles — so a note Brunner wrote sat in **Keller's** worklist. And
+  `ClinicalSummaryInsertController:55-65` looks for "the draft authored by the current clinician",
+  which for a Document-created note **could never match**, silently breaking summary-insert on that
+  path. Both become correct as a consequence, neither was touched.
+  **HISTORICAL ROWS ARE NOT REWRITTEN.** `ClinicalNote::updating` throws
+  *"Signed clinical notes are immutable."* and `deleting` blocks signed notes, so a correction to a
+  signed historical note cannot go through the model at all — it would need raw SQL against a
+  versioned, append-only clinical record. Measured scope at the time of the fix: **24 notes across
+  four demo tenants**, earliest `2026-08-25`, of which **2** carry an author ≠ signatory (both the
+  legitimate radiology shape). No customer is live. See D-197 for the recorded decision.
+  **PATHS DELIBERATELY NOT CHANGED, and why.** `BedsideChartService:66,77` (author =
+  `stay->admitting_clinician_id`) and `SurgicalCaseService:166,178` (author =
+  `case->primary_surgeon_id`) derive the author from domain data the same way, so they share the
+  shape. They are OUTSIDE the surface Phase 2 audited, belong to phases 6 and 9, and could not be
+  browser-verified in this gate — changing them unverified would be the opposite of what this audit
+  is for. Recorded in `DEFERRED.md` with a trigger. `EdDocumentationService` is different: its
+  practitioner is a **user-chosen** `practitioner_id` from the request, an explicit assignment, not
+  a silent inference. `RadiologyReportService` via `ImagingReportController:160` was **already
+  actor-derived** and is the pattern this fix follows.
+  **Guarded by** `tests/Feature/Clinical/NoteAuthorshipTest.php` (8). Every fixture makes the actor
+  and the appointment's practitioner **different people and asserts that they are** (D-174) —
+  the pre-existing `ClinicalUiTest` fixtures use `d7Practitioner($branch, $doctor)`, so A == B and
+  they passed either way, which is exactly why this defect survived. Mutation-checked: restoring the
+  old authorship turns **4** red; restoring the old amendment inheritance turns the amendment test
+  red on its own.
+  See [[Clinical]], `docs/qa/ROLE-AUDIT.md` (P2-C1), D-196 (the namespace split), D-197 (history not
+  rewritten), D-174 (positive controls), D-179 (an asserted action never taken), [[LOG]].
+
+- **D-196 — `author_id` and `signed_by` name people in two different namespaces, and this gate did
+  not unify them (QA-FIX.2a).**
+  On one `clinical_notes` row: `author_id` is a **ULID** foreign key to `staff_profiles.id`
+  (`2026_07_09_000003_create_clinical_notes_table.php:17,34`, `restrictOnDelete`), while `signed_by`
+  is an **integer** `users.id` (`ClinicalNoteService:100`). Elsewhere in the clinical tables,
+  `tooth_records.charted_by` and `orders.ordered_by` are also `users.id`. So "who" is asked in two
+  languages, and `author_id` is the odd one out.
+  **NOT UNIFIED HERE, DELIBERATELY.** Making them agree is a schema change: a migration over a
+  versioned, append-only clinical table with a live FK, plus every reader and writer of both columns.
+  That is its own gate with its own risk, and doing it inside a defect fix would have made the fix
+  unreviewable.
+  **WHAT THIS GATE DID INSTEAD:** it did not deepen the split. No new column and no third namespace
+  were introduced. The one place that must compare the two — "is the signatory the same person as
+  the author?" — crosses the split explicitly and in one method
+  (`NoteEditorController::signatoryIsAuthor()`), comparing the author's `staff_profiles.user_id`
+  against `signed_by`, with the reason written down at the call site.
+  **THE RISK IF LEFT:** every future consumer must know which column speaks which language, and the
+  Phase-2 audit already produced one wrong answer from exactly this confusion — an early query
+  compared a ULID against the integer `users.id` column, and MySQL's non-strict coercion silently
+  resolved `'01m1s7me…'` to user 1, "Test User". A reader who trusts the column names gets a
+  plausible, wrong person.
+  See [[Clinical]], D-195, `docs/qa/ROLE-AUDIT.md` (P2-C1 sub-finding), [[DEFERRED]], [[LOG]].
+
+- **D-197 — Notes already written under the old attribution are RECORDED, NOT REWRITTEN
+  (QA-FIX.2a).**
+  Every note created through the day-board **Document** button before `QA-FIX.2a` carries the
+  APPOINTMENT'S practitioner as its author rather than the clinician who typed it. Amendments made
+  before the fix carry the superseded version's author rather than the amender's.
+  **SCOPE, MEASURED:** 24 notes across the four demo tenants, earliest `2026-08-25`; 2 of them show
+  author ≠ signatory, and both are the legitimate radiology shape rather than this defect. The
+  Document path is the only one that produced the wrong attribution, and only for appointments whose
+  practitioner is not the person documenting — where they are the same person, which is the common
+  single-handed-practice case, the stored value was already right.
+  **WHY A BULK CORRECTION IS NOT SAFE:** `ClinicalNote::updating` refuses any change to a signed
+  note ("Signed clinical notes are immutable") and `deleting` refuses to remove one, so a correction
+  cannot go through the model. Raw SQL would bypass the immutability guard on a versioned clinical
+  record, and — worse — **the true author is not recoverable from the note row itself**. It is
+  recoverable only by joining the audit chain (`encounter.opened` / `note.signed` carry the real
+  `actor_id`), which is a reconstruction, not a fact the record holds. Rewriting a signature-bearing
+  clinical row from a reconstruction is not something to do quietly.
+  **NO CUSTOMER IS LIVE**, so this is cheap to decide now and expensive to decide later.
+  **OPEN DECISION for the product owner:** leave history as it stands (recommended — it is
+  internally consistent, the audit chain holds the truth, and the immutability guard stays intact),
+  or fund a scoped, per-tenant correction with its own gate, its own audit trail, and a column
+  recording that the row was corrected and from what evidence. Do not let a future session quietly
+  "tidy" these rows.
+  See [[Clinical]], D-195, D-193 (the same shape for the clock skew), `docs/qa/ROLE-AUDIT.md`
+  (P2-C1), [[DEFERRED]], [[LOG]].

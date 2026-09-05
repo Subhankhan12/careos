@@ -424,3 +424,68 @@ disclosure. Do not "optimise" it back to one row.
 **Completing a recall books nothing.** `RecallService::transition()` only moves the status; no
 scheduling path is touched from this screen, and a test asserts the controller cannot reach one.
 
+
+### QA-FIX.2a — a note is authored by whoever wrote it (2026-09-05, closes `P2-C1`)
+
+**The defect, measured in a browser:** logged in as Dr. Brunner, clicking **Document** on an
+appointment booked with Dr. Keller and signing produced `author_id` = **Keller**, `signed_by` =
+**Brunner**, audit `actor_id` = **Brunner** — and the screen said **"Signed · Dr. med. Sofia
+Keller"**. Brunner wrote every word.
+
+**THE CAUSE WAS ONE ARGUMENT.** `OpenEncounterFromAppointmentController` resolved the appointment's
+practitioner once and passed the same value to both calls:
+
+```php
+$practitioner = $this->practitionerForAppointment($appointment);   // Dr. Keller
+$encounter = $encounters->open($patient, $practitioner, ...);      // RIGHT — whose visit
+$note = $notes->saveDraft($encounter, $practitioner, [], $actor);  // WRONG — becomes author_id
+```
+
+`ClinicalNoteService:69` writes `'author_id' => $author->id` from that second argument. `$actor` was
+already being passed alongside it — for `note.write` authorisation and the audit row — so the
+correct value was in scope the whole time.
+
+**TWO QUESTIONS, TWO ANSWERS.** *Whose visit is this?* → the ENCOUNTER, legitimately the booked
+clinician, **left untouched**; a test asserts `encounter->practitioner_id` still equals the
+appointment's practitioner, so the fix is provably surgical. *Who wrote this down?* → the NOTE, now
+the authenticated user.
+
+**`StaffProfile::forUser()` is the one place that answers "who is acting?"** and it **returns null
+rather than guessing**. Callers refuse. This matters because the repo already contained the opposite
+pattern — `ImagingReportController:160` falls back to `StaffProfile::query()->orderBy('display_name')
+->firstOrFail()`, i.e. attributes the report to an arbitrary clinician — and copying it would have
+re-created the very defect.
+
+**THE AMENDMENT PATH HAD THE SAME BUG.** `NoteEditorController::amend()` passed
+`authorFor($record)` — the *superseded* version's author — so a correction written by Dr. B was
+recorded as Dr. A's. An amendment is a new version; its author is whoever wrote it. The original
+keeps its own author, which is what the chain is for.
+
+**THE SIGNATURE NAMES THE SIGNATORY.** `NoteEditor.vue` rendered `author_name` under a "Signed ·"
+label. It now uses `signed_by_name`, resolved from `signed_by`. **Author ≠ signatory is a real
+state, not a hypothetical** — the seeded radiology reports are authored by Dr. Lang and signed by
+Dr. Berg — so when they differ the view names **both** ("Written by X · Signed by Y · date").
+Comparing them crosses the namespace split: the author's `staff_profiles.user_id` vs `signed_by`.
+
+**TWO FEATURES SILENTLY REPAIRED, found during the study and not touched:**
+`UnsignedNotesWorklist:24-29` builds "my unsigned notes" from the actor's staff profiles, so a note
+Brunner wrote sat in **Keller's** worklist; `ClinicalSummaryInsertController:55-65` looks for "the
+draft authored by the current clinician" and therefore **could never match** a Document-created note,
+silently breaking summary-insert on that path.
+
+**WHY HISTORY IS NOT REWRITTEN (D-197):** `ClinicalNote::updating` throws *"Signed clinical notes are
+immutable"* and `deleting` blocks signed notes, so a correction cannot go through the model; and the
+true author is **not in the note row** — it is recoverable only by reconstruction from the audit
+chain. Measured scope: 24 notes, four tenants, earliest 2026-08-25.
+
+**Guarded by** `tests/Feature/Clinical/NoteAuthorshipTest.php` (8). **Every fixture makes the actor
+and the appointment's practitioner different people and asserts that they are** (D-174) — the
+pre-existing `ClinicalUiTest` fixtures use `d7Practitioner($branch, $doctor)`, so A == B and they
+passed either way. That vacuity is why the defect survived; it is the lesson worth keeping.
+Mutation-checked: old authorship → 4 red; old amendment inheritance → the amendment test red alone.
+
+**Deliberately not changed:** `BedsideChartService:66,77` (author = the stay's admitting clinician)
+and `SurgicalCaseService:166,178` (author = the case's primary surgeon) share the shape but sit
+outside the audited surface and could not be browser-verified here — see `DEFERRED.md`, and note the
+operative note may be *meant* to carry the responsible surgeon. `EdDocumentationService` takes a
+user-chosen `practitioner_id` (an explicit assignment, not an inference).

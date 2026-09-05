@@ -47,6 +47,27 @@ phase's timestamp observation suspect, and past-time booking was live on the pub
 |---|---|---|
 | **P1-C1** web requests wrote tenant-local wall-clock into UTC columns (incl. the append-only audit ledger) | **QA-FIX.1a** | ✅ FIXED — D-192/D-193 |
 | **P1-H3** the slot finder offered past times and the system booked them | **QA-FIX.1b** | ✅ FIXED — D-194 |
+| **P2-C1** a signed clinical note was attributed to a clinician who neither wrote nor signed it | **QA-FIX.2a** | ✅ FIXED — D-195/D-196/D-197 |
+| **P2-H1** opening a note silently asserted the patient had arrived | **QA-FIX.2b** | Part 2 of the same gate |
+
+**Phase 2 (clinician: doctor / dentist) is DONE** (`a5e17dc`): 19 findings — 1 CRITICAL, 4 HIGH,
+9 MEDIUM, 5 LOW. **There is no `dentist` role template** — the dental practice's clinician holds
+`doctor`, so doctor-vs-dentist is a *vertical* comparison, not a permission one. Its two
+evidence-corrupting findings are being fixed in QA-FIX.2 before Phase 3, because every later phase
+writes notes and opens documents.
+
+**A clinical note is authored by whoever WROTE it** (D-195): the encounter still records the
+clinician the visit is *with* (deliberately unchanged), while the note records the authenticated
+user. `StaffProfile::forUser()` is the single answer to "who is acting?" and it **returns null
+rather than guessing** — a caller that cannot identify the actor refuses to write the note. The
+rendered signature names the **signatory**, and when author and signatory differ (a real state: one
+clinician drafts, another signs) the view names **both, distinctly**.
+**⚠️ OPEN DECISION (D-197):** notes written before the fix keep the old attribution. `ClinicalNote`
+refuses updates to signed notes, and the true author is recoverable only by reconstruction from the
+audit chain — so history is RECORDED, not rewritten.
+**⚠️ RECORDED, NOT FIXED (D-196):** `author_id` → `staff_profiles.id` while
+`signed_by`/`charted_by`/`ordered_by` → `users.id`. Unifying them is a schema gate; this fix did not
+deepen the split.
 
 **⚠️ ONE NEW OPEN PRODUCT DECISION (D-193): the historical +2 h skew is RECORDED, NOT REWRITTEN.**
 Rows written by web requests before QA-FIX.1a carry the practice's wall clock in UTC columns (non-UTC

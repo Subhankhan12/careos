@@ -502,3 +502,39 @@ fails OPEN, which is the wrong direction for a guard.
 booking entry point. The repair is to invert `book()`'s default to refusing and pass
 `allowPastStart: true` explicitly from the recording call sites (the two seeders and the historical
 fixtures), which makes the permissive case visible at every site that uses it instead of silent.
+
+---
+
+## Two more note paths derive authorship from domain data (QA-FIX.2a, D-195)
+
+`QA-FIX.2a` fixed the day-board **Document** path, where a clinical note inherited the APPOINTMENT'S
+practitioner as its author (`P2-C1`). Two other paths build a note the same way and were deliberately
+left alone:
+
+- `Modules/Hospital/src/Services/BedsideChartService.php:66,77` — the author is
+  `$stay->admitting_clinician_id`, so a bedside note written by whoever is on the ward round is
+  authored to the admitting clinician.
+- `Modules/Surgery/src/Services/SurgicalCaseService.php:166,178` — the author is
+  `$case->primary_surgeon_id`, so an operative note is authored to the primary surgeon regardless of
+  who typed it.
+
+**Why they were not changed:** both are outside the surface Phase 2 audited (they belong to the
+planned Surgery and Bed/records phases), and neither could be **browser-verified** inside this gate.
+Changing clinical authorship on an unverified surface — on the strength of a code read alone — is
+exactly the move this audit programme exists to prevent. For the operative note there is also a real
+question to answer first, which only a surgical reviewer can settle: whether an operative note is
+meant to be *attributed to the responsible surgeon by design* (as the operating record) rather than
+to its typist. That is a domain decision, not a bug fix.
+
+**Not the same shape, checked and cleared:** `EdDocumentationService` takes a **user-chosen**
+`practitioner_id` from the request (`EdDocumentationController:121-127`) — an explicit assignment,
+not a silent inference. `RadiologyReportService` via `ImagingReportController:160` already resolves
+the **acting** user's staff profile and is the pattern `QA-FIX.2a` follows (though its
+`?? StaffProfile::query()->orderBy('display_name')->firstOrFail()` fallback would attribute a report
+to an arbitrary clinician if the actor had no profile — the same guess-instead-of-refuse shape, worth
+removing when Radiology is audited).
+
+**TRIGGER:** QA Phase 6 (Surgery / OR) and Phase 9 (Bed / records), or any gate that touches
+`BedsideChartService` / `SurgicalCaseService`. The repair is the one `QA-FIX.2a` used:
+`StaffProfile::forUser($actor)`, refusing rather than guessing when the actor has no profile — after
+settling the operative-note attribution question above.

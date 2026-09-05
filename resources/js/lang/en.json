@@ -1915,6 +1915,7 @@
             "signPermanently": "Sign permanently",
             "cancel": "Cancel",
             "signedLock": "Signed · {name} · {date}",
+            "signedLockByOther": "Written by {author} · Signed by {signer} · {date}",
             "amendTitle": "Amend this note",
             "amendHint": "Creates a fresh editable version prefilled from the signed note. The original stays exactly as signed.",
             "amendReason": "Reason for amendment",

@@ -21,6 +21,8 @@ const props = defineProps<{
         plan: string | null;
         status: string;
         signed_at: string | null;
+        signed_by_name: string | null;
+        signed_by_is_author: boolean;
         version: number;
         amendment_reason: string | null;
         is_read_only: boolean;
@@ -211,7 +213,19 @@ watch(
                                 <rect x="5" y="10" width="14" height="10" rx="2" stroke="currentColor" stroke-width="1.6" />
                                 <path d="M8 10V8a4 4 0 0 1 8 0v2" stroke="currentColor" stroke-width="1.6" />
                             </svg>
-                            {{ t('clinical.note.signedLock', { name: note.author_name, date: note.signed_at || '—' }) }}
+                            <!--
+                                The lock line names the SIGNATORY (QA-FIX.2a, P2-C1). It used to render
+                                author_name under a "Signed ·" label, so the screen asserted a signature by
+                                whoever the note was attributed to. When the author and the signatory are
+                                different people — a real state: one clinician drafts, another signs — both
+                                are named, distinctly, rather than one standing in for the other.
+                            -->
+                            <span v-if="note.signed_by_is_author">
+                                {{ t('clinical.note.signedLock', { name: note.signed_by_name || note.author_name, date: note.signed_at || '—' }) }}
+                            </span>
+                            <span v-else>
+                                {{ t('clinical.note.signedLockByOther', { author: note.author_name, signer: note.signed_by_name || '—', date: note.signed_at || '—' }) }}
+                            </span>
                         </div>
                         <div class="glass-card p-6">
                             <SoapEditor :model-value="sections" readonly :required-sections="template?.required_sections ?? []" />

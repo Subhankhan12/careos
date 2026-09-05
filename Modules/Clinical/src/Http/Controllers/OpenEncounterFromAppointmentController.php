@@ -39,6 +39,9 @@ class OpenEncounterFromAppointmentController
         $branch = Branch::query()->whereKey($appointment->branch_id)->firstOrFail();
         $practitioner = $this->practitionerForAppointment($appointment);
 
+        // THE ENCOUNTER KEEPS THE APPOINTMENT'S PRACTITIONER, DELIBERATELY. An encounter describes the
+        // patient's VISIT — it is the appointment made real, and the clinician it is *with* is the one
+        // the appointment booked. That is not authorship, and it is left exactly as it was.
         $encounter = $encounters->open(
             $patient,
             $practitioner,
@@ -49,8 +52,22 @@ class OpenEncounterFromAppointmentController
             $data['reason_for_visit'] ?? null,
         );
 
+        // THE NOTE IS AUTHORED BY WHOEVER IS WRITING IT (QA-FIX.2a, D-195, closing `P2-C1`).
+        // It used to inherit $practitioner — the appointment's clinician — so a note Dr. Brunner
+        // typed and signed was recorded, and rendered, as Dr. Keller's. The two questions are
+        // different: "whose visit is this?" (the encounter) and "who wrote this down?" (the note).
+        $author = StaffProfile::forUser($actor);
+
+        if (! $author instanceof StaffProfile) {
+            // Refuse rather than guess. Authoring a clinical note to somebody who did not write it
+            // is precisely the defect being closed, so a caller we cannot identify gets no note.
+            throw ValidationException::withMessages([
+                'appointment_id' => 'Your user account has no staff profile, so a note cannot record who wrote it.',
+            ]);
+        }
+
         $template = NoteTemplate::query()->where('active', true)->orderBy('name')->first();
-        $note = $notes->saveDraft($encounter, $practitioner, [], $actor, null, $template);
+        $note = $notes->saveDraft($encounter, $author, [], $actor, null, $template);
 
         return redirect()->route('clinical.notes.edit', $note->id);
     }

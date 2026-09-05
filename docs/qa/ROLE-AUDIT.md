@@ -56,6 +56,8 @@ every later phase's timestamp observation suspect, and past-time booking was liv
 |---|---|---|---|---|
 | `P1-C1` | CRITICAL | ✅ **FIXED** | QA-FIX.1a | `78a05db` |
 | `P1-H3` | HIGH | ✅ **FIXED** | QA-FIX.1b | `f6b619a` |
+| `P2-C1` | CRITICAL | ✅ **FIXED** | QA-FIX.2a | `<pending>` |
+| `P2-H1` | HIGH | ⏳ in the same gate (Part 2) | QA-FIX.2b | — |
 | all others | — | 📋 recorded, not fixed | — | — |
 
 *(A commit cannot contain its own hash. Per the repo-wide marker convention, `<pending>` is backfilled
@@ -101,6 +103,30 @@ just written.)*
   can still place a past start (a waitlist offer's ~30 min TTL keeps that exposure narrow). Product
   owner's call whether to invert the default and fix the fixtures in a gate of its own.
 
+- **Notes written under the old attribution are RECORDED, NOT REWRITTEN (D-197).** Every note created
+  through the day-board **Document** button before `QA-FIX.2a` carries the appointment's practitioner
+  as its author rather than the clinician who typed it, and pre-fix amendments carry the superseded
+  version's author rather than the amender's. **Scope, measured at fix time:** 24 notes across the
+  four demo tenants, earliest `2026-08-25`; 2 show author ≠ signatory and both are the legitimate
+  radiology shape rather than this defect. Where the documenting clinician *is* the appointment's
+  practitioner — the common single-handed-practice case — the stored value was already correct.
+  **A bulk correction is not safe:** `ClinicalNote::updating` refuses any change to a signed note, so
+  it cannot go through the model at all, and **the true author is not recoverable from the note row**
+  — only by reconstructing it from the audit chain (`encounter.opened` / `note.signed` carry the real
+  `actor_id`). Rewriting a signature-bearing clinical row from a reconstruction is not a quiet
+  operation. No customer is live. Product owner's call: leave history as it stands (recommended — the
+  audit chain holds the truth and the immutability guard stays intact) or fund a scoped correction
+  with its own gate and a column recording what evidence corrected each row.
+
+- **`author_id` and `signed_by` speak different identity languages, and this gate did not unify them
+  (D-196).** On one row, `author_id` is a ULID FK to `staff_profiles.id` while `signed_by` is an
+  integer `users.id`; `tooth_records.charted_by` and `orders.ordered_by` are also `users.id`, so
+  `author_id` is the odd one out. Unifying them is a migration over a versioned, append-only clinical
+  table plus every reader of both columns — its own gate. **This gate did not deepen the split:** no
+  new column, no third namespace, and the single place that must compare the two does so explicitly
+  in one method with the reason at the call site. **The risk of leaving it** is not theoretical: an
+  early Phase-2 query compared a ULID against the integer column, MySQL coerced it to `1`, and the
+  audit briefly "found" that a note was authored by *Test User*.
 ---
 
 ## Phase 1 — Reception / Front-desk
@@ -648,6 +674,38 @@ slots (availability is weekdays 1–5) and manufacturing one would have meant ch
 ### CRITICAL
 
 #### `P2-C1` — A signed clinical note is **attributed to a clinician who neither wrote nor signed it**
+
+> ✅ **FIXED — QA-FIX.2a, commit `<pending>` (D-195, D-196, D-197).** The cause was a single argument:
+> `OpenEncounterFromAppointmentController` resolved the appointment's practitioner once and passed it
+> to **both** `EncounterService::open()` (right) and `ClinicalNoteService::saveDraft()` (wrong, where
+> it becomes `author_id`). **Two different questions now get two answers:** *whose visit is this* is
+> the ENCOUNTER, and it legitimately stays the booked clinician — **deliberately unchanged**, with a
+> test asserting it still equals the appointment's practitioner so the fix is provably surgical;
+> *who wrote this down* is the NOTE, and it is now the authenticated user, resolved through the new
+> `StaffProfile::forUser()`, which **returns null rather than guessing** — a caller that cannot
+> identify the actor refuses to write the note.
+> **The same principle fixed the amendment path**, which had been inheriting the superseded version's
+> author, so a correction written by Dr. B was recorded as Dr. A's work.
+> **The signature now names the SIGNATORY.** The lock line rendered `author_name` under a "Signed ·"
+> label; it renders `signed_by_name` now. Author and signatory can legitimately differ — the seeded
+> radiology reports are authored by Dr. Lang and signed by Dr. Berg — so when they differ the view
+> names **both, distinctly** ("Written by X · Signed by Y"), rather than letting one stand in for the
+> other.
+> **Two features were silently repaired:** `UnsignedNotesWorklist` ("my unsigned notes") had been
+> filing Brunner's notes in Keller's worklist, and `ClinicalSummaryInsertController` looks for "the
+> draft authored by the current clinician" and so could **never** match a Document-created note.
+> **Re-measured in the browser, same steps as below:** as Brunner, Document on a Dr. Keller
+> appointment → the draft was attributed to **Dr. med. Matthias Brunner** (was: Sofia Keller), and
+> after signing the page reads **"Signed · Dr. med. Matthias Brunner · 2026-09-05 20:25:43"**.
+> Stored: `author_id` → Brunner, `signed_by` → 3 (Brunner), and the **encounter's practitioner is
+> still Dr. med. Sofia Keller**.
+> **Historical rows are deliberately NOT rewritten (D-197)** — `ClinicalNote::updating` refuses any
+> change to a signed note, and the true author is recoverable only by reconstruction from the audit
+> chain. See the open decision above.
+> Guarded by `tests/Feature/Clinical/NoteAuthorshipTest.php` (8, mutation-checked: restoring the old
+> authorship turns 4 red, restoring the old amendment inheritance reddens the amendment test alone).
+> Every fixture makes the actor and the appointment's practitioner **different people and asserts it**
+> — the pre-existing `ClinicalUiTest` fixtures made them the same person, which is why this survived.
 
 - **Role:** `doctor` · **Route:** `/scheduling/day-board` → "Document" → `/clinical/notes/{id}/edit`
 - **What I did:** Logged in as **Dr. med. Matthias Brunner** (`users.id = 3`). Opened the day-board

@@ -67,6 +67,30 @@ class StaffProfile extends Model
         });
     }
 
+    /**
+     * The staff profile belonging to an authenticated user, within the current tenant.
+     *
+     * WHO WROTE A CLINICAL RECORD IS THE ACTING USER, NOT A DOMAIN ROLE (QA-FIX.2a, D-195). Before
+     * this existed, callers that needed "the clinician doing this right now" each resolved it their
+     * own way, and one of them — the day-board "Document" button — resolved it from the
+     * APPOINTMENT'S practitioner instead, so a note Dr. A typed was authored to Dr. B (`P2-C1`).
+     * Resolving it in one place keeps the answer to "who is acting?" identical everywhere.
+     *
+     * Returns NULL rather than falling back to an arbitrary profile: a caller that cannot identify
+     * the actor must refuse, never guess. Guessing is the defect this method exists to prevent.
+     *
+     * Tenant scoping comes from {@see BelongsToTenant} on the query, so this can never reach across
+     * tenants.
+     */
+    public static function forUser(?User $user): ?self
+    {
+        if ($user === null) {
+            return null;
+        }
+
+        return self::query()->where('user_id', $user->getKey())->first();
+    }
+
     public function credentials(): HasMany
     {
         return $this->hasMany(Credential::class);
