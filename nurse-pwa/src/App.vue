@@ -5,13 +5,14 @@ import { login, logout, syncDayPack, syncOutboxWithRetry } from './api';
 import { hasSessionKey, loadDayPack, pendingOutboxCount, wipeLocalStore } from './storage/dayPackStore';
 import { startIdleWipe } from './idle';
 import {
-    autosaveVisitNote,
+    emptyNoteDraftMemo,
     queueTaskDone,
     queueTaskNotDone,
     queueIncidentReport,
     queueVisitPhoto,
     queueVisitSignature,
     queueVisitVitals,
+    saveVisitNoteOnce,
 } from './visitActions';
 import type { DayPack, TaskSummary, VisitSummary } from './types';
 import { buildVitalsHistoryRows } from './vitalsDisplay';
@@ -28,6 +29,9 @@ const lastSyncedAt = ref<string | null>(null);
 const errorKey = ref<string | null>(null);
 const notDoneReasons = reactive<Record<string, string>>({});
 const noteBody = ref('');
+// What saveNote() last enqueued, so the second event of a single gesture records nothing (P4-C5).
+// Keyed by visit so the SAME text on a DIFFERENT visit is still a real, separate note.
+const lastQueuedNote = ref(emptyNoteDraftMemo());
 const signatureCanvas = ref<HTMLCanvasElement | null>(null);
 const signatureDrawing = ref(false);
 const incidentOccurredAt = ref(new Date().toISOString().slice(0, 16));
@@ -109,9 +113,19 @@ async function queueVitals(visit: VisitSummary): Promise<void> {
     await refreshPending();
 }
 
+/**
+ * One gesture, one note (QA-FIX.4d, P4-C5, D-204).
+ *
+ * The textarea autosaves on `@change` and the button saves on `@click`; clicking the button blurs
+ * the textarea, so one gesture fired both and wrote two identical clinical notes. Both affordances
+ * are kept — the guard lives in `saveVisitNoteOnce()`, which is unit-tested against the real outbox.
+ */
 async function saveNote(visit: VisitSummary): Promise<void> {
-    await autosaveVisitNote(visit, noteBody.value);
-    await refreshPending();
+    const queued = await saveVisitNoteOnce(visit, noteBody.value, lastQueuedNote.value);
+
+    if (queued !== null) {
+        await refreshPending();
+    }
 }
 
 async function queuePhotoFromInput(visit: VisitSummary, event: Event): Promise<void> {

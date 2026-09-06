@@ -408,3 +408,32 @@ already unrecoverable) rather than throwing — which also stops one bad row jam
 
 **STILL OPEN:** a nurse who reloads **while offline** cannot re-enter the app (login needs the
 network). Their care is safe and syncs later, but the app is not usable offline after a reload.
+
+### QA-FIX.4d — one save gesture, one note (P4-C5, D-204, `<pending>`)
+
+**`App.vue` binds `@change` on the note textarea AND `@click` on the Save button, both to
+`saveNote()`. Clicking the button BLURS the textarea, so one gesture fires both.** Each enqueued an
+action with its own `client_uuid`, so the server's `client_action_uuid` dedupe could not collapse
+them — Phase 4 typed one note once and got **two identical `visit_notes` rows**.
+
+**BOTH BINDINGS ARE DELIBERATE AND BOTH ARE KEPT.** `@change` calls `autosaveVisitNote` — autosave
+on blur is real behaviour for a field app. The guard is `saveVisitNoteOnce()` in `visitActions.ts`:
+it records nothing when the text is unchanged **for the same visit**, and returns `null` so the
+caller knows.
+
+**DO NOT GENERALISE THIS INTO "dedupe identical consecutive actions".** Two identical vitals readings
+minutes apart are legitimately **two observations**; suppressing the second DROPS recorded care.
+There is a test asserting exactly that.
+
+**Only the note had this shape** — vitals, incident, signature and the task buttons are `@click`
+only; the photo input's `@change` is its sole handler. Checked, not assumed.
+
+**The guard lives in `visitActions.ts`, not the SFC, because the PWA has no `@vue/test-utils`** and
+adding a dependency inside a fix gate would be scope creep. The tests therefore drive the real
+enqueue path and assert the outbox — stronger than mounting the component.
+
+**THE RACE THAT UNIT TESTS CANNOT SEE (QA-FIX.4d).** `saveVisitNoteOnce()` claims the memo **before**
+`await autosaveVisitNote()`, and rolls it back if the enqueue throws. An earlier version recorded the
+memo *after* the await: sequentially correct, green in every unit test, and it **still wrote two notes
+in a real browser**, because `@change` and `@click` are in flight simultaneously. If you refactor this,
+keep the claim before the await and keep the `Promise.all` test — it is the only one that catches it.

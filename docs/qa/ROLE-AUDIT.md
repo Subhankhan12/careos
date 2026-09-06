@@ -70,7 +70,7 @@ every later phase's timestamp observation suspect, and past-time booking was liv
 | `P4-C1` | CRITICAL | ✅ **FIXED** | QA-FIX.4a | `<pending>` |
 | `P4-C4` | CRITICAL → **HIGH** (latent, see banner) | ✅ **FIXED** | QA-FIX.4b | `<pending>` |
 | `P4-C2` · `P4-C3` | CRITICAL | ✅ **FIXED** | QA-FIX.4c | `<pending>` |
-| `P4-C5` | CRITICAL | ⏳ same gate (Part 4) | QA-FIX.4d | — |
+| `P4-C5` | CRITICAL | ✅ **FIXED** | QA-FIX.4d | `<pending>` |
 | `P4-H3` | HIGH | ⏳ same gate (Part 5) | QA-FIX.4e | — |
 | all others | — | 📋 recorded, not fixed | — | — |
 
@@ -2023,6 +2023,36 @@ with zero cookies.
 - **Why CRITICAL:** duplicated recorded care in the patient record, from the single most common
   action a field nurse performs. A duplicated nursing note is a clinical-record integrity defect, not
   a cosmetic one.
+
+
+> ✅ **FIXED — QA-FIX.4d, commit `<pending>` (D-204).** One gesture now records one note.
+>
+> - **The shape is unique to the note, and that was checked rather than assumed.** Every other
+>   control has exactly one handler — vitals, incident, signature and both task buttons are `@click`
+>   only, and the photo input's `@change` is its only binding (correct for a file input). Nothing
+>   else needed changing.
+> - **`@change` is not a mistake, so it was not deleted.** The handler is named `autosaveVisitNote`:
+>   autosave-on-blur is deliberate for a field app, where a nurse who taps away mid-note should not
+>   lose it. Deleting it would fix the duplicate by removing a real behaviour; deleting the button
+>   would remove the affordance a nurse expects to press. **Both are kept** and the save is made
+>   **idempotent for unchanged text** — the second event of one gesture has nothing new to record.
+> - **Deliberately NOT a general "dedupe identical consecutive actions" rule.** Two identical vitals
+>   readings minutes apart are legitimately **two observations**; suppressing the second would DROP
+>   recorded care — the failure this gate exists to fix. A test pins that. The guard is scoped to the
+>   note draft and keyed by visit, so the same sentence on a different patient is still a real note.
+> - ⚠️ **The first version of this fix was wrong, and only the browser caught it.** The guard
+>   originally recorded the memo AFTER awaiting the enqueue. Sequentially that is fine and it passed
+>   every unit test — but `@change` and `@click` are in flight at the same time, so the second call
+>   read the stale memo and enqueued anyway: driven in a real browser it produced **two notes exactly
+>   as before**. The memo is now claimed BEFORE the await, and rolled back if the enqueue throws.
+>   **This is why the browser step is mandatory** — a green suite described a fix that did not work.
+> - **Nine tests**, including the exact gesture, **the concurrent gesture** (`Promise.all` of both
+>   handlers), a failed enqueue not poisoning the memo, autosave-alone still recording,
+>   editing-after-saving still recording, and the identical-vitals control. Mutation-checked twice:
+>   removing the guard reddens the gesture tests; restoring the after-await ordering reddens the
+>   concurrent one.
+> - **Verified in a real browser on the DEFAULT origin** — note typed once, Save pressed once, synced,
+>   and the server counted **exactly one** `visit_notes` row where Phase 4 measured two.
 
 ---
 

@@ -83,7 +83,10 @@ audit record says so. Part 3 (`<pending>`, D-203) is done:
 wiped on 401/403), while the outbox moves to a device-lifetime non-extractable key, so recorded care
 survives a reload AND a session expiry and is never silently deleted (P4-C2, P4-C3). Residual risk
 stated in D-203. **Still open:** a reload while OFFLINE leaves the app unusable until the nurse can
-reach the network to log in. Remaining: 4d duplicate note (P4-C5), 4e check-in/out wiring (P4-H3).
+reach the network to log in. Part 4 (`<pending>`, D-204) is done: **one save gesture writes one note** — the textarea's
+`@change` and the button's `@click` both fired on a single gesture; both affordances are kept and the
+save is now idempotent for unchanged text (P4-C5). Only the note had that shape. Remaining: 4e
+check-in/out wiring (P4-H3).
 
 **A refused money operation leaves nothing behind** (D-199): `record()` + `allocate()` now run in one
 transaction on the AR-account path, so a refused allocation unwinds the payment and every line already

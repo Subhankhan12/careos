@@ -4204,3 +4204,48 @@ references the old ID.
   non-extractable and `exportKey` rejects, and that a successful sync still drains the queue —
   preserving work must not mean never clearing it. See [[Nursing]], `docs/qa/ROLE-AUDIT.md` (P4-C2,
   P4-C3), D-182, [[LOG]].
+
+- **D-204 — One gesture, one note: the save is made idempotent for unchanged text rather than
+  deleting either affordance (QA-FIX.4d, closing P4-C5).**
+  Phase 4 typed one note once, pressed Save once, and got **two identical `visit_notes` rows** on the
+  server. `App.vue:382` binds `@change` on the textarea and `:384` binds `@click` on the Save button,
+  both to `saveNote()`. **Clicking the button blurs the textarea, so one gesture fires both
+  handlers**, and each enqueued an action with its own `client_uuid` — which the server's
+  `client_action_uuid` dedupe cannot collapse, because as far as it can tell they are two distinct
+  notes. Duplicated recorded care, from the single most common action a field nurse performs.
+  **THE STUDY SHOWED THE SHAPE IS UNIQUE TO THE NOTE.** Every other control has exactly one handler:
+  vitals, incident, signature and the two task buttons are `@click` only, and the photo input's
+  `@change` is its only binding (correct for a file input, which has no button). So the fix is narrow
+  and nothing else needed changing — recorded rather than assumed, because "fix the others too" was
+  the obvious next move and would have been wrong.
+  **`@change` IS NOT A MISTAKE, SO IT IS NOT DELETED.** The handler it calls is named
+  `autosaveVisitNote`: autosave-on-blur is deliberate for a field app, where a nurse who taps away
+  mid-note should not lose it. Deleting `@change` would fix the duplicate by removing a real
+  behaviour; deleting the button would remove the affordance a nurse expects to press. **Both are
+  kept, and the save is made idempotent for unchanged text instead** — the second event of one
+  gesture has nothing new to record, so it records nothing.
+  **DELIBERATELY NOT A GENERAL "DEDUPE IDENTICAL CONSECUTIVE ACTIONS" RULE, and there is a test
+  pinning why.** Two identical vitals readings minutes apart are legitimately **two observations**;
+  suppressing the second would DROP recorded care — the very failure this gate exists to fix. The
+  guard is scoped to the note draft, where the two events genuinely describe one gesture, and it is
+  keyed by visit so the same sentence on a different patient is still a real, separate note.
+  **THE GUARD LIVES WHERE IT CAN BE TESTED.** `saveVisitNoteOnce()` in `visitActions.ts` owns the
+  decision and returns `null` when nothing was recorded; `App.vue` calls it. The PWA has no
+  `@vue/test-utils`, and adding a dependency inside a fix gate would be scope creep — moving the
+  logic into the action module means the tests exercise the **real enqueue path and assert the
+  outbox itself**, which is stronger than mounting the component anyway.
+  **THE FIRST VERSION OF THIS FIX WAS WRONG, AND ONLY THE BROWSER CAUGHT IT.** The guard originally
+  recorded the memo AFTER `await autosaveVisitNote()`. Sequentially that is fine, and it passed
+  every unit test — but `@change` and `@click` fire back-to-back, so **both calls are in flight at
+  once**: the second read the stale memo and enqueued anyway. Driven in a real browser the fix
+  produced **two notes on the server exactly as before**. The memo is now claimed BEFORE the await
+  and rolled back if the enqueue throws, so a failure never leaves it claiming work that was not
+  recorded. **This is precisely why RULE 1 exists**: a green suite described a fix that did not
+  work, and the added concurrent test (`Promise.all` of both handlers) is the one that reddens
+  under the old ordering.
+  **Guarded by** nine tests in `nurse-pwa/tests/noteSaveOnce.test.ts`, including the exact gesture
+  (blur then click → one entry), **the concurrent gesture**, a failed enqueue not poisoning the memo,
+  autosave-on-blur alone still recording, editing after saving still recording, the same words on a
+  different visit still recording, and a control asserting **identical vitals twice are never
+  deduped**. Mutation-checked twice: removing the guard reddens the gesture tests, and restoring the
+  after-await ordering reddens the concurrent one. See [[Nursing]], `docs/qa/ROLE-AUDIT.md` (P4-C5), [[LOG]].
