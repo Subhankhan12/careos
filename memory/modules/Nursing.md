@@ -281,3 +281,39 @@ per-nurse grants; hard blocks / soft warns; validator `evaluate()` separates blo
 ## Open items
 
 - Clinician countersigning for nurse observational visit notes is deferred.
+
+### QA Phase 4 — the offline Nurse PWA is the least mature surface in the product (audit only, `<pending>`)
+
+**The nurse's ENTIRE operational surface is the PWA.** The only nursing web routes are
+`nursing/dispatch` (+assign/unassign) and `nursing/competencies` (+5 mutations) — both
+`coordinator`-only — plus `hospital/wards`. A `nurse` gets **403 on every one of them**. So anything
+that breaks the PWA leaves a field nurse with nothing.
+
+**FIVE CRITICALs, all browser-established (see `docs/qa/ROLE-AUDIT.md` Phase 4):**
+
+| ID | One line |
+|---|---|
+| `P4-C1` | PWA login+sync return **419 CSRF** on the app's own origin — `statefulApi()` + the PWA being served from a stateful domain. Day-pack GET still returns **200**, so PHI flows to the device and nothing comes back |
+| `P4-C2` | The AES key is HKDF-derived from the session token and held **only in memory**, so a page reload permanently strands every queued action — no sync request is ever issued again |
+| `P4-C3` | `api.ts:100-104` calls `wipeLocalStore()` on 401/403, **deleting un-transmitted care** when a 12-hour token expires |
+| `P4-C4` | Device timestamps written as `(string) $action['device_timestamp']` into UTC columns at **11 sites** — stores wall-clock, 2 h out. Same class as `P1-C1`/D-192, on a path `QA-FIX.1a` never covered |
+| `P4-C5` | `App.vue:382/384` double-binds `@change` **and** `@click` to `saveNote` → one gesture writes **two identical clinical notes** |
+
+**IF YOU FIX ONE THING HERE, KNOW THIS FIRST:** the offline design is *good* — AES-GCM-only storage
+with no plaintext PHI, `client_action_uuid` replay idempotency, cross-assignment refused even under a
+forged `nurse_resource_id`, day-pack scoped to the nurse's own visits, and the clinical fence
+absolute (`vitalsDisplay.ts` computes no band/flag/score/arrow/delta; zero risk/acuity anywhere).
+**The defects are in the data LIFECYCLE, not the model** — a key that expires before the data it
+protects, a security wipe applied to work that was never sent, a timezone lost at the write boundary.
+
+**The client sends the WHOLE outbox as one batch and removes nothing on a non-OK response**
+(`api.ts:83-113`), while the server wraps **each action** in its own transaction with no batch
+transaction (`NurseSyncService.php:97`). Together: one malformed action **permanently jams the queue**
+(`P4-H1`), and a crashed batch **commits part of itself while returning a bare 500** (`P4-H2` —
+cross-phase pattern 6's second instance). Payload contents are never validated —
+`NurseSyncController.php:28-33` checks only the envelope.
+
+**The PWA cannot check in or check out** (`P4-H3`): the server implements both with full EVV
+(`location`, `accuracy_meters`, `location_source`, `manual_reason`, `distance_meters`) and the client
+offers no control, so no execution `Visit` is ever created from the field and EVV is unreachable.
+That is also why the demo seed has no in-progress or missed visits.

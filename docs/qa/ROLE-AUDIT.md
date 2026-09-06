@@ -26,7 +26,7 @@ missing · `LOW` cosmetic / polish.
 | **1** | **Reception / front-desk** (`reception`, `admissions_clerk`) | ✅ **DONE** — 2026-09-04 |
 | **2** | **Clinician / physician** (`doctor` — medical **and** dental, `ed_physician` driven; `hospitalist`, `surgeon`, `anesthetist`, `pathologist`, `radiologist` compared but not driven) | ✅ **DONE** — 2026-09-05 |
 | **3** | **Billing / finance** (`billing`, `org_admin` and `pharmacist` — the only three roles holding a `billing.*` permission) | ✅ **DONE** — 2026-09-06 |
-| 4 | Nursing / Spitex (`coordinator`, field nurse + Nurse PWA) | ⏳ planned |
+| **4** | **Nursing / Spitex** (`nurse`, `coordinator`, `ward_nurse`, `charge_nurse` + the offline **Nurse PWA**) | ✅ **DONE** — 2026-09-06 |
 | 5 | Pharmacy (`pharmacist`, `pharmacy_technician`) | ⏳ planned |
 | 6 | Surgery / OR (`surgeon`, `anesthetist`, `scrub_nurse`, `surgical_scheduler`) | ⏳ planned |
 | 7 | ED (`ed_physician`, `triage_nurse`, `ed_charge_nurse`) | ⏳ planned |
@@ -41,7 +41,8 @@ missing · `LOW` cosmetic / polish.
 | 1 — Reception / front-desk | 1 | 3 | 8 | 6 | 18 |
 | 2 — Clinician (doctor / dentist) | 1 | 4 | 9 | 5 | 19 |
 | 3 — Billing / finance | 1 | 4 | 8 | 2 | 15 |
-| **Total to date** | **3** | **11** | **25** | **13** | **52** |
+| 4 — Nursing / Spitex (incl. Nurse PWA) | **5** | 5 | 10 | 3 | 23 |
+| **Total to date** | **8** | **16** | **35** | **16** | **75** |
 
 ## Fix status
 
@@ -60,7 +61,7 @@ every later phase's timestamp observation suspect, and past-time booking was liv
 | `P2-C1` | CRITICAL | ✅ **FIXED** | QA-FIX.2a | `e8a7a48` |
 | `P2-H1` | HIGH | ✅ **FIXED** | QA-FIX.2b | `706ed77` |
 | `P3-C1` | CRITICAL | ✅ **FIXED** | QA-FIX.3a | `348d41c` |
-| `P3-H1` | HIGH | ✅ **FIXED** | QA-FIX.3b | `<pending>` |
+| `P3-H1` | HIGH | ✅ **FIXED** | QA-FIX.3b | `d6f0cc5` |
 | all others | — | 📋 recorded, not fixed | — | — |
 
 *(A commit cannot contain its own hash. Per the repo-wide marker convention, `<pending>` is backfilled
@@ -1351,7 +1352,7 @@ Route sweeps were run in-session: **29 routes** for `billing`, 12 for `pharmacis
   collections). It is HIGH because a reader cannot tell which is which, and because the receipts
   basis silently absorbs unallocated money — including `P3-C1`'s phantom payments.
 
-> ✅ **FIXED — QA-FIX.3b, commit `<pending>` (D-200).** Neither figure was wrong, so neither engine
+> ✅ **FIXED — QA-FIX.3b, commit `d6f0cc5` (D-200).** Neither figure was wrong, so neither engine
 > method was touched: this is a **labelling fix**, and the tests pin both definitions in place.
 >
 > - `/billing/aging` no longer says "Collected". It says **"Cash received (month to date)"** and
@@ -1690,10 +1691,443 @@ checking the browser.
 
 ---
 
+
+## Phase 4 — Nursing / Spitex (incl. the Nurse PWA)
+
+**Date:** 2026-09-06 · **Top commit at audit time:** `d6f0cc5` (QA-FIX.3b), CI `completed / success`
+confirmed via `commits/<sha>/check-runs`. Tree clean apart from untracked `docs/marketing-site/`.
+
+**AUDIT ONLY.** No app code, test or seeder was changed. The only writes are those made by *driving
+the product* (a check-in, notes, vitals) plus one deliberate token revocation; all demo tenants were
+re-seeded afterwards and verified by query.
+
+### Environment
+
+| Item | State |
+|---|---|
+| Demo tenants | Re-seeded before the audit; verified by query |
+| Spitex tenant | `spitex-sonnengarten` — Spitex Sonnengarten, branch Zürich Wipkingen, `Europe/Zurich` |
+| Nursing data | 55 planned visits · 36 execution visits · 36 visit tasks · 36 vitals · 36 notes · 5 care plans · 5 service agreements · 36 timesheet lines · 8 patients |
+| Nurses | 5 (Hans Brunner 22 planned, Verena Huber 20, Ana Silva 7, Miriam Steffen 4, David Okafor 1) — **cross-assignment RBAC has real material** |
+| **Redis** | **UP — honestly.** `PING` → `+PONG` on 127.0.0.1:6379 (Memurai). `CACHE_STORE=redis`, `QUEUE_CONNECTION=redis` |
+| App timezone | `UTC` (storage), tenant/branch `Europe/Zurich`, `locale=de` |
+| Out of scope | **Performance — deferred to staging**, per the gate |
+
+**Data-coverage limitation, stated rather than papered over.** The seed does **not** contain visits
+across all four states: `planned_visits` are only `assigned` (54) and `planned` (1), and all 36
+execution visits are `completed`. There is **no seeded in-progress or missed visit**. I created an
+`in_progress` visit by driving a real check-in through the sync API; **missed** was never exercised
+because nothing in the product reaches that state (see `P4-H3` — the PWA cannot check in or out at
+all).
+
+### Roles covered
+
+| Role | Driven as | Tenant |
+|---|---|---|
+| `nurse` | `hans.brunner@spitex-sonnengarten.test` (field/Spitex) | spitex-sonnengarten |
+| `coordinator` | `margrit.keller@spitex-sonnengarten.test` | spitex-sonnengarten |
+| `ward_nurse` | `lena.studer@klinik-bergblick.test` | klinik-bergblick |
+| `charge_nurse` | `petra.frei@klinik-bergblick.test` | klinik-bergblick |
+
+**Excluded, with reasons:** `scrub_nurse` (`nadia.brun@klinik-bergblick.test`) → **Phase 6** (Surgery/OR);
+`triage_nurse` (`yusuf.demir@…`) and `ed_charge_nurse` (`marco.bianchi@…`) → **Phase 7** (ED). These
+three are nursing by title but their surfaces are the OR and ED boards, which those phases own.
+There is **no Spitex-specific role template** — the field nurse holds the same `nurse` template as a
+practice nurse, so Spitex-vs-practice is a *vertical* difference, not a permission one (the same
+shape Phase 2 found for doctor-vs-dentist).
+
+Capability sets (`RbacProvisioner::ROLE_TEMPLATES`, 26 templates): `nurse` and `ward_nurse` are
+**identical** — `patient.view`, `appointment.manage`, `encounter.manage`, `note.write`, `note.sign`,
+`order.manage`. `charge_nurse` adds `note.supervise`, `reporting.view`, `bed.manage`. `coordinator`
+is disjoint from all of them — `patient.view`, `appointment.manage`, `agreement.manage`,
+`dispatch.manage`, `competency.manage`, `timesheet.approve`, `reporting.view`.
+
+### Surfaces driven
+
+| Surface | Route | Roles driven | Result |
+|---|---|---|---|
+| Landing / workspace | `/app` | all four | renders; offers links that 403 (`P4-H5`) |
+| Landing at 390 px | `/app` | nurse | **no navigation at all** (`P4-M1`) |
+| Dispatch board | `/nursing/dispatch` | coordinator ✅ · nurse/ward/charge 403 | renders; raw UTC (`P4-H4`) |
+| Nurse competencies | `/nursing/competencies` | coordinator ✅ | reachable, linked from dispatch |
+| Ward board | `/hospital/wards` | ward_nurse ✅ · charge_nurse ✅ | renders; **unlinked anywhere** (`P4-M4`) |
+| Patients / Orders / Scheduling / Telehealth | various | nurse, ward_nurse | 200 |
+| Timesheets / service agreements | *none exists* | coordinator | **404 on 9 probed URLs** (`P4-M2`) |
+| Nurse PWA | `/nurse-pwa/` | nurse | see the PWA table below |
+| Nurse API | `/api/nurse/{login,day-pack,sync}` | nurse | see `P4-C1`, `P4-H1` |
+
+### The PWA / offline dimension — what was actually driven
+
+The PWA is a separate Vue app (`nurse-pwa/`, built to `public/nurse-pwa/`) served from the Laravel
+app's own origin, talking to `/api/nurse/*` with a Sanctum Bearer token.
+
+| # | Offline scenario | Driven? | Result |
+|---|---|---|---|
+| 1 | Install / load / service-worker registration | ✅ | **Registers and activates.** `sw.js` scope `/nurse-pwa/`, state `activated`, controls the page; `manifest.webmanifest` present |
+| 1b | Login on the **default origin** (`127.0.0.1:8000`) | ✅ | ❌ **419 CSRF — login impossible** (`P4-C1`) |
+| 2 | App opens offline, assigned visit list renders | ✅ | ✅ Works — day pack, patient detail, allergies, meds, problems, care goals, vitals history all render with no network |
+| 2b | Record care offline (vitals, note) | ✅ | ✅ Queued; counter increments honestly ("Pending offline actions: 1") |
+| 3a | Survives reconnect and reaches the server | ✅ | ⚠️ Only if the session never broke — see 3b |
+| 3b | **Survives a page reload while offline** | ✅ | ❌ **Permanently stranded** (`P4-C2`) |
+| 3c | Duplicated if sync runs twice / user resubmits | ✅ | ✅ Replay of the same `client_uuid` is deduped — **but one gesture already queues two actions** (`P4-C5`) |
+| 3d | Server changed the visit while nurse was offline | ✅ | ✅ **Detected and refused** — `schedule_changed_server_wins` |
+| 3e | Accurate user-visible indication of unsynced work | ✅ | ⚠️ Count is right; state messages contradict each other (`P4-M8`), and after a wipe it reads `0` for work that was destroyed (`P4-C3`) |
+| 4 | Honest offline / pending / failure states | ✅ | ⚠️ No connectivity indicator at all (`P4-M6`); no false "Saved" — the wording is "Pending", which is correct |
+| 5 | What is cached, and is it only this nurse's patients | ✅ | ✅ **Correctly scoped** — day pack returned 1 visit / 1 patient / 3.9 KB, not the patient list |
+| 5b | Expired session offline → reconnect with queued work | ✅ | ❌ **Queued care silently deleted** (`P4-C3`) |
+
+**How the offline dimension was reached, stated plainly.** `P4-C1` blocks PWA login on the app's own
+origin. To answer questions 2–5 at all I ran the *same, unmodified* application on a second port
+(`127.0.0.1:8123`, `artisan serve`) — an origin **not** in `SANCTUM_STATEFUL_DOMAINS` — where login
+returns 200. **No application code, config, test or seeder was changed.** Every offline result below
+was observed on that origin; `P4-C1` itself was reproduced on the default origin, in the browser,
+with zero cookies.
+
+---
+
+### CRITICAL
+
+#### `P4-C1` — The Nurse PWA cannot authenticate or sync from the origin it is served on
+
+- **Role:** `nurse` · **Route:** `POST /api/nurse/login`, `POST /api/nurse/sync`
+- **Steps:** open `http://127.0.0.1:8000/nurse-pwa/`, enter
+  `hans.brunner@spitex-sonnengarten.test` / `demo-password`, press **Sign in**.
+- **What happened:** the form silently returns to "Nurse login". The network call is
+  **`419 CSRF token mismatch`**. Reproduced in the browser after clearing every cookie,
+  `localStorage`, `sessionStorage` and IndexedDB — response body
+  `{"message":"CSRF token mismatch."}`.
+- **The asymmetry is the dangerous part.** With a browser `Origin` header:
+
+  | Call | Status |
+  |---|---|
+  | `GET /api/nurse/day-pack` | **200** — patient data downloads to the field device |
+  | `POST /api/nurse/sync` | **419** — recorded care can never be uploaded |
+  | `POST /api/nurse/sync` *without* `Origin` (control) | 422 — the endpoint itself works |
+
+  CSRF applies only to state-changing verbs, so **PHI flows out to the device and nothing can come
+  back**.
+- **Cause:** `bootstrap/app.php:28` calls `$middleware->statefulApi()`, applying Sanctum's
+  `EnsureFrontendRequestsAreStateful` to every `api` route. `config/sanctum.php:21` lists
+  `127.0.0.1:8000` / `localhost` as stateful domains — **the very origin the PWA is served from**
+  (`public/nurse-pwa/`). The client uses plain same-origin `fetch()` with **no CSRF handshake**
+  (`nurse-pwa/src/api.ts:24,46,60,90` — no `/sanctum/csrf-cookie`, no `X-XSRF-TOKEN`, no
+  `credentials`). Proven by isolation: identical request **without** `Origin` → 200 + Bearer token;
+  **with** `Origin` → 419; and from a non-stateful port (`:8123`) → 200.
+- **Why CRITICAL:** the entire offline nursing product is unusable as deployed, and the one direction
+  that *does* work is the one that puts patient data on a phone.
+
+#### `P4-C2` — A page reload permanently strands every piece of care already recorded offline
+
+- **Role:** `nurse` · **Surface:** Nurse PWA
+- **Steps (driven, single clean action):** log in online → go offline (`navigator.onLine === false`,
+  fetches throw) → record vitals **systolic 199 / diastolic 91** → "Pending offline actions: **1**",
+  1 outbox row in IndexedDB → **reload the page** → log back in → press **Sync**.
+- **What happened:** after the reload the nurse is returned to the **login screen**. After
+  re-login the UI reads "Pending offline actions: **1** — Sync needs retry.", the outbox row is
+  still in IndexedDB, and **no `POST /api/nurse/sync` request is ever issued** (confirmed in the
+  network log). Server-side: `visit_vitals` still 36, **systolic 199 absent**, `nurse_sync_actions`
+  0. Repeating the sync changes nothing, for ever.
+- **Cause:** `nurse-pwa/src/storage/dayPackStore.ts:38-57` derives the AES-GCM key with HKDF **from
+  the session token** and holds it only in module memory (`let sessionKey`); the token itself is
+  likewise memory-only (`api.ts:21 let bearerToken`). A reload clears both. A new login mints a
+  **new token → a different key**, so ciphertext written under the old key can never be decrypted
+  and the outbox can never be replayed. The same cause leaves the day pack unreadable — the UI shows
+  **"No synced visits."** even though the day-pack fetch returned 200.
+- **Why CRITICAL:** documented patient care is destroyed by an ordinary phone event (tab evicted,
+  browser restarted, device sleep). The encryption design is otherwise good; the defect is that the
+  **key lifetime is shorter than the data's**.
+
+#### `P4-C3` — Reconnecting with an expired session silently DELETES all unsynced care
+
+- **Role:** `nurse` · **Surface:** Nurse PWA
+- **Steps (driven):** log in → offline → record vitals **systolic 177 / diastolic 91** → "Pending
+  offline actions: **1**", 1 outbox row → revoke the token server-side (exactly what a **12-hour
+  token expiry** does — `expires_at` is 12 h from login) → regain signal → press **Sync**.
+- **What happened:** the **entire local store is deleted** — `outboxRows: 0`, `totalRows: 0`, the
+  IndexedDB store is empty. The UI then reads **"Pending offline actions: 0"**. Server-side:
+  **systolic 177 never arrived** (vitals still 36). The recorded care is gone, with no export, no
+  warning, no confirmation, and a counter that now says there is nothing outstanding.
+- **Cause:** `nurse-pwa/src/api.ts:100-104` — on `401` or `403` the client calls
+  `wipeLocalStore()` and throws `nurse.sync.revoked`, **destroying every queued action before it has
+  ever been transmitted**. The intent is plainly a security one (drop PHI when the session dies), but
+  it is applied to the *outbox* as well as the *cache*, so it deletes the only copy of work that has
+  never reached the server.
+- **Why CRITICAL:** this is the gate's explicit trigger — lost recorded care — and it is the most
+  likely of all these paths to occur in the field, because a 12-hour token and a day-long shift with
+  poor signal are exactly the intended use.
+
+#### `P4-C4` — Every device timestamp is stored as wall-clock in a UTC column (11 write sites)
+
+- **Role:** `nurse` · **Surface:** `POST /api/nurse/sync`
+- **Steps:** sync a `check_in` with `device_timestamp: 2026-09-06T07:35:00+02:00` (= **05:35:00 UTC**).
+- **What happened:** the row stored **`2026-09-06 07:35:00`**. `config('app.timezone')` is `UTC`, so
+  the column is UTC and the correct value is `05:35:00`. **The offset is discarded and the device's
+  local wall-clock is written — a 2-hour error** for a Swiss nurse in summer.
+
+  | | value |
+  |---|---|
+  | sent by device | `2026-09-06T07:35:00+02:00` |
+  | correct UTC | `2026-09-06 05:35:00` |
+  | **stored** | **`2026-09-06 07:35:00`** |
+  | CLI `now()` at the time | `2026-09-06 15:39:26` UTC |
+
+- **Cause:** every device timestamp is assigned as a **raw string** to a datetime column —
+  `(string) $action['device_timestamp']` — instead of being parsed to UTC.
+  `Modules/Nursing/src/Services/NurseSyncService.php` lines **215, 246, 302, 348, 394, 436, 465,
+  503, 564, 596, 677**, covering `occurred_at` (EVV check-in/out events), `recorded_at` (vitals,
+  notes, observations), `completed_at` (task completion), `captured_at` (attachments) and the ledger's
+  own `device_timestamp`.
+- **Why CRITICAL:** these are the times that say **when care was delivered**. For Spitex they are the
+  EVV record underpinning billing and verification. This is the *same defect class* as `P1-C1`
+  (D-192/D-193, fixed by `QA-FIX.1a` for web requests) on a path that gate never touched — and here
+  the clock belongs to a phone the server does not control.
+
+#### `P4-C5` — One "Save note" gesture writes TWO identical clinical notes
+
+- **Role:** `nurse` · **Surface:** Nurse PWA → visit detail → Note
+- **Steps (one natural gesture):** click the note textarea, type
+  `QA4-DUPPROBE single note typed once and saved once`, click **Save note**, then **Sync**.
+- **What happened:** "Pending offline actions: **2**" from a single note, two outbox rows, and after
+  sync **two identical `visit_notes` rows on the server** (37 → 39) — same body, same
+  `recorded_at 2026-09-06 15:40:24`, different ids.
+- **Cause:** `nurse-pwa/src/App.vue:382` binds `@change="saveNote(selectedVisit)"` on the textarea
+  **and** `:384` binds `@click="saveNote(selectedVisit)"` on the button. Clicking the button blurs
+  the textarea, so **both** handlers fire. Each call enqueues a fresh action with its own
+  `client_uuid`, so the server's `client_action_uuid` dedupe (which is otherwise correct — see
+  *guards holding*) cannot collapse them: they are, as far as it can tell, two distinct notes.
+- **Why CRITICAL:** duplicated recorded care in the patient record, from the single most common
+  action a field nurse performs. A duplicated nursing note is a clinical-record integrity defect, not
+  a cosmetic one.
+
+---
+
+### HIGH
+
+#### `P4-H1` — `/api/nurse/sync` returns 500 on two reachable inputs, and one bad action jams the queue for ever
+
+- **Role:** `nurse` · **Route:** `POST /api/nurse/sync`
+- Two crash paths, both driven:
+
+  | input | response |
+  |---|---|
+  | `check_in` whose payload omits `client_visit_uuid` | **500** `Undefined array key "client_visit_uuid"` |
+  | `check_in` on a visit already checked in (new `client_uuid`) | **500** `Only scheduled visits can be checked in.` |
+
+- **Cause (first):** `NurseSyncService.php:204` reads the key **defensively** for the lookup —
+  `$payload['client_visit_uuid'] ?? ''` — and `:208` dereferences **the same key undefensively** on
+  the create path, three lines later. `NurseSyncController.php:28-33` validates only the action
+  *envelope* (`client_uuid`, `type`, `payload` is-an-array, `device_timestamp`, `sequence`); payload
+  contents are never validated, so a malformed action reaches the service.
+  **Cause (second):** a domain exception from the visit state machine escapes as a 500 instead of the
+  service's own clean `rejected` result, which every other refusal path uses correctly.
+- **The jam is the real damage.** `nurse-pwa/src/api.ts:83-113` sends the **entire outbox as one
+  batch** and, on any non-OK response, **removes nothing** (`throw new Error('nurse.outbox.failed')`).
+  A single malformed or un-satisfiable action therefore **permanently blocks every other action on
+  that device**: each retry resends the same batch, hits the same 500, and nothing ever drains.
+  `syncOutboxWithRetry` retries 3× with backoff and cannot help, because the input never changes.
+- **Why HIGH:** a poison pill in a field device's care queue, reachable from ordinary input.
+
+#### `P4-H2` — A crashed sync batch commits part of itself while telling the device everything failed
+
+- **Role:** `nurse` · **Route:** `POST /api/nurse/sync` · **This is cross-phase pattern 6's second instance.**
+- **Steps:** send one batch containing `[a valid visit_note, a check_in missing client_visit_uuid]`.
+- **What happened:** HTTP **500** with **no `results` array** — the client is told the whole sync
+  failed. Server-side the **good note committed**: `visit_notes` 36 → 37, the row is present, and its
+  ledger entry `qa4-good-note-1` is `accepted`.
+- **Cause:** `NurseSyncService.php:97` wraps **each action** in its own `DB::transaction`, so
+  completed actions are durable before a later action throws; the throw then escapes
+  `NurseSyncController.php:36` and the whole response is replaced by a 500. There is no batch-level
+  transaction and no partial-result envelope.
+- **Consequence:** the device keeps those actions queued for ever (per `P4-H1`), so the pending count
+  permanently **overstates** unsynced work while the server already holds it. Idempotency limits the
+  damage — a retry would dedupe by `client_uuid` rather than duplicate the note — so this is HIGH,
+  not CRITICAL. **It is the same shape as `P3-C1`:** a refused operation leaving a partial record,
+  now in the offline queue, exactly where the gate predicted it would recur.
+
+#### `P4-H3` — The PWA cannot check in or out of a visit, so no visit can ever be started or closed from the field
+
+- **Role:** `nurse` · **Surface:** Nurse PWA visit detail
+- **What I did:** enumerated **every** control on the visit detail screen in the browser.
+- **What happened:** the complete set is *Sync, Log out, the visit selector, 7 vitals number inputs,
+  Queue vitals, a note textarea, Save note, a photo file input, Queue signature, an incident
+  datetime/category/severity/notes group, Queue incident* — plus task done / not-done buttons when
+  tasks exist. **There is no check-in and no check-out control.**
+- **Cause:** `nurse-pwa/src/App.vue` imports `queueTaskDone`, `queueTaskNotDone`, `queueIncidentReport`,
+  `queueVisitPhoto`, `queueVisitSignature`, `queueVisitVitals` and a note action — but **never
+  `check_in` or `check_out`**, which the server fully implements
+  (`NurseSyncService.php:103-104`), together with EVV location / accuracy / manual-reason handling.
+- **Consequences, all observed:** the day pack reports `execution_visit_id: null` and `status:
+  assigned`; no execution `Visit` is ever created from the field; **EVV is unreachable** (see the
+  fence note below — the model is good and nothing can feed it); and queued vitals/notes reference a
+  visit that does not yet exist. This is also why the seed contains no in-progress or missed visits.
+- **Why HIGH:** starting and closing a visit is *the* core operation of a home-care round, and it is
+  the one thing the field app cannot do.
+
+#### `P4-H4` — Every nursing time is rendered as raw UTC, so a field nurse reads their visit two hours early
+
+- **Roles:** `nurse` (PWA), `coordinator` (dispatch board) · **Cross-phase pattern 2, fourth phase.**
+- **What happened:** the visit window renders as **`2026-09-06T05:30:00+00:00 - 2026-09-06T06:30:00+00:00`**.
+  The tenant is `Europe/Zurich`; the actual appointment is **07:30–08:30 local**. Of **32 timestamps**
+  on the PWA screen, **all 32** are raw ISO/UTC and **none** is Swiss format
+  (`/\d{2}\.\d{2}\.\d{4}/` → no match). The dispatch board shows the same visit as
+  `2026-09-06 05:30:00 - 06:30:00`, also raw UTC, also no Swiss format.
+- **Why HIGH rather than MEDIUM:** in every earlier phase this pattern produced a *confusing* date.
+  Here it produces an **operationally wrong one**: a nurse reading their round sees a time two hours
+  before the appointment. It also compounds `P4-C4` — the write side stores local-as-UTC while the
+  read side prints UTC-as-local, so the two errors are in opposite directions and neither cancels.
+
+#### `P4-H5` — Every nursing role's landing page offers links that role cannot open
+
+- **Roles:** all four · **Route:** `/app` · **Cross-phase pattern 1, fourth phase.**
+- **Measured in the browser:**
+
+  | Role | Offered quick actions that 403 |
+  |---|---|
+  | `nurse` | `/patients/register`, `/nursing/dispatch`, `/comms/inbox` — **all three** |
+  | `coordinator` | `/patients/register`, `/comms/inbox` |
+  | `ward_nurse` | `/patients/register`, `/nursing/dispatch`, `/comms/inbox` — **all three** |
+  | `charge_nurse` | `/patients/register`, `/nursing/dispatch`, `/comms/inbox` — **all three** |
+
+- **What Phase 4 adds is that the page already has the answer.** The Inertia payload for `/app`
+  carries an explicit permission map — for the nurse, `"dispatch.manage": false` and
+  `"comms.manage": false` — and the page still renders both links.
+- **Cause:** `resources/js/pages/App/Landing.vue:171,174,177` render the three quick actions with
+  **no `v-if`**, while the same file's KPI row at `:87` is commented *"shown per the actor's
+  permissions"* and **is** gated. One file gates one section and not the other.
+- The 403 page itself is graceful and honest ("You don't have access to this area… Back to
+  dashboard") — the defect is purely that the link is offered.
+
+---
+
+### MEDIUM
+
+- **`P4-M1` — No navigation whatsoever below 768 px, and this phase's primary device is a phone.**
+  At 390×844 as `nurse`, all five primary nav links (`/app`, `/patients`, `/clinical/orders/review`,
+  `/scheduling/day-board`, `/telehealth`) measure **0×0**, and there is **no menu button**
+  (`burgerCount: 0`); Search and Notifications are `hidden`. The header is reduced to "CareOS · HB ·
+  Sign out". No horizontal overflow. **Cross-phase pattern 3, fourth phase** — but unlike earlier
+  phases this is not a polish issue: the nursing group's own app is a phone surface.
+- **`P4-M2` — `timesheet.approve` and `agreement.manage` are granted to `coordinator` with no surface.**
+  Driven: nine candidate URLs (`/nursing/timesheets`, `/timesheets`, `/nursing/agreements`,
+  `/nursing/service-agreements`, `/agreements`, …) all **404**, and the coordinator's entire
+  navigation is `/app`, `/patients`, `/scheduling/day-board`, `/nursing/dispatch`, `/reporting`,
+  `/nursing/competencies`. **No controller anywhere enforces either permission.** `TimesheetService`
+  and `ServiceAgreementService` are fully built, and the seed carries **36 timesheet lines and 5
+  service agreements** that nothing in the product can display. **Cross-phase pattern 4, fourth phase.**
+- **`P4-M3` — `note.supervise` is granted to `charge_nurse` and enforced by nothing.** No controller
+  references it; no supervise/countersign affordance exists on any surface driven. Same pattern.
+- **`P4-M4` — The ward board is reachable but unreferenced.** `/hospital/wards` returns 200 for both
+  `ward_nurse` and `charge_nurse`, yet the string `hospital/wards` appears **nowhere in
+  `resources/js/`** — it is in no nav, no card, no breadcrumb. Both roles must type the URL. This is
+  the inverse of `P4-H5`: there, a link with no permission; here, a permission with no link.
+- **`P4-M5` — The outbox sequence is allocated non-atomically and collides.**
+  `dayPackStore.ts:194` computes `Math.max(...entries.map(e => e.sequence)) + 1` — a read-then-write
+  with no atomicity. Observed twice in the browser: two entries at `sequence 000000000002`, and later
+  two at `000000000001`. The server **sorts the batch by this value**
+  (`NurseSyncService.php:76 ->sortBy(... 'sequence')`), so colliding entries are applied in arbitrary
+  order. For a "task not done" followed by a "task done", or a corrected vitals reading, the applied
+  outcome is undefined. **D-191 shape** — an ordering column whose meaning is real but whose
+  uniqueness is not guaranteed.
+- **`P4-M6` — The PWA never says whether it is online.** The status text is **identical** online and
+  offline ("Offline day-pack ready" is a static label about the cache, not a connectivity state).
+  Verified by capturing the same region before and after `setOffline(true)`. A field nurse cannot
+  tell from the screen whether their work is reaching the server.
+- **`P4-M7` — `locale` is `de` and the entire UI is English.** The `/app` payload carries
+  `"locale":"de"` and dates render in German ("Sonntag, 6. September 2026"), while every string
+  renders in English ("Welcome to your CareOS workspace", "QUICK ACTIONS"). `resources/js/lang/`
+  contains **only `en.json`** — there is no German catalogue, so every key falls back. A Swiss
+  home-care product ships a German-locale tenant with an English-only interface.
+- **`P4-M8` — The two sync status lines contradict each other.** After the `P4-C3` wipe the header
+  reads **"Pending offline actions: 0 … Sync needs retry."** simultaneously — nothing pending, yet
+  retry needed. The same pair appears transiently after re-login. Whichever is true, both cannot be.
+- **`P4-M9` — The `nurse` role has no nursing surface in the web app at all.** The only nursing web
+  routes are `nursing/dispatch` (+assign/unassign), `nursing/competencies` (+5 mutations) and
+  `hospital/wards` — dispatch and competencies are `coordinator`-only and 403 for `nurse`. A field
+  nurse's entire operational surface is the PWA, which means `P4-C1` leaves them with **nothing**.
+- **`P4-M10` — The visit detail renders a "Tasks" heading with no content and no empty state.** The
+  day pack returned `tasks: []` for the driven visit and the section renders as a bare heading, with
+  no "no tasks" message — indistinguishable from a failed load.
+
+### LOW
+
+- **`P4-L1` — "Last synced" prints raw millisecond ISO** (`2026-09-06T15:20:10.761Z`) to a field
+  nurse, in a UI with no other machine-readable field.
+- **`P4-L2` — 500 responses from `/api/nurse/sync` return the full Laravel stack trace** (exception
+  class, absolute Windows file paths, ~60 frames) to the device. Debug-mode behaviour, but this is
+  the API a phone talks to.
+- **`P4-L3` — The PWA login failure surfaces only as a console `Error: nurse.login.failed`.** On the
+  default origin the form simply resets with **no message on screen** — the user is told nothing at
+  all (this is how `P4-C1` presents to a real nurse).
+
+---
+
+### Guards verified holding
+
+Driven in the browser, not inferred:
+
+- **Day-pack scoping is correct.** `GET /api/nurse/day-pack` as Hans Brunner returned **one visit,
+  one patient, 3 942 bytes** — his own assigned visit for the date, with that patient's clinical
+  detail. It is **not** the tenant's patient list. The endpoint takes only a `date`; the nurse is
+  resolved server-side from the token via `StaffProfile` → `Resource`, so there is no parameter to
+  tamper with.
+- **Cross-assignment is refused, two ways.** Hans attempting `check_in` on a planned visit assigned to
+  Verena Huber → **`rejected / schedule_changed_server_wins`**. Hans attempting `visit_vitals` on her
+  visit while **forging `nurse_resource_id` to her resource id** → **`rejected / visit_not_found`**.
+  `NurseSyncService::scheduleChanged()` (`:762-772`) checks both `visit->resource_id` and
+  `plannedVisit->assigned_resource_id` against the *token's* resource set.
+- **Idempotency holds.** Replaying an identical action (same `client_uuid`) produced **one** visit
+  (36 → 37), **one** ledger row, and returned the recorded result rather than writing again.
+- **No plaintext PHI on the device.** IndexedDB rows are `{id, iv, ciphertext, updatedAt}` only; a
+  search of the whole store for the note text I had just typed found **nothing**
+  (`hasPlaintext: false`). AES-GCM with an HKDF-derived key — the design is sound; only its key
+  lifetime is wrong (`P4-C2`).
+- **D-169 holds.** A **severe** penicillin allergy with "Anaphylaxis requiring adrenaline and hospital
+  admission" renders in `rgb(15,23,42)` on a transparent background at font-weight 400 — **byte-identical
+  styling to the neutral "Penicillin" text beside it**. Severity is recorded, never tinted.
+- **The clinical fence is absolute on nursing surfaces.** `nurse-pwa/src/vitalsDisplay.ts` returns raw
+  values over time and its own docblock states it "never computes or attaches a band, range, flag,
+  normal/abnormal marker, score, arrow, or delta". Confirmed on screen: systolic 126/134/131/128/136
+  render as plain numbers with dates. A sweep for `risk score` / `acuity` / `fall risk` / `suggest` /
+  `recommend` / `predict` / `ai-` across **the whole PWA source and the whole Nursing module** returns
+  **zero** hits. No computed acuity, no fall score, no auto-generated care suggestion.
+- **EVV records honestly rather than inventing.** `visit_events` carries `location`, `location_index`,
+  `accuracy_meters`, `location_source`, `manual_reason`, `distance_meters`, `recorded_by`. A check-in
+  supplying a `manual_reason` and no GPS stored **`manual_reason = "QA4 audit"` with location NULL** —
+  it records the absence of a location instead of fabricating one. (The model is good; `P4-H3` means
+  nothing in the field app can feed it, and `P4-C4` means its times are wrong.)
+- **The ward board's view/mutate split is correct, proven by positive control.**
+  `WardBoardController:44` gates viewing on `patient.view` and `:124` gates mutation on `bed.manage`.
+  Driven: `ward_nurse` (no `bed.manage`) sees the board with **zero buttons**; `charge_nurse` (with it)
+  sees **"Mark free" / "Block"** on every bed. The absence is genuinely permission-driven, not a
+  missing feature.
+- **Tenant scoping on sync is fail-closed.** `NurseSyncService::nurseResources()` throws 403 if the
+  token's `tenant_id` does not match the resolved tenant, before any action is processed.
+- **The pending counter does not lie about what it can see, and never claims "Saved".** Queuing one
+  vitals action showed "Pending offline actions: 1" and a failed sync says "Sync needs retry" — the
+  wording is honest about work being *pending*, not stored. **No D-179 breach in the happy path.**
+  (Its failure mode is `P4-C3`, where the count is right about an empty store that should not be empty.)
+
+### Not testable, and why
+
+- **A `missed` visit.** No product path reaches that state — the PWA cannot check in or out
+  (`P4-H3`) and no web surface transitions a nursing visit. Recorded rather than skipped.
+- **Medication administration as a distinct act.** The day pack carries the patient's medication list
+  (read-only, correctly), but there is **no administration action** in the client's action set and no
+  `medication_administered` type on the server. Nursing med-admin does not exist as an operation to
+  drive; the nearest available act is a free-text note.
+- **Offline behaviour across a reload with the offline flag held.** Playwright's
+  `context.setOffline(true)` did **not** survive `page.reload()` in this MCP build, so the
+  post-reload state in `P4-C2` was observed with connectivity **restored**. This makes the finding
+  stronger, not weaker — the work is stranded even with a working network — but the strictly-offline
+  reload is stated as unverified rather than claimed.
+- **Performance** — out of scope per the gate, deferred to staging.
+
 ## Cross-phase patterns
 
-Three phases are complete across three unrelated role groups — front-desk, clinical and financial.
-**A pattern that appears in all three is a systemic defect, not a local one**, and four now do.
+Four phases are complete across four unrelated role groups — front-desk, clinical, financial and
+nursing (the last including the product's only offline surface). **A pattern that appears in all four is a
+systemic defect, not a local one.** The per-pattern sections below were written at Phase 3; the
+**Phase 4 update** near the end of this section states, for each pattern, whether it recurs.
 
 ### 1. Ungated UI in front of a correctly-gated server — **PRESENT IN ALL THREE PHASES**
 
@@ -1792,6 +2226,82 @@ different transaction disciplines.
 transaction has the same shape. It is not yet a pattern — one instance — but it is the kind that
 generalises, and Phase 3 found the counter-example (the plan path) that shows the correct discipline
 already exists in the same file.
+
+
+### Phase 4 update — four phases of evidence
+
+Phase 4 covered a fourth unrelated role group (home-care nursing) **and** the product's only offline
+surface. Each standing pattern is stated below as present or absent, explicitly.
+
+**1. Ungated UI — PRESENT, fourth phase, and now provably self-contradicting.** `P4-H5`: all three
+quick actions 403 for `nurse`, `ward_nurse` and `charge_nurse`; two of three for `coordinator`. What
+Phase 4 adds is proof the page **already holds the answer** — the Inertia payload carries
+`"dispatch.manage": false` and `"comms.manage": false` for the nurse, and
+`Landing.vue:171,174,177` render the links anyway while `:87` in the *same file* gates the KPI row
+"per the actor's permissions". The Phase 3 diagnosis ("teach the page body what the nav knows") is
+now not merely the highest-yield fix but a **one-file** one for the landing page.
+
+**2. Timestamp / locale divergence — PRESENT, fourth phase, and it has crossed from display into
+storage.** `P4-H4` is the display half at its worst: **32 of 32** timestamps on the PWA are raw
+ISO/UTC, no Swiss format anywhere, so a field nurse reads a 07:30 visit as **05:30**. `P4-C4` is the
+new half — the *write* path stores the device's wall-clock into UTC columns across **eleven** sites,
+so recorded care times are two hours out. **The two errors run in opposite directions and do not
+cancel.** `QA-FIX.1a` fixed this defect class for web requests (D-192/D-193); the nurse-sync path was
+never in that gate's scope. `P4-M7` adds a locale dimension: the tenant is `locale=de` and
+`resources/js/lang/` contains **only `en.json`**.
+
+**3. A status asserted without the event that earns it — ABSENT in Phase 4, and the reason is
+instructive.** No nursing surface fabricated a state. The opposite held: EVV **records the absence of
+a GPS fix** as `manual_reason` with `location` NULL rather than inventing a location, and the visit
+state machine refused a check-in it could not justify. The pattern's trajectory across four phases —
+records (1–2) → labels (3) → **nothing (4)** — continues in the right direction.
+
+**4. A granted capability with no surface — PRESENT, fourth phase, and this is now the most
+persistent pattern in the audit.** `P4-M2` (`timesheet.approve`, `agreement.manage` — no controller
+enforces either, 9 URLs 404, yet 36 timesheet lines and 5 service agreements are seeded), `P4-M3`
+(`note.supervise`, enforced nowhere), and `P4-H3` in its sharpest form yet: the server implements
+`check_in`/`check_out` with full EVV handling and **the field client offers no control for either**,
+so the core operation of a home-care round is unreachable. `P4-M4` supplies the mirror image again —
+the ward board is permission-correct for two roles and linked from **nowhere in `resources/js/`**.
+Four phases, four modules, both directions: permissions and affordances are maintained independently
+and never reconciled.
+
+**5. The fences hold — CONFIRMED IN ALL FOUR PHASES.** The nursing surfaces are clinical, and the
+electric fence is intact: D-169 verified byte-for-byte (a **severe** anaphylaxis allergy renders in
+exactly the neutral text's colour and weight); `vitalsDisplay.ts` returns raw values and its docblock
+forbids "a band, range, flag, normal/abnormal marker, score, arrow, or delta"; and a sweep of the
+entire PWA source and Nursing module for risk/acuity/fall-score/suggest/recommend/predict/AI returns
+**zero** hits. Phase 4 adds **offline-integrity guarantees that genuinely hold**: day-pack scoping to
+the nurse's own assigned visits (1 visit, 3.9 KB — not the patient list), cross-assignment refused
+both plainly and **under a forged `nurse_resource_id`**, replay idempotency by `client_action_uuid`,
+AES-GCM-only storage with **no plaintext PHI** on the device, and a ward board whose view/mutate
+split was proven by positive control.
+
+**As of Phase 4 the summary needs one amendment.** Phases 1–3 concluded that "the defects are in
+presentation, navigation, attribution and partial writes — not in the engines or the fences." That
+still holds for the *engines and fences*, but Phase 4 found five CRITICALs that are **none of those
+things**: they are defects in the **offline data lifecycle** — a key that expires before the data it
+protects (`P4-C2`), a security wipe applied to un-transmitted work (`P4-C3`), a timezone lost at the
+write boundary (`P4-C4`), and a duplicate write from a double-bound event handler (`P4-C5`). The
+offline surface is the least mature part of the product the audit has reached, and it is the one
+handling care records that exist nowhere else.
+
+**6. A refused write that leaves a partial record — SECOND INSTANCE, exactly where Phase 3 predicted.**
+
+Phase 3 wrote: *"any surface that performs a create-then-associate pair outside a transaction has the
+same shape… it is the kind that generalises."* `P4-H2` is that recurrence, in the offline queue:
+`NurseSyncService.php:97` wraps **each action** in its own transaction with **no batch-level
+transaction**, so when a later action throws, the earlier ones are already durable while the client
+receives a bare **500 with no `results` array** and is told the whole sync failed. Driven: a batch of
+`[valid note, malformed check_in]` returned 500 and the note **committed** (36 → 37, ledger
+`accepted`).
+
+**It is one instance in a different module, so this is now a pattern rather than a curiosity** — and
+the two instances differ in an instructive way. `P3-C1` left a partial record and told the operator
+nothing; `P4-H2` leaves a partial record and tells the device *the opposite of the truth*, which then
+drives `P4-H1`'s permanent queue jam. The mitigating factor here, absent in Phase 3, is that replay
+idempotency stops the retry duplicating the committed note — the correct discipline exists in the
+same file, just not at the batch boundary.
 
 ### Still open as a candidate
 
