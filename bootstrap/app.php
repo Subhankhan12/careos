@@ -24,9 +24,23 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware) {
-        // Sanctum stateful API for the future PWA / SPA token auth.
-        $middleware->statefulApi();
-
+        // THE API IS TOKEN-ONLY — DO NOT ADD `statefulApi()` BACK WITHOUT A COOKIE CLIENT (QA-FIX.4a, D-201).
+        //
+        // `statefulApi()` used to be here "for the future PWA / SPA token auth", which is a
+        // contradiction: it enables COOKIE-session auth for first-party SPAs and is exactly what
+        // token auth does not need. Sanctum treats any request whose Origin is a stateful domain as
+        // a first-party SPA and CSRF-checks it — and `SANCTUM_STATEFUL_DOMAINS` derives from
+        // APP_URL, which is the very host `public/nurse-pwa/` is served from. So every POST the
+        // Nurse PWA made to its own origin returned 419 while GET /day-pack still returned 200:
+        // patient data reached the device and no recorded care could come back (P4-C1).
+        //
+        // Every route in routes/api.php authenticates with a Sanctum PERSONAL ACCESS TOKEN
+        // (NurseAuthController mints one with the `nurse:day-pack` ability and a 12h expiry;
+        // NurseSyncController re-checks it with tokenCan). A browser cannot silently attach a
+        // Bearer token cross-origin, so CSRF is structurally inapplicable to these routes.
+        //
+        // CSRF for the Inertia app, the patient portal and the kiosk is UNAFFECTED — it lives in
+        // the `web` middleware group, which this does not touch.
         $middleware->alias([
             'identify-tenant' => IdentifyTenantFromUser::class,
             'two-factor' => EnsureTwoFactorEnabled::class,

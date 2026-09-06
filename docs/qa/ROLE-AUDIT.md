@@ -62,6 +62,11 @@ every later phase's timestamp observation suspect, and past-time booking was liv
 | `P2-H1` | HIGH | ✅ **FIXED** | QA-FIX.2b | `706ed77` |
 | `P3-C1` | CRITICAL | ✅ **FIXED** | QA-FIX.3a | `348d41c` |
 | `P3-H1` | HIGH | ✅ **FIXED** | QA-FIX.3b | `d6f0cc5` |
+| `P4-C1` | CRITICAL | ✅ **FIXED** | QA-FIX.4a | `<pending>` |
+| `P4-C4` | CRITICAL | ⏳ same gate (Part 2) | QA-FIX.4b | — |
+| `P4-C2` · `P4-C3` | CRITICAL | ⏳ same gate (Part 3) | QA-FIX.4c | — |
+| `P4-C5` | CRITICAL | ⏳ same gate (Part 4) | QA-FIX.4d | — |
+| `P4-H3` | HIGH | ⏳ same gate (Part 5) | QA-FIX.4e | — |
 | all others | — | 📋 recorded, not fixed | — | — |
 
 *(A commit cannot contain its own hash. Per the repo-wide marker convention, `<pending>` is backfilled
@@ -1815,6 +1820,35 @@ with zero cookies.
   **with** `Origin` → 419; and from a non-stateful port (`:8123`) → 200.
 - **Why CRITICAL:** the entire offline nursing product is unusable as deployed, and the one direction
   that *does* work is the one that puts patient data on a phone.
+
+
+> ✅ **FIXED — QA-FIX.4a, commit `<pending>` (D-201).** `statefulApi()` is **removed** from
+> `bootstrap/app.php`; the API is token-only, which is what all six of its routes already were.
+>
+> - **The study found no cookie client to protect.** Every `api/*` route authenticates with a Sanctum
+>   personal access token (`nurse:day-pack` ability, 12 h expiry) and the Nurse PWA is the **only**
+>   consumer — the Inertia app, the patient portal and the kiosk all use `web` routes.
+>   `routes/api.php`'s own docblock already described them as token-authenticated. The removed line
+>   had been added speculatively "for the future PWA / SPA token auth", which is self-contradictory:
+>   `statefulApi()` enables **cookie** auth, which token auth does not use.
+> - **Option (b) — making the client do the CSRF handshake — was rejected on architecture.** It would
+>   turn a token client into a cookie client, put a session cookie on a field phone, make the
+>   `tokenCan` ability model redundant, and give the offline story a primitive that cannot survive a
+>   reload. Option (a) matches what the routes already do.
+> - **This was never local-only.** `SANCTUM_STATEFUL_DOMAINS` derives from `APP_URL`, and the PWA is
+>   served from `public/nurse-pwa/` on that same host — so the 419 would occur in production too.
+> - **Nothing else changed posture.** CSRF for the Inertia app, the portal and the kiosk lives in the
+>   `web` group and is untouched; a test asserts `web` still contains `ValidateCsrfToken`. The token
+>   guard still refuses a missing token, a bad password and a token lacking the ability.
+> - **Verified in a real browser on the DEFAULT origin `127.0.0.1:8000`** — the origin Phase 4 could
+>   not use at all. Before: `POST /api/nurse/login` → **419**, the form silently reset. After: login
+>   **200**, the day pack rendered Margrit Ackermann's visit, and a sync round-trip completed with
+>   **`POST /api/nurse/sync` → 200**. The workaround port (`:8123`) was **not** used.
+> - **An honest note on what guards this.** Restoring `statefulApi()` reddens only the
+>   middleware-composition assertion; the request-level tests keep passing because Laravel's
+>   `ValidateCsrfToken` self-skips under `runningUnitTests()`, so no feature test can observe the 419
+>   a browser gets. The structural assertion is the guard and the browser is the proof — recorded in
+>   the test file itself so a later reader does not mistake the HTTP tests for regression guards.
 
 #### `P4-C2` — A page reload permanently strands every piece of care already recorded offline
 

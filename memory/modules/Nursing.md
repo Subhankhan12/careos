@@ -282,7 +282,7 @@ per-nurse grants; hard blocks / soft warns; validator `evaluate()` separates blo
 
 - Clinician countersigning for nurse observational visit notes is deferred.
 
-### QA Phase 4 — the offline Nurse PWA is the least mature surface in the product (audit only, `<pending>`)
+### QA Phase 4 — the offline Nurse PWA is the least mature surface in the product (audit only, `4dfd59c`)
 
 **The nurse's ENTIRE operational surface is the PWA.** The only nursing web routes are
 `nursing/dispatch` (+assign/unassign) and `nursing/competencies` (+5 mutations) — both
@@ -317,3 +317,29 @@ cross-phase pattern 6's second instance). Payload contents are never validated �
 (`location`, `accuracy_meters`, `location_source`, `manual_reason`, `distance_meters`) and the client
 offers no control, so no execution `Visit` is ever created from the field and EVV is unreachable.
 That is also why the demo seed has no in-progress or missed visits.
+
+### QA-FIX.4a — the API is TOKEN-ONLY; never re-add `statefulApi()` (P4-C1, D-201, `<pending>`)
+
+**`bootstrap/app.php` no longer calls `$middleware->statefulApi()`, and the comment there says why.**
+That line made Sanctum treat any request whose `Origin` is a stateful domain as a first-party
+cookie SPA and CSRF-check it. `SANCTUM_STATEFUL_DOMAINS` **derives from `APP_URL`**, and the PWA is
+served from `public/nurse-pwa/` on that same host — so the PWA's own POSTs got **419** while
+`GET /day-pack` still returned **200**. **This was never local-only; it breaks in production too.**
+
+**Before touching this, know the API surface:** six routes, all Bearer-token.
+`NurseAuthController` mints a personal access token with the `nurse:day-pack` ability and a
+**12-hour** expiry; `NurseSyncController`/`NurseDayPackController` re-check it with `tokenCan`. The
+**PWA is the only consumer** — the Inertia app, the patient portal and the kiosk are all `web`
+routes. If you ever add a genuine cookie SPA, scope the stateful middleware to ITS routes; do not
+restore it globally.
+
+**THE TEST-POSTURE TRAP THAT HID THIS FOR A WHOLE RELEASE:** every pre-existing nurse API test uses
+`postJson()`/`getJson()` with **no `Origin` header**, so CI exercised a posture no browser ever uses
+and stayed green while the product was unusable. `NurseApiOriginPostureTest` always sends one.
+**And measured by mutation:** restoring `statefulApi()` reddens **only** the middleware-composition
+assertion — the request-level tests still pass, because Laravel's `ValidateCsrfToken` self-skips
+under `runningUnitTests()`. A feature test in this repo **cannot** observe a 419. The structural
+assertion is the guard; the browser is the proof.
+
+**`DayPackService` throws 403 at each missing link in user → StaffProfile → practitioner `Resource`.**
+A test nurse without that chain 403s for reasons unrelated to whatever you are testing.

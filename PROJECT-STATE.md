@@ -57,7 +57,7 @@ phase's timestamp observation suspect, and past-time booking was live on the pub
 after two real writes; zero client-side aggregation; over-allocation refused four ways; Betreibung
 refused under forgery for all three roles). Its two financial-integrity findings are fixed in QA-FIX.3.
 
-**Phase 4 (nursing / Spitex, incl. the Nurse PWA) is DONE** (`<pending>`): 23 findings — **5 CRITICAL**,
+**Phase 4 (nursing / Spitex, incl. the Nurse PWA) is DONE** (`4dfd59c`): 23 findings — **5 CRITICAL**,
 5 HIGH, 10 MEDIUM, 3 LOW, the most severe phase so far. Roles driven: `nurse`, `coordinator`,
 `ward_nurse`, `charge_nurse` (`scrub_nurse` → Phase 6; `triage_nurse`/`ed_charge_nurse` → Phase 7).
 **The offline Nurse PWA is the least mature surface the audit has reached** and it is the one holding
@@ -68,6 +68,14 @@ as wall-clock in UTC columns at 11 sites, and one "Save note" gesture writes two
 refused under forgery, day-pack scoped to the nurse's own visits, clinical fence absolute. The
 defects are in the data LIFECYCLE. A `nurse` is 403 on every nursing WEB route, so the PWA is their
 only surface. **Nothing is fixed — audit only.**
+
+**QA-FIX.4 is fixing the Phase-4 PWA critical cluster in five parts.** Part 1 (`<pending>`,
+D-201) is done: **the API is token-only** — `statefulApi()` is removed from `bootstrap/app.php`, so
+the Nurse PWA can finally authenticate and sync from the origin it is served on (P4-C1). The study
+found no cookie client to protect: all six `api/*` routes are Bearer-token and the PWA is their only
+consumer. **This was never local-only** — `SANCTUM_STATEFUL_DOMAINS` derives from `APP_URL`, so it
+broke in production too. Remaining: 4b device timestamps (P4-C4), 4c reload + session-expiry data
+loss (P4-C2/C3), 4d duplicate note (P4-C5), 4e check-in/out wiring (P4-H3).
 
 **A refused money operation leaves nothing behind** (D-199): `record()` + `allocate()` now run in one
 transaction on the AR-account path, so a refused allocation unwinds the payment and every line already

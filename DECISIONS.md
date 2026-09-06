@@ -4059,3 +4059,48 @@ references the old ID.
   figure, 3b explains the *legitimate* remainder.
   See [[Billing]], `docs/qa/ROLE-AUDIT.md` (P3-H1), D-199 (the sibling half of this gate),
   D-176 (an unbacked claim on screen), [[LOG]].
+
+- **D-201 — The API is TOKEN-ONLY: `statefulApi()` is removed, not worked around
+  (QA-FIX.4a, closing P4-C1).**
+  Phase 4 could not log into the Nurse PWA at all from the origin it is served on: `POST
+  /api/nurse/login` and `POST /api/nurse/sync` returned **419 CSRF token mismatch** while `GET
+  /api/nurse/day-pack` returned **200**. **The asymmetry was the danger, not the outage** — CSRF
+  applies only to state-changing verbs, so patient data flowed onto the field device and no recorded
+  care could ever come back.
+  **THE CAUSE WAS A SPECULATIVE LINE THAT CONTRADICTED ITSELF.** `bootstrap/app.php` carried
+  `$middleware->statefulApi()` under the comment *"Sanctum stateful API for the future PWA / SPA
+  token auth"*. `statefulApi()` enables **cookie-session** auth for first-party SPAs — precisely what
+  **token** auth does not need. It was added before the PWA existed, and the PWA that arrived is a
+  token client. Sanctum treats any request whose `Origin` is a stateful domain as a first-party SPA
+  and CSRF-checks it, and `SANCTUM_STATEFUL_DOMAINS` **derives from `APP_URL`** — the very host
+  `public/nurse-pwa/` is served from. **This was therefore never local-only: it breaks in production
+  too**, wherever the PWA shares the app's hostname.
+  **THE STUDY FOUND NO COOKIE CLIENT TO PROTECT.** The entire `api` surface is six routes, all
+  Bearer-token: `NurseAuthController` mints a Sanctum personal access token with the
+  `nurse:day-pack` ability and a 12-hour expiry, and `NurseSyncController` re-checks it with
+  `tokenCan`. The Nurse PWA is the **only** consumer (four `fetch` sites in `nurse-pwa/src/api.ts`);
+  the Inertia app, the patient portal and the kiosk all use **web** routes. `routes/api.php`'s own
+  docblock already said *"Token-authenticated (Sanctum) endpoints for the Nurse PWA live here."*
+  **OPTION (b) WAS CONSIDERED AND REJECTED ON ARCHITECTURE, NOT EFFORT.** Making the client perform
+  the Sanctum CSRF handshake (`/sanctum/csrf-cookie` + `credentials` + `X-XSRF-TOKEN`) would convert
+  a token client into a **cookie** client. A cookie session is the wrong primitive for a field device
+  that must work offline across reloads, it would make the `tokenCan` ability model redundant, and it
+  would put a session cookie on a phone. Option (a) — exclude the API from the stateful middleware —
+  matches what every one of those routes already does.
+  **WHICH ROUTES CHANGED POSTURE, AND WHY THAT IS SAFE.** All six `api/*` routes stop being treated
+  as stateful: they no longer accept cookie-session auth and are no longer CSRF-checked. Five of six
+  require `auth:sanctum` **plus** the `nurse:day-pack` ability, and **a browser cannot silently
+  attach a Bearer token cross-origin**, so CSRF is structurally inapplicable — there is no ambient
+  authority to abuse. The sixth, `POST /api/nurse/login`, is public and takes credentials: an
+  attacker who can make a victim's browser POST cannot supply the victim's password and cannot read
+  the JSON token response. **CSRF for the Inertia app, the portal and the kiosk is untouched** — it
+  lives in the `web` group, which this does not modify, and a test asserts that directly.
+  **THE DEFECT WAS INVISIBLE TO CI BECAUSE OF A TEST-POSTURE GAP, AND THAT IS THE TRANSFERABLE
+  LESSON.** Every pre-existing nurse API test calls `postJson()`/`getJson()` with **no `Origin`
+  header**, so the whole suite exercised the API in a posture no browser ever uses. Sanctum keys off
+  `Origin`/`Referer`, so a fully green CI sat on top of a completely unusable product. The new tests
+  always send a browser `Origin`. **Measured honestly by mutation:** restoring `statefulApi()`
+  reddens **only** the middleware-composition assertion — the request-level tests keep passing,
+  because Laravel's `ValidateCsrfToken` self-skips under `runningUnitTests()` and no feature test can
+  ever observe the 419 a real browser gets. The structural assertion is the guard; the **browser** is
+  the proof. See [[Nursing]], `docs/qa/ROLE-AUDIT.md` (P4-C1), D-182 (the test shape), [[LOG]].
