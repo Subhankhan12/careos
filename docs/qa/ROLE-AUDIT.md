@@ -59,6 +59,8 @@ every later phase's timestamp observation suspect, and past-time booking was liv
 | `P1-H3` | HIGH | ✅ **FIXED** | QA-FIX.1b | `f6b619a` |
 | `P2-C1` | CRITICAL | ✅ **FIXED** | QA-FIX.2a | `e8a7a48` |
 | `P2-H1` | HIGH | ✅ **FIXED** | QA-FIX.2b | `706ed77` |
+| `P3-C1` | CRITICAL | ✅ **FIXED** | QA-FIX.3a | `<pending>` |
+| `P3-H1` | HIGH | ⏳ in the same gate (Part 2) | QA-FIX.3b | — |
 | all others | — | 📋 recorded, not fixed | — | — |
 
 *(A commit cannot contain its own hash. Per the repo-wide marker convention, `<pending>` is backfilled
@@ -1259,6 +1261,40 @@ Route sweeps were run in-session: **29 routes** for `billing`, 12 for `pharmacis
 ### CRITICAL
 
 #### `P3-C1` — A **refused** record-payment still commits the payment
+
+> ✅ **FIXED — QA-FIX.3a, commit `<pending>` (D-199).** The guard was never the problem —
+> `PaymentService::allocate()` refused correctly every time. **The controller composed two service
+> calls with nothing around them**, so the payment committed before the allocation was even
+> attempted. `record()` + `allocate()` now run inside **one `DB::transaction`**, and the guard's
+> exception propagates out of it, so a refusal unwinds the payment and every allocation line already
+> applied on the same submission.
+> **A rollback is the only available fix:** `Payment` is append-only at the model level
+> (`static::updating` and `static::deleting` both throw), so a compensating delete would itself be
+> refused — the write must never happen.
+> **The correct shape already existed in the same file:** the payment-plan path refuses cleanly
+> because `PaymentPlanService::create()` wraps its whole operation in `DB::transaction`. This matches
+> that discipline.
+> **The legitimate unallocated payment is preserved, structurally rather than by a flag:** with no
+> allocation lines `allocate()` is never called, nothing throws, and the transaction commits — money
+> received today and applied tomorrow, and an overpayment's remainder, both still work. Only an
+> allocation that is *attempted and refused* unwinds the payment.
+> **The audit row rolls back with it, deliberately** — `record()` audits inline and `AuditService`
+> runs on the same connection, so the ledger cannot claim a payment that does not exist; a test
+> asserts `verifyChain()` is still OK after a rolled-back append.
+> **Re-measured in the browser, same steps as below:** the UI attempt (CHF 500.00 against a CHF
+> 169.61 open invoice) plus both forged POSTs left `payments` at **4 — the seeded baseline,
+> unchanged — against 7 in Phase 3**; allocations stayed 6, INV-5's open balance stayed 16961,
+> **zero `payment.recorded` audit rows** were written, and the chain verified OK.
+> **The sibling `PaymentController::store()` was deliberately NOT changed** — it composes the same
+> pair but *discloses*, redirecting to the payment it kept with the error beside it, which is a
+> coherent desk workflow. Recorded in `DEFERRED.md` with its residual rather than widening the gate.
+> Guarded by 6 ADDED tests in `AccountRecordPaymentTest.php` (3 D-182-shaped absence assertions +
+> 3 positive controls). Mutation-checked: replacing the transaction with a plain IIFE reddens 5 while
+> all 3 positive controls stay green.
+> **Two existing tests asserted the old behaviour and are corrected in place** — one asserted "the
+> receipt itself stands (money WAS received)", the other asserted that the first allocation line was
+> kept when a later line was refused, so a refused multi-line payment had left both an orphan payment
+> *and* a partly-applied invoice.
 
 - **Role:** `billing` · **Route:** `/billing/accounts/{account}` → Record payment
 - **What I did:** On Viktor Odermatt (INV-5, open CHF 169.61) I entered **AMOUNT RECEIVED 500.00**

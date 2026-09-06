@@ -49,6 +49,22 @@ phase's timestamp observation suspect, and past-time booking was live on the pub
 | **P1-H3** the slot finder offered past times and the system booked them | **QA-FIX.1b** | ✅ FIXED — D-194 |
 | **P2-C1** a signed clinical note was attributed to a clinician who neither wrote nor signed it | **QA-FIX.2a** | ✅ FIXED — D-195/D-196/D-197 |
 | **P2-H1** opening a note silently asserted the patient had arrived | **QA-FIX.2b** | ✅ FIXED — D-198 |
+| **P3-C1** a refused record-payment still committed the payment (false money records) | **QA-FIX.3a** | ✅ FIXED — D-199 |
+| **P3-H1** two billing screens reported different "COLLECTED" figures | **QA-FIX.3b** | Part 2 of the same gate |
+
+**Phase 3 (billing / finance) is DONE** (`a5cea30`): 15 findings — 1 CRITICAL, 4 HIGH, 8 MEDIUM,
+2 LOW. The money guards held under attack (all six engine δ=0 claims checked on screen and re-checked
+after two real writes; zero client-side aggregation; over-allocation refused four ways; Betreibung
+refused under forgery for all three roles). Its two financial-integrity findings are fixed in QA-FIX.3.
+
+**A refused money operation leaves nothing behind** (D-199): `record()` + `allocate()` now run in one
+transaction on the AR-account path, so a refused allocation unwinds the payment and every line already
+applied — **and the audit row with them**, since the ledger must not claim a payment that does not
+exist. `payments` is append-only, so a rollback was the only available fix. **A legitimately
+unallocated payment still works** (no allocation lines → nothing throws → it commits).
+**⚠️ RECORDED, NOT FIXED:** `PaymentController::store()` composes the same pair without a transaction
+but *discloses* the kept receipt (it redirects to the payment). Do not copy the transaction there —
+that would silently discard money that physically arrived. See `DEFERRED.md`.
 
 **Phase 2 (clinician: doctor / dentist) is DONE** (`a5e17dc`): 19 findings — 1 CRITICAL, 4 HIGH,
 9 MEDIUM, 5 LOW. **There is no `dentist` role template** — the dental practice's clinician holds

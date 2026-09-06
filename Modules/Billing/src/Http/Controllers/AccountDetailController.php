@@ -4,6 +4,7 @@ namespace Modules\Billing\Http\Controllers;
 
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -179,29 +180,54 @@ class AccountDetailController
             $targets[] = [$invoice, (int) $line['amount_minor']];
         }
 
-        $payment = $payments->record(
-            (int) $validated['amount_minor'],
-            $validated['method'],
-            $actor,
-            $patient,
-            null,
-            // Match the target invoices' currency when allocating (the service refuses a mismatch);
-            // otherwise the service stamps the tenant settlement currency.
-            $targets === [] ? null : $targets[0][0]->currency,
-            $validated['received_on'],
-            $validated['reference'] ?? null,
-        );
+        // ONE OPERATION, ONE TRANSACTION (QA-FIX.3a, D-199, closing `P3-C1`).
+        //
+        // The record and the allocations used to run unwrapped: `record()` committed the payment
+        // immediately, and a refused allocation returned the guard's message afterwards — so the
+        // operator was told the write had failed while a real payment row survived on the account.
+        // `payments` is APPEND-ONLY at the model level (`Payment::updating`/`deleting` both throw),
+        // so a compensating delete is impossible: a rollback is the only way to leave nothing behind.
+        //
+        // This matches the discipline the payment-plan path on this same page already uses —
+        // `PaymentPlanService::create()` wraps its whole operation in `DB::transaction`, which is why
+        // its refusal leaves no orphan plan.
+        //
+        // A LEGITIMATELY UNALLOCATED PAYMENT IS PRESERVED, and the distinction is structural rather
+        // than a flag: with no allocation lines `$targets` is empty, `allocate()` is never called,
+        // nothing throws and the transaction commits — money received today and applied tomorrow, or
+        // an overpayment whose remainder stays unallocated, both still work exactly as before. Only
+        // an allocation that is ATTEMPTED AND REFUSED unwinds the payment with it.
+        //
+        // The audit row rolls back with it, deliberately: `PaymentService::record()` writes
+        // `payment.recorded` inline and `AuditService::record()` runs on the same connection, so the
+        // ledger cannot claim a payment that does not exist. The hash chain stays gapless because the
+        // append re-reads the tenant's latest COMMITTED row under `FOR UPDATE`.
+        try {
+            DB::transaction(function () use ($payments, $validated, $actor, $patient, $targets): void {
+                $payment = $payments->record(
+                    (int) $validated['amount_minor'],
+                    $validated['method'],
+                    $actor,
+                    $patient,
+                    null,
+                    // Match the target invoices' currency when allocating (the service refuses a
+                    // mismatch); otherwise the service stamps the tenant settlement currency.
+                    $targets === [] ? null : $targets[0][0]->currency,
+                    $validated['received_on'],
+                    $validated['reference'] ?? null,
+                );
 
-        foreach ($targets as [$invoice, $amountMinor]) {
-            try {
-                $payments->allocate($payment, $invoice, $amountMinor, $actor);
-            } catch (InvalidArgumentException $e) {
-                // The guard fired (over-allocation / remainder / not-open invoice). Nothing was
-                // posted for this line; surface the service's own message on the account page.
-                return redirect()
-                    ->route('billing.accounts.show', (string) $patient->id)
-                    ->withErrors(['record_payment' => $e->getMessage()]);
-            }
+                foreach ($targets as [$invoice, $amountMinor]) {
+                    $payments->allocate($payment, $invoice, $amountMinor, $actor);
+                }
+            });
+        } catch (InvalidArgumentException $e) {
+            // The guard fired (over-allocation / remainder / not-open invoice). The transaction has
+            // rolled back, so NOTHING was posted — not the allocation and not the payment. Surface
+            // the service's own message on the account page.
+            return redirect()
+                ->route('billing.accounts.show', (string) $patient->id)
+                ->withErrors(['record_payment' => $e->getMessage()]);
         }
 
         return redirect()->route('billing.accounts.show', (string) $patient->id);

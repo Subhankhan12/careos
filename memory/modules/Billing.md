@@ -546,3 +546,64 @@ forged confirmed POST; reception 403). **AR ACCOUNT DETAIL PARITY COMPLETE (P1�
   invoice-less record page; `PaymentController@create` now passes `tenantCurrency` (`SettingsService->get('currency')`)
   and the view falls back to it (display only — the recorded payment's currency was already resolved correctly by
   `PaymentService`). Any new billing view that shows a currency should follow the same pattern.
+
+### QA-FIX.3a — a refused money operation leaves nothing behind (2026-09-06, closes `P3-C1`)
+
+**The defect:** CHF 500.00 entered against an invoice with CHF 169.61 open returned *"Cannot allocate
+more than the invoice open balance"*, left the balance untouched — and created the payment anyway.
+Two forged POSTs added two more; **CHF 1'010.00 never received** sat on one account, all of it created
+by operations the product reported as failures.
+
+**THE GUARD WAS NEVER THE PROBLEM.** `PaymentService::allocate()` refused correctly every time, inside
+its own `DB::transaction(..., 5)`. The controller composed two service calls with nothing around them:
+
+```php
+$payment = $payments->record(...);            // :182 — committed unconditionally
+foreach ($targets as ...) {
+    try { $payments->allocate(...); }         // :195
+    catch (InvalidArgumentException $e) { return redirect()->withErrors(...); }   // :198
+}
+```
+
+The comment *"Nothing was posted for this line"* was true of the **line** and false about the
+**operation**.
+
+**A ROLLBACK IS THE ONLY AVAILABLE FIX.** `Payment::updating` and `::deleting` both throw
+`LogicException` — `payments` is append-only at the model level, so a compensating delete would itself
+be refused. The write must never happen.
+
+**THE CORRECT SHAPE WAS ALREADY IN THE SAME FILE.** `storePlan()` refuses cleanly and leaves no orphan
+because `PaymentPlanService::create()` wraps its **whole** operation in `DB::transaction`; the
+controller only catches and redirects. The fix matches that: one operation, one transaction.
+
+**THE UNALLOCATED PAYMENT IS PRESERVED, STRUCTURALLY.** With no allocation lines `$targets` is empty,
+`allocate()` is never called, nothing throws and the transaction commits — money received today and
+applied tomorrow, and an overpayment's remainder, both still work. Only an allocation **attempted and
+refused** unwinds the payment. Two positive-control tests pin each case, and a third pins that a valid
+record+allocate still commits both rows: **the fix is a rollback, not a block.**
+
+**THE AUDIT ROW ROLLS BACK TOO, DELIBERATELY.** `record()` audits `payment.recorded` inline and
+`AuditService::record()` runs on the **same connection**, so the append is a savepoint inside the
+outer transaction and vanishes on rollback — the ledger cannot claim a payment that does not exist.
+The chain stays gapless because the append takes `FOR UPDATE` on the tenant's latest row and the next
+append re-reads the unchanged *committed* tail; a test asserts `verifyChain()->ok` after a rolled-back
+append.
+
+**NESTED-TRANSACTION NOTE:** `allocate()`'s `DB::transaction(..., 5)` becomes a savepoint under the
+outer one. Those 5 attempts are Laravel's *deadlock* retry and do not re-run an
+`InvalidArgumentException`, so a refused guard propagates immediately rather than retrying five times.
+
+**THE SIBLING PATH IS DIFFERENT AND WAS LEFT ALONE.** `PaymentController::store()` composes the same
+pair without a transaction, but it **discloses**: its comment says the receipt is kept on purpose, and
+it redirects to `billing.payments.show` so the operator lands on the payment with the error beside it.
+Same service, same mechanics, opposite honesty. See `DEFERRED.md` — and do NOT simply copy this
+transaction there, which would silently discard a receipt for money that physically arrived.
+
+**Guarded by** 6 added tests in `AccountRecordPaymentTest.php`, 3 D-182-shaped (asserting the absence
+of a row the pre-fix code SUCCEEDS at creating). Mutation-checked: replacing the transaction with a
+plain IIFE reddens 5 while all 3 positive controls stay green.
+
+**Two existing tests asserted the old behaviour and were CORRECTED:** one asserted *"the receipt
+itself stands (money WAS received)"*; the other asserted `PaymentAllocation::count() === 1` with the
+first invoice fully paid when a later line was refused — so a refused multi-line payment had left both
+an orphan payment **and** a partly-applied invoice, which is worse than Phase 3 recorded.

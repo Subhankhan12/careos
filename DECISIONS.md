@@ -3968,3 +3968,57 @@ references the old ID.
   See [[Clinical]], [[Scheduling]], `docs/qa/ROLE-AUDIT.md` (P2-H1), D-156 (the sanctioned compose),
   D-179 (asserted action never taken), D-182 (the test shape), P1-M1 (the same shape, still open),
   [[LOG]].
+
+- **D-199 — A refused money operation leaves nothing behind: record + allocate is ONE transaction
+  (QA-FIX.3a, closing P3-C1).**
+  The Phase-3 audit entered CHF 500.00 against an invoice with CHF 169.61 open, was told
+  **"Cannot allocate more than the invoice open balance"**, watched the balance and the ledger stay
+  untouched — and found a **CHF 500.00 payment on the account anyway**, visible on
+  `/billing/payments` as received money. Two forged POSTs added two more: **CHF 1'010.00 that was
+  never received** sat on one account, created by operations the product had reported as failures.
+  **THE CAUSE WAS A MISSING TRANSACTION, NOT A MISSING GUARD.** The guard was never the problem —
+  `PaymentService::allocate()` refused correctly every time, in its own `DB::transaction(..., 5)`.
+  The controller composed two service calls with nothing around them:
+  `AccountDetailController:182` committed the payment, `:195-204` allocated afterwards and returned
+  the guard's message. The in-code comment — *"Nothing was posted for this line"* — was true of the
+  **line** and false about the **operation**.
+  **A ROLLBACK IS THE ONLY AVAILABLE FIX.** `Payment` is append-only at the model level
+  (`static::updating` and `static::deleting` both throw `LogicException`), so a compensating delete
+  would itself be refused. There is no way to tidy up after the fact; the write must never happen.
+  **THE CORRECT SHAPE ALREADY EXISTED IN THE SAME FILE.** The payment-plan path refuses cleanly and
+  leaves no orphan, because `PaymentPlanService::create()` wraps its **whole** operation in
+  `DB::transaction` — the controller merely catches and redirects. The fix matches that discipline:
+  one operation, one transaction, the guard's exception propagating out of it.
+  **THE LEGITIMATE UNALLOCATED PAYMENT IS PRESERVED, AND THE DISTINCTION IS STRUCTURAL rather than a
+  flag.** With no allocation lines, `$targets` is empty, `allocate()` is never called, nothing throws
+  and the transaction commits — money received today and applied tomorrow, or an overpayment whose
+  remainder stays unallocated, both still work exactly as before. Only an allocation that is
+  **attempted and refused** unwinds the payment with it. Two positive-control tests pin each case.
+  **THE AUDIT ROW ROLLS BACK WITH IT, DELIBERATELY.** `PaymentService::record()` writes
+  `payment.recorded` inline and `AuditService::record()` runs on the **same connection**, so the audit
+  append becomes a savepoint inside the outer transaction and vanishes on rollback. That is the
+  outcome we want: the ledger cannot claim a payment that does not exist. **The hash chain stays
+  gapless** because the append takes `FOR UPDATE` on the tenant's latest row and the next append
+  re-reads the unchanged *committed* tail — verified in a test that asserts `verifyChain()->ok` after
+  a rolled-back append. The only cost is that the audit's row lock is now held for the outer
+  transaction's lifetime rather than its own; `allocate()` already holds row locks over that window.
+  **A NESTED-TRANSACTION NOTE for the next reader:** `allocate()`'s own `DB::transaction(..., 5)`
+  becomes a savepoint under the outer one. Its 5 attempts are Laravel's *deadlock* retry and do not
+  re-run an `InvalidArgumentException`, so a refused guard propagates immediately rather than being
+  retried five times.
+  **THE SIBLING PATH WAS DELIBERATELY NOT CHANGED, and the reason is disclosure, not mechanics.**
+  `PaymentController::store()` (`:134,150`) composes the same pair without a transaction, but it is a
+  different intent: its comment states it plainly — *"The payment is already recorded (money WAS
+  received) even if the allocation is refused, so a bad allocation surfaces as an error on the payment
+  detail rather than losing the receipt"* — and it **redirects to `billing.payments.show`**, landing
+  the operator on the payment it kept, with the allocation error beside it. That is a coherent desk
+  workflow: cash arrived, record it, fix the allocation next. The AR-account path did the opposite,
+  redirecting back to the account with only an error, so the payment was **hidden**. Same service,
+  same mechanics, opposite honesty. Recorded rather than widened — see `DEFERRED.md` for the residual.
+  **Guarded by** six ADDED tests in `tests/Feature/Billing/AccountRecordPaymentTest.php`, three of
+  them D-182-shaped (they assert the ABSENCE of a row the pre-fix code SUCCEEDS at creating) and
+  three positive controls proving the fix is a rollback and not a block. Mutation-checked: replacing
+  `DB::transaction(...)` with a plain IIFE reddens **5** (the 3 new guards plus the 2 corrected
+  tests) while all **3** positive controls stay green.
+  **TWO EXISTING TESTS ASSERTED THE OLD BEHAVIOUR AND ARE CORRECTED, NOT WEAKENED** — see [[LOG]].
+  See [[Billing]], `docs/qa/ROLE-AUDIT.md` (P3-C1), D-182 (the test shape), [[DEFERRED]], [[LOG]].

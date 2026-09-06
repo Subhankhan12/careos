@@ -7,6 +7,7 @@ use Inertia\Testing\AssertableInertia as Assert;
 use Modules\AiCore\Services\AutonomyPolicy;
 use Modules\AiCore\Services\ToolDefinition;
 use Modules\AiCore\Services\ToolRegistry;
+use Modules\Audit\Services\AuditService;
 use Modules\Billing\Models\Charge;
 use Modules\Billing\Models\Invoice;
 use Modules\Billing\Models\InvoiceBalance;
@@ -199,10 +200,12 @@ test('the over-allocation guard holds through the page path — a forged over-al
     expect(PaymentAllocation::query()->count())->toBe(0)
         ->and(arpOpen($invoice))->toBe(30000);
 
-    // The receipt itself stands (money WAS received) as an unallocated remainder — the existing
-    // PaymentService semantics; and the books still tie with it.
-    $payment = Payment::query()->where('patient_id', $patient->id)->firstOrFail();
-    expect($payment->amount_minor)->toBe(50000);
+    // CORRECTION, not a weakening (QA-FIX.3a, `P3-C1`). This block asserted the OPPOSITE — that
+    // "the receipt itself stands (money WAS received) as an unallocated remainder", i.e. that a
+    // CHF 500.00 payment survived an operation the page had just reported as failed. That was the
+    // defect, pinned by a test: the operator was told the write failed while a real payment row
+    // stayed on the account. A refused operation now leaves NOTHING behind.
+    expect(Payment::query()->where('patient_id', $patient->id)->count())->toBe(0);
     foreach (arpReport()['invariants'] as $inv) {
         expect($inv['ok'])->toBeTrue()->and($inv['delta_minor'])->toBe(0);
     }
@@ -228,10 +231,16 @@ test('the guard also refuses allocating more than the payment remainder across s
         ])
         ->assertSessionHasErrors('record_payment');
 
-    // Only the movement the guard allowed was posted; the second invoice is untouched.
-    expect(PaymentAllocation::query()->count())->toBe(1)
-        ->and(arpOpen($first))->toBe(0)
-        ->and(arpOpen($second))->toBe(10000);
+    // CORRECTION, not a weakening (QA-FIX.3a, `P3-C1`). This asserted
+    // `PaymentAllocation::count() === 1` and `arpOpen($first) === 0` — "only the movement the guard
+    // allowed was posted" — i.e. the FIRST allocation was committed and kept even though the
+    // operation as a whole was refused. So a refused multi-line payment left BOTH an orphan payment
+    // AND a partly-applied invoice. The whole operation is now one transaction, so a refusal on any
+    // line unwinds every line and the payment with them.
+    expect(PaymentAllocation::query()->count())->toBe(0)
+        ->and(arpOpen($first))->toBe(10000)
+        ->and(arpOpen($second))->toBe(10000)
+        ->and(Payment::query()->where('patient_id', $patient->id)->count())->toBe(0);
 
     foreach (arpReport()['invariants'] as $inv) {
         expect($inv['delta_minor'])->toBe(0);
@@ -398,4 +407,167 @@ test('the account page exposes the record-payment action with the engine open in
     // Reflect-only: a view-only biller sees no action control, and the server still refuses.
     $reception = arpUser($fx['tenant'], 'reception');
     $this->actingAs($reception)->get(route('billing.accounts.show', $patient->id))->assertForbidden();
+});
+
+/*
+|--------------------------------------------------------------------------
+| QA-FIX.3a — a REFUSED record-payment leaves nothing behind (P3-C1)
+|--------------------------------------------------------------------------
+| The Phase-3 audit entered CHF 500.00 against an invoice with CHF 169.61 open,
+| was told "Cannot allocate more than the invoice open balance", and found a
+| CHF 500.00 payment on the account anyway. `payments` is append-only at the
+| model level, so a compensating delete is impossible — a transaction rollback
+| is the only way to leave nothing behind.
+|
+| EVERY GUARD TEST BELOW IS D-182-SHAPED: it asserts the ABSENCE of a row that
+| the pre-fix code SUCCEEDS at creating. Without the transaction each one finds
+| an orphan, so the assertion measures the rollback and not an accident.
+| The positive controls prove the fix is a rollback and not a block.
+*/
+
+test('a refused over-allocation leaves ZERO payment rows — the rollback, not just the guard', function () {
+    $fx = arpFixture();
+    $patient = arpPatient();
+    $invoice = arpInvoice($fx, $patient, 30000);
+
+    expect(Payment::query()->count())->toBe(0);
+
+    $this->actingAs($fx['actor'])
+        ->post(route('billing.accounts.payments.store', $patient->id), [
+            'amount_minor' => 50000,
+            'method' => 'bank_transfer',
+            'received_on' => '2026-06-22',
+            'allocations' => [['invoice_id' => $invoice->id, 'amount_minor' => 30001]],
+        ])
+        ->assertSessionHasErrors('record_payment');
+
+    // Pre-fix this is 1: record() committed before allocate() was ever called.
+    expect(Payment::query()->count())->toBe(0)
+        ->and(PaymentAllocation::query()->count())->toBe(0)
+        ->and(arpOpen($invoice))->toBe(30000);
+});
+
+test('a refused remainder over-allocation rolls back the payment AND every allocation line already applied', function () {
+    $fx = arpFixture();
+    $patient = arpPatient();
+    $first = arpInvoice($fx, $patient, 10000);
+    $second = arpInvoice($fx, $patient, 10000);
+
+    $this->actingAs($fx['actor'])
+        ->post(route('billing.accounts.payments.store', $patient->id), [
+            'amount_minor' => 10000,
+            'method' => 'cash',
+            'received_on' => '2026-06-22',
+            'allocations' => [
+                ['invoice_id' => $first->id, 'amount_minor' => 10000],
+                ['invoice_id' => $second->id, 'amount_minor' => 10000],
+            ],
+        ])
+        ->assertSessionHasErrors('record_payment');
+
+    // Pre-fix: 1 payment AND 1 committed allocation with $first fully paid. The whole operation is
+    // one transaction now, so a refusal on the SECOND line unwinds the FIRST line too.
+    expect(Payment::query()->count())->toBe(0)
+        ->and(PaymentAllocation::query()->count())->toBe(0)
+        ->and(arpOpen($first))->toBe(10000)
+        ->and(arpOpen($second))->toBe(10000);
+});
+
+test('NO audit row survives a rolled-back payment — the ledger cannot claim money that does not exist', function () {
+    $fx = arpFixture();
+    $patient = arpPatient();
+    $invoice = arpInvoice($fx, $patient, 30000);
+
+    $before = DB::table('audit_events')->whereIn('action', ['payment.recorded', 'payment.allocated'])->count();
+
+    $this->actingAs($fx['actor'])
+        ->post(route('billing.accounts.payments.store', $patient->id), [
+            'amount_minor' => 50000,
+            'method' => 'bank_transfer',
+            'received_on' => '2026-06-22',
+            'allocations' => [['invoice_id' => $invoice->id, 'amount_minor' => 30001]],
+        ])
+        ->assertSessionHasErrors('record_payment');
+
+    // PaymentService::record() audits payment.recorded inline, and AuditService runs on the SAME
+    // connection — so the audit write sits inside the rolled-back transaction and must vanish with
+    // it. Pre-fix this grows by 1 and the ledger records a payment that no longer exists.
+    expect(DB::table('audit_events')->whereIn('action', ['payment.recorded', 'payment.allocated'])->count())
+        ->toBe($before);
+
+    // And the hash chain is still intact after a rolled-back append.
+    expect(app(AuditService::class)->verifyChain($fx['tenant']->id)['ok'])->toBeTrue();
+});
+
+test('POSITIVE CONTROL — a VALID record + allocate still commits both', function () {
+    $fx = arpFixture();
+    $patient = arpPatient();
+    $invoice = arpInvoice($fx, $patient, 30000);
+
+    $this->actingAs($fx['actor'])
+        ->post(route('billing.accounts.payments.store', $patient->id), [
+            'amount_minor' => 30000,
+            'method' => 'bank_transfer',
+            'received_on' => '2026-06-22',
+            'allocations' => [['invoice_id' => $invoice->id, 'amount_minor' => 30000]],
+        ])
+        ->assertSessionHasNoErrors();
+
+    // The fix is a ROLLBACK, not a BLOCK: the good path must still write both rows.
+    expect(Payment::query()->count())->toBe(1)
+        ->and(PaymentAllocation::query()->count())->toBe(1)
+        ->and(arpOpen($invoice))->toBe(0);
+
+    foreach (arpReport()['invariants'] as $inv) {
+        expect($inv['ok'])->toBeTrue()->and($inv['delta_minor'])->toBe(0);
+    }
+});
+
+test('POSITIVE CONTROL — a payment with NO allocation lines still commits and stays unallocated', function () {
+    $fx = arpFixture();
+    $patient = arpPatient();
+    arpInvoice($fx, $patient, 30000);
+
+    // The legitimate business case the fix must NOT break: money received today, applied tomorrow.
+    $this->actingAs($fx['actor'])
+        ->post(route('billing.accounts.payments.store', $patient->id), [
+            'amount_minor' => 25000,
+            'method' => 'cash',
+            'received_on' => '2026-06-22',
+        ])
+        ->assertSessionHasNoErrors();
+
+    $payment = Payment::query()->firstOrFail();
+
+    expect(Payment::query()->count())->toBe(1)
+        ->and($payment->amount_minor)->toBe(25000)
+        ->and(PaymentAllocation::query()->count())->toBe(0);
+
+    foreach (arpReport()['invariants'] as $inv) {
+        expect($inv['ok'])->toBeTrue()->and($inv['delta_minor'])->toBe(0);
+    }
+});
+
+test('POSITIVE CONTROL — an OVERPAYMENT commits with its remainder left unallocated', function () {
+    $fx = arpFixture();
+    $patient = arpPatient();
+    $invoice = arpInvoice($fx, $patient, 30000);
+
+    // Allocating LESS than the payment is not a refusal — the remainder is legitimately unallocated.
+    $this->actingAs($fx['actor'])
+        ->post(route('billing.accounts.payments.store', $patient->id), [
+            'amount_minor' => 32500,
+            'method' => 'card',
+            'received_on' => '2026-06-22',
+            'allocations' => [['invoice_id' => $invoice->id, 'amount_minor' => 30000]],
+        ])
+        ->assertSessionHasNoErrors();
+
+    expect(Payment::query()->count())->toBe(1)
+        ->and(PaymentAllocation::query()->count())->toBe(1)
+        ->and(arpOpen($invoice))->toBe(0);
+
+    foreach (arpReport()['invariants'] as $inv) {
+        expect($inv['ok'])->toBeTrue()->and($inv['delta_minor'])->toBe(0);
+    }
 });

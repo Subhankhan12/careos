@@ -538,3 +538,30 @@ removing when Radiology is audited).
 `BedsideChartService` / `SurgicalCaseService`. The repair is the one `QA-FIX.2a` used:
 `StaffProfile::forUser($actor)`, refusing rather than guessing when the actor has no profile — after
 settling the operative-note attribution question above.
+
+---
+
+## The sibling record-then-allocate path keeps its receipt on a refused allocation (QA-FIX.3a, D-199)
+
+`QA-FIX.3a` wrapped the AR-account record-payment path in a transaction so a refused allocation
+leaves nothing behind (`P3-C1`). **`PaymentController::store()` (`:134,150`) composes the same
+`record()` + `allocate()` pair without a transaction and was deliberately left alone.**
+
+**Why it is not the same defect.** Its behaviour is stated in the code — *"The payment is already
+recorded (money WAS received) even if the allocation is refused, so a bad allocation surfaces as an
+error on the payment detail rather than losing the receipt"* — and, decisively, it **redirects to
+`billing.payments.show`**, landing the operator on the payment it kept with the allocation error
+beside it. That is a coherent front-desk workflow: cash arrived at the counter, record it now, fix
+the allocation next. The AR-account path did the opposite — it redirected back to the account with
+only an error, so the payment was **hidden**. Same service, same mechanics, opposite disclosure.
+
+**The residual, stated plainly.** A refused allocation on that screen still leaves an unallocated
+payment, and because `payments` is append-only it cannot be removed — only refunded or left
+unallocated. The operator is *told*, which is the difference that matters, but "told" is not the same
+as "asked". A confirmation before keeping an unallocated receipt would close it properly.
+
+**TRIGGER:** QA Phase 10 (admin/governance), or the next gate touching `PaymentController`. The
+decision to make first is a product one: on the payments screen, should a refused allocation keep the
+receipt (today's behaviour, disclosed) or offer the operator the choice? Do not simply copy
+`QA-FIX.3a`'s transaction here — that would silently discard a receipt for money that physically
+arrived, which is the opposite failure.
