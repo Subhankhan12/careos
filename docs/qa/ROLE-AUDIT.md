@@ -25,7 +25,7 @@ missing · `LOW` cosmetic / polish.
 |---|---|---|
 | **1** | **Reception / front-desk** (`reception`, `admissions_clerk`) | ✅ **DONE** — 2026-09-04 |
 | **2** | **Clinician / physician** (`doctor` — medical **and** dental, `ed_physician` driven; `hospitalist`, `surgeon`, `anesthetist`, `pathologist`, `radiologist` compared but not driven) | ✅ **DONE** — 2026-09-05 |
-| 3 | Billing (`billing`) | ⏳ planned |
+| **3** | **Billing / finance** (`billing`, `org_admin` and `pharmacist` — the only three roles holding a `billing.*` permission) | ✅ **DONE** — 2026-09-06 |
 | 4 | Nursing / Spitex (`coordinator`, field nurse + Nurse PWA) | ⏳ planned |
 | 5 | Pharmacy (`pharmacist`, `pharmacy_technician`) | ⏳ planned |
 | 6 | Surgery / OR (`surgeon`, `anesthetist`, `scrub_nurse`, `surgical_scheduler`) | ⏳ planned |
@@ -40,7 +40,8 @@ missing · `LOW` cosmetic / polish.
 |---|---|---|---|---|---|
 | 1 — Reception / front-desk | 1 | 3 | 8 | 6 | 18 |
 | 2 — Clinician (doctor / dentist) | 1 | 4 | 9 | 5 | 19 |
-| **Total to date** | **2** | **7** | **17** | **11** | **37** |
+| 3 — Billing / finance | 1 | 4 | 8 | 2 | 15 |
+| **Total to date** | **3** | **11** | **25** | **13** | **52** |
 
 ## Fix status
 
@@ -57,7 +58,7 @@ every later phase's timestamp observation suspect, and past-time booking was liv
 | `P1-C1` | CRITICAL | ✅ **FIXED** | QA-FIX.1a | `78a05db` |
 | `P1-H3` | HIGH | ✅ **FIXED** | QA-FIX.1b | `f6b619a` |
 | `P2-C1` | CRITICAL | ✅ **FIXED** | QA-FIX.2a | `e8a7a48` |
-| `P2-H1` | HIGH | ✅ **FIXED** | QA-FIX.2b | `<pending>` |
+| `P2-H1` | HIGH | ✅ **FIXED** | QA-FIX.2b | `706ed77` |
 | all others | — | 📋 recorded, not fixed | — | — |
 
 *(A commit cannot contain its own hash. Per the repo-wide marker convention, `<pending>` is backfilled
@@ -744,7 +745,7 @@ slots (availability is weekdays 1–5) and manufacturing one would have meant ch
 
 #### `P2-H1` — Opening a note silently marks the patient **arrived** and the appointment **in progress**
 
-> ✅ **FIXED — QA-FIX.2b, commit `<pending>` (D-198).** `EncounterService::moveAppointmentToInProgress()`
+> ✅ **FIXED — QA-FIX.2b, commit `706ed77` (D-198).** `EncounterService::moveAppointmentToInProgress()`
 > walked every intermediate state so an encounter could always be opened — each hop a legal edge, so
 > nothing was bypassed. **The defect was in the meaning, not the mechanics:** the code answered "how do
 > I get this appointment to in_progress?" when the question was "has anyone actually said this patient
@@ -1157,76 +1158,581 @@ real `<button>` elements reachable by tab.
 
 ---
 
+## Phase 3 — Billing / Finance
+
+**Date:** 2026-09-06 · **HEAD at audit:** `706ed77` (QA-FIX.2b) · **CI at audit:** check-run `check`
+→ `completed / success`, read from the GitHub check-run API before starting · tree clean apart from
+untracked `docs/marketing-site/`.
+
+### Roles covered
+
+The billing/finance group is defined by who holds a `billing.*` permission. There are exactly three
+such roles out of the 26 templates:
+
+| Template | Money permissions | Driven in a browser |
+|---|---|---|
+| `billing` | `billing.view`, `billing.manage`, **`billing.escalate`** | ✅ the primary pass |
+| `org_admin` | `billing.view`, `billing.manage`, **`billing.escalate`** | ✅ sweep + escalation probe |
+| `pharmacist` | **`billing.manage` only** — no `billing.view`, no `billing.escalate` | ✅ the ARDETAIL.P6 separation test |
+
+**`billing.escalate` is held by `org_admin` and `billing` alone** — verified by query over
+`permission_role`, and the template carries the reason in a comment: *"the billing office owns
+debt-enforcement; the clinical roles that hold billing.manage for charge capture do not."* That is
+the ARDETAIL.P6 separation, and it holds in the browser (see the guards section).
+
+**Excluded, with reasons.** Every other template holds **no** `billing.*` permission at all —
+verified by query, not assumed: `doctor`, `ed_physician`, `reception`, `coordinator`, `him_records`,
+and the nursing, lab, radiology, surgery and pharmacy-technician roles. **A note for the record:**
+Phase 2's brief said `ed_physician` also holds `billing.manage`; the permission tables say it does
+**not** (its 7 permissions contain no `billing.*`). The role-template file carries a comment
+mentioning "billing.manage (G6)" next to `ed_physician`, but the permission array beneath it does
+not include it — a comment/code divergence worth knowing, not a defect in itself.
+
+### Environment
+
+- **Playwright MCP throughout**, no restart needed. Three real logins (password + TOTP).
+- **Re-seeded** all four demo tenants, 0 exceptions.
+- **Redis: UP, stated honestly** — a Memurai process (dev licence) started manually in an earlier
+  session, not a restored service.
+- **PERFORMANCE IS OUT OF SCOPE** (MariaDB + dev drivers), deferred to staging.
+- Browser zone `America/Los_Angeles`, locale `en-US`; tenant `Europe/Zurich`. Stated because it is
+  what makes `P3-M2` visible and separates my machine from the defect.
+
+**Data verified BY QUERY — and the gaps stated rather than worked around.** The four demo seeders
+produce: 7 invoices in `praxis-lindenhof` (6 `INV` + 1 `CN`), balances across
+issued / partially_paid / paid, 4 payments including one partly allocated (Erika, CHF 219.78 with
+25.00 left unallocated) and **an allocation reversal** (a −1000 row with
+`reverses_allocation_id` and a reason), 1 dunning event at level 1 **with its captured CHF 15.00 fee
+charge**, and the hospital tenant's composite episode.
+
+**What the seeders do NOT produce, and what I did about it:** there are **zero**
+`invoice_adjustments` (so no write-off and no contractual adjustment), **zero** `payment_plans` and
+**zero** `debt_enforcement_escalations` in any tenant, and `SimulatedBillingMonthSeeder` creates none
+either. I therefore created those states **through the UI** as the gate's functional tests — a
+payment plan and a credit note — and for the two that cannot be created at all, said so:
+
+- **A write-off / contractual adjustment cannot be created through the product at all.** That is
+  finding `P3-H3`, not a data gap.
+- **No account can reach Betreibung eligibility in this environment.** The configured policy is
+  level 1 at 14 days past due and level 2 at 30 (tenant setting `billing.dunning`); the most overdue
+  account is 24 days past due, so the terminal stage is 6 days away and cannot be reached without
+  moving the clock or editing data — neither of which an audit may do. **I therefore never drove the
+  Betreibung escalation to its confirm step, and no legal proceeding was filed against demo data.**
+  I verified the gate from the refusal side instead, which is the direction that matters.
+
+**⚠️ DEMO DATA I MUTATED (stated, per the gate's instruction).** All left in place — findings are
+recorded, not fixed:
+
+| What | Where |
+|---|---|
+| **3 phantom payments** (2 × CHF 500.00, 1 × CHF 10.00) | Viktor Odermatt — created by the refused operations in `P3-C1` |
+| 1 payment plan (CHF 169.61 over 3) + installment #1 settled (CHF 56.53) | Viktor Odermatt |
+| **Credit note CN-2 (−CHF 313.00)** against INV-1 | Erika Baumgartner |
+
+### Surfaces driven (explicit, so gaps are visible)
+
+| Surface | `billing` | `org_admin` | `pharmacist` |
+|---|---|---|---|
+| `/app` landing | ✅ (all 4 links 403) | ✅ | ✅ |
+| `/billing/report` (BILLAR.P6) | ✅ **all δ=0 checked** | ✅ 200 | 403 |
+| `/billing/aging` | ✅ | ✅ 200 | 403 |
+| `/billing/invoices` list | ✅ | ✅ 200 | 403 |
+| Invoice detail + line items | ✅ | — | 403 |
+| **Invoice PDF download** | ✅ **bytes inspected** | — | — |
+| `/billing/new-invoice` | ✅ | ✅ 200 | ✅ **200 — see `P3-H4`** |
+| `/billing/payments` list | ✅ | ✅ 200 | 403 |
+| **Record payment (+ over-allocation)** | ✅ **UI + 3 forged POSTs** | — | — |
+| **Payment plan (create, ceiling, settle)** | ✅ **end to end** | — | — |
+| **Credit note (issue)** | ✅ **CN-2 created** | — | — |
+| `/billing/credit-notes` | ✅ | ✅ 200 | 403 |
+| `/billing/dunning` + run | ✅ **ran it** | ✅ 200 | 403 |
+| AR account detail (ledger, timeline) | ✅ 2 accounts | ✅ | — |
+| **Betreibung escalation** | ✅ **2 forged POSTs** | ✅ **forged POST** | ✅ **forged POST** |
+| **CSV export** | ✅ **content checked** | — | — |
+| Fee/tariff catalogs (dental, pharmacy, surgery) | ✅ 200 | — | ✅ 200 |
+| Clinical/admin surfaces (negative RBAC) | ✅ **6 forged POSTs** | — | — |
+| Narrow viewport 375×844 | ✅ | — | — |
+
+Route sweeps were run in-session: **29 routes** for `billing`, 12 for `pharmacist`, 10 for
+`org_admin`.
+
+### CRITICAL
+
+#### `P3-C1` — A **refused** record-payment still commits the payment
+
+- **Role:** `billing` · **Route:** `/billing/accounts/{account}` → Record payment
+- **What I did:** On Viktor Odermatt (INV-5, open CHF 169.61) I entered **AMOUNT RECEIVED 500.00**
+  and allocated **500.00** to INV-5, then pressed *Record payment*.
+- **What happened:** the page returned the guard's message — **"Cannot allocate more than the invoice
+  open balance."** — Balance due stayed CHF 169.61 and the ledger was unchanged. Any operator would
+  conclude nothing was written. **A CHF 500.00 payment row was created anyway**, and it is fully
+  visible on `/billing/payments` as received money (`500.00 CHF · unallocated 500.00 CHF`).
+  Repeating it by **forged POST** (valid CSRF, correct `amount_minor` field names) twice more —
+  once over-allocating the invoice, once allocating more than the payment itself — created two more.
+  The payments list went from **4 rows to 7**, and **CHF 1'010.00 of money that was never received**
+  now sits on the account.
+- **What should have happened:** a refused write leaves nothing behind, or the message says what was
+  kept.
+- **Cause:** `Modules/Billing/src/Http/Controllers/AccountDetailController.php`
+  - `:182` `$payment = $payments->record(...)` — **committed first, unconditionally**
+  - `:195-204` the allocation loop runs afterwards and `return`s a redirect with the error on
+    `InvalidArgumentException`.
+  There is **no `DB::transaction` around the record + allocate pair** and no rollback. The in-code
+  comment reads *"Nothing was posted for this line"* — true of the allocation **line**, and
+  misleading about the operation, because the payment is already committed.
+- **Why CRITICAL:** it writes **false financial records** — rows asserting money was received that
+  never was — while telling the operator the opposite, and every retry adds another. One screen
+  already reports them as income: `/billing/aging`'s *COLLECTED (MONTH TO DATE)* counts payments by
+  `received_on` (see `P3-H1`), so CHF 1'010.00 of phantom cash is included in it.
+- **What is NOT affected, verified:** the reconciled figures are untouched. The engine computes
+  Collections from **allocations**, so after all three phantom payments the report still showed
+  *COLLECTED* 1058.03, *TOTAL AR* 743.61 and a roll-forward that ties. The allocation guard itself
+  never yielded: INV-5's open balance stayed 16961 and its allocation count stayed 2 throughout.
+
+### HIGH
+
+#### `P3-H1` — Two billing screens report different "COLLECTED" figures
+
+- **Role:** `billing` · **Routes:** `/billing/aging` vs `/billing/report`, same day, same window
+- **Observed on screen:**
+
+  | Screen | Label | Value |
+  |---|---|---|
+  | `/billing/aging` | COLLECTED (MONTH TO DATE) | **1066.53 CHF** |
+  | `/billing/report` | COLLECTED (PERIOD) — 2026-09-01 to 2026-09-06 | **1114.56 CHF** |
+
+- **Adjudicated against the ledger:** `1114.56` is the sum of **allocations** by `allocated_at`;
+  `1066.53` is the sum of **payments** by `received_on` in September
+  (500.00 + 56.53 + 500.00 + 10.00).
+- **Cause:** `Modules/Billing/src/Http/Controllers/AgingController.php:40` calls
+  `paymentsReceivedTotalMinor($actor, $monthStart, $today)` — `MetricsService:230-243`, *"sum of
+  payments with `received_on` in the range"*, i.e. **gross cash received**. The management report
+  instead sums **allocations** by `allocated_at` (`MetricsService:587`), i.e. **cash applied**.
+- **What should have happened:** two money surfaces in one module should not answer "how much did we
+  collect?" with two numbers under the same word, and neither page states its basis.
+- **Why HIGH not CRITICAL:** neither figure disagrees with the engine — each *is* the engine
+  answering a different question, and both are legitimate accounting concepts (receipts vs applied
+  collections). It is HIGH because a reader cannot tell which is which, and because the receipts
+  basis silently absorbs unallocated money — including `P3-C1`'s phantom payments.
+
+#### `P3-H2` — "PDF" invoices and dunning letters are plain-text files
+
+- **Role:** `billing` · **Routes:** `/billing/invoices/{id}/pdf` ("Download PDF"), and every dunning
+  letter written by a reminder
+- **What I did:** fetched the invoice PDF in-session and inspected the bytes.
+- **What happened:** 607 bytes, served as `Content-Type: application/pdf`,
+  `Content-Disposition: attachment; filename="INV-5.pdf"`. Structural check of the payload:
+
+  | marker | present |
+  |---|---|
+  | `N 0 obj` | ❌ |
+  | `xref` | ❌ |
+  | `trailer` | ❌ |
+  | `stream` | ❌ |
+  | `%%EOF` | ❌ |
+
+  The first three lines are `%PDF-1.4` / `CareOS EU-Generic VAT invoice` / `Seller: CareOS tenant`,
+  and the last is `Total: 16961` (raw minor units). **It is a plain-text file whose first line is the
+  literal string `%PDF-1.4`.** No PDF reader can open it — there is no object structure at all.
+- **Cause:** `Modules/Billing/src/Services/InvoicePdfRenderer.php:36` builds
+  `$lines = ['%PDF-1.4', …]` and writes `implode("\n", $lines)`.
+  `Modules/Billing/src/Services/DunningLetterRenderer.php:25` does the identical thing for reminder
+  letters — the seeded `INV-1-L1.pdf` on disk is **212 bytes with zero structural markers**.
+- **Why HIGH:** an invoice and a payment reminder are the artifacts a practice sends to patients, and
+  the reminder is the document a Betreibung filing would rest on. **D-176** — the control asserts a
+  capability the system does not have, and nothing on screen qualifies it.
+
+#### `P3-H3` — Write-offs and contractual adjustments cannot be created at all
+
+- **Role:** `billing` · **Route:** none exists
+- **What I did:** looked for the control on every billing surface I drove, then searched the routes
+  and the Vue tree.
+- **What happened:** the AR roll-forward has two dedicated lines — **"−Contractual adjustments"** and
+  **"−Write-offs"** — and both can only ever display `0.00 CHF`, because **nothing in the product can
+  create one**. There is no route, no controller and no UI. `AdjustmentService` is fully built
+  (`writeOff()`, `contractual()`, a reversal path and reconciliation integration) and covered by
+  `tests/Feature/Billing/WriteOffAdjustmentTest.php`, but its only non-test references are its own
+  model docblock and a migration comment — **no production caller**.
+- **Why HIGH:** writing off a bad debt and recording an insurer's contractual adjustment are core AR
+  operations for the role this phase audits, and the report advertises both. This is **cross-phase
+  pattern 4** (a granted capability with no surface) in its strongest form yet: the capability is
+  built, tested and reported on, and unreachable.
+
+#### `P3-H4` — The pharmacist is refused every billing **read** surface but can open invoice **creation**
+
+- **Role:** `pharmacist` (holds `billing.manage` only) · **Route:** `/billing/new-invoice`
+- **What I did:** swept the billing routes in-session as `sofia.rieder@klinik-bergblick.test`.
+- **What happened:**
+
+  | Route | Status |
+  |---|---|
+  | `billing/invoices`, `billing/report`, `billing/aging`, `billing/dunning`, `billing/payments`, `billing/credit-notes` | **403** |
+  | **`billing/new-invoice`** | **200** |
+
+  The read surfaces require `billing.view`, which the pharmacist lacks; the creation surface is gated
+  on `billing.manage`, which PHARMACY.G5 granted them so dispensing charges reach the billing engine.
+  The result is a role that **cannot see a single invoice, payment or the AR position, yet can open
+  the screen that assembles and issues an invoice.** Its breadcrumb links to `/billing/invoices`,
+  which **403s for this very role** — a dead end inside the module.
+- **Why HIGH:** an invoice is a legal financial document; the permission that exists for *charge
+  capture* should not also open *invoice issuing*, and a create-without-read grant is the wrong shape.
+- **Stated honestly:** the page rendered *"No validated, un-invoiced charges to bill."* — that tenant
+  had none at the time — so **I could not complete an invoice creation as the pharmacist**. The
+  reachability of the surface is established; the completed write is not.
+
+### MEDIUM
+
+#### `P3-M1` — The Swiss money formatter is used on 1 of 12 billing surfaces
+
+`resources/js/lib/money.ts` exports `formatSwissMoney()` producing **`CHF 4'820.00`** — apostrophe
+group separator, currency first — with its own test (`money.test.ts:26`). **Only
+`AccountDetail.vue:21` imports it.** The other eleven billing surfaces hand-roll
+`` `${(minor / 100).toFixed(2)} ${currency}` ``: `Aging.vue:24`, `Report.vue:81`,
+`CreditNotes/Index:30`, `CreditNotes/Show:38`, `Dunning/Index:32`, `Invoices/Index:42`,
+`Invoices/New:32`, `Invoices/Show:48`, `Payments/Index:32`, `Payments/Record`, `Payments/Show`.
+**Observed:** the report renders `1058.03 CHF` and `1801.64 CHF` (should be `CHF 1'058.03` /
+`CHF 1'801.64`); the account detail renders `CHF 169.61`; the invoice detail renders `169.61 CHF`.
+Same module, two orders and no thousands separator on eleven of twelve screens.
+
+#### `P3-M2` — Date-entry defaults come from the viewer's calendar, not the practice's
+
+The record-payment form's **RECEIVED ON** defaulted to `2026-09-05` while the practice date
+(Europe/Zurich) was `2026-09-06`; the browser is `America/Los_Angeles`. The payment I recorded
+through the UI is dated **05.09.2026** on the payments list. The payment-plan form's **FIRST
+INSTALLMENT DUE** defaults the same way, and the consequence is visible: the plan I created was
+immediately shown with installment #1 **"Overdue"** on the day it was agreed.
+**Cause:** `AccountDetail.vue:209-212` `todayLocal()` uses `new Date()`. Its own comment shows the
+author deliberately avoided the UTC slice (*"not the UTC slice of an ISO string, which shifts a day
+behind UTC"*) but landed on **browser**-local rather than **tenant**-local — the fix was half-right.
+**Money consequence:** a payment can be dated into the wrong day and therefore the wrong period.
+*(The server-side stamps are correct: the settled installment recorded "Paid 2026-09-06".)*
+
+#### `P3-M3` — Dates render in two formats inside the billing module
+
+Swiss `DD.MM.YYYY` on the invoice list, invoice detail, payments list and dunning worklist
+(`26.08.2026`, `13.08.2026`); ISO on the AR account ledger (`2026-08-14`, `2026-08-26`), the report
+header (`2026-09-01 to 2026-09-06`) and the payment-plan schedule (`2026-10-05`); German long form
+on the app landing (`Sonntag, 6. September 2026`) and the aging page (`As of 06. September 2026`).
+The split tracks the BILLAR-era vs ARDETAIL-era surfaces. **Cross-phase pattern 2, third role group.**
+
+#### `P3-M4` — "Send reminders" gives no feedback and writes no audit row
+
+Pressing it left the page byte-identical: no *"0 reminders prepared"*, no toast, no error. The
+operator cannot tell whether the run happened, failed, or found nothing to do. **No audit row was
+written for the operator's action** (0 dunning audit rows after the click) while the payment-plan
+actions in the same session did audit (`billing.payment_plan_created`, `payment.recorded`,
+`payment.allocated`, `billing.payment_plan_installment_paid`).
+**The engine was right to do nothing** — policy is level 1 at 14 days past due and level 2 at 30;
+the invoices were 9 and 24 days past due. The defect is that the operator is told nothing.
+
+#### `P3-M5` — "REMINDERS SENT" contradicts the "Prepared" rows beneath it
+
+On the AR account dunning panel the stat card reads **"REMINDERS SENT — 1"** while the only event
+below it is labelled **"Prepared"**. Nothing was sent: the event's status is `CREATED`, and the
+underlying model is honest — `DunningService::deliver()` returns false when no channel is registered
+or the send throws, `status = SENT` is written **only** on real delivery, and the `dunning.sent`
+audit row likewise. One panel contradicts itself and the card asserts an action not taken (**D-179**);
+only the label overstates.
+
+#### `P3-M6` — The account ledger says "every invoice" and omits credit notes
+
+The AR account ledger is captioned *"every invoice · amount, paid & running balance"*, but a credit
+note never appears in it. Viktor Odermatt holds CN-1 (−CHF 37.84) against INV-5; his ledger lists
+INV-2 and INV-5 only. The credit note **is** shown on the invoice detail (*"CREDIT NOTES / CN-1 /
+-37.84 CHF"*), so it is not invisible everywhere — but the account that owes the money never shows it.
+**This is not wrong arithmetic:** `MetricsService:652-658` documents that a **partial** credit note
+deliberately *"does NOT cancel or reduce the invoice balance"* (only a full credit sets open to 0 via
+`CANCELLED_BY_CREDIT_NOTE`), so the CHF 169.61 balance is the engine's stated intent. The gap is
+visibility: a clerk working the account cannot see that a credit exists against it.
+
+#### `P3-M7` — The billing role's landing page is four dead ends
+
+`/app` as `billing` contains exactly **four** unique `<main>` links and **all four return 403**:
+`/patients/register`, `/scheduling/day-board`, `/nursing/dispatch`, `/comms/inbox`. The nav is
+correct (Dashboard + Billing only); the page body is not. **Cross-phase pattern 1, third role group**
+— the same shape as `ed_physician` in Phase 2.
+
+#### `P3-M8` — No navigation below 768 px
+
+At **375 × 844** on the billing surfaces the only visible header control is **"Sign out"**; Dashboard,
+Billing, Search and Notifications are all hidden and `header nav` renders 0 visible links.
+**Better than earlier phases in one respect:** there is no horizontal overflow
+(`scrollWidth 360 ≤ 375`) and the money tables sit in an `overflow-x: auto` parent, so the figures
+are readable — the page simply cannot be left. **Cross-phase pattern, third role group.**
+
+### LOW
+
+#### `P3-L1` — A refused escalation says nothing
+
+The forged Betreibung POSTs were correctly refused and wrote nothing, but the account page showed **no
+message** — only the standing *"Not available: the dunning process has not reached its final reminder
+stage."* notice. Defensible, since the UI never offers the control; noted because a silent refusal and
+a silent success look identical to a caller.
+
+#### `P3-L2` — The New-invoice breadcrumb points at a surface the role cannot open
+
+`/billing/new-invoice`'s only link is a breadcrumb to `/billing/invoices`, which **403s** for the
+`pharmacist` who can reach the page (`P3-H4`). A one-link page whose one link is a dead end.
+
+### Guards verified holding (probed in the browser, not assumed)
+
+**THE MONEY FENCE — every δ=0 claim checked arithmetically ON SCREEN**
+
+On `/billing/report` as `billing`, each engine claim was verified by adding up what the page itself
+displayed:
+
+| Claim on screen | Check | Result |
+|---|---|---|
+| AR roll-forward *"Ties, delta = 0"* | 1801.64 + 0.00 − 1058.03 − 0.00 − 0.00 | = **743.61** = Closing AR ✓ |
+| AR aging partitions the range | 0.00 + 743.61 + 0.00 + 0.00 + 0.00 | = **743.61** = Total outstanding ✓ |
+| By-payer *"Groups tie to total"* | Self-pay 743.61 | = Total 743.61 ✓ |
+| Top-overdue *"Rollup ties"* | 313.00 + 261.00 + 169.61 | = **743.61** ✓ |
+| Account ledger *"Ledger ties"* | running balance 169.61 = outstanding; totals 319.36 − 149.75 | = **169.61** ✓ |
+| Payment plan *"Schedule ties"* | 56.53 + 56.53 + 56.55 | = **169.61** exactly, last absorbing the remainder ✓ |
+
+**AND THE SAME TIES SURVIVED TWO REAL WRITES — the positive control that proves they are not
+vacuous.** After settling installment #1 (CHF 56.53) and then issuing a **full credit note**
+(−CHF 313.00), every figure moved together and the badge stayed truthful:
+
+| | start | after installment | after credit note |
+|---|---|---|---|
+| Total AR | 743.61 | 687.08 | **374.08** |
+| Collections | 1058.03 | 1114.56 | 1114.56 |
+| Charges billed | 0.00 | 0.00 | **−313.00** |
+| Roll-forward ties? | ✓ | 1801.64 − 1114.56 = 687.08 ✓ | 1801.64 − 313.00 − 1114.56 = **374.08** ✓ |
+| Aging sum | 743.61 | 687.08 | 374.08 ✓ |
+| Top-overdue rollup | 743.61 | 687.08 | 261.00 + 113.08 = 374.08 ✓ |
+| The account's own page | 169.61 | 113.08 | Erika drops off entirely ✓ |
+
+**A credit note is carried as negative "+Charges billed", so the roll-forward has a home for it.**
+I had hypothesised the opposite — that a credit note appears in no roll-forward line and would break
+δ=0 — and the browser refuted it. Recorded as tested-and-refuted rather than reported.
+
+**NO PAGE-SIDE MONEY MATH** — adversarial grep over all 12 billing Vue surfaces plus what I observed:
+
+- **Zero `.reduce(` and zero `.sum(`** anywhere in `resources/js/pages/Billing/`.
+- Every `_minor` reference in the templates is a **single engine field** passed to `money()` —
+  `money(ledger.account_outstanding_minor)`, `money(row.running_balance_minor)`, and so on. No
+  template adds, subtracts, ratios or aggregates two money fields.
+- The only client arithmetic is the **minor→major unit conversion** inside one formatter per page.
+- The report says so itself and it is true: *"Every figure is computed by the reporting engine over
+  the reconciled ledger and displayed here; this page performs no money math."*
+- **The CSV export carries raw engine integers**, not formatted strings —
+  `section,metric,value_minor_or_ratio` with `headline,total_ar_minor,68708` and
+  `aging,days_1_30,68708`, tying exactly to the on-screen 687.08 CHF. No formatting or rounding drift
+  between screen and export, and **DSO exports as an empty value** rather than a fabricated 0.
+
+**THE GUARDED WRITES**
+
+- **Over-allocation refused four ways.** Allocation > the invoice's open balance (UI **and** forged
+  POST) → *"Cannot allocate more than the invoice open balance."*; allocation > the payment itself
+  (forged) → refused; a negative allocation → `422 "must be at least 1"`. Throughout, INV-5's open
+  balance stayed `16961` and its allocation count stayed `2`. *(The payment row that survives these
+  refusals is `P3-C1`; the allocation guard itself never yielded.)*
+- **The payment plan cannot exceed the real outstanding.** Scheduling CHF 500.00 against CHF 169.61
+  outstanding → *"A payment plan cannot schedule more than the account outstanding balance."* — and
+  **unlike record-payment it left no orphan row** (`payment_plans` stayed 0, installments 0). The
+  plan path refuses cleanly; the payment path does not.
+- **Betreibung is operator-only, eligibility-gated, and refuses under forgery.** As `billing` (who
+  *does* hold `billing.escalate`), forged POSTs with a reason and `confirmed:true` were refused on a
+  stage-1-of-2 account **and** a stage-0-of-2 account; as `org_admin`, likewise. After every attempt
+  `debt_enforcement_escalations` was still **0** with no enforcement audit row. **No legal proceeding
+  was filed against demo data.**
+- **ARDETAIL.P6's narrower permission holds in the browser.** The `pharmacist` — who holds
+  `billing.manage` — was refused the escalation with **403 "This action is unauthorized."** A role
+  holding `billing.manage` for charge capture genuinely cannot file legal proceedings.
+- **Agent exclusion is structural, and the page says so:** *"The AI agent can draft reminders for
+  approval — it has no way to start, approve or file a legal proceeding."* The route comment records
+  that the two enforcement actions are the only callers of `DebtEnforcementService`, with no agent
+  tool, job or schedule able to reach it.
+- **Collections count allocations, not payments** — three phantom payments totalling CHF 1'010.00
+  moved no reported figure on the management report.
+- **A dunning fee is a new draft charge, never a mutation of the original invoice**
+  (`DunningService:230-250`: *"A dunning fee is a NEW draft charge that appears on a future document.
+  The original invoice is never touched."*) — CHF 15.00 on Erika's timeline.
+- **Dunning delivery is honest** — `status = SENT` only on real delivery, else `CREATED` → rendered
+  "Prepared"; the `dunning.sent` audit row is written only when something was actually sent.
+
+**RBAC IN BOTH DIRECTIONS**
+
+- **Forged clinical writes as `billing` are refused — tested with REAL ids.** My first attempt used
+  dummy ids and returned 404s, which prove nothing: model resolution runs before authorization on
+  several routes. Re-run with real ids:
+
+  | Forged POST | Result |
+  |---|---|
+  | `/scheduling/day-board/open-encounter` | **403** "This user cannot manage encounters." |
+  | `/scheduling/day-board/transition` (arrive) | **403** "This action is unauthorized." |
+  | `/clinical/notes/{id}/sign` | **403** "This action is unauthorized." |
+  | `/comms/inbox/reply` | **403** "This user cannot manage communications." |
+  | `/comms/inbox/status` | **403** "This user cannot manage communications." |
+  | `POST /patients` | **403** "This action is unauthorized." |
+
+- The `billing` nav shows **Dashboard + Billing only**, and `/patients`, `/reporting`, `/admin`,
+  `/settings`, and every clinical surface are 403. `org_admin` correctly reaches all billing surfaces
+  and is still **403 on `/admin`** (the platform area).
+
+**D-169 ON MONEY — no severity tint on age or overdue-ness**
+
+All five aging buckets (Current, 1-30, 31-60, 61-90, 90+) render with the **byte-identical** class
+`font-medium text-ink`, colour `rgb(42,51,42)` and transparent background. **A 90+ day bucket is not
+tinted red.** The page also refuses to invent a provision: *"Amounts are factual and are not adjusted
+for expected collectability."*
+
+**HONEST "—" RATHER THAN A FABRICATED METRIC (BILLAR.P3)**
+
+**DSO** renders **"—"** with the qualifier *"over 6 days"*, and **NET COLLECTION RATE** renders
+**"—"** with *"Charges 0.00 CHF less contractual 0.00 CHF"*. Neither invents a number from a zero
+denominator. The payment form is equally plain: *"This records money already received — there is no
+card capture."* — no pay/charge affordance is offered (**D-176**).
+
+**ONE TIME BASE ON BILLING WRITES (QA-FIX.1a still holding)**
+
+The payment I recorded through the UI stored `created_at 2026-09-06 01:13:24` and the credit note
+`01:23:40`, both matching CLI `now()` **in UTC**. Web writes and CLI share one base on the money path.
+
+**THE FROZEN INVOICE COLUMNS ARE NOT READ BY ANY SURFACE**
+
+`invoices.status` and `invoices.open_balance_minor` disagree with the live `invoice_balances`
+projection for 4 of 7 invoices (e.g. INV-6 `45250` vs `0`/paid) — `invoices.status` says "issued" for
+all seven. **No screen reads the stale value:** the invoice list correctly shows INV-6 "Paid", INV-3
+"Partially paid", INV-2/4 "Paid", and `MetricsService:654` documents the freeze deliberately (*"the
+frozen `invoices.status` stays ISSUED"*). I raised this as a candidate CRITICAL and withdrew it after
+checking the browser.
+
+### Not tested, and why
+
+- **Betreibung was never driven to its confirm step**, so the *successful* escalation path — the
+  append-only record, the withdraw action, and the audit row it writes — is **unverified**. No
+  account can reach the terminal dunning stage in this environment (policy needs 30 days past due;
+  the oldest is 24), and reaching it would require moving the clock or editing data. The refusal
+  direction is fully covered.
+- **A write-off and a contractual adjustment could not be exercised** — they cannot be created
+  through the product at all (`P3-H3`), so the operator-gating and reconciling behaviour BILLAR.P1
+  describes is verified only by its tests, not by this audit.
+- **No invoice was created as the `pharmacist`** — the tenant had no validated un-invoiced charges,
+  so `P3-H4` establishes reachability but not a completed write.
+- **Charge-capture surfaces were not driven.** They belong to the clinical and pharmacy phases; the
+  `billing` role reaches the three pricing catalogs (dental, pharmacy, surgery — all 200) but I did
+  not exercise capture itself.
+- **The hospital tenant's composite ED→inpatient episode was seeded and confirmed present but not
+  driven end to end** — its reconciliation is exercised by `DemoHospitalSeederTest`, and this phase's
+  browser time went to the `praxis-lindenhof` AR surfaces where the money guards concentrate.
+- **Session expiry mid-form was not repeated here** — Phase 2 established the behaviour (a branded
+  419 page with a way back, typed input discarded) and nothing in billing changes it.
+- **Performance is out of scope** by instruction.
+- **`org_admin` was swept, not fully driven** — it is the subject of the planned Phase 10, and
+  driving it fully here would duplicate that phase.
+
+---
+
 ## Cross-phase patterns
 
-Two phases are now complete, so this section carries real weight. Each pattern below is stated with
-the finding IDs it generalises, and with what the second phase *added* to the Phase 1 candidate.
+Three phases are complete across three unrelated role groups — front-desk, clinical and financial.
+**A pattern that appears in all three is a systemic defect, not a local one**, and four now do.
 
-### 1. Ungated UI controls in front of correctly-gated servers — **CONFIRMED, and worse**
+### 1. Ungated UI in front of a correctly-gated server — **PRESENT IN ALL THREE PHASES**
 
-`P1-H1` · `P1-M2` · `P1-L5` → `P2-H2` · `P2-M1`
+`P1-H1` · `P1-M2` · `P1-L5` → `P2-H2` → **`P3-M7`** · **`P3-L2`**
 
-Phase 1 flagged this as a candidate. Phase 2 confirms it and finds the extreme case: for
-`ed_physician`, **every one of the four links on the landing page returns 403**, and for `doctor` and
-the dentist two of the three quick actions do. The shape is consistent across both phases — **the
-server is right and the page is wrong**. Phase 2 also isolates *where* the split lives: the top nav
-**is** permission-aware (it correctly hides Scheduling, Dental and Approvals from roles that lack
-them), while hero CTAs, dashboard cards and quick-action lists are rendered unconditionally. A fix
-that teaches the page body what the nav already knows would close this class in both phases at once.
+Every role group's landing page offers links its own role cannot open, and the count is not
+improving: reception (Phase 1), **all four** of `ed_physician`'s `<main>` links (Phase 2), and now
+**all four** of `billing`'s (Phase 3 — `/patients/register`, `/scheduling/day-board`,
+`/nursing/dispatch`, `/comms/inbox`). Phase 3 also found it *inside* a module: `/billing/new-invoice`
+is reachable by the `pharmacist` and its only link is a breadcrumb to `/billing/invoices`, which
+403s for that same role.
 
-### 2. Timestamp and locale rendering divergence between sibling screens — **CONFIRMED, and now clinical**
+**The diagnosis is stable and narrow.** The top nav **is** permission-aware in all three phases — it
+correctly shrank for the ED physician and shows only Dashboard + Billing for the billing clerk. The
+hero CTAs, the "Today's schedule" card, the quick-action list and in-page breadcrumbs are rendered
+unconditionally. One fix — teaching the page body what the nav already knows — closes the class
+across every phase. **This is the single highest-yield fix the audit has found.**
 
-`P1-C1` · `P1-M3` · `P1-L2` → `P2-H3` · `P2-M3` · `P2-L4`
+### 2. Timestamp and locale divergence — **PRESENT IN ALL THREE PHASES, and now it touches money**
 
-Phase 1 saw the inbox print raw UTC while appointment history printed local, and three date formats
-across reception surfaces. Phase 2 shows the divergence is not two screens but **two mechanisms**,
-now reaching the clinical record: some components print the stored UTC verbatim, others hand the
-instant to a browser locale API that resolves to **the viewer's own machine zone**. At one instant
-the note editor showed `17:03:53` (UTC), `10:04 AM` (viewer's zone) and *should* have shown `19:03`
-(the practice's). Date formats went from three to **four**, including US `M/D/YYYY` in a de-CH
-tenant — and the perio screen prints the same date in two formats at once. `QA-FIX.1a` did not cause
-this; by making storage honest it **removed the accident that was hiding it**. The remedy is the one
-`D-192` already names: a display boundary, applied at every clinical surface rather than at the
-Inertia prop alone.
+`P1-C1` · `P1-M3` · `P1-L2` → `P2-H3` · `P2-M3` · `P2-L4` → **`P3-M2`** · **`P3-M3`** · **`P3-M1`**
 
-### 3. A recorded status asserted without the event that earns it — **NEW, spans two phases**
+Phase 1 found three date formats and an inbox printing raw UTC. Phase 2 found **four** formats and
+proved it was two *mechanisms* — some components print stored UTC verbatim, others hand the instant
+to a browser locale API that resolves to the viewer's own machine. Phase 3 shows the same split
+inside one module (Swiss `DD.MM.YYYY` on the BILLAR-era screens, ISO on the ARDETAIL-era ones) and
+adds a **money consequence**: the record-payment and payment-plan forms default their date inputs
+from the **viewer's** calendar, so a payment can be dated into the wrong day — and a plan created
+today was immediately shown with its first installment **"Overdue"**.
 
-`P1-M1` → `P2-H1`
+Phase 3 adds a **currency** dimension of the same shape: a shared, tested `formatSwissMoney()`
+(`CHF 4'820.00`) exists and is used on **1 of 12** billing surfaces; the other eleven hand-roll a
+formatter that drops the Swiss group separator and flips the currency to the end.
 
-Phase 1 found the day-board setting `status = arrived` while `checked_in_at` stayed NULL. Phase 2
-finds the same pair produced from a completely different entry point and role: a clinician clicking
-**"Document"** to write a note silently fires `confirmed → arrived → in_progress`, again leaving
-`checked_in_at` and `check_in_source` NULL. Two roles, two surfaces, one defect shape — attendance is
-inferred from an unrelated action. This is the clearest **D-179** pattern in the audit so far, and
-its blast radius is reporting and billing, not just the board.
+**The through-line across all three phases is the same:** a correct shared helper exists, and most
+call sites do not use it. `QA-FIX.1a` fixed the *storage* base; the *display* boundary it named is
+still missing at the call sites.
 
-### 4. A granted permission with no surface to exercise it — **NEW**
+### 3. A recorded status asserted without the event that earns it — **TWO PHASES, and the honesty model is sound**
 
-`P1-H1` → `P2-H4` · `P2-M2` · `P2-M6`
+`P1-M1` → `P2-H1` (fixed by `QA-FIX.2b`) → **`P3-M5`**
 
-Phase 1's `P1-H1` was the inverse (a surface offered to a role lacking the permission). Phase 2 finds
-the mirror image and it is more common: `doctor` holds `note.write`, `medication.prescribe`,
-`patient.edit` and `encounter.manage`, and **the clinical chart exposes an affordance for none of
-them**; five of seven physician roles lack `medication.prescribe` in a product that has no
-prescribing screen at all; the dentist is refused the fee schedule whose prices they are shown.
-Permission templates and UI affordances are drifting apart in **both** directions, which suggests
-they are maintained independently and never reconciled.
+Phase 1 found `status = arrived` with `checked_in_at` NULL; Phase 2 found the same pair produced by
+a clinician merely opening a note. Phase 3's instance is milder and instructive: the AR dunning panel
+shows **"REMINDERS SENT — 1"** above an event labelled **"Prepared"**.
 
-### 5. The fences hold — **CONFIRMED across both phases**
+**What Phase 3 adds is that the underlying model is honest.** `DunningService` writes `status = SENT`
+only when a channel actually delivered, and audits `dunning.sent` only then — the data never lies.
+Only the **card label** overstates. The pattern is therefore narrowing: the defect has moved from the
+*records* (Phases 1–2) to the *labels* (Phase 3), which is the right direction.
 
-`P1` positives → the Phase 2 "guards verified holding" section
+### 4. A granted capability with no surface to exercise it — **TWO PHASES, and Phase 3's instance is the strongest**
 
-Worth recording as a pattern in its own right: across two role groups and every clinical surface in
-this phase, **no computed clinical judgment was found**, vitals stayed raw, `D-169` held under
-positive control **twice** (severe vs mild allergy; 6 mm vs 2 mm pocket, both byte-identical),
-`D-172` held with **no drawing layer present at all** (0 `<canvas>`, 0 `<svg>`), the note editor's
-agent boundary held, a signed note was not editable in place, and forged POSTs were refused with
-clear 403s. The programme's hard rules are not eroding — the defects this audit is finding are in
-**presentation, navigation and attribution**, not in the fences.
+`P2-H4` · `P2-M2` · `P2-M6` → **`P3-H3`** · **`P3-H4`**
+
+Phase 2 found a chart that offers no affordance for `note.write`, `medication.prescribe`,
+`patient.edit` or `encounter.manage` — all held by the role. Phase 3 finds the same shape at its
+sharpest: **write-offs and contractual adjustments cannot be created anywhere in the product**, yet
+`AdjustmentService` is fully built and tested, the `invoice_adjustments` table exists, and the AR
+roll-forward carries **two dedicated lines** for them that can only ever read `0.00`.
+
+Phase 3 also supplies the **mirror image**, which is new: the `pharmacist` holds `billing.manage` for
+charge capture and is thereby handed the **invoice-creation** surface while being 403 on every
+billing read. Permissions and affordances are drifting apart **in both directions** in two unrelated
+modules, which points at them being maintained independently and never reconciled.
+
+### 5. The fences hold — **CONFIRMED IN ALL THREE PHASES**
+
+Phase 1's positives → Phase 2's clinical fences → Phase 3's money fences.
+
+Across three role groups and every surface driven, the hard rules have not eroded. Phase 2 verified
+the clinical fences under positive control (D-169 twice, D-172 with **no drawing layer present at
+all**, the note agent boundary, a signed note not editable in place). Phase 3 verified the **money**
+fences the same way: **all six δ=0 claims checked arithmetically on screen and re-checked after two
+real writes** (an installment and a full credit note) that moved AR by CHF 369.53 and still tied;
+**zero client-side aggregation** in twelve billing Vue surfaces; the over-allocation guard refusing
+four ways; the payment-plan ceiling; **Betreibung refusing under forgery for all three roles**, with
+ARDETAIL.P6's narrower `billing.escalate` proven in the browser against a `billing.manage` holder;
+D-169 holding on aging buckets; and DSO / net-collection-rate rendering an honest **"—"** rather than
+a number invented from a zero denominator.
+
+**The defects this audit keeps finding are in presentation, navigation, attribution and partial
+writes — not in the engines or the fences.**
+
+### 6. A refused write that leaves a partial record — **NEW in Phase 3, and worth watching**
+
+**`P3-C1`**
+
+`AccountDetailController::recordPayment()` commits the payment, then allocates, and returns the
+allocation guard's error without a transaction or a rollback — so a refused operation leaves real
+money records behind while telling the operator it failed. Notably the **payment-plan** path on the
+same page does *not* do this: its refusal left no orphan row. One controller, two write paths, two
+different transaction disciplines.
+
+**Watch for it in later phases:** any surface that performs a create-then-associate pair outside a
+transaction has the same shape. It is not yet a pattern — one instance — but it is the kind that
+generalises, and Phase 3 found the counter-example (the plan path) that shows the correct discipline
+already exists in the same file.
 
 ### Still open as a candidate
 
-**Identity references are inconsistent at the schema level** (`P2-C1` sub-finding): `author_id` →
-`staff_profiles.id`, `signed_by` / `charted_by` / `ordered_by` → `users.id`. One phase is not enough
-to call this a pattern; if a later phase finds a third namespace or another mis-attribution, it
-becomes one.
+**Identity references are inconsistent at the schema level** (`P2-C1` sub-finding, recorded as
+D-196). Phase 3 found no third namespace on the money tables — `payments.recorded_by`,
+`payment_allocations.allocated_by` and `invoice_adjustments.created_by` are all `users.id`, matching
+`signed_by` / `charted_by` / `ordered_by`. `clinical_notes.author_id` (→ `staff_profiles.id`) remains
+the sole outlier, so this is still one instance rather than a pattern.
