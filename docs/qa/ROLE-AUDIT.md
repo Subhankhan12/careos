@@ -56,8 +56,8 @@ every later phase's timestamp observation suspect, and past-time booking was liv
 |---|---|---|---|---|
 | `P1-C1` | CRITICAL | ✅ **FIXED** | QA-FIX.1a | `78a05db` |
 | `P1-H3` | HIGH | ✅ **FIXED** | QA-FIX.1b | `f6b619a` |
-| `P2-C1` | CRITICAL | ✅ **FIXED** | QA-FIX.2a | `<pending>` |
-| `P2-H1` | HIGH | ⏳ in the same gate (Part 2) | QA-FIX.2b | — |
+| `P2-C1` | CRITICAL | ✅ **FIXED** | QA-FIX.2a | `e8a7a48` |
+| `P2-H1` | HIGH | ✅ **FIXED** | QA-FIX.2b | `<pending>` |
 | all others | — | 📋 recorded, not fixed | — | — |
 
 *(A commit cannot contain its own hash. Per the repo-wide marker convention, `<pending>` is backfilled
@@ -675,7 +675,7 @@ slots (availability is weekdays 1–5) and manufacturing one would have meant ch
 
 #### `P2-C1` — A signed clinical note is **attributed to a clinician who neither wrote nor signed it**
 
-> ✅ **FIXED — QA-FIX.2a, commit `<pending>` (D-195, D-196, D-197).** The cause was a single argument:
+> ✅ **FIXED — QA-FIX.2a, commit `e8a7a48` (D-195, D-196, D-197).** The cause was a single argument:
 > `OpenEncounterFromAppointmentController` resolved the appointment's practitioner once and passed it
 > to **both** `EncounterService::open()` (right) and `ClinicalNoteService::saveDraft()` (wrong, where
 > it becomes `author_id`). **Two different questions now get two answers:** *whose visit is this* is
@@ -743,6 +743,35 @@ slots (availability is weekdays 1–5) and manufacturing one would have meant ch
 ### HIGH
 
 #### `P2-H1` — Opening a note silently marks the patient **arrived** and the appointment **in progress**
+
+> ✅ **FIXED — QA-FIX.2b, commit `<pending>` (D-198).** `EncounterService::moveAppointmentToInProgress()`
+> walked every intermediate state so an encounter could always be opened — each hop a legal edge, so
+> nothing was bypassed. **The defect was in the meaning, not the mechanics:** the code answered "how do
+> I get this appointment to in_progress?" when the question was "has anyone actually said this patient
+> is here?"
+> **The chosen design is the gate's option (c).** `arrived → in_progress` is still composed — the one
+> honest case, since the patient is already recorded present, so a clinician opening their note *is*
+> the visit starting. From `booked` or `confirmed` **nothing is transitioned**: the encounter and the
+> note are still created, so documentation is never blocked, and the appointment keeps the status it
+> earned.
+> **No confirmation prompt was invented.** A flag no surface sends would be an unbacked presence
+> (D-176), and the honest control already sits **directly beside Document on the same row** — the
+> day-board's **Arrive** button. **The D-156 compose is untouched** (`DayBoardActionController:35-38`
+> still walks confirm → arrive) and a test pins it: that compose is legitimate *because a human pressed
+> a button whose meaning is the arrival*.
+> **Re-measured in the browser, same steps as below.** Document on a **booked** appointment: the audit
+> now shows **only `encounter.opened`** — zero attendance transitions, against three before — the
+> status stays **`booked`**, `checked_in_at` and `check_in_source` stay NULL, and the note is still
+> created. Positive control on a clean appointment: **Arrive → Document** still reaches
+> **`in_progress`**, so the fix is a guard, not a removal.
+> **`checked_in_at` is untouched and always was** — only a real check-in writes it
+> (`FrontDesk\CheckInService:83`). **`P1-M1` itself remains OPEN:** the day-board's own Arrive button
+> still sets `status = arrived` without writing `checked_in_at`, so desk arrivals stay invisible to
+> `MetricsService::checkedInCount`. That is a front-desk-surface decision and this gate deliberately
+> did not widen into it.
+> Guarded by `tests/Feature/Clinical/DocumentationAttendanceTest.php` (7), every test starting from a
+> BOOKED appointment so the old code *succeeds* without the fix (D-182). Mutation-checked: restoring
+> the compose reddens the 3 guard tests while the 4 controls stay green.
 
 - **Role:** `doctor` · **Route:** `/scheduling/day-board` → "Document"
 - **What I did:** Clicked **Document** once, to write a note. Nothing else.

@@ -3906,3 +3906,65 @@ references the old ID.
   "tidy" these rows.
   See [[Clinical]], D-195, D-193 (the same shape for the clock skew), `docs/qa/ROLE-AUDIT.md`
   (P2-C1), [[DEFERRED]], [[LOG]].
+
+- **D-198 — Documentation is not attendance: opening a note starts the visit only when the patient is
+  already recorded as having arrived (QA-FIX.2b, closing P2-H1).**
+  The Phase-2 audit clicked **Document** once, to write a note, and the audit trail showed
+  **`appointment.confirmed` → `appointment.arrived` → `appointment.in_progress`** firing at the same
+  instant, moving the appointment `booked → in_progress` — while `checked_in_at` and
+  `check_in_source` stayed **NULL**. The record asserted that a patient had attended on the strength
+  of a clinician opening an editor. No confirmation, no warning, no undo. **D-179: an asserted action
+  never taken.**
+  **THE COMPOSE WAS REAL AND DELIBERATE, WHICH IS WHY IT SURVIVED.** `EncounterService`'s
+  `moveAppointmentToInProgress()` walked every intermediate state so that an encounter could always
+  be opened, and each hop was a legal edge through `AppointmentService::transition()`. Nothing was
+  bypassed; the machine was used exactly as designed. The defect was in the MEANING, not the
+  mechanics — the code answered "how do I get this appointment to in_progress?" when the question
+  should have been "has anyone actually said this patient is here?"
+  **THE DESIGN CHOSEN — the gate's option (c), transition only where it is unambiguous.**
+  `arrived → in_progress` is still composed and is the one honest case: the patient is already
+  recorded present, so a clinician opening their note IS the visit starting. From `booked` or
+  `confirmed`, **nothing is transitioned at all** — the encounter and the note are still created, so
+  documentation is never blocked, and the appointment keeps the status it earned.
+  **WHY NO CONFIRMATION PROMPT WAS ADDED.** The gate allowed one, but a flag no surface sends would
+  be an unbacked presence (D-176), and building a modal would add a control that duplicates one
+  already sitting **directly beside Document on the same row**: the day-board's **Arrive** button,
+  which exists precisely to say "the patient is here". Reception or the clinician presses it, and
+  then Document starts the visit. The honest affordance already existed; the fix stopped talking over
+  it.
+  **THE D-156 COMPOSE IS UNTOUCHED, and the distinction is the whole point.**
+  `DayBoardActionController:35-38` still walks `confirm() → arrive()` for a booked appointment. That
+  compose is legitimate *because a human pressed a button whose meaning is the arrival*. The
+  documentation path had no such meaning behind it. Two composes, one sanctioned and one not, and
+  what separates them is what the click asserts — a test pins the day-board path still composing both
+  edges.
+  **`checked_in_at` IS UNTOUCHED and always was.** It is written only by a real check-in
+  (`Modules\FrontDesk\Services\CheckInService:83`), which is why the audit found `arrived` with a
+  NULL timestamp in the first place. This fix does not write it, and now nothing on the documentation
+  path moves the status to one that implies it. **The separate `P1-M1` gap — the day-board's own
+  Arrive button setting `status = arrived` without writing `checked_in_at`, so desk arrivals stay
+  invisible to `MetricsService::checkedInCount` — is NOT addressed here and remains open**; it is a
+  front-desk-surface decision, and this gate deliberately did not widen into it.
+  **WHAT IT WAS INFLATING:** `AppLandingController:40` counts `status = arrived` as "waiting", and
+  the day-board's "Checked in" tile does the same. Every Document click on a booked appointment added
+  a patient to both. `MetricsService::checkedInCount` filters on `checked_in_at` and so was never
+  fooled — which is exactly the two-screens-disagree shape `P1-M1` recorded.
+  **Guarded by** `tests/Feature/Clinical/DocumentationAttendanceTest.php` (7), every test starting
+  from a BOOKED appointment — the state that used to be swept away — so without the fix the old code
+  **succeeds** at reaching `in_progress` and the assertions are measuring the guard (D-182).
+  Mutation-checked: restoring the compose reddens the **3** guard tests while the **4** controls
+  (note still created, arrived-case still starts, in-progress no-op, D-156 compose intact) stay green
+  — proving the suite is not passing by everything-fails.
+  **THREE EXISTING TESTS ASSERTED THE OLD BEHAVIOUR AND ARE CORRECTED, NOT WEAKENED** — see [[LOG]]
+  for what each had been asserting.
+  **THE DEMO SEEDER HAD TO LEARN THE SAME LESSON, WHICH IS EVIDENCE THE FIX BITES.**
+  `DemoClinicSeeder::seedLiveConsult()` — whose docblock calls it "the honest consult loop, run for
+  real" — booked an appointment and relied on this compose to reach `in_progress`. Afterwards it did
+  not, and `DemoClinicSeederTest` failed with "Failed asserting that an array contains 'in_progress'"
+  — the ONLY failure in a 1535-test run. The seeder now walks the patient to ARRIVED first, through
+  `AppointmentService` exactly as reception does. The demo week became MORE honest, not less: the
+  loop it claims to demonstrate now contains the arrival it always implied. `DemoSpitexSeeder` passes
+  a null appointment and was unaffected.
+  See [[Clinical]], [[Scheduling]], `docs/qa/ROLE-AUDIT.md` (P2-H1), D-156 (the sanctioned compose),
+  D-179 (asserted action never taken), D-182 (the test shape), P1-M1 (the same shape, still open),
+  [[LOG]].

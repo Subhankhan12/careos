@@ -415,8 +415,13 @@ test('day-board document action opens an encounter creates a draft note and redi
     $encounter = Encounter::query()->firstOrFail();
     $note = ClinicalNote::query()->firstOrFail();
 
+    // CORRECTION, not a weakening (QA-FIX.2b, `P2-H1`): this line asserted
+    // STATUS_IN_PROGRESS — i.e. that documenting a BOOKED appointment silently marked the
+    // patient arrived and started the visit. That was the defect. The test's subject is the
+    // encounter and the draft note, both still asserted below; the appointment now correctly
+    // keeps the status it earned.
     expect($encounter->appointment_id)->toBe($appointment->id)
-        ->and($appointment->refresh()->status)->toBe(Appointment::STATUS_IN_PROGRESS)
+        ->and($appointment->refresh()->status)->toBe(Appointment::STATUS_BOOKED)
         ->and($note->encounter_id)->toBe($encounter->id)
         ->and($note->status)->toBe(ClinicalNote::STATUS_DRAFT)
         ->and($note->subjective)->toBe('Template subjective');
@@ -440,6 +445,18 @@ test('full consult loop from day board through signed note amendment and chart h
         ->assertInertia(fn (Assert $page) => $page
             ->component('Scheduling/DayBoard')
             ->where('appointments.0.id', $appointment->id));
+
+    // CORRECTION, not a weakening (QA-FIX.2b, `P2-H1`): the loop used to rely on "Document"
+    // silently sweeping a BOOKED appointment to in_progress, which was the defect. A real consult
+    // loop begins with the patient arriving, so the arrival is now recorded through the day-board
+    // control that MEANS it, before the clinician documents. The loop's own assertions —
+    // including the closing STATUS_IN_PROGRESS — are unchanged and now describe the true path.
+    $this->actingAs($doctor)
+        ->post(route('scheduling.day-board.transition'), [
+            'appointment_id' => $appointment->id,
+            'action' => 'arrive',
+        ])
+        ->assertRedirect();
 
     $this->actingAs($doctor)
         ->post(route('scheduling.day-board.open-encounter'), ['appointment_id' => $appointment->id])

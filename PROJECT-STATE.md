@@ -48,7 +48,7 @@ phase's timestamp observation suspect, and past-time booking was live on the pub
 | **P1-C1** web requests wrote tenant-local wall-clock into UTC columns (incl. the append-only audit ledger) | **QA-FIX.1a** | ✅ FIXED — D-192/D-193 |
 | **P1-H3** the slot finder offered past times and the system booked them | **QA-FIX.1b** | ✅ FIXED — D-194 |
 | **P2-C1** a signed clinical note was attributed to a clinician who neither wrote nor signed it | **QA-FIX.2a** | ✅ FIXED — D-195/D-196/D-197 |
-| **P2-H1** opening a note silently asserted the patient had arrived | **QA-FIX.2b** | Part 2 of the same gate |
+| **P2-H1** opening a note silently asserted the patient had arrived | **QA-FIX.2b** | ✅ FIXED — D-198 |
 
 **Phase 2 (clinician: doctor / dentist) is DONE** (`a5e17dc`): 19 findings — 1 CRITICAL, 4 HIGH,
 9 MEDIUM, 5 LOW. **There is no `dentist` role template** — the dental practice's clinician holds
@@ -68,6 +68,14 @@ audit chain — so history is RECORDED, not rewritten.
 **⚠️ RECORDED, NOT FIXED (D-196):** `author_id` → `staff_profiles.id` while
 `signed_by`/`charted_by`/`ordered_by` → `users.id`. Unifying them is a schema gate; this fix did not
 deepen the split.
+
+**Documentation is not attendance** (D-198): opening a note starts the visit only when the patient is
+already recorded as **arrived**; from `booked`/`confirmed` nothing transitions and the note is still
+created. The day-board's **Arrive** button — which sits beside Document and exists to say the patient
+is here — remains the way attendance is asserted, and the **D-156 compose is untouched**.
+**⚠️ STILL OPEN — `P1-M1`:** that Arrive button sets `status = arrived` without writing
+`checked_in_at`, so desk arrivals remain invisible to `MetricsService::checkedInCount`. QA-FIX.2b
+fixed the documentation path only and did not widen into the front-desk surface.
 
 **⚠️ ONE NEW OPEN PRODUCT DECISION (D-193): the historical +2 h skew is RECORDED, NOT REWRITTEN.**
 Rows written by web requests before QA-FIX.1a carry the practice's wall clock in UTC columns (non-UTC

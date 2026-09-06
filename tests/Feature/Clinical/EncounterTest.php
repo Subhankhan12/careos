@@ -23,6 +23,7 @@ use Modules\Scheduling\Models\Appointment;
 use Modules\Scheduling\Models\Resource as BookableResource;
 use Modules\Scheduling\Models\ResourceAvailability;
 use Modules\Scheduling\Models\Service;
+use Modules\Scheduling\Services\AppointmentService;
 use Modules\Scheduling\Services\BookingService;
 
 uses(RefreshDatabase::class);
@@ -256,7 +257,20 @@ test('only one open encounter is allowed per patient practitioner pair', functio
         ->and(Encounter::query()->where('status', Encounter::STATUS_OPEN)->count())->toBe(1);
 });
 
-test('opening from an appointment transitions it to in progress through Scheduling service', function () {
+/*
+ * CORRECTION, not a weakening (QA-FIX.2b, `P2-H1`).
+ *
+ * This test was named "opening from an appointment transitions it to in progress" and asserted that
+ * opening an encounter from a BOOKED appointment left it `in_progress`, with an audited
+ * `appointment.in_progress` row. That was the defect: documentation was asserting attendance, and
+ * this test was pinning it in place.
+ *
+ * Its REAL subject is preserved and still asserted — that the transition goes through the Scheduling
+ * service rather than a direct write, and is audited. Only the starting state changed: the patient is
+ * now recorded as ARRIVED first, which is what makes "the visit is starting" true. The booked case,
+ * which must NOT transition, is covered in DocumentationAttendanceTest.
+ */
+test('opening from an ARRIVED appointment starts the visit through the Scheduling service', function () {
     $tenant = d1Tenant('alpha');
     d1Ctx()->set($tenant);
     $user = d1User($tenant);
@@ -266,6 +280,13 @@ test('opening from an appointment transitions it to in progress through Scheduli
     $service = d1Service();
     $resource = d1Resource($branch);
     $appointment = d1Appointment($service, $patient, $branch, $resource, $user);
+
+    // The patient is recorded as present through the controls that mean it, before the clinician
+    // documents. This is the arrival that `arrived → in_progress` is entitled to rely on.
+    $appointments = app(AppointmentService::class);
+    $appointments->arrive($appointments->confirm($appointment, $user), $user);
+
+    expect($appointment->refresh()->status)->toBe(Appointment::STATUS_ARRIVED);
 
     $encounter = app(EncounterService::class)->open(
         $patient,

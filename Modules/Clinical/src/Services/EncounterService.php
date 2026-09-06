@@ -74,7 +74,7 @@ class EncounterService
             }
 
             if ($appointment !== null) {
-                $this->moveAppointmentToInProgress($appointment, $actor);
+                $this->startVisitIfAlreadyArrived($appointment, $actor);
             }
 
             return Encounter::query()->create([
@@ -121,29 +121,42 @@ class EncounterService
         return $closed;
     }
 
-    private function moveAppointmentToInProgress(Appointment $appointment, User $actor): void
+    /**
+     * Start the visit IF, AND ONLY IF, the patient is already recorded as having arrived.
+     *
+     * DOCUMENTATION IS NOT ATTENDANCE (QA-FIX.2b, D-198, closing `P2-H1`). This used to compose
+     * `confirm() → arrive() → start()` from a BOOKED appointment, so one click on "Document" — a
+     * clinician opening a note — made the record say the patient had arrived. The Phase-2 audit
+     * measured all three transitions firing at the same instant while `checked_in_at` and
+     * `check_in_source` stayed NULL: attendance asserted with no evidence behind it (D-179), and
+     * the same shape as `P1-M1` from a different entry point.
+     *
+     * `arrived → in_progress` is the ONE unambiguous case and is still composed: the patient is
+     * already recorded present, so a clinician opening their note is exactly "the visit is starting".
+     *
+     * From `booked` or `confirmed` NOTHING is transitioned. The encounter and the note are still
+     * created — documentation is never blocked — the appointment simply keeps the status it earned.
+     * Asserting arrival stays with the controls that already MEAN it: the day-board's **Arrive**
+     * button, which sits directly beside **Document**, and the appointment detail action row. That
+     * compose is legitimate precisely because a person pressed a button that says the patient is
+     * here (D-156 records it as a deliberate cross-surface divergence, and it is UNCHANGED).
+     *
+     * No new flag or confirmation control was invented: one that no surface sends would be an
+     * unbacked presence (D-176), and the honest affordances already exist.
+     *
+     * `checked_in_at` is untouched here and always was — it is written only by a real check-in
+     * (`Modules\FrontDesk\Services\CheckInService`). After this change nothing on the documentation
+     * path can leave the record implying a check-in that never happened.
+     */
+    private function startVisitIfAlreadyArrived(Appointment $appointment, User $actor): void
     {
         $current = $appointment->refresh();
 
-        if ($current->status === Appointment::STATUS_BOOKED) {
-            $current = $this->appointments->confirm($current, $actor);
-        }
-
-        if ($current->status === Appointment::STATUS_CONFIRMED) {
-            $current = $this->appointments->arrive($current, $actor);
-        }
-
+        // The legal edge arrived → in_progress, taken through the real state machine, audited by
+        // `transition()` exactly as before. No edge was added and none was weakened.
         if ($current->status === Appointment::STATUS_ARRIVED) {
             $this->appointments->start($current, $actor);
-
-            return;
         }
-
-        if ($current->status === Appointment::STATUS_IN_PROGRESS) {
-            return;
-        }
-
-        throw new InvalidArgumentException('Appointment cannot be moved to in progress.');
     }
 
     private function authorize(User $actor, string $branchId): void

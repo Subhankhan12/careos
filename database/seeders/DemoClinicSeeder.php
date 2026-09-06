@@ -799,7 +799,15 @@ class DemoClinicSeeder extends Seeder
 
         // in_progress is reached by opening the encounter, not by hand — see
         // seedClinical(), which documents the consult on this appointment.
+        //
+        // The patient is walked to ARRIVED here, through the same service reception uses, because
+        // that is what actually happens before a clinician documents: somebody records that the
+        // patient is present. Documenting no longer asserts attendance on its own (QA-FIX.2b,
+        // D-198), so the arrival has to be real for the consult loop to be honest — which is what
+        // this seeder claims to demonstrate.
         $this->appointmentInProgress = $book('consult', 0, $this->weekday(3)->setTime(10, 30), ['doctor_brunner', 'room_1']);
+        $lifecycle->arrive($lifecycle->confirm($this->appointmentInProgress, $reception), $reception);
+        $this->appointmentInProgress = $this->appointmentInProgress->refresh();
 
         /*
          * Two online self-bookings through the public path.

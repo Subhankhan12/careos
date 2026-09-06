@@ -489,3 +489,70 @@ and `SurgicalCaseService:166,178` (author = the case's primary surgeon) share th
 outside the audited surface and could not be browser-verified here — see `DEFERRED.md`, and note the
 operative note may be *meant* to carry the responsible surgeon. `EdDocumentationService` takes a
 user-chosen `practitioner_id` (an explicit assignment, not an inference).
+
+### QA-FIX.2b — documentation is not attendance (2026-09-05, closes `P2-H1`)
+
+**The defect:** one click on **Document** fired `appointment.confirmed → arrived → in_progress` at the
+same instant, moving the appointment `booked → in_progress`, while `checked_in_at` and
+`check_in_source` stayed **NULL**. The record asserted a patient had attended because a clinician
+opened an editor. D-179.
+
+**THE COMPOSE WAS DELIBERATE, WHICH IS WHY IT SURVIVED.**
+`EncounterService::moveAppointmentToInProgress()` walked every intermediate state so an encounter
+could always be opened, and **each hop was a legal edge through `AppointmentService::transition()`** —
+nothing was bypassed, the state machine was used exactly as designed. **The defect was in the meaning,
+not the mechanics:** the code answered *"how do I get this appointment to in_progress?"* when the
+question was *"has anyone actually said this patient is here?"* A guard-shaped bug can hide inside
+perfectly legal transitions.
+
+**THE FIX** renames the method to `startVisitIfAlreadyArrived()` and keeps exactly one case:
+
+```php
+if ($current->status === Appointment::STATUS_ARRIVED) {
+    $this->appointments->start($current, $actor);
+}
+```
+
+From `booked`/`confirmed` nothing transitions. The encounter and note are still created —
+documentation is never blocked.
+
+**WHY NO CONFIRMATION MODAL.** A flag no surface sends is an unbacked presence (D-176), and the
+honest control already sits **directly beside Document on the same day-board row**: **Arrive**. The
+fix stopped talking over an affordance that already existed.
+
+**THE D-156 DISTINCTION IS THE POINT.** `DayBoardActionController:35-38` still composes
+`confirm() → arrive()`. That is legitimate *because a human pressed a button whose meaning is the
+arrival*; the documentation path had no such meaning behind it. Two composes, one sanctioned, one
+not — separated by what the click asserts, not by which edges it walks.
+
+**WHAT IT WAS INFLATING:** `AppLandingController:40` counts `status = arrived` as "waiting", and the
+day-board "Checked in" tile does the same, so every Document click on a booked appointment added a
+patient to both. `MetricsService::checkedInCount` filters on `checked_in_at` and was never fooled —
+which is exactly the two-screens-disagree shape `P1-M1` recorded.
+
+**`P1-M1` REMAINS OPEN.** `checked_in_at` is written only by `FrontDesk\CheckInService:83`. The
+day-board's own Arrive button still sets `status = arrived` without writing it, so desk arrivals stay
+invisible to reporting. This gate fixed the documentation path only and deliberately did not widen
+into the front-desk surface.
+
+**Guarded by** `tests/Feature/Clinical/DocumentationAttendanceTest.php` (7). Every test starts from a
+**BOOKED** appointment — the state that used to be swept away — so **without the fix the old code
+succeeds** at reaching `in_progress` (D-182). Mutation-checked: restoring the compose reddens the 3
+guard tests while the 4 controls stay green.
+
+**Three existing tests asserted the old behaviour and were CORRECTED:** `EncounterTest`'s
+"opening from an appointment transitions it to in progress" (the name itself encoded the defect —
+renamed, and the patient is now marked arrived first, preserving its real subject: that the
+transition goes through the Scheduling service and is audited); `ClinicalUiTest`'s day-board Document
+test (asserted `in_progress`, now asserts the appointment stays `booked`); and its full-consult-loop
+test (now records the arrival through the day-board control before documenting, so the loop
+exercises the true path and its closing assertions are unchanged).
+
+**The demo seeder had to learn the same lesson, which is evidence the fix bites.**
+`DemoClinicSeeder::seedLiveConsult()` — whose docblock calls it *"the honest consult loop, run for
+real"* — booked an appointment and relied on this compose to reach `in_progress`. Afterwards it did
+not, and `DemoClinicSeederTest` failed with *"Failed asserting that an array contains 'in_progress'"*
+— the **only** failure in a 1535-test run. The seeder now walks the patient to ARRIVED first, through
+`AppointmentService` exactly as reception does. The demo week became **more** honest, not less: the
+loop it claims to demonstrate now contains the arrival it always implied. `DemoSpitexSeeder` passes a
+null appointment and was unaffected.
