@@ -343,3 +343,39 @@ assertion is the guard; the browser is the proof.
 
 **`DayPackService` throws 403 at each missing link in user → StaffProfile → practitioner `Resource`.**
 A test nurse without that chain 403s for reasons unrelated to whatever you are testing.
+
+### QA-FIX.4b — device times are parsed to UTC at ONE boundary (P4-C4, D-202, `<pending>`)
+
+**`NurseSyncService::normaliseDeviceTimes()` runs once in `process()`, before dispatch, inside the
+existing per-action transaction.** It rewrites `device_timestamp` — and the incident payload's
+`occurred_at` — to a canonical UTC `Y-m-d H:i:s.u` string. **All eleven `(string)
+$action['device_timestamp']` sites are unchanged** and now receive a value with no offset left to
+misinterpret. Do not "tidy" this by inlining conversions at the call sites; one boundary is the point.
+
+**THE MECHANISM, so nobody re-derives it:** these columns are cast `'datetime'`, so Eloquent parses
+with Carbon and serialises with `format('Y-m-d H:i:s')` **in the Carbon's own timezone**:
+
+| sent | stored | correct? |
+|---|---|---|
+| `2026-08-03T09:35:00+02:00` | `09:35:00` | ❌ (true instant `07:35`) |
+| `2026-08-03T02:35:00-05:00` | `02:35:00` | ❌ |
+| `2026-08-03T07:35:00.000Z` | `07:35:00` | ✅ |
+
+A **raw** `DB::table()->insert()` of either ISO form *throws* `Incorrect datetime value` under strict
+mode — the corruption is specifically the Eloquent-cast path, which is why it looked like a clean write.
+
+**THE PHASE-4 SEVERITY WAS OVERSTATED AND IS CORRECTED.** The shipped PWA sends
+`new Date().toISOString()` (`dayPackStore.ts:74`) — always `Z` — so **rows written by the shipped
+client were already correct**. P4-C4's `+02:00` evidence came from a curl-crafted action. The defect
+was **latent**: the server had no defence and was right only by accident of a client convention.
+Re-graded CRITICAL → HIGH in the audit.
+
+**POLICY (D-170): no trust window, no clock-skew correction.** The device's stated instant is recorded
+as given. `device_timestamp` is validated `['required','date']` at the controller;
+`payload.occurred_at` is **not** (payload contents never are — P4-H1), so an unparseable value is
+**rejected** with `validation_failed`, never silently replaced by `device_timestamp` — that would
+record an incident at a time the reporter never stated (D-176/D-179).
+
+**Tests use a NON-ZERO offset in every fixture** (`DeviceTimestampUtcTest`), because a `Z` fixture
+passes with or without the fix (D-174). Mutation: neutering the conversion reddens 8/10, and the 2
+still green are exactly the positive controls.

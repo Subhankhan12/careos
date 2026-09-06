@@ -4104,3 +4104,50 @@ references the old ID.
   because Laravel's `ValidateCsrfToken` self-skips under `runningUnitTests()` and no feature test can
   ever observe the 419 a real browser gets. The structural assertion is the guard; the **browser** is
   the proof. See [[Nursing]], `docs/qa/ROLE-AUDIT.md` (P4-C1), D-182 (the test shape), [[LOG]].
+
+- **D-202 — Device times are parsed to UTC at ONE sync boundary; the server never trusts a client
+  convention for correctness (QA-FIX.4b, closing P4-C4).**
+  Phase 4 sent a `check_in` with `device_timestamp = 2026-09-06T07:35:00+02:00` (the instant
+  `05:35:00Z`) and the row stored **`07:35:00`** — the device's local wall clock in a UTC column.
+  Eleven sites wrote `(string) $action['device_timestamp']` straight into datetime columns:
+  `occurred_at` (EVV check-in/out), `recorded_at` (vitals, notes, observations), `completed_at` (task
+  completion), `captured_at` (attachments) and the ledger's own `device_timestamp`.
+  **THE MECHANISM, MEASURED RATHER THAN ASSUMED.** These columns are cast `'datetime'`, so Eloquent
+  parses the string with Carbon and serialises it with `format('Y-m-d H:i:s')` — **in the Carbon's
+  own timezone**. So `+02:00` stored `07:35`, `-05:00` stored `00:35`, and `Z` stored `05:35`; only
+  the last is the true instant. (A *raw* `DB::table()->insert()` of either ISO form throws
+  `Incorrect datetime value` under strict mode — the corruption is specifically an Eloquent-cast
+  path, which is why it looked like a successful write.)
+  **A CORRECTION TO THE PHASE-4 FINDING, MADE HONESTLY.** `P4-C4` was written as though every stored
+  EVV time were currently two hours out. It is not. The shipped PWA sends
+  `new Date().toISOString()` (`nurse-pwa/src/storage/dayPackStore.ts:74`) — always a `Z` instant —
+  so **today's rows are correct**, and the incident's `occurred_at` is likewise normalised
+  client-side. My `+02:00` evidence came from a curl-crafted action, not the product's own client.
+  The defect is therefore **latent, not active**: the server had no defence and was correct only by
+  accident of what one client happens to send. That is still worth fixing — these are the EVV times
+  that justify Spitex billing, and a second client, a native wrapper or a changed client default
+  would corrupt them silently — but the severity claim in the audit is corrected rather than left
+  standing.
+  **ONE BOUNDARY, NOT ELEVEN COPIES.** `normaliseDeviceTimes()` runs once in `process()`, inside the
+  existing per-action transaction and before dispatch, and rewrites `device_timestamp` (and the
+  incident payload's `occurred_at`) to a canonical UTC `Y-m-d H:i:s.u` string. All eleven call sites
+  keep their `(string)` casts and are unchanged — they now receive a value with no offset left to
+  misinterpret.
+  **POLICY, STATED BEFORE THE CODE.** The device's stated instant is recorded as given and converted
+  to UTC. There is **no trust window and no clock-skew correction** (D-170): the product has no basis
+  on which to judge a device clock, and inventing one would fabricate a care time.
+  `device_timestamp` is already validated `['required', 'date']` at the controller, so it is always
+  present and parseable; `payload.occurred_at` is **not** validated (payload contents never are —
+  P4-H1), so an unparseable value is **rejected** with `validation_failed` rather than silently
+  replaced by `device_timestamp`, which would record an incident at a time the reporter never stated
+  (D-176 / D-179). A parse failure returns a clean rejection rather than throwing, because an
+  unhandled throw here becomes a 500 that takes the whole batch with it (the P4-H1 shape).
+  **NO HISTORICAL REWRITE** (D-193 / D-197 precedent) — and in this case there is nothing to rewrite:
+  every row written by the shipped client was already a correct UTC instant.
+  **Guarded by** ten tests in `tests/Feature/Nursing/DeviceTimestampUtcTest.php`, every fixture using
+  a **non-zero offset** because a `Z` fixture would pass with or without the fix and prove nothing
+  (D-174). The sharpest is *the same instant sent three ways* — `+02:00`, `-05:00` and `Z` must all
+  store one value. Mutation-checked: neutering the conversion reddens **8 of 10**, and the 2 that
+  stay green are exactly the two positive controls (the `Z` instant, which must not move, and
+  "ordinary sync still accepted"). See [[Nursing]], `docs/qa/ROLE-AUDIT.md` (P4-C4), D-192 (storage is
+  UTC from every path), D-170, [[LOG]].

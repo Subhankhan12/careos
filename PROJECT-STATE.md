@@ -74,8 +74,12 @@ D-201) is done: **the API is token-only** — `statefulApi()` is removed from `b
 the Nurse PWA can finally authenticate and sync from the origin it is served on (P4-C1). The study
 found no cookie client to protect: all six `api/*` routes are Bearer-token and the PWA is their only
 consumer. **This was never local-only** — `SANCTUM_STATEFUL_DOMAINS` derives from `APP_URL`, so it
-broke in production too. Remaining: 4b device timestamps (P4-C4), 4c reload + session-expiry data
-loss (P4-C2/C3), 4d duplicate note (P4-C5), 4e check-in/out wiring (P4-H3).
+broke in production too. Part 2 (`<pending>`, D-202) is done: **device times are parsed to UTC at one sync boundary** —
+`normaliseDeviceTimes()` in `NurseSyncService::process()`, with all eleven call sites unchanged.
+**P4-C4 is re-graded CRITICAL → HIGH:** the shipped PWA only ever sends `toISOString()` (`Z`), so
+rows written by the real client were already correct — the defect was **latent**, not active, and the
+audit record says so. Remaining: 4c reload + session-expiry data loss (P4-C2/C3), 4d duplicate note
+(P4-C5), 4e check-in/out wiring (P4-H3).
 
 **A refused money operation leaves nothing behind** (D-199): `record()` + `allocate()` now run in one
 transaction on the AR-account path, so a refused allocation unwinds the payment and every line already

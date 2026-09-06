@@ -44,6 +44,11 @@ missing · `LOW` cosmetic / polish.
 | 4 — Nursing / Spitex (incl. Nurse PWA) | **5** | 5 | 10 | 3 | 23 |
 | **Total to date** | **8** | **16** | **35** | **16** | **75** |
 
+*(Counts are as RECORDED at audit time and are not restated when a later gate re-grades a finding.
+`P4-C4` was re-graded **CRITICAL → HIGH** by QA-FIX.4b — the defect was latent rather than active,
+because the shipped client only ever sends UTC. The correction is written into that finding's FIXED
+banner and its fix-status row, where the evidence sits.)*
+
 ## Fix status
 
 Findings are recorded here permanently and are **never removed when fixed** — a fixed finding keeps
@@ -63,7 +68,7 @@ every later phase's timestamp observation suspect, and past-time booking was liv
 | `P3-C1` | CRITICAL | ✅ **FIXED** | QA-FIX.3a | `348d41c` |
 | `P3-H1` | HIGH | ✅ **FIXED** | QA-FIX.3b | `d6f0cc5` |
 | `P4-C1` | CRITICAL | ✅ **FIXED** | QA-FIX.4a | `<pending>` |
-| `P4-C4` | CRITICAL | ⏳ same gate (Part 2) | QA-FIX.4b | — |
+| `P4-C4` | CRITICAL → **HIGH** (latent, see banner) | ✅ **FIXED** | QA-FIX.4b | `<pending>` |
 | `P4-C2` · `P4-C3` | CRITICAL | ⏳ same gate (Part 3) | QA-FIX.4c | — |
 | `P4-C5` | CRITICAL | ⏳ same gate (Part 4) | QA-FIX.4d | — |
 | `P4-H3` | HIGH | ⏳ same gate (Part 5) | QA-FIX.4e | — |
@@ -1915,6 +1920,44 @@ with zero cookies.
   EVV record underpinning billing and verification. This is the *same defect class* as `P1-C1`
   (D-192/D-193, fixed by `QA-FIX.1a` for web requests) on a path that gate never touched — and here
   the clock belongs to a phone the server does not control.
+
+
+> ✅ **FIXED — QA-FIX.4b, commit `<pending>` (D-202).** Device times are now parsed to UTC at **one**
+> boundary (`NurseSyncService::normaliseDeviceTimes()`), before dispatch and inside the existing
+> per-action transaction. All eleven call sites are unchanged — they receive a value with no offset
+> left to misinterpret.
+>
+> ⚠️ **CORRECTION TO THIS FINDING'S SEVERITY, recorded rather than quietly edited.** The finding
+> above is written as though every stored EVV time were currently two hours out. **It is not.** The
+> shipped PWA sends `new Date().toISOString()` (`nurse-pwa/src/storage/dayPackStore.ts:74`) — always
+> a `Z` instant — which Carbon parses as UTC, so **rows written by the shipped client were already
+> correct**, and the incident's `occurred_at` is normalised client-side the same way. The `+02:00`
+> evidence in the steps above came from a **curl-crafted action**, not from the product's own client.
+> The defect is therefore **LATENT rather than ACTIVE**: the server had no defence and was correct
+> only by accident of a client convention. Still worth fixing — these are the EVV times that justify
+> Spitex billing, and a second client, a native wrapper, or a changed client default would corrupt
+> them silently — but "every device timestamp is stored as wall-clock" overstated what was happening
+> in practice, and the record is corrected here.
+>
+> - **The mechanism, measured.** These columns are cast `'datetime'`, so Eloquent parses with Carbon
+>   and serialises with `format('Y-m-d H:i:s')` **in the Carbon's own timezone**: `+02:00` → `07:35`,
+>   `-05:00` → `00:35`, `Z` → `05:35`. Only the last is the true instant. A *raw*
+>   `DB::table()->insert()` of either ISO form throws `Incorrect datetime value` under strict mode —
+>   the corruption is specifically the Eloquent-cast path, which is why it looked like a clean write.
+> - **Policy (D-170).** The device's stated instant is recorded as given and converted to UTC. **No
+>   trust window, no clock-skew correction** — the product has no basis to judge a device clock.
+>   `device_timestamp` is already validated `['required','date']`; the incident's `payload.occurred_at`
+>   is **not** (payload contents never are — `P4-H1`), so an unparseable value is **rejected** with
+>   `validation_failed` rather than silently replaced by `device_timestamp`, which would record the
+>   incident at a time the reporter never stated (D-176 / D-179).
+> - **No historical rewrite** (D-193 / D-197) — and nothing to rewrite: the shipped client's rows were
+>   already correct UTC instants.
+> - **Ten tests, every fixture using a non-zero offset** (a `Z` fixture would prove nothing — D-174).
+>   The sharpest asserts *the same instant sent three ways* (`+02:00`, `-05:00`, `Z`) stores **one**
+>   value. Mutation-checked: neutering the conversion reddens **8 of 10**, and the two that stay green
+>   are exactly the positive controls.
+> - **Verified in a real browser on the DEFAULT origin** — a live sync from the PWA, with the stored
+>   row compared against CLI `now()` in UTC exactly as Phase 4 measured it.
 
 #### `P4-C5` — One "Save note" gesture writes TWO identical clinical notes
 

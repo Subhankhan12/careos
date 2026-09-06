@@ -99,6 +99,22 @@ class NurseSyncService
             $resource = $this->resourceFor($resources, $payload);
             $type = (string) $action['type'];
 
+            // THE SINGLE UTC BOUNDARY FOR DEVICE TIMES (QA-FIX.4b, P4-C4, D-202).
+            // Everything downstream — all eleven `(string) $action['device_timestamp']` sites and the
+            // incident's payload `occurred_at` — reads the value normalised here, so the conversion
+            // exists once rather than eleven times.
+            $normalised = $this->normaliseDeviceTimes($action, $payload);
+
+            if ($normalised === null) {
+                return $this->recordLedger(
+                    $nurse, $resource, $action, $payload, null,
+                    NurseSyncAction::STATUS_REJECTED, self::CODE_VALIDATION_FAILED,
+                    ['reason' => 'unparseable_device_time'], null,
+                );
+            }
+
+            [$action, $payload] = $normalised;
+
             return match ($type) {
                 'check_in' => $this->checkIn($nurse, $resource, $action, $payload),
                 'check_out' => $this->checkOut($nurse, $resource, $action, $payload),
@@ -115,6 +131,80 @@ class NurseSyncService
                 default => $this->ambiguous($nurse, $resource, $action, $payload, self::CODE_AMBIGUOUS_CONFLICT),
             };
         });
+    }
+
+    /**
+     * Convert every device-supplied time on this action to a UTC instant (QA-FIX.4b, P4-C4, D-202).
+     *
+     * WHY THIS EXISTS. The datetime columns these values land in are cast `'datetime'`, so Eloquent
+     * parses the string with Carbon and then serialises it with `format('Y-m-d H:i:s')` — IN THE
+     * CARBON'S OWN TIMEZONE. An offset-bearing instant therefore stored its LOCAL WALL CLOCK:
+     * `2026-09-06T07:35:00+02:00` was written as `07:35:00` when the UTC instant is `05:35:00`
+     * (and `-05:00` was five hours out). Storage is UTC from every path (D-192); the server must
+     * not be correct only by accident of what a client happens to send.
+     *
+     * SCOPE, STATED HONESTLY. The shipped PWA sends `new Date().toISOString()` — always a `Z`
+     * instant — which Carbon parses as UTC, so today's stored rows are correct. This closes a
+     * LATENT defect: any device or future client sending an offset silently stored the wrong
+     * instant, and these are the EVV times that justify Spitex billing. Historical rows are NOT
+     * rewritten (D-193 / D-197 precedent) — there is nothing to rewrite from the shipped client.
+     *
+     * POLICY. The device's stated instant is recorded as given, converted to UTC. There is NO trust
+     * window and NO clock-skew correction (D-170): the product has no basis to judge a device clock,
+     * and inventing one would fabricate a care time.
+     *
+     * @param  array<string, mixed>  $action
+     * @param  array<string, mixed>  $payload
+     * @return array{0: array<string, mixed>, 1: array<string, mixed>}|null null when a supplied time cannot be parsed
+     */
+    private function normaliseDeviceTimes(array $action, array $payload): ?array
+    {
+        $device = $this->toUtcString($action['device_timestamp'] ?? null);
+
+        if ($device === null) {
+            return null;
+        }
+
+        $action['device_timestamp'] = $device;
+
+        // `payload.occurred_at` (the incident's own time) is NOT covered by the controller's
+        // validation — payload contents never are. If the reporter supplied a time we cannot parse,
+        // REJECT the action rather than silently substituting `device_timestamp`: that would record
+        // the incident at a time the reporter did not state (D-176 / D-179).
+        if (array_key_exists('occurred_at', $payload)
+            && $payload['occurred_at'] !== null
+            && $payload['occurred_at'] !== '') {
+            $occurred = $this->toUtcString($payload['occurred_at']);
+
+            if ($occurred === null) {
+                return null;
+            }
+
+            $payload['occurred_at'] = $occurred;
+        }
+
+        return [$action, $payload];
+    }
+
+    /**
+     * Parse a device-supplied time to a UTC `Y-m-d H:i:s.u` string, or null if it cannot be parsed.
+     *
+     * Returns a STRING rather than a Carbon so the eleven call sites keep their `(string)` casts and
+     * the value reaching each column is already UTC with no offset left to misinterpret.
+     */
+    private function toUtcString(mixed $value): ?string
+    {
+        if (! is_string($value) || trim($value) === '') {
+            return null;
+        }
+
+        try {
+            return Carbon::parse($value)->utc()->format('Y-m-d H:i:s.u');
+        } catch (\Throwable) {
+            // A throw here would surface as a 500 from the sync endpoint (the P4-H1 shape); a clean
+            // rejection keeps the batch answerable.
+            return null;
+        }
     }
 
     /**
