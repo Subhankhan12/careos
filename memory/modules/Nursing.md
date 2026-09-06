@@ -379,3 +379,32 @@ record an incident at a time the reporter never stated (D-176/D-179).
 **Tests use a NON-ZERO offset in every fixture** (`DeviceTimestampUtcTest`), because a `Z` fixture
 passes with or without the fix (D-174). Mutation: neutering the conversion reddens 8/10, and the 2
 still green are exactly the positive controls.
+
+### QA-FIX.4c — TWO KEYS, TWO LIFETIMES in the PWA store (P4-C2 + P4-C3, D-203, `<pending>`)
+
+**Read this before touching `nurse-pwa/src/storage/dayPackStore.ts`.**
+
+| what | key | lifetime | wiped on 401/403? |
+|---|---|---|---|
+| day-pack **cache** (allergies, meds, problems, vitals history) | HKDF from the session token, **memory only** | dies with the tab | **YES** — unchanged |
+| **outbox** (care recorded, not yet sent) | device AES-GCM key, `extractable: false`, stored in IndexedDB (`deviceKeys`) | survives reload + expiry | **NO — never** |
+
+**WHY, in one line:** the cache is a *copy* of server data and may be destroyed freely; the outbox is
+the **only** copy of care the server has never seen. One key served both, so the property that
+correctly protects the cache stranded (P4-C2) and then deleted (P4-C3) the queue.
+
+**DO NOT "simplify" this back to one key.** That is precisely the defect. `wipeLocalStore()`
+deliberately deletes only non-`outbox-` records and clears the session key.
+
+**Residual risk, accepted deliberately:** an attacker with the unlocked device who can run script in
+this origin can read **queued** entries (what this nurse recorded this round) — not the day-pack
+cache, and not the key bytes (`exportKey` rejects). The outbox drains on a successful sync. Silently
+destroying documented patient care is the worse failure.
+
+**Consequences worth knowing:** the idle-timeout wipe and explicit **logout** now also preserve
+un-transmitted work, so queued care survives a logout and syncs on the next sign-in.
+`loadOutboxForReplay()` **skips** records it cannot decrypt (legacy rows from the broken build,
+already unrecoverable) rather than throwing — which also stops one bad row jamming the queue.
+
+**STILL OPEN:** a nurse who reloads **while offline** cannot re-enter the app (login needs the
+network). Their care is safe and syncs later, but the app is not usable offline after a reload.

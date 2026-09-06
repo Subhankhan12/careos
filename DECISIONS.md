@@ -4151,3 +4151,56 @@ references the old ID.
   stay green are exactly the two positive controls (the `Z` instant, which must not move, and
   "ordinary sync still accepted"). See [[Nursing]], `docs/qa/ROLE-AUDIT.md` (P4-C4), D-192 (storage is
   UTC from every path), D-170, [[LOG]].
+
+- **D-203 — Two keys, two lifetimes: the day-pack cache stays session-bound, the outbox becomes
+  device-bound, because the two hold different data with different lifetimes (QA-FIX.4c, closing
+  P4-C2 and P4-C3).**
+  Phase 4 destroyed recorded care two ways in the Nurse PWA. **P4-C2:** the AES-GCM key was
+  HKDF-derived from the session token and held only in module memory, so an ordinary page reload
+  discarded it; a re-login minted a new token, derived a different key, and the outbox ciphertext
+  became permanently undecryptable — no `POST /api/nurse/sync` was ever issued again. **P4-C3:** a
+  `401`/`403` on reconnect called `wipeLocalStore()`, which cleared the whole store **including the
+  outbox**, deleting care the server had never received; the UI then read *"Pending offline
+  actions: 0"*.
+  **THE THREAT MODEL FIRST, BECAUSE THIS FIX MUST NOT TRADE A DATA-LOSS BUG FOR A PHI-EXPOSURE BUG.**
+  The encryption exists for a **lost or stolen field device**: ciphertext at rest must not hand an
+  attacker the patient's allergies, medications, problems and vitals history. Tying the key to the
+  session token bought that property elegantly and for free — close the tab and the cached PHI is
+  unreadable, with no key to store anywhere.
+  **THE DEFECT WAS A LIFETIME MISMATCH, NOT THE ENCRYPTION.** The cache is a *copy* of server data
+  and may be destroyed freely. The outbox is the **only** copy of care the nurse has already
+  recorded and the server has never seen — it must outlive the session by definition. One key was
+  being asked to serve both, and the property that correctly protects the cache is exactly what
+  destroys the queue.
+  **SO THEY ARE SPLIT.** The day pack keeps the original D-E2 arrangement: session-derived key,
+  memory-only, cleared on wipe. The outbox is encrypted under a **device-lifetime AES-GCM key
+  generated `extractable: false` and stored as a `CryptoKey` in IndexedDB** — script may use it on
+  this device but can never read its bytes out, so it cannot be exfiltrated even if the page is
+  compromised. `wipeLocalStore()` now deletes the cached records and clears the session key while
+  **preserving** the outbox; the security intent it was written for is unchanged.
+  **RESIDUAL RISK, STATED PLAINLY RATHER THAN MINIMISED.** An attacker with the unlocked device who
+  can run script in this origin can now read **queued** entries — what this nurse recorded on this
+  round — where previously they could read nothing at rest. They still cannot read the day-pack
+  cache, cannot extract the key, and the outbox drains to empty on a successful sync, so the
+  exposure is small and transient. **That trade is accepted deliberately: silently destroying
+  documented patient care is the worse failure**, and it is a patient-safety failure rather than a
+  confidentiality one.
+  **A CONSEQUENCE WORTH NAMING:** the idle-timeout wipe and explicit logout also stop destroying
+  un-transmitted work. On a shared device that means queued care survives a logout — which is
+  correct (it is still that nurse's unsent record, and it syncs on their next sign-in) but it is a
+  behaviour change, not an accident.
+  **LEGACY ROWS ARE SKIPPED, NOT DELETED.** A device upgrading from the broken build carries outbox
+  rows encrypted under a session key that no longer exists; they were already unrecoverable.
+  `loadOutboxForReplay()` now skips records it cannot decrypt instead of throwing — which also stops
+  one unreadable row jamming every later action (the P4-H1 shape) — and never deletes them.
+  **WHAT THIS DOES NOT FIX:** a nurse who reloads **while offline** still cannot re-enter the app,
+  because login requires the network. Their recorded care is now safe and syncs on the next
+  sign-in, but the app is not usable offline after a reload. That is a separate gap, recorded rather
+  than quietly folded in.
+  **Guarded by** ten tests in `nurse-pwa/tests/outboxSurvival.test.ts`. Mutation-checked twice:
+  restoring the destructive wipe reddens the three P4-C3 tests; putting the outbox back on the
+  session key reddens **eight**, including two pre-existing tests. Positive controls assert the cache
+  IS still wiped, that **no plaintext PHI** reaches the device, that the device key is
+  non-extractable and `exportKey` rejects, and that a successful sync still drains the queue —
+  preserving work must not mean never clearing it. See [[Nursing]], `docs/qa/ROLE-AUDIT.md` (P4-C2,
+  P4-C3), D-182, [[LOG]].

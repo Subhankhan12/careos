@@ -69,7 +69,7 @@ every later phase's timestamp observation suspect, and past-time booking was liv
 | `P3-H1` | HIGH | ✅ **FIXED** | QA-FIX.3b | `d6f0cc5` |
 | `P4-C1` | CRITICAL | ✅ **FIXED** | QA-FIX.4a | `<pending>` |
 | `P4-C4` | CRITICAL → **HIGH** (latent, see banner) | ✅ **FIXED** | QA-FIX.4b | `<pending>` |
-| `P4-C2` · `P4-C3` | CRITICAL | ⏳ same gate (Part 3) | QA-FIX.4c | — |
+| `P4-C2` · `P4-C3` | CRITICAL | ✅ **FIXED** | QA-FIX.4c | `<pending>` |
 | `P4-C5` | CRITICAL | ⏳ same gate (Part 4) | QA-FIX.4d | — |
 | `P4-H3` | HIGH | ⏳ same gate (Part 5) | QA-FIX.4e | — |
 | all others | — | 📋 recorded, not fixed | — | — |
@@ -1876,6 +1876,12 @@ with zero cookies.
   browser restarted, device sleep). The encryption design is otherwise good; the defect is that the
   **key lifetime is shorter than the data's**.
 
+
+> ✅ **FIXED — QA-FIX.4c, commit `<pending>` (D-203)** — jointly with `P4-C3`, which shares its
+> root cause. The full banner is under `P4-C3` below: the day-pack cache and the outbox were sharing
+> a key whose lifetime only suited the cache, so a reload stranded the queue for ever. The outbox now
+> uses a device-lifetime non-extractable key and survives.
+
 #### `P4-C3` — Reconnecting with an expired session silently DELETES all unsynced care
 
 - **Role:** `nurse` · **Surface:** Nurse PWA
@@ -1894,6 +1900,48 @@ with zero cookies.
 - **Why CRITICAL:** this is the gate's explicit trigger — lost recorded care — and it is the most
   likely of all these paths to occur in the field, because a 12-hour token and a day-long shift with
   poor signal are exactly the intended use.
+
+
+> ✅ **FIXED — QA-FIX.4c, commit `<pending>` (D-203).** `P4-C2` and `P4-C3` shared one root cause and
+> are closed together: **the day-pack cache and the outbox were sharing a key whose lifetime only
+> suited the cache.**
+>
+> - **The threat model first.** The encryption exists for a **lost or stolen field device** —
+>   ciphertext at rest must not hand an attacker the patient's allergies, medications, problems and
+>   vitals history. Deriving the key from the session token bought that for free: close the tab and
+>   the cached PHI is unreadable, with no key stored anywhere.
+> - **The defect was a lifetime mismatch, not the encryption.** The cache is a *copy* of server data
+>   and may be destroyed freely. The outbox is the **only** copy of care the nurse has already
+>   recorded and the server has never seen. One key was serving both, so the property that correctly
+>   protects the cache is exactly what stranded (`P4-C2`) and then deleted (`P4-C3`) the queue.
+> - **The fix splits them.** The day pack keeps the session-derived, memory-only key and is still
+>   cleared on wipe. The outbox is encrypted under a **device-lifetime AES-GCM key, generated
+>   `extractable: false` and stored as a `CryptoKey` in IndexedDB** — usable on this device, never
+>   readable out. `wipeLocalStore()` now removes the cached records and clears the session key while
+>   **preserving** un-transmitted work.
+> - **Residual risk, stated rather than minimised.** An attacker with the unlocked device who can run
+>   script in this origin can now read **queued** entries — what this nurse recorded on this round —
+>   where previously they could read nothing at rest. They still cannot read the day-pack cache,
+>   cannot extract the key, and the outbox drains to empty on a successful sync. The trade is
+>   deliberate: **silently destroying documented patient care is the worse failure.**
+> - **A behaviour change worth naming:** the idle-timeout wipe and explicit logout also stop
+>   destroying un-transmitted work, so queued care now survives a logout and syncs on the nurse's
+>   next sign-in.
+> - **Legacy rows are skipped, not deleted.** Outbox rows written by the broken build are encrypted
+>   under a session key that no longer exists and were already unrecoverable; replay now skips
+>   records it cannot decrypt instead of throwing — which also stops one unreadable row jamming every
+>   later action (the `P4-H1` shape).
+> - ⚠️ **WHAT THIS DOES NOT FIX, recorded rather than folded in silently:** a nurse who reloads
+>   **while offline** still cannot re-enter the app, because login requires the network. Their
+>   recorded care is now safe and syncs on the next sign-in, but the app is not usable offline after
+>   a reload.
+> - **Ten tests, mutation-checked twice:** restoring the destructive wipe reddens the three `P4-C3`
+>   tests; putting the outbox back on the session key reddens **eight**, including two pre-existing
+>   ones. Positive controls assert the cache **is** still wiped, that **no plaintext PHI** reaches
+>   the device, that the device key is non-extractable and `exportKey` rejects, and that a successful
+>   sync still **drains** the queue.
+> - **Verified in a real browser on the DEFAULT origin** — both Phase-4 scenarios re-driven; see the
+>   gate report for the before/after and for what the offline-flag limitation allowed.
 
 #### `P4-C4` — Every device timestamp is stored as wall-clock in a UTC column (11 write sites)
 

@@ -78,8 +78,12 @@ broke in production too. Part 2 (`<pending>`, D-202) is done: **device times are
 `normaliseDeviceTimes()` in `NurseSyncService::process()`, with all eleven call sites unchanged.
 **P4-C4 is re-graded CRITICAL → HIGH:** the shipped PWA only ever sends `toISOString()` (`Z`), so
 rows written by the real client were already correct — the defect was **latent**, not active, and the
-audit record says so. Remaining: 4c reload + session-expiry data loss (P4-C2/C3), 4d duplicate note
-(P4-C5), 4e check-in/out wiring (P4-H3).
+audit record says so. Part 3 (`<pending>`, D-203) is done:
+**two keys, two lifetimes** — the day-pack cache keeps the session-derived memory-only key (still
+wiped on 401/403), while the outbox moves to a device-lifetime non-extractable key, so recorded care
+survives a reload AND a session expiry and is never silently deleted (P4-C2, P4-C3). Residual risk
+stated in D-203. **Still open:** a reload while OFFLINE leaves the app unusable until the nurse can
+reach the network to log in. Remaining: 4d duplicate note (P4-C5), 4e check-in/out wiring (P4-H3).
 
 **A refused money operation leaves nothing behind** (D-199): `record()` + `allocate()` now run in one
 transaction on the AR-account path, so a refused allocation unwinds the payment and every line already
