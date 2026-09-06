@@ -59,8 +59,8 @@ every later phase's timestamp observation suspect, and past-time booking was liv
 | `P1-H3` | HIGH | ✅ **FIXED** | QA-FIX.1b | `f6b619a` |
 | `P2-C1` | CRITICAL | ✅ **FIXED** | QA-FIX.2a | `e8a7a48` |
 | `P2-H1` | HIGH | ✅ **FIXED** | QA-FIX.2b | `706ed77` |
-| `P3-C1` | CRITICAL | ✅ **FIXED** | QA-FIX.3a | `<pending>` |
-| `P3-H1` | HIGH | ⏳ in the same gate (Part 2) | QA-FIX.3b | — |
+| `P3-C1` | CRITICAL | ✅ **FIXED** | QA-FIX.3a | `348d41c` |
+| `P3-H1` | HIGH | ✅ **FIXED** | QA-FIX.3b | `<pending>` |
 | all others | — | 📋 recorded, not fixed | — | — |
 
 *(A commit cannot contain its own hash. Per the repo-wide marker convention, `<pending>` is backfilled
@@ -1262,7 +1262,7 @@ Route sweeps were run in-session: **29 routes** for `billing`, 12 for `pharmacis
 
 #### `P3-C1` — A **refused** record-payment still commits the payment
 
-> ✅ **FIXED — QA-FIX.3a, commit `<pending>` (D-199).** The guard was never the problem —
+> ✅ **FIXED — QA-FIX.3a, commit `348d41c` (D-199).** The guard was never the problem —
 > `PaymentService::allocate()` refused correctly every time. **The controller composed two service
 > calls with nothing around them**, so the payment committed before the allocation was even
 > attempted. `record()` + `allocate()` now run inside **one `DB::transaction`**, and the guard's
@@ -1350,6 +1350,34 @@ Route sweeps were run in-session: **29 routes** for `billing`, 12 for `pharmacis
   answering a different question, and both are legitimate accounting concepts (receipts vs applied
   collections). It is HIGH because a reader cannot tell which is which, and because the receipts
   basis silently absorbs unallocated money — including `P3-C1`'s phantom payments.
+
+> ✅ **FIXED — QA-FIX.3b, commit `<pending>` (D-200).** Neither figure was wrong, so neither engine
+> method was touched: this is a **labelling fix**, and the tests pin both definitions in place.
+>
+> - `/billing/aging` no longer says "Collected". It says **"Cash received (month to date)"** and
+>   carries the basis underneath: *"Money received, by payment date. Refunds are separate rows and are
+>   not netted here. This is not the same as collections applied to invoices — see the management
+>   report."* The wording is taken from what `MetricsService::paymentsReceivedTotalMinor()`
+>   (`MetricsService:230-243`) actually computes, not paraphrased from the label.
+> - `/billing/report` already rendered **both** quantities and named neither. Its **"Collected
+>   (period)" card** (`Report.vue:227`, the prop `collection_rate.collections_minor`) now reads
+>   *"Payments applied to invoices, by allocation date. Reversals net out. This is the figure that
+>   reduces AR."* (`netCollectionsMinor`, `MetricsService:587`), and its
+>   "Cash received" line reads *"Money received, by payment date — including anything not yet applied
+>   to an invoice."*
+> - **The two numbers still differ, and that is now readable rather than contradictory.** A reader on
+>   either screen can see which question is being answered and why the other page's total is not the
+>   same.
+> - **Pinned by mutation, on both surfaces.** `tests/Feature/Billing/CollectedBasisLabelsTest.php`
+>   (6 tests) drives the two bases apart — CHF 400.00 received against CHF 100.00 applied — and
+>   asserts each page renders the basis its caption claims. Swapping `AgingController:40` to the
+>   applied basis reddens it; so does swapping `BillingReportController:173`. An earlier version of
+>   these tests asserted only the engine methods and the captions and **survived the first mutation** —
+>   the caption was an unchecked claim until the render assertion was added.
+> - **What this fix does NOT do:** it does not net refunds into the receipts figure and does not
+>   reconcile the two totals into one. The unallocated-money component of the receipts basis is
+>   legitimate; the *phantom* component this finding referred to was removed separately by
+>   `QA-FIX.3a` (`348d41c`), which stopped refused writes from leaving payments behind.
 
 #### `P3-H2` — "PDF" invoices and dunning letters are plain-text files
 

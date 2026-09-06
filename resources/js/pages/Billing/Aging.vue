@@ -68,6 +68,15 @@ const rows = computed(() => {
                 <div class="glass-card p-5">
                     <p class="text-xs font-semibold uppercase tracking-wide text-ink-subtle">{{ t('billing.aging.collectedMtd') }}</p>
                     <p class="mt-2 text-2xl font-semibold text-ink">{{ money(monthToDate.collected_minor) }}</p>
+                    <!--
+                        STATE THE BASIS (QA-FIX.3b, P3-H1). This figure and the management report's
+                        "Collected (period)" answer different questions and were both labelled
+                        "Collected", so a reader could not tell why the practice's collections
+                        differed between two pages. The wording tracks what the engine computes:
+                        MetricsService::paymentsReceivedTotalMinor() sums PAYMENTS by `received_on`
+                        and does NOT net refunds.
+                    -->
+                    <p class="mt-1 text-xs text-ink-muted">{{ t('billing.aging.collectedMtdBasis') }}</p>
                 </div>
             </div>
 

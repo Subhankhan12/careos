@@ -607,3 +607,28 @@ plain IIFE reddens 5 while all 3 positive controls stay green.
 itself stands (money WAS received)"*; the other asserted `PaymentAllocation::count() === 1` with the
 first invoice fully paid when a later line was refused — so a refused multi-line payment had left both
 an orphan payment **and** a partly-applied invoice, which is worse than Phase 3 recorded.
+
+### The two COLLECTED figures — say which basis, do not unify (QA-FIX.3b, P3-H1, D-200)
+
+**There are TWO legitimate "collected" totals in this module and they are NOT interchangeable:**
+
+| method | counts | keyed on | refunds / reversals | used by |
+|---|---|---|---|---|
+| `MetricsService::paymentsReceivedTotalMinor()` (`:230-243`) | **payments** | `received_on` | refunds are separate rows, **NOT netted** | `AgingController:40`, `BillingReportController:173` ("Cash received") |
+| `MetricsService::netCollectionsMinor()` (`:587`) | **allocations** | `allocated_at` | **reversals net out** | the report **"Collected (period)" card** (`Report.vue:227`, prop `collection_rate.collections_minor`) — *the figure that reduces AR*; the AR roll-forward `−Collections` line is the same quantity |
+
+Phase 3 saw `1066.53` on `/billing/aging` and `1114.56` on `/billing/report` the same day. Both were
+correct; both said "Collected". **The fix was captions, not arithmetic — neither method's definition
+changed, and a gate instruction made an engine change a STOP-and-report.** Do NOT "reconcile" these
+into one number: the difference IS the unallocated money, and collapsing them deletes it from view.
+
+**IF YOU ADD A MONEY FIGURE TO A SCREEN, ASSERT THE NUMBER THE PAGE RENDERS — not the engine method
+and not the caption string.** The first version of `tests/Feature/Billing/CollectedBasisLabelsTest.php`
+asserted both of those and a mutation swapping `AgingController:40` to the applied basis **passed all
+18 tests**: the caption was true only by coincidence. The test that catches it drives the bases apart
+(CHF 400.00 received vs CHF 100.00 applied) and asserts the rendered Inertia prop. It now reddens for
+a swap at `AgingController:40` *and* at `BillingReportController:173` — both were verified.
+
+Captions live in `resources/js/lang/en.json` under `billing.aging.collectedMtdBasis`,
+`billing.report.cards.collectedBasis` and `billing.report.cards.periodCollectedBasis`; the aging card's
+label was renamed `Collected (month to date)` → **`Cash received (month to date)`**.

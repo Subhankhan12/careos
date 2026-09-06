@@ -50,7 +50,7 @@ phase's timestamp observation suspect, and past-time booking was live on the pub
 | **P2-C1** a signed clinical note was attributed to a clinician who neither wrote nor signed it | **QA-FIX.2a** | ✅ FIXED — D-195/D-196/D-197 |
 | **P2-H1** opening a note silently asserted the patient had arrived | **QA-FIX.2b** | ✅ FIXED — D-198 |
 | **P3-C1** a refused record-payment still committed the payment (false money records) | **QA-FIX.3a** | ✅ FIXED — D-199 |
-| **P3-H1** two billing screens reported different "COLLECTED" figures | **QA-FIX.3b** | Part 2 of the same gate |
+| **P3-H1** two billing screens reported different "COLLECTED" figures | **QA-FIX.3b** | ✅ FIXED — D-200 |
 
 **Phase 3 (billing / finance) is DONE** (`a5cea30`): 15 findings — 1 CRITICAL, 4 HIGH, 8 MEDIUM,
 2 LOW. The money guards held under attack (all six engine δ=0 claims checked on screen and re-checked
@@ -65,6 +65,15 @@ unallocated payment still works** (no allocation lines → nothing throws → it
 **⚠️ RECORDED, NOT FIXED:** `PaymentController::store()` composes the same pair without a transaction
 but *discloses* the kept receipt (it redirects to the payment). Do not copy the transaction there —
 that would silently discard money that physically arrived. See `DEFERRED.md`.
+
+**Each COLLECTED figure states its basis** (D-200): the module has **two** legitimate collected
+totals — cash **received** (payments by `received_on`, refunds not netted) and cash **applied**
+(allocations by `allocated_at`, reversals net out, the figure that reduces AR) — and both screens said
+only "Collected". Both now name their basis, the aging card is relabelled **"Cash received (month to
+date)"**, and **neither engine method changed**: unifying them would delete the unallocated remainder
+from view. **The test lesson worth carrying:** asserting the engine method *and* the caption string
+still let a basis-swap mutation pass — a caption is only a checkable claim once a test asserts the
+number the page actually renders.
 
 **Phase 2 (clinician: doctor / dentist) is DONE** (`a5e17dc`): 19 findings — 1 CRITICAL, 4 HIGH,
 9 MEDIUM, 5 LOW. **There is no `dentist` role template** — the dental practice's clinician holds

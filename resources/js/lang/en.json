@@ -2524,7 +2524,8 @@
             "asOf": "As of {date}",
             "outstanding": "Total outstanding",
             "invoicedMtd": "Invoiced (month to date)",
-            "collectedMtd": "Collected (month to date)",
+            "collectedMtd": "Cash received (month to date)",
+            "collectedMtdBasis": "Money received, by payment date. Refunds are separate rows and are not netted here. This is not the same as collections applied to invoices — see the management report.",
             "bucket": "Age",
             "share": "Share",
             "amount": "Amount",
@@ -2646,12 +2647,14 @@
             },
             "cards": {
                 "collected": "Collected (period)",
+                "collectedBasis": "Payments applied to invoices, by allocation date. Reversals net out. This is the figure that reduces AR.",
                 "collectible": "Collectible {amount}",
                 "netRate": "Net collection rate",
                 "chargesLess": "Charges {charges} less contractual {adj}",
                 "dsoDays": "over {days} days",
                 "periodInvoiced": "Invoiced (period)",
-                "periodCollected": "Cash received {amount}"
+                "periodCollected": "Cash received {amount}",
+                "periodCollectedBasis": "Money received, by payment date — including anything not yet applied to an invoice."
             },
             "rollForward": {
                 "title": "AR roll-forward",

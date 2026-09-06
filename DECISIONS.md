@@ -4022,3 +4022,40 @@ references the old ID.
   tests) while all **3** positive controls stay green.
   **TWO EXISTING TESTS ASSERTED THE OLD BEHAVIOUR AND ARE CORRECTED, NOT WEAKENED** — see [[LOG]].
   See [[Billing]], `docs/qa/ROLE-AUDIT.md` (P3-C1), D-182 (the test shape), [[DEFERRED]], [[LOG]].
+
+- **D-200 — Two legitimate COLLECTED figures are LABELLED, not unified: each money total states the
+  basis the engine actually computes (QA-FIX.3b, closing P3-H1).**
+  Phase 3 read `/billing/aging` showing **COLLECTED (MONTH TO DATE) 1066.53** and `/billing/report`
+  showing **COLLECTED (PERIOD) 1114.56** on the same day for the same practice. Adjudicated against
+  the ledger, **both were right**: `1066.53` is the sum of **payments** by `received_on`, `1114.56`
+  the sum of **allocations** by `allocated_at`. Two surfaces in one module answered "how much did we
+  collect?" with two numbers under the same word, and neither page said which question it answered.
+  **THE FIX IS LABELLING. NEITHER ENGINE METHOD CHANGED.** `paymentsReceivedTotalMinor()`
+  (`MetricsService:230-243`) and `netCollectionsMinor()` (`MetricsService:587`) keep their existing
+  definitions verbatim; the gate's own instruction was that an engine change would be a STOP-and-report,
+  and the study found no reason for one. Receipts-vs-applied is a real accounting distinction, not a
+  bug: a practice legitimately needs both, and collapsing them into a single "collections" number
+  would DESTROY information — the unallocated remainder would simply vanish from one of the two views.
+  **THE WORDING IS TAKEN FROM THE ENGINE, NOT FROM THE LABEL.** Each caption was written by reading
+  what the method computes and transcribing it, not by paraphrasing the word "collected":
+  the aging card now reads **"Cash received (month to date)"** with *"Money received, by payment date.
+  Refunds are separate rows and are not netted here…"* — because refunds are a separate table and the
+  method does not net them, a fact no reader could have inferred from "Collected". The report's
+  "Collected (period)" card (`Report.vue:227`, rendering `collection_rate.collections_minor`) names
+  the applied basis (*"by allocation date. Reversals net out. This is the figure that reduces AR."*)
+  and its "Cash received" line the received one (*"including anything not yet applied
+  to an invoice"*).
+  **A CAPTION IS A CLAIM, AND A CLAIM MUST BE CHECKABLE — this is the lesson of the gate.** The first
+  version of `tests/Feature/Billing/CollectedBasisLabelsTest.php` asserted the engine methods AND the
+  rendered captions, and a mutation swapping `AgingController:40` to the applied basis **passed all 18
+  tests**. The captions were true only by coincidence: nothing asserted that the *page renders the
+  basis its caption claims*. The added test drives the two bases apart (CHF 400.00 received against
+  CHF 100.00 applied) and asserts the rendered prop on each page. The mutation now reddens on BOTH
+  surfaces — `AgingController:40` and `BillingReportController:173`. **Generalised: a test that pins
+  a label and a test that pins an engine do not, together, pin the wiring between them.** Any future
+  "state the basis" fix must assert the number the page actually shows.
+  **This is cross-phase pattern 2 (divergent presentations of the same underlying fact) in its money
+  form**, and it is the counterpart to D-199: 3a removed the *phantom* component of the receipts
+  figure, 3b explains the *legitimate* remainder.
+  See [[Billing]], `docs/qa/ROLE-AUDIT.md` (P3-H1), D-199 (the sibling half of this gate),
+  D-176 (an unbacked claim on screen), [[LOG]].

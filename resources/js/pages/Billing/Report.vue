@@ -226,6 +226,14 @@ function toggleCompare(): void {
                     <p class="text-xs font-semibold uppercase tracking-wide text-ink-subtle">{{ t('billing.report.cards.collected') }}</p>
                     <p class="mt-2 text-2xl font-semibold text-ink">{{ money(report.collection_rate.collections_minor) }}</p>
                     <p class="mt-1 text-xs text-ink-muted">{{ t('billing.report.cards.collectible', { amount: money(report.collection_rate.collectible_minor) }) }}</p>
+                    <!--
+                        STATE THE BASIS (QA-FIX.3b, P3-H1). This is the APPLIED basis and the aging
+                        page's figure is the RECEIVED one; both were labelled "Collected". The
+                        wording tracks MetricsService::netCollectionsMinor() — "net payment
+                        allocations applied in a period (reversals net out) — the collections that
+                        reduce AR".
+                    -->
+                    <p class="mt-1 text-xs text-ink-muted">{{ t('billing.report.cards.collectedBasis') }}</p>
                 </div>
                 <div class="glass-card p-5">
                     <p class="text-xs font-semibold uppercase tracking-wide text-ink-subtle">{{ t('billing.report.cards.netRate') }}</p>
@@ -235,7 +243,14 @@ function toggleCompare(): void {
                 <div class="glass-card p-5">
                     <p class="text-xs font-semibold uppercase tracking-wide text-ink-subtle">{{ t('billing.report.cards.periodInvoiced') }}</p>
                     <p class="mt-2 text-2xl font-semibold text-ink">{{ money(report.invoiced_minor) }}</p>
+                    <!--
+                        The RECEIVED basis, shown here beside the period's invoicing. Same engine
+                        method the aging page uses (paymentsReceivedTotalMinor), so the two agree —
+                        and it is deliberately NOT the "Collected (period)" card above, which is the
+                        applied basis (QA-FIX.3b, P3-H1).
+                    -->
                     <p class="mt-1 text-xs text-ink-muted">{{ t('billing.report.cards.periodCollected', { amount: money(report.collected_minor) }) }}</p>
+                    <p class="mt-1 text-xs text-ink-muted">{{ t('billing.report.cards.periodCollectedBasis') }}</p>
                 </div>
             </div>
 
