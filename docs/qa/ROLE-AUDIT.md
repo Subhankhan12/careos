@@ -3198,6 +3198,46 @@ by any of the four and would otherwise have gone undriven.
   correct, well-tested refusal that no user can ever reach. Compare `D-182` (a refusal must be
   reachable): here it is unreachable by construction.
 
+> ⛔ **STILL OPEN — QA-FIX.6 Part 4 STOPPED here deliberately, and this is the determination.**
+> That gate asked, before writing anything: is this **wiring** (an existing tested guard has no
+> caller — the QA-FIX.4e shape) or a **feature** (theatre scheduling has no HTTP path and building
+> one is new capability)? It is a **FEATURE**, on four independent counts, each verified:
+>
+> 1. **No HTTP consumer exists.** `TheatreSchedulingService` is referenced by no controller and no
+>    route. The only route matching "theatre" is `surgery.pricing.theatre-time`, which sets a *tariff
+>    price*, not a theatre. Nothing outside the Surgery services and tests even references the
+>    `Theatre` model.
+> 2. **A theatre cannot be created through the product at all**, so there would be nothing to pick.
+>    `createTheatre()` is likewise callable only from the seeder, the tests and an artisan command.
+> 3. **THE DECIDING FACT: a case cannot express a duration.** A `TheatreSlot` is a *bounded* block
+>    (`starts_at` **and** `ends_at`), and `surgical_cases` has **no duration, length or end column**.
+>    Wiring a theatre picker onto the case form would still not permit a booking, because the product
+>    has nowhere to say how long a case runs. The data model cannot supply the guard's input.
+> 4. **Reaching `QA-FIX.1b`'s past-start guard would contradict a documented decision.** That guard
+>    (`BookingService`, the `$allowPastStart` call-site constant) is internal to the Appointment /
+>    `Resource` / branch-clock path, and the SURGERY.G1 decision deliberately keeps a theatre a
+>    Surgery-owned entity *not* forced into Scheduling's `Resource` — precisely because an
+>    `Appointment` has no per-booking duration. Routing surgical scheduling through `BookingService`
+>    to borrow the guard would undo the reason `TheatreSlot` exists.
+>
+> **So the gate's condition — "IF AND ONLY IF the guard is reachable by wiring an existing path" — is
+> not met, and building the path inside a fix gate is exactly what it forbids.**
+>
+> **What Phase 6 actually observed is a THIRD invariant, and it is worth separating.** The driven
+> defect was *two cases for one **surgeon** at one instant*. The theatre guard would not catch that
+> even if it were wired: `assertNoOverlap` guards a **theatre**, not a person. Nothing anywhere in the
+> product checks that a surgeon is already committed. Scheduling *can* express practitioner
+> occupancy (`lockResource` over a `Resource`), but surgical cases do not use `Resource` — by the same
+> G1 decision.
+>
+> **Exactly what closing each half would require:**
+>
+> | Half | Status | What closing it needs |
+> |---|---|---|
+> | Theatre double-booking (`P6-H2`) | **still stands** | A theatre management surface (create/list), a **duration** on the surgical case (migration + form), a theatre picker, and a route/controller pair calling the existing `bookSlot()`. The guard itself needs no change. |
+> | Surgeon double-booking (observed) | **still stands** | A per-surgeon overlap guard that **does not exist anywhere**, plus the same missing duration. Either give surgical cases a `Resource`-backed booking (contradicting G1) or author a new Surgery-side guard. |
+> | Past-dated case (`P6-H3`) | **still stands** | Independently small: a past-start refusal in `SurgicalCaseService::schedule()`. It does **not** depend on the theatre work and would suit its own gate. |
+
 #### `P6-H3` — A surgical case can be scheduled six years in the past, and is then displayed as upcoming
 
 - **Role:** `surgeon` · **Route:** `POST /surgery/cases`

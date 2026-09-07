@@ -171,6 +171,21 @@ taken."* — with the positive control holding (a valid create showed NO alert, 
 **Corrections to the audit:** P6-C3 said 13 sites (it is 16, missing `SurgicalInventoryController`) and
 said "the server refuses correctly", untrue of the two 500s.
 
+**QA-FIX.6 PART 4 STOPPED DELIBERATELY — the theatre booking gap is a FEATURE, not wiring.** The gate
+required this determination before any code, and it is a feature on four verified counts: (1)
+`TheatreSchedulingService` has NO controller and NO route (the only "theatre" route sets a tariff PRICE);
+(2) a theatre cannot be created through the product at all, so there would be nothing to pick; (3) **the
+deciding fact — a case cannot express a DURATION**: a `TheatreSlot` is bounded (`starts_at` + `ends_at`)
+and `surgical_cases` has no duration/end column, so wiring a picker still would not permit a booking; and
+(4) reaching QA-FIX.1b's past-start guard would mean routing surgical scheduling through `BookingService`,
+undoing the SURGERY.G1 decision that keeps a theatre OUT of Scheduling's `Resource` precisely because an
+Appointment has no per-booking duration. **What Phase 6 drove is a THIRD invariant:** two cases for one
+SURGEON at one instant — `assertNoOverlap` guards a theatre, not a person, so the theatre guard would not
+catch it even if wired, and no per-surgeon guard exists anywhere. **P6-H2, P6-H3 and the surgeon
+double-booking all still STAND**, with exactly what closing each requires recorded in the audit. P6-H3 (a
+past-dated case) is independently small — a past-start refusal in `SurgicalCaseService::schedule()` — and
+would suit its own gate.
+
 **QA-FIX.5 is fixing the Phase-5 critical pair.** Part 1 (`b9f5c91`, D-206) is done: **recorded
 allergies and the medication-safety seam now render on all three medication-action screens**
 (dispensing, medications, eMAR), using the SAME shared `AllergyRecordPanel` the clinical chart uses.
