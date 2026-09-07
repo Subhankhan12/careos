@@ -153,7 +153,7 @@ P6-C2 claimed the ASA was the ONLY unaudited write in the module — false, `add
 too AND overwrites `team_role` in place; both recorded against P6-M5, not fixed. P6-C3's '13 withErrors'
 is actually 16.
 
-Part 3 (`<pending>`, D-210) is done: **Surgery surfaces render their refusals (P6-C3).** The module
+Part 3 (`1388af3`, D-210) is done: **Surgery surfaces render their refusals (P6-C3).** The module
 refused correctly at **16** `withErrors` sites plus every `validate()` rule and **no page read the error
 bag**, so a refusal and a success were identical (page reloads, nothing recorded, 302 — success-shaped).
 New `RefusalNotice.vue` is a presentation wrapper over the EXISTING `page.props.errors` path (the

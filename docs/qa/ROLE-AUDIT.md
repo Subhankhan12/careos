@@ -81,7 +81,7 @@ every later phase's timestamp observation suspect, and past-time booking was liv
 | `P6-M10` | MEDIUM | ✅ **FIXED** | QA-FIX.6a | `9d5c047` |
 | `P6-L2` | LOW | ✅ **FIXED** | QA-FIX.6a | `9d5c047` |
 | `P6-C2` | CRITICAL | ✅ **FIXED** | QA-FIX.6b | `f8b7a7b` |
-| `P6-C3` | CRITICAL | ✅ **FIXED** | QA-FIX.6c | `<pending>` |
+| `P6-C3` | CRITICAL | ✅ **FIXED** | QA-FIX.6c | `1388af3` |
 | all others | — | 📋 recorded, not fixed | — | — |
 
 *(A commit cannot contain its own hash. Per the repo-wide marker convention, `<pending>` is backfilled
@@ -3080,7 +3080,7 @@ by any of the four and would otherwise have gone undriven.
 >    the branded error page for **403/404/419/503 only**, so a 500 got neither a page nor an error bag.
 >    Neither is caught by CI: `test:smoke` covers GET routes only.
 
-> ✅ **FIXED — QA-FIX.6c, commit `<pending>` (D-210).**
+> ✅ **FIXED — QA-FIX.6c, commit `1388af3` (D-210).**
 >
 > - **The mechanism is the product's, not a new one.** Inertia's middleware already shares the error
 >   bag on every response, and `Admin/Branches.vue` and the Billing surfaces already read
