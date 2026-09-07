@@ -171,6 +171,26 @@ taken."* — with the positive control holding (a valid create showed NO alert, 
 **Corrections to the audit:** P6-C3 said 13 sites (it is 16, missing `SurgicalInventoryController`) and
 said "the server refuses correctly", untrue of the two 500s.
 
+**Phase 7 (emergency department) is DONE**: 17 findings — 3 CRITICAL, 5 HIGH, 7 MEDIUM, 2 LOW. All three
+ED roles driven separately. **THE ACUITY BOUNDARY IS THE CLEANEST SEAM IN THE PRODUCT AND IT PASSES:**
+`NullTriageAcuityProvider` returns `none()` (its docblock: *"CareOS makes no acuity claim, not this patient
+is low acuity"*, a homemade acuity computer is *a permanent non-goal*), the level select has NO default, the
+empty state cannot read as a clearance, and **D-169 passes BYTE-FOR-BYTE** — an ESI 1 and an ESI 3 share
+card class, background, border and every badge style; the only colour that varies is the FLOW state.
+**BUT P7-C3: the board's "Recorded acuity" sort INVERTS priority on Manchester** — `localeCompare` on the
+level string sorts `red…blue` to `blue…red`, and MANCHESTER blue (least urgent) rendered ABOVE red. The
+judgment is never computed; the ORDERING of it is, and is wrong. **P7-C1/P7-C2: ATTRIBUTION BY DROPDOWN
+DEFAULT, three times in one module** — `Triage.vue:40` and `Disposition.vue:29` pre-select the first entry
+of an unfiltered staff list, so a triage recorded by yusuf.demir says **"Triaged by Beat Suter"** (a
+surgical scheduler) and an admission by clara.meier names **Beat Suter as admitting clinician**. Worse in
+kind than P6-C2, which at least required an active pick; the audit ledger holds the true actor, the
+clinical record does not. **P7-H1: NO HTTP PATH REGISTERS AN ED PRESENTATION** — `register()` is called only
+from the seeder, so a patient cannot be brought into the ED at all. **P7-H2:** ED renders NO refusals (10
+`withErrors`, 0 pages read `errors`) — the P6-C3 defect, unfixed outside Surgery. **P7-H3:** the ED
+physician cannot prescribe and the ED record has no medication section at all. **Phase-6 inheritance is
+PARTIAL (2 of 3):** re-triage appends ✅, audited with the real actor ✅, attribution ❌. **Nothing is fixed
+— audit only.**
+
 **QA-FIX.6 PART 4 STOPPED DELIBERATELY — the theatre booking gap is a FEATURE, not wiring.** The gate
 required this determination before any code, and it is a feature on four verified counts: (1)
 `TheatreSchedulingService` has NO controller and NO route (the only "theatre" route sets a tariff PRICE);

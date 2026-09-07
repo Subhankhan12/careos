@@ -171,3 +171,68 @@ over `EdBoardController` finds no priority/ranking computation.
 injuries lane, LWBS workflow, ambulance pre-arrival, a `DemoEmergencySeeder`) are the map's ED.G7. The
 remaining hospital phases are Lab (Phase 3) + Radiology (Phase 4) — mostly integration shells pending
 HL7/FHIR + PACS/DICOM partners (their own maps). See `docs/HOSPITAL-PHASE6-ED-MAP.md`.
+
+## QA PHASE 7 — the audit findings (2026-09-07, `docs/qa/ROLE-AUDIT.md`)
+
+**AUDIT ONLY — nothing fixed.** All three ED roles driven separately in a real browser
+(`ed_physician` clara.meier, `triage_nurse` yusuf.demir, `ed_charge_nurse` marco.bianchi).
+**17 findings: 3 CRITICAL, 5 HIGH, 7 MEDIUM, 2 LOW.**
+
+**THE ACUITY BOUNDARY — the cleanest seam in the product, and it PASSES.** `NullTriageAcuityProvider`
+returns `none()` and its docblock draws the distinction that matters: *"'CareOS makes no acuity claim',
+not 'this patient is low acuity'"*, calling a homemade acuity computer **a permanent non-goal**. The
+form's empty state reads *"No automated suggestion. The triage nurse assigns the acuity."*; the level
+select has **no default**. **D-169 passes byte-for-byte**: an ESI 1 and an ESI 3 share card class,
+background, border, badge class, badge bg/colour/weight/size — the only difference is the text. The
+colour that varies is `statusClass()` = the **flow state**, commented "NOT a clinical severity".
+
+**BUT `P7-C3` — the board's "Recorded acuity" sort INVERTS priority on Manchester.** `Board.vue:52`
+uses `localeCompare` on the level STRING. ESI/CTAS are `'1'…'5'` so alphabetical = clinical; Manchester
+is `['red','orange','yellow','green','blue']`, which sorts to `blue, green, orange, red, yellow`.
+**Driven:** MANCHESTER blue (least urgent) rendered ABOVE MANCHESTER red. Mixed scales compare `'2'`
+against `'red'`. The judgment is never computed — the ORDERING of the recorded judgment is, and is wrong.
+
+**`P7-C1` + `P7-C2` — ATTRIBUTION BY DROPDOWN DEFAULT, three times in one module.** `Triage.vue:40`
+(`triaged_by`) and `Disposition.vue:29` (`bed_id`, `clinician_id`) **pre-select the first entry of an
+unfiltered, alphabetically-ordered staff list**. Driven: yusuf.demir recorded a triage that says
+**"Triaged by Beat Suter"** (a `surgical_scheduler`); clara.meier admitted a patient and the STAY names
+**Beat Suter as admitting clinician**. `triaged_by` is client-submitted (`EdTriageController.php:92`,
+resolved at `:105`) and `ed_triages` has **no actor column**. **Worse in kind than P6-C2**, which
+required an operator to actively pick the wrong person. The audit ledger DOES hold the true actor, so
+the fact is recoverable from the audit trail — never from the clinical record. **QA-FIX.6b's remedy
+applies unchanged.**
+
+**PHASE-6 INHERITANCE IS PARTIAL (2 of 3):** re-triage **appends** ✅ (driven; `SIGNAL '45000'`
+UPDATE/DELETE triggers on `ed_triages`), the write is **audited with the real actor** ✅
+(`ed_triage.recorded`), but the record's own attribution ❌.
+
+**`P7-H1` — NO HTTP PATH REGISTERS AN ED PRESENTATION.** `EdVisitService::register()` is called ONLY
+from `DemoHospitalSeeder` (4 sites). No route, no controller action, no form creates an `EdVisit` —
+**a patient cannot be brought into the ED at all**. `EdBoardController` uses the service only for
+`activeVisits()` and `transition()`. The pattern-4 shape at the FIRST step of a workflow.
+
+**`P7-H2` — ED renders NO refusals** (the P6-C3 defect, unfixed outside Surgery): 10 `withErrors`
+sites, **0** of 5 ED pages read `errors`/`usePage`/`flash`. Driven: a triage with no level → no
+message, no record, page unchanged. `RefusalNotice.vue` exists and is not used here.
+
+**`P7-H3` — the ED physician cannot prescribe.** No `medication.prescribe` on any ED role, and the ED
+clinical record has **no medication section at all** (searched the rendered page). `order.manage`
+covers labs/imaging, not drugs.
+
+**`P7-H4`/`P7-H5` — pattern 1 and the billing wall.** All four landing links 403 for `ed_physician`
+(= `P2-H2` unchanged five phases later); `NAV_PERMISSIONS` (14 fixed keys) omits `ed.manage` and
+`triage.record`, so there is no ED nav entry. All five ED billing routes are `billing.manage`, which
+**no ED role holds**.
+
+**GUARDS HELD:** legal-transitions-only (LWBS correctly disappears once `in_treatment`); board counts
+live + consistent; disposition state-gated honestly ("not yet awaiting disposition"); Admit **withheld**
+from the nurse rather than offered-and-refused; the ED→inpatient handoff completes and audits both
+sides with the real actor (`EdVisitService::transition` is transactional, `:108`); **no empty catch**
+anywhere in the module; stored times correct UTC.
+
+**RBAC notes:** `triage_nurse` can record a **DISCHARGE** (`ed.manage`) while lacking `note.sign` and
+`order.manage` (`P7-M1`). `ed_physician` has NO `triage.record` — correct, triage is a nurse act.
+
+**CODE-ESTABLISHED, NOT DRIVEN (P7-H5 makes them unreachable):** `EdBillingService` has the P6-M10
+shape — idempotency read `:101`, captures `:113-121`, link loop `:123-125`, **no transaction**
+(`P7-M5`); `ED/Billing.vue:39` derives money client-side (`P7-M6`).

@@ -29,7 +29,7 @@ missing · `LOW` cosmetic / polish.
 | **4** | **Nursing / Spitex** (`nurse`, `coordinator`, `ward_nurse`, `charge_nurse` + the offline **Nurse PWA**) | ✅ **DONE** — 2026-09-06 |
 | **5** | **Pharmacy** (`pharmacist`, `pharmacy_technician`) | ✅ **DONE** — 2026-09-07 |
 | **6** | **Surgery / OR** (`surgeon`, `anesthetist`, `scrub_nurse`, `surgical_scheduler`; `org_admin` for the billing surface no surgery role can reach) | ✅ **DONE** — 2026-09-07 |
-| 7 | ED (`ed_physician`, `triage_nurse`, `ed_charge_nurse`) | ⏳ planned |
+| **7** | **ED** (`ed_physician`, `triage_nurse`, `ed_charge_nurse`) | ✅ **DONE** — 2026-09-07 |
 | 8 | Lab + Radiology (`lab_tech`, `pathologist`, `radiographer`, `radiologist`) | ⏳ planned |
 | 9 | Bed / records (`bed_manager`, `him_records`) | ⏳ planned |
 | 10 | Admin / governance (`org_admin`) + patient portal | ⏳ planned |
@@ -44,7 +44,8 @@ missing · `LOW` cosmetic / polish.
 | 4 — Nursing / Spitex (incl. Nurse PWA) | **5** | 5 | 10 | 3 | 23 |
 | 5 — Pharmacy | 2 | 3 | 7 | 2 | 14 |
 | 6 — Surgery / OR | 3 | 5 | 10 | 2 | 20 |
-| **Total to date** | **13** | **24** | **52** | **20** | **109** |
+| 7 — Emergency Department | 3 | 5 | 7 | 2 | 17 |
+| **Total to date** | **16** | **29** | **59** | **22** | **126** |
 
 *(Counts are as RECORDED at audit time and are not restated when a later gate re-grades a finding.
 `P4-C4` was re-graded **CRITICAL → HIGH** by QA-FIX.4b — the defect was latent rather than active,
@@ -3650,11 +3651,386 @@ phase, third module.
 - **A second tenant's surgical data** — `klinik-bergblick` is the only tenant with any, so
   cross-tenant surgical isolation was verified from the service's `assertSameTenant` calls and the
   existing test, not driven.
+
+## Phase 7 — Emergency Department
+
+**Date:** 2026-09-07 · **Top commit at audit time:** `6aebf15` (the QA-FIX.6 Part 4 determination backfill),
+CI `completed / success` confirmed via `commits/<sha>/check-runs`. Tree clean apart from untracked
+`docs/marketing-site/`; no live `<pending>` markers.
+
+**AUDIT ONLY.** No app code, test or seeder was changed. The only writes are those made by *driving the
+product*: two triages recorded, two re-triages, one refused triage, three flow transitions, and one
+ED→inpatient admission. All demo tenants were re-seeded beforehand and verified by query.
+
+### Environment
+
+| Item | State |
+|---|---|
+| ED tenant | `klinik-bergblick` — the **only** tenant with ED data |
+| ED visits | **4** — `dispositioned/admit` (with a stay), `dispositioned/discharge`, `arrived`, `triaged` |
+| Triages | **3**, all ESI, at levels **2, 4 and 3** — a most-urgent and least-urgent pair, the D-169 control set |
+| Visit events | 13, across `arrived / triaged / in_treatment / awaiting_disposition / dispositioned` |
+| ED charges | 4 (`ED-ATTENDANCE` ×2, `ED-XRAY` ×2), **all invoiced** |
+| ED→inpatient | present — the composite episode: a `dispositioned/admit` visit carrying a `stay_id` |
+| **Redis** | **UP — honestly.** `PING` → `+PONG` (Memurai), and genuinely in use (`CACHE_STORE=redis`) |
+| App timezone | `UTC` storage; tenant `Europe/Zurich`; browser (viewer) `America/Los_Angeles` |
+| Out of scope | **Performance — deferred to staging**, per the gate |
+
+**WHAT THE SEED DOES NOT CONTAIN, stated rather than worked around.** No visit currently sits in
+`in_treatment` or `awaiting_disposition` (both appear only in the event log); **no
+`left_without_being_seen` visit at all**; **no `transfer` disposition**; **no re-triage** (one triage per
+visit); and **only the ESI scale** — `MANCHESTER` and `CTAS` are selectable but unexercised. The missing
+states were created **by driving the product** rather than by seeding: the flow was advanced
+`triaged → in_treatment → awaiting_disposition → dispositioned/admit` through the real buttons, and both
+re-triages and the Manchester comparison below were recorded through the real form.
+
+### Roles covered
+
+| Role | Driven as | Permissions (`RbacProvisioner::ROLE_TEMPLATES`) |
+|---|---|---|
+| `ed_physician` | `clara.meier@klinik-bergblick.test` | `patient.view`, `encounter.manage`, `note.write`, `note.sign`, `order.manage`, `ed.manage`, `admission.manage` |
+| `triage_nurse` | `yusuf.demir@klinik-bergblick.test` | `patient.view`, `encounter.manage`, `note.write`, `ed.manage`, `triage.record` |
+| `ed_charge_nurse` | `marco.bianchi@klinik-bergblick.test` | `patient.view`, `encounter.manage`, `note.write`, `note.sign`, `note.supervise`, `order.manage`, `reporting.view`, `ed.manage`, `triage.record` |
+
+**Excluded, with reasons:** none — `ROLE_TEMPLATES` contains exactly these three ED roles. `org_admin` was
+*not* driven as an ED role; it appears below only where noted, because **no ED role holds `billing.manage`**
+and the ED billing surface is otherwise undriveable.
+
+**The asymmetries, measured:**
+
+| | `ed_physician` | `triage_nurse` | `ed_charge_nurse` |
+|---|---|---|---|
+| `triage.record` (record a triage) | **no** | yes | yes |
+| `admission.manage` (admit from ED) | yes | **no** | **no** |
+| `note.sign` | yes | **no** | yes |
+| `order.manage` | yes | **no** | yes |
+| `billing.manage` | **no** | **no** | **no** |
+| `medication.prescribe` | **no** | **no** | **no** |
+
+### Surfaces driven
+
+| Surface | Route | Roles | Result |
+|---|---|---|---|
+| Landing | `/app` | ed_physician | **all four links 403** (`P7-H4`); no ED link in nav |
+| ED tracking board | `/ed/board` | physician ✅ · nurse ✅ | counts live and consistent; acuity sort **inverts** on Manchester (`P7-C3`) |
+| Board @ 390 px | `/ed/board` | physician | **0 of 4 nav links visible**, no menu button (`P7-M4`) |
+| Triage (read) | `/ed/visits/{v}/triage` | physician ✅ (no form — correct) | seam states "No automated suggestion" |
+| Triage (record) | `POST …/triage` | triage nurse ✅ | attributed to a **defaulted** picked person (`P7-C1`) |
+| Re-triage | `POST …/triage` | triage nurse ✅ | **appends** — earlier triage survives ✅ |
+| Refused triage | `POST …/triage` | triage nurse | **silent** — no message, nothing recorded (`P7-H2`) |
+| Flow transitions | `POST …/transition` | triage nurse ✅ | legal-only; counts updated live |
+| Disposition | `/ed/visits/{v}/disposition` | nurse ✅ (no Admit) · physician ✅ (Admit) | state-gated honestly |
+| **ED→inpatient admit** | `POST …/disposition` | ed_physician ✅ | stay created; **admitting clinician defaulted** (`P7-C2`) |
+| ED clinical record | `/ed/visits/{v}/record` | physician ✅ | encounters, vitals, orders — **no medication section** (`P7-H3`) |
+| ED billing | `/ed/visits/{v}/billing` | **all three 403** | unreachable by the whole group (`P7-H5`) |
+| Clinical orders | `/clinical/orders/review` | physician ✅ | reachable |
+| Ward board | `/hospital/wards` | physician ✅ | reachable |
+
+---
+
+### THE TRIAGE / ACUITY BOUNDARY — this phase's assigned question
+
+**1. Does the product compute or suggest an acuity? NO — and this is the cleanest seam in the audit.**
+`NullTriageAcuityProvider` is the only shipped implementation and returns `AcuityResult::none()` for every
+call. Its docblock states the crucial distinction in the product's own words: *"returning `none()` means
+'CareOS makes no acuity claim', not 'this patient is low acuity'"*, and calls a homemade acuity computer
+**"a PERMANENT non-goal"**. Driven: the triage form's suggestion area renders *"No automated suggestion.
+The triage nurse assigns the acuity."* — which cannot be read as a clearance (the `P5-C1` lesson applied
+correctly). The acuity select is **`Select a level` with no default** — the clinical judgment is never
+prefilled. A repo-wide search for anything deriving acuity from vitals, complaint, age or time returns
+nothing.
+
+**2. D-169 on a legitimately ordinal field — the hardest case in the product, and it PASSES byte-for-byte.**
+With an **ESI 1** (most urgent) and an **ESI 3** both active on the board, every computed style is
+identical:
+
+| | Nora Bianchi (ESI 1) | Paul Widmer (ESI 3) |
+|---|---|---|
+| card class | `glass-card p-4 border-euca-200 bg-euca-50` | *identical* |
+| card background | `rgb(247, 250, 245)` | *identical* |
+| card border | `rgb(220, 232, 215)` | *identical* |
+| badge class | `rounded-full bg-ink/5 px-2.5 py-1 text-xs font-semibold text-ink` | *identical* |
+| badge bg / colour / weight / size | `oklab(…/0.05)` / `rgb(42,51,42)` / `600` / `12px` | *identical* |
+
+The **only** difference is the text: "ESI 1" versus "ESI 3". The acuity badge carries **one fixed class
+string with no `:class` binding at all** (`Board.vue:127`). The colour that *does* vary is
+`statusClass(v.status)` — the **flow state**, explicitly commented *"an operational colour (NOT a clinical
+severity)"*. The sort control is labelled **"Recorded acuity"**, not "priority"; an untriaged patient reads
+**"Not yet triaged"**, never a default level. This is the PC.P7 formulation honoured exactly: the ordering
+is a fact the clinician assigned, and the product adds no tint, ramp, breach timer or target on top of it.
+
+**3. …BUT THE ORDERING ITSELF IS WRONG ON TWO OF THE THREE SCALES — see `P7-C3`.** The board sorts by
+`localeCompare` on the level *string*. That is correct for ESI and CTAS (`'1'…'5'`) and **inverts** for
+Manchester (`red, orange, yellow, green, blue`), which sorts alphabetically to `blue, green, orange, red,
+yellow`. Driven and confirmed in the browser.
+
+**4. The Phase-6 inheritance — PARTIAL, and the split matters.** Phase 6 found `EdTriage`'s docblock names
+`SurgicalCase::asa_class` as the shape it followed, and that ED added the record discipline the ASA lacked.
+Verified in the browser:
+
+| Property | Result |
+|---|---|
+| Re-triage **appends** (never overwrites) | ✅ **HOLDS** — driven; the earlier ESI 3 survives beside the new MANCHESTER red, and `ed_triages` carries `SIGNAL '45000'` UPDATE/DELETE triggers |
+| The write is **audited** | ✅ **HOLDS** — `ed_triage.recorded`, and the audit's `actor_id` is the **real actor** (`yusuf.demir`) |
+| Attributed to the **ACTOR** | ❌ **FAILS** — the record names a *picked, defaulted* person (`P7-C1`) |
+
+So ED inherited two-thirds of the discipline. The actor **is** recoverable — from the audit ledger — but
+the clinical record itself misattributes.
+
+**5. No other computed clinical judgment.** No EWS/NEWS, no deterioration score, no sepsis or risk flag, no
+predicted disposition. The disposition screen states: *"The disposition is the clinician's decision — the
+system records it, it never computes or suggests it."* The only computed figure on the board is an elapsed
+time (`12 min`) — a plain duration since arrival, with **no target, no breach threshold and no colour**.
+
+---
+
+### CRITICAL
+
+#### `P7-C1` — A triage is attributed to a person the form pre-selects, and the actual clinician is stored nowhere on the record
+
+- **Role:** `triage_nurse` · **Route:** `POST /ed/visits/{visit}/triage`
+- **Steps:** log in as `yusuf.demir` (the triage nurse); open an untriaged visit's triage page; fill the
+  presenting complaint; choose **ESI 1**; **do not touch the "Triage nurse" dropdown**; submit.
+- **What happened:** the triage history reads **"Triaged by Beat Suter"**. Beat Suter is the
+  **`surgical_scheduler`** — not a nurse, not in the ED, and not the person who recorded it. The database
+  confirms `triaged_by → Beat Suter [beat.suter@klinik-bergblick.test]` while the actor was
+  `yusuf.demir@klinik-bergblick.test`.
+- **Cause.** `EdTriageController.php:92` validates `'triaged_by' => ['required','string']` — **the client
+  submits it**; `:105` resolves *any* `StaffProfile` in the tenant; `TriageService.php:83` writes
+  `'triaged_by' => $nurse->id`. The actor is used only for the Gate and is then discarded, and
+  **`ed_triages` has no actor column at all** (`id, tenant_id, patient_id, ed_visit_id, triaged_by,
+  triaged_at, presenting_complaint, acuity_scale, acuity_level, created_at, updated_at`).
+- **WHY THIS IS WORSE THAN `P6-C2`, which it otherwise mirrors exactly.** The surgical ASA required an
+  operator to *actively pick* the wrong person. Here `Triage.vue:40` **pre-selects one**:
+  `triaged_by: props.options.nurses[0]?.id ?? ''` — the first of **20 unfiltered staff profiles**, ordered
+  by display name. Measured in the browser: the dropdown was already set to "Beat Suter" before any
+  interaction. **The default path produces the wrong attribution**; a nurse must notice a field they have
+  no reason to touch in order to get it right.
+- **The mitigation, stated precisely.** The audit ledger *does* record the true actor
+  (`ed_triage.recorded`, `actor_id = 37 = yusuf.demir`), so the real clinician is recoverable — from the
+  audit trail, not from the clinical record. That is better than the ASA had before QA-FIX.6b, and it is
+  not the same as the record being right.
+- **Why CRITICAL:** a triage is the ED's core safety record and its acuity drives who is seen first. A
+  record naming an uninvolved non-clinician as the assessor is a triage-record misrepresentation.
+
+#### `P7-C2` — The same defaulted attribution on an INPATIENT ADMISSION: the admitting clinician is whoever sorts first
+
+- **Role:** `ed_physician` · **Route:** `POST /ed/visits/{visit}/disposition` (the ED→inpatient handoff)
+- **Steps:** as `clara.meier` (ED physician), advance a visit to `awaiting_disposition`, open the
+  disposition page, click **Admit**, **touch neither the bed nor the clinician select**, submit.
+- **What happened:** the admission succeeded — visit `dispositioned/admit` with a `stay_id`, a `Stay`
+  created `admitted` / `admission_type=emergency` / bed `CH-02` assigned, both steps audited with the real
+  actor. **And `stays.admitting_clinician_id` names Beat Suter**, the surgical scheduler, while
+  `clara.meier` performed the admission.
+- **Cause.** `Disposition.vue:29`:
+  `const form = reactive({ note: '', bed_id: props.actions.beds[0]?.id ?? '', clinician_id: props.actions.clinicians[0]?.id ?? '' })`
+  — **both** the bed and the admitting clinician default to the first option. `EdDispositionController.php:103-104`
+  accepts them from the request; `:117` passes them straight through.
+- **Why CRITICAL, and arguably worse than `P7-C1`:** the admitting clinician is carried on the **inpatient
+  stay**, outside the ED entirely, where later readers have no reason to suspect it. It is also a
+  **third** instance of one pattern in this module — triaged-by, admitting clinician, and bed all default
+  to "first in the list" — so the shape is systemic rather than a slip.
+
+#### `P7-C3` — The ED board's "Recorded acuity" sort INVERTS clinical priority on the Manchester scale
+
+- **Role:** any with `ed.manage` · **Route:** `GET /ed/board`
+- **Steps:** re-triage one active visit to **MANCHESTER red** (most urgent) and another to **MANCHESTER
+  blue** (least urgent); on the board click **Sort by → Recorded acuity**.
+- **What happened, verbatim from the rendered board:**
+
+  | Position | Patient | Acuity |
+  |---|---|---|
+  | **1** | Nora Bianchi | **MANCHESTER blue** — the LEAST urgent |
+  | 2 | Paul Widmer | **MANCHESTER red** — the MOST urgent |
+
+- **Cause.** `Board.vue:52`:
+  `list.sort((a, b) => (a.acuity?.level ?? '~').localeCompare(b.acuity?.level ?? '~'))` — a **lexicographic
+  sort on the level string**. `EdTriage::LEVELS` defines ESI and CTAS as `'1'…'5'` (where alphabetical
+  order coincides with clinical order) and **Manchester as `['red','orange','yellow','green','blue']`**,
+  whose alphabetical order is `blue, green, orange, red, yellow` — unrelated to urgency, and in practice
+  inverted at both ends.
+- **The scale is fully reachable:** the triage form's scale select offers all three (`ESI`, `MANCHESTER`,
+  `CTAS`) and the level select then renders the Manchester colours in the *correct* clinical order — so the
+  form is right and only the board's ordering is wrong.
+- **A second, related consequence:** mixed scales on one board are compared as raw strings, so an `ESI 2`
+  and a `MANCHESTER red` are ordered by the accident of `'2'` versus `'red'`.
+- **Why CRITICAL:** this is not a styling nicety — it is the one place the board makes a clinical ordering
+  claim, under a control labelled "Recorded acuity", and on a supported scale it presents the least urgent
+  patient first. It is the exact inverse of the guarantee the D-169 result above establishes so carefully.
+
+---
+
+### HIGH
+
+#### `P7-H1` — No HTTP path registers an ED presentation: the vertical's entry point has no surface
+
+`EdVisitService::register()` (`:39`) is called from **the seeder only** —
+`DemoHospitalSeeder.php:433, 572, 640, 643` — and from nowhere else. `EdBoardController` uses the service
+solely for `activeVisits()` (read) and `transition()`. There is no route, no controller action and no form
+that creates an `EdVisit`. **Every ED visit that exists in the product was written by the seeder**, so a
+patient cannot be brought into the emergency department at all. This is the `P6-H1` shape (a whole
+capability with no surface) at the *first* step of the workflow rather than a peripheral one.
+
+#### `P7-H2` — ED renders none of its refusals — the `P6-C3` defect, unfixed outside Surgery
+
+The ED controllers carry **10** `->withErrors([...])` sites, and **zero** of the five ED pages read
+`errors`, `usePage` or `flash` (measured per file: `Billing 0/0/0`, `Board 0/0/0`, `Disposition 0/0/0`,
+`Documentation 0/0/0`, `Triage 0/0/0`). **Driven:** submitting a triage with the acuity level left as
+"Select a level" produced **no alert, no error text and no record** — the page reloaded unchanged and the
+history still showed the previous entry. A refusal and a success are indistinguishable, exactly as in
+Surgery before QA-FIX.6c. QA-FIX.6c fixed `resources/js/pages/Surgery/*` only; `RefusalNotice.vue` exists
+and is not used here.
+
+#### `P7-H3` — The ED physician cannot prescribe anything, and the ED record has no medication surface at all
+
+`ed_physician` holds no `medication.prescribe` — nor does any ED role. Phase 2 flagged the permission gap;
+this phase drove what it costs. The **ED clinical record** (`/ed/visits/{v}/record`) offers *Treatment
+encounters*, *Vitals* and *Orders*, and a text search of the rendered page for `medic|prescri|drug|Medikament`
+returns **nothing**: there is no medication section, no link to the medication surface, and no affordance to
+order a drug. `order.manage` covers clinical orders (labs/imaging), not medications. In an emergency
+department — where analgesia, antiemetics and antibiotics are among the most common interventions — the
+treating clinician cannot order any of them, and the record does not acknowledge the gap.
+
+#### `P7-H4` — All four of the ED physician's landing links 403, and no ED link exists anywhere in the shell
+
+Driven as `ed_physician`, every `<main>` link on `/app` returns **403**: `/patients/register`,
+`/scheduling/day-board`, `/nursing/dispatch`, `/comms/inbox`. This is `P2-H2` **unchanged five phases
+later**. The top nav shows *Dashboard · Patients · Orders · Telehealth* — **no ED entry** — because
+`HandleInertiaRequests::NAV_PERMISSIONS` is a fixed 14-key list containing no `ed.manage` and no
+`triage.record` (the same undersized map Phase 5 named for Pharmacy and Phase 6 for Surgery). The ED board
+is reachable only by typing a URL.
+
+#### `P7-H5` — No ED role can reach ED billing: all five routes are 403 for the entire group
+
+Every `/ed/visits/{visit}/billing*` route is gated `billing.manage` (`EdBillingController.php:32, 87, 105,
+127, 150`), and none of `ed_physician`, `triage_nurse` or `ed_charge_nurse` holds it — confirmed in the
+browser (403 as `ed_physician`). ED charges therefore exist in the seed but are unreachable by the people
+who generate them, exactly the Phase-6 Surgery shape (`P6-H5`'s sibling). The `ed.disposition.openBilling`
+link is rendered behind `v-if="actions.can_bill"`, so it is correctly withheld rather than offered-and-refused.
+
+---
+
+### MEDIUM
+
+#### `P7-M1` — A triage nurse can record a DISCHARGE, while being unable to sign a note or place an order
+
+The disposition write is gated `ed.manage` (`EdDispositionController.php:95`), which all three ED roles
+hold; only **admit** additionally requires `admission.manage` (`:42`). Driven: as `triage_nurse` the form
+offered **Discharge** and **Transfer out** (Admit correctly withheld). So a nurse who cannot sign a clinical
+note (`note.sign`) or place an order (`order.manage`) can nonetheless record the decision to send a patient
+home. Whether that is intended is a product question; the audit records that the permission which gates a
+discharge is the same one that gates moving a patient between flow states.
+
+#### `P7-M2` — Every staff picker in ED is role-blind and 20 entries long
+
+The triage "Triage nurse" select and the disposition "clinician" select are both populated from
+`StaffProfile::query()->orderBy('display_name')->limit(200)` (`EdTriageController.php:75`) with no filter of
+any kind — the same defect Phase 6 recorded as `P6-M6` for Surgery. Measured in the browser: 20 options,
+led by "Beat Suter" (surgical scheduler), "Dr. Anke Berg" (org admin), "Dr. med. Clara Meier". This is the
+mechanism that makes `P7-C1` and `P7-C2` land on a non-clinician by default.
+
+#### `P7-M3` — Dates and times render in US format in the viewer's timezone
+
+The triage history renders **`9/7/2026, 4:05:01 PM`** for a row stored at `2026-09-07 23:05:01 UTC` — that
+is `M/D/YYYY` with a 12-hour clock, resolved to the **viewer's** `America/Los_Angeles`, for a tenant whose
+timezone is `Europe/Zurich` and whose locale is `de`. Pattern 2, seventh consecutive phase. (The stored
+value itself is correct: `triaged_at 23:05:01` against a CLI `now()` of `23:05:28` UTC — no clock skew.)
+
+#### `P7-M4` — No navigation below 768 px, on a board that is plausibly a tablet
+
+Measured at 390 px on `/ed/board`: **0 of 4** nav links have a non-zero width and there is no menu button
+(the only header control is the 36 px avatar). The board content itself does **not** overflow horizontally
+(`scrollWidth` 390 = viewport), so the cards reflow correctly — the defect is navigation only. Worth stating
+because an ED tracking board is a plausible wall-display or nurses'-station tablet surface.
+
+#### `P7-M5` — `EdBillingService` has the `P6-M10` shape: captures then links, with no transaction
+
+**Established from code, not driven** — `P7-H5` makes the surface unreachable for every ED role, so there is
+no browser path to it. `EdBillingService.php` performs the idempotency read (`:101`), the captures
+(`:113-121`) and the link loop (`:123-125`) with **no `DB::transaction`**, so a throw partway through leaves
+earlier charges durable and unlinked while the idempotency guard — those same link rows — reads empty. Phase
+6 recorded this while fixing the Surgery twin (QA-FIX.6a, D-208) and deliberately did not fix it; it is
+restated here with its own ID because it belongs to this role group.
+
+#### `P7-M6` — The ED billing surface derives money client-side
+
+`resources/js/pages/ED/Billing.vue:39` computes `props.charges.reduce((sum, c) => sum + c.quantity * c.unit_price_minor, 0)`
+and formats it locally — the same second-derivation defect QA-FIX.6a removed from Surgery, and the same
+breach of the Phase-3 finding that no billing surface derives its own totals. **Code-established** for the
+same reason as `P7-M5`.
+
+#### `P7-M7` — Two visit states and one disposition are unreachable in practice
+
+`left_without_being_seen` is a legal state with a board button ("Left (LWBS)"), and `transfer` is a legal
+disposition offered on the form — but neither exists in the seed, and `P7-H1` means no new presentation can
+be created to exercise them from a clean start. They were reachable only because the seeder had already
+created visits; on a fresh tenant the ED has no entry point and therefore no states at all.
+
+---
+
+### LOW
+
+#### `P7-L1` — The board's elapsed time is computed client-side and does not tick
+
+`Board.vue:68` computes `Math.round((Date.now() - new Date(iso).getTime()) / 60000)` at render. It is an
+honest fact (elapsed since arrival, with no target or breach threshold — see the acuity section), but it is
+frozen until the page is reloaded, so a board left open on a wall display shows steadily staler durations.
+
+#### `P7-L2` — The `ed.triage.level` translation key is null and unused
+
+`resources/js/lang/en.json` has no value for `ed.triage.level`. Checked in the browser rather than assumed:
+the acuity label renders correctly as **"ASSIGNED ACUITY"** from a different key, so nothing is broken today
+— the entry is simply dead. Recorded only so a future reader does not mistake it for the live key.
+
+---
+
+### Guards verified holding (probed in the browser, not assumed)
+
+- **The acuity seam is the cleanest in the product** — see the boundary section above. No computation, no
+  suggestion, no prefill of the level, and an empty state that denies being a check.
+- **D-169 holds on the hardest possible field** — ESI 1 and ESI 3 render byte-identically across card class,
+  background, border, badge class, badge background, colour, weight and size.
+- **A re-triage APPENDS.** Driven: an ESI 3 and a subsequent MANCHESTER red both stand in the history.
+  `ed_triages` carries `ed_triages_no_update` and `ed_triages_no_delete` `SIGNAL '45000'` triggers.
+- **The triage write is AUDITED with the real actor** — `ed_triage.recorded`, `actor_id` = the logged-in
+  nurse, even though the record's own `triaged_by` names someone else.
+- **The visit flow is legal-transitions-only.** Driven: from `triaged` the board offered *Start treatment*
+  and *Left (LWBS)*; from `in_treatment` only *Ready for disposition* — LWBS correctly disappeared, matching
+  `EdVisit::TRANSITIONS`.
+- **Board counts are live and consistent.** After advancing one visit the summary moved from
+  `2 in department / 2 waiting / 0 in treatment` to `2 / 1 / 1` with no reload and no disagreement against
+  the rendered cards.
+- **The disposition surface is state-gated honestly** — on a `triaged` visit it says *"This visit is not yet
+  awaiting disposition."* and renders no form, rather than offering a control that would fail.
+- **Admit is withheld, not offered-and-refused.** The `triage_nurse` sees only *Discharge* / *Transfer out*;
+  the `ed_physician`, who holds `admission.manage`, additionally sees *Admit*.
+- **The ED→inpatient handoff completes and is audited on both sides.** Driven: `ed_visit.dispositioned` and
+  `admission.admitted`, both with the real actor, producing a `Stay` with `admission_type=emergency` and an
+  assigned bed. `EdVisitService::transition()` is wrapped in `DB::transaction` (`:108`).
+- **No empty `catch` anywhere in the ED module.** Every catch names its exception types and flashes a
+  message — Phase 5's Pharmacy shape does not recur (the defect is that nothing renders those messages,
+  `P7-H2`).
+- **The disposition states its own fence:** *"The disposition is the clinician's decision — the system
+  records it, it never computes or suggests it."*
+- **Stored times are correct UTC** — a driven triage stored `23:05:01` against a CLI `now()` of `23:05:28`.
+
+### Not tested, and why
+
+- **Performance** — explicitly out of scope per the gate, deferred to staging.
+- **ED billing end to end** — `P7-H5`: all five routes are 403 for every ED role, so `P7-M5` and `P7-M6` are
+  labelled code-established rather than driven. Driving them would require `org_admin`, who is not an ED role.
+- **`left_without_being_seen` and `transfer`** — `P7-M7`: absent from the seed, and with no way to register a
+  presentation there is no clean path to create one.
+- **A second tenant's ED data** — `klinik-bergblick` is the only tenant with any, so cross-tenant ED
+  isolation was read from the services' `assertSameTenant` calls rather than driven.
+- **`ed_charge_nurse` was driven only on the read surfaces and the RBAC matrix**, not through a second full
+  write workflow: its permission set is a superset of `triage_nurse` plus `note.sign`/`order.manage`/
+  `reporting.view`, and the writes it can perform were already driven as the other two roles.
 ## Cross-phase patterns
 
-Six phases are complete across six unrelated role groups — front-desk, clinical, financial,
-nursing (including the product's only offline surface), pharmacy and the operating theatre. **A pattern
-that appears in all six is a systemic defect, not a local one.** The per-pattern sections below were
+Seven phases are complete across seven unrelated role groups — front-desk, clinical, financial,
+nursing (including the product's only offline surface), pharmacy, the operating theatre and the emergency
+department. **A pattern that appears in all seven is a systemic defect, not a local one.** The per-pattern sections below were
 written at Phase 3; the **Phase 4**, **Phase 5** and **Phase 6** updates near the end of this section
 state, for each pattern, whether it recurs.
 
@@ -3993,6 +4369,79 @@ the view layer. Where Phases 3–5 found individual write paths with the wrong t
 discipline, Phase 6 finds a whole module whose refusals are correct and **invisible** — which, from
 the user's seat, is indistinguishable from success.
 
+
+### Phase 7 update — seven phases of evidence
+
+Phase 7 covered the Emergency Department, whose defining question is whether a product may hold an acuity
+at all. Each standing pattern is stated below as present or absent, explicitly.
+
+**1. Ungated UI — PRESENT, seventh consecutive phase, and this one is a REGRESSION TEST THAT FAILED.**
+`P7-H4`: all **four** of `ed_physician`'s landing links 403 — `/patients/register`,
+`/scheduling/day-board`, `/nursing/dispatch`, `/comms/inbox`. That is not a new instance: it is `P2-H2`
+re-driven **five phases later and unchanged**. The cause has been named three times now — the shell's
+`NAV_PERMISSIONS` is a fixed 14-key list, and it omits `ed.manage` and `triage.record` exactly as it omits
+the pharmacy and surgery keys. Seven phases, seven role groups, one undersized map: it simultaneously
+**over-offers** links the role cannot use and **under-offers** the module the role lives in, so the ED
+tracking board — the group's primary surface — is reachable only by typing a URL.
+
+**2. Timestamp and locale divergence — PRESENT, seventh phase.** `P7-M3`: the triage history renders
+`9/7/2026, 4:05:01 PM` — `M/D/YYYY`, 12-hour, in the **viewer's** `America/Los_Angeles` — for a row stored
+`23:05:01 UTC` in a tenant whose zone is `Europe/Zurich` and whose locale is `de`. The storage half is
+correct (a driven write landed within 27 seconds of CLI `now()`), so this remains purely a display defect,
+now in its seventh module.
+
+**3. No navigation below 768 px — PRESENT, seventh phase, and newly load-bearing.** `P7-M4`: at 390 px,
+**0 of 4** nav links have a non-zero width and there is no menu button. What Phase 7 adds is that the
+surface is an **ED tracking board** — the most plausible wall-display or nurses'-station tablet in the
+product. The board's own cards reflow correctly (no horizontal overflow); it is only navigation that
+disappears.
+
+**4. A granted capability with no surface — PRESENT, seventh phase, and it has moved to the FIRST step of
+a workflow.** `P7-H1`: `EdVisitService::register()` is called **only from the seeder** (four call sites);
+no route, no controller action and no form creates an `EdVisit`. Every ED visit in the product was written
+by the seeder, so **a patient cannot be brought into the emergency department at all**. Previous instances
+were a missing affordance on a working screen (`P2-H4`, `P4-H3`), a service with no route (`P3-H3`,
+`P5-H1`), or a whole role with no reachable function (`P6-H1`). This one is the *entry point* of the
+vertical: every surface downstream of arrival works, and arrival itself has no door. `P7-H5` supplies the
+familiar second form — five ED billing routes gated on a permission **no ED role holds**.
+
+**5. The fences hold — CONFIRMED IN ALL SEVEN PHASES, and Phase 7 is the strongest result the audit has
+produced.** Acuity is the hardest case in the product: a genuinely ordinal clinical field, on the one
+screen whose job is to say who is seen first. The product does not compute it, does not suggest it, does
+not prefill it, and does not tint it. `NullTriageAcuityProvider` returns `none()` and its docblock draws
+the distinction that matters — *"'CareOS makes no acuity claim', not 'this patient is low acuity'"* — while
+calling a homemade acuity computer **a permanent non-goal**. The empty state reads *"No automated
+suggestion. The triage nurse assigns the acuity."* and cannot be mistaken for a clearance. And the D-169
+positive control passes **byte-for-byte**: an ESI 1 and an ESI 3 share card class, background, border,
+badge class, badge background, colour, weight and size, differing only in their text. The one colour that
+varies tracks the **flow state**, and its own comment says so. Seven phases in, no fence has eroded.
+
+**But Phase 7 also produces the audit's first case where an honest fence sits on top of a wrong
+computation.** `P7-C3`: having refused to rank patients, the board then offers a "Recorded acuity" sort
+implemented as `localeCompare` on the level string — correct for ESI and CTAS (`'1'…'5'`), and **inverted
+for Manchester** (`red…blue` sorts alphabetically to `blue…red`). Driven: the least urgent patient rendered
+first. The judgment was never computed; the *ordering of the recorded judgment* was, and got it wrong.
+
+**6. A partial record — PRESENT IN BOTH DIRECTIONS, and the succeeded-write direction has become the
+module's signature.** The refused direction is `P7-H2`: 10 `withErrors` sites, **zero** ED pages reading
+`errors`, and a driven refusal that produced no message and no record — the `P6-C3` defect exactly, which
+QA-FIX.6c fixed for `pages/Surgery/*` only. The succeeded direction is `P7-C1` and `P7-C2`: writes that
+**complete successfully and leave the wrong fact behind**. A triage records an uninvolved surgical
+scheduler as the assessing nurse; an inpatient admission records the same person as the admitting
+clinician. Nothing failed, nothing was caught, and there is no error to find — Phase 5's reframing
+(*"what does a **successful** operation fail to leave behind?"*) extended from a missing side effect to a
+**false one**.
+
+**7. THE PATTERN PHASE 7 ELEVATES: attribution by dropdown default.** This is no longer an instance, it is
+a class. `P6-C2` found a surgical ASA attributed to a *picked* person. Phase 7 finds the same shape three
+times in one module — `ed_triages.triaged_by`, `stays.admitting_clinician_id` and `stays.current_bed_id` —
+and **worse in kind**, because `Triage.vue:40` and `Disposition.vue:29` **pre-select the first entry of an
+unfiltered, alphabetically-ordered staff list**. The ASA required an operator to choose the wrong person;
+ED produces the wrong person by default, from a field the user has no reason to touch. In both driven
+cases the record named `Beat Suter` — a `surgical_scheduler` who was not present, is not a clinician, and
+sorts first. The audit ledger holds the true actor in both cases, so the fact is recoverable — from the
+audit trail, never from the clinical record. **QA-FIX.6b's remedy for the ASA (name both people, take the
+actor from the session, never from the request) applies unchanged to all three of these columns.**
 ### Still open as a candidate
 
 **Identity references are inconsistent at the schema level** (`P2-C1` sub-finding, recorded as
