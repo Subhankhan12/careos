@@ -80,7 +80,7 @@ every later phase's timestamp observation suspect, and past-time booking was liv
 | `P6-C1` | CRITICAL | ✅ **FIXED** | QA-FIX.6a | `9d5c047` |
 | `P6-M10` | MEDIUM | ✅ **FIXED** | QA-FIX.6a | `9d5c047` |
 | `P6-L2` | LOW | ✅ **FIXED** | QA-FIX.6a | `9d5c047` |
-| `P6-C2` | CRITICAL | ✅ **FIXED** | QA-FIX.6b | `<pending>` |
+| `P6-C2` | CRITICAL | ✅ **FIXED** | QA-FIX.6b | `f8b7a7b` |
 | all others | — | 📋 recorded, not fixed | — | — |
 
 *(A commit cannot contain its own hash. Per the repo-wide marker convention, `<pending>` is backfilled
@@ -2978,7 +2978,7 @@ by any of the four and would otherwise have gone undriven.
 > **The team-write gap is NOT fixed by QA-FIX.6b** (that part is scoped to the ASA) and is recorded
 > against `P6-M5`, which already covers team attribution. See its note below.
 
-> ✅ **FIXED — QA-FIX.6b, commit `<pending>` (D-209).** All three defects, each closed by the same
+> ✅ **FIXED — QA-FIX.6b, commit `f8b7a7b` (D-209).** All three defects, each closed by the same
 > change: an assessment is now an **append-only row** rather than four columns overwritten in place.
 >
 > - **THE SHAPE IS NOT NEW — the ED vertical already applies it to this exact kind of value.**

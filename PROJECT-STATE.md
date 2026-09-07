@@ -134,7 +134,7 @@ second capture produced no duplicates. **Found while fixing, NOT fixed (reported
 claim work is **"Issued"** with a **"NaN"** total on never-invoiced cases — and
 `EdBillingService::chargeVisit()` has the identical P6-M10 shape.
 
-Part 2 (`<pending>`, D-209) is done: **the ASA assessment records its author, keeps its history, and is
+Part 2 (`f8b7a7b`, D-209) is done: **the ASA assessment records its author, keeps its history, and is
 audited (P6-C2).** All three defects closed by one change — an assessment is now an APPEND-ONLY
 `surgical_case_anesthesia_assessments` row rather than four columns overwritten in place. It carries BOTH
 people and never lets one stand in for the other (the D-195 rule): `assessed_by` is the clinician whose
