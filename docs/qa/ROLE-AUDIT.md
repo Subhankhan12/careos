@@ -77,9 +77,9 @@ every later phase's timestamp observation suspect, and past-time booking was liv
 | `P5-C1` | CRITICAL | ✅ **FIXED** | QA-FIX.5a | `b9f5c91` |
 | `P5-C2` | CRITICAL | ✅ **FIXED** | QA-FIX.5b | `88d50eb` |
 | `P5-M4` | MEDIUM | ✅ **FIXED** | QA-FIX.5b | `88d50eb` |
-| `P6-C1` | CRITICAL | ✅ **FIXED** | QA-FIX.6a | `<pending>` |
-| `P6-M10` | MEDIUM | ✅ **FIXED** | QA-FIX.6a | `<pending>` |
-| `P6-L2` | LOW | ✅ **FIXED** | QA-FIX.6a | `<pending>` |
+| `P6-C1` | CRITICAL | ✅ **FIXED** | QA-FIX.6a | `9d5c047` |
+| `P6-M10` | MEDIUM | ✅ **FIXED** | QA-FIX.6a | `9d5c047` |
+| `P6-L2` | LOW | ✅ **FIXED** | QA-FIX.6a | `9d5c047` |
 | all others | — | 📋 recorded, not fixed | — | — |
 
 *(A commit cannot contain its own hash. Per the repo-wide marker convention, `<pending>` is backfilled
@@ -2860,7 +2860,7 @@ by any of the four and would otherwise have gone undriven.
   billing surface that cannot perform either of its two operations. The seeded case's 3 charges exist
   only because the **seeder** called the service directly.
 
-> ✅ **FIXED — QA-FIX.6a, commit `<pending>` (D-208).** The action is now `issueInvoice()`, so nothing
+> ✅ **FIXED — QA-FIX.6a, commit `9d5c047` (D-208).** The action is now `issueInvoice()`, so nothing
 > shadows the `invoice` prop, and **every money figure on the screen is the engine's, formatted by the
 > engine**.
 >
@@ -3293,7 +3293,7 @@ statement, the wording says so explicitly rather than implying a driven result.
   severity is `P4-C4` (re-graded CRITICAL → HIGH for exactly this reason). **It becomes active the
   moment `P6-C1` is fixed**, which is the order those two findings should be read in.
 
-> ✅ **FIXED — QA-FIX.6a, commit `<pending>` (D-208), in the SAME part as `P6-C1` and for that
+> ✅ **FIXED — QA-FIX.6a, commit `9d5c047` (D-208), in the SAME part as `P6-C1` and for that
 > reason.** Fixing C1 makes the capture control reachable, so shipping C1 alone would have switched on
 > a defect nobody had ever run.
 >
@@ -3361,7 +3361,7 @@ and US grouping (`2,500.00` rather than the Swiss `2'500.00`). The shared, teste
 exists and is not used. Identical to `P5-M3` and to the Phase-3 currency finding — third consecutive
 phase, third module.
 
-> ✅ **FIXED — QA-FIX.6a, commit `<pending>` (D-208)**, as a consequence of fixing `P6-C1` rather than
+> ✅ **FIXED — QA-FIX.6a, commit `9d5c047` (D-208)**, as a consequence of fixing `P6-C1` rather than
 > as a separate effort: once the engine formats the figures, the currency comes with them. Both Surgery
 > money surfaces now render server-formatted amounts — **browser-verified** as `CHF 2'500.00`,
 > `CHF 450.00`, `CHF 24.00`, `CHF 6'687.20` and `CHF 2'725.00`, with the Swiss apostrophe grouping and

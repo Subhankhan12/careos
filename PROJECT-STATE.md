@@ -104,7 +104,7 @@ fences hold and the WHO checklist is the clearest D-179 statement in the product
 what the team confirmed… it does not block the surgery" — plus an honest recall lookup driven end to
 end (lot → patient). **Nothing is fixed — audit only.**
 
-**QA-FIX.6 is fixing the Phase-6 critical cluster in four parts.** Part 1 (`<pending>`, D-208) is done:
+**QA-FIX.6 is fixing the Phase-6 critical cluster in four parts.** Part 1 (`9d5c047`, D-208) is done:
 **surgical case billing renders the engine total, and charge capture is all-or-nothing (P6-C1 + P6-M10,
 and P6-L2 falls out of it).** The visible defect was a **name collision**: `CaseBilling.vue` declared the
 prop `invoice` AND a top-level `function invoice()`; in `<script setup>` the function wins in the
