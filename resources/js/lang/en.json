@@ -391,7 +391,10 @@
             "history": "History",
             "checklist": "WHO safety checklist",
             "supplies": "Consumables & implants",
-            "billing": "Billing"
+            "billing": "Billing",
+            "asaHistory": "Assessment history",
+            "assessedBy": "Assessed by {name}",
+            "recordedBy": "recorded by {name}"
         },
         "checklist": {
             "eyebrow": "Surgery · WHO checklist",

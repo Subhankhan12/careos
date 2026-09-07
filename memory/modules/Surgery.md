@@ -486,3 +486,53 @@ test asserts the chain still verifies.
   is true only of `resources/js/pages/Billing/`.
 - **`Modules/ED/src/Services/EdBillingService.php`** has the identical P6-M10 shape — idempotency read
   (:102), captures (:115/:121), link loop (:125), **no transaction**. → Phase 7.
+
+## QA-FIX.6b — the ASA assessment records its author, keeps its history, and is audited (P6-C2, D-209)
+
+**Three defects, one change.** `recordAnesthesiaAssessment()` wrote four columns onto the case with
+`forceFill(...)->save()`: the only person stored was the one **PICKED** (the `$actor` was used for the
+Gate and discarded), a revision **overwrote** the previous judgment, and it raised **no audit event**.
+
+**NEW: `surgical_case_anesthesia_assessments`** — append-only (model guards + `SIGNAL '45000'` DB
+triggers), one row per recorded assessment, carrying **BOTH people**:
+- `assessed_by` (staff_profiles) — the clinician whose judgment it is. Still selectable, because the
+  anaesthetist who assessed the patient is not always the person at the keyboard.
+- `recorded_by` (users) — **the ACTOR**, from the authenticated user, never from the request. This is
+  the column that did not exist. A test posts a forged `recorded_by` and asserts it is ignored.
+
+**THE RECIPE IS ED's, AND ED GOT IT FROM HERE.** `ed_triages` records a nurse-ASSIGNED acuity
+append-only with provenance, and `EdTriage`'s docblock names `SurgicalCase::asa_class` as the shape it
+followed. ED copied the ASA's *fence* posture and added the record discipline; the ASA never got it
+back. Nothing was invented (D-170).
+
+**`surgical_cases.asa_*` IS DELIBERATELY KEPT** as the denormalised CURRENT value — the `status`
+beside `surgical_case_events` posture. No reader breaks, no historical row rewritten.
+
+**Audit is the EXISTING path** — a `created` hook in `AppServiceProvider` emitting
+`surgical_case.anesthesia_assessed`, like every sibling. A test asserts exactly ONE row per
+assessment, so a second audit path would fail it.
+
+**BROWSER-VERIFIED by re-driving the finding's own steps** (as `johann.wyss`, naming Tim Graf):
+```
+ASA class I   · Mallampati II   Assessed by Dr. med. Johann Wyss · recorded by Dr. med. Johann Wyss
+ASA class III · Mallampati II   Assessed by Tim Graf             · recorded by Dr. med. Johann Wyss
+ASA class II  · Mallampati I    Assessed by Dr. med. Johann Wyss · recorded by Dr. Anke Berg
+```
+The ASA III survives the overwrite. The bottom row is the seeded one and proves the two fields are
+independent: the seeder names Wyss as assessor while org_admin Anke Berg is the actor.
+
+**TWO REJECTED OPTIONS, both of which REDDEN the suite — do not retry them:**
+- Dropping the picked person and deriving the assessor from `StaffProfile::forUser($actor)` breaks
+  `SurgicalCaseLifecycleTest` — its profiles have **no `user_id`**, so `forUser()` returns null and
+  D-195's "refuse, never guess" throws.
+- Constraining the named person to the case's team with `ROLE_ANESTHETIST` breaks the same test, which
+  never calls `addTeamMember`. It passes in the seeder only because the seeder adds the team first.
+- A `profession` filter is **non-functional**, not merely weak: every clinician in the seeder carries
+  `'doctor'` — no value anywhere identifies an anaesthetist. Role-blind selectors stay `P6-M6`.
+
+**A CORRECTION TO MY OWN PHASE-6 AUDIT, found here.** `P6-C2` said the ASA was "the ONLY write in the
+module that raises no audit event". **False** — `addTeamMember()` is unaudited too
+(`grep SurgicalCaseTeamMember app/Providers/AppServiceProvider.php` → nothing), and it also
+**overwrites** `team_role` in place via `updateOrCreate` with no history. Both recorded against
+`P6-M5`, not fixed (this part is scoped to the ASA). Also corrected: `P6-C3`'s "13 `withErrors` sites"
+is actually **16** — Phase 6 missed `SurgicalInventoryController` entirely.

@@ -134,6 +134,25 @@ second capture produced no duplicates. **Found while fixing, NOT fixed (reported
 claim work is **"Issued"** with a **"NaN"** total on never-invoiced cases — and
 `EdBillingService::chargeVisit()` has the identical P6-M10 shape.
 
+Part 2 (`<pending>`, D-209) is done: **the ASA assessment records its author, keeps its history, and is
+audited (P6-C2).** All three defects closed by one change — an assessment is now an APPEND-ONLY
+`surgical_case_anesthesia_assessments` row rather than four columns overwritten in place. It carries BOTH
+people and never lets one stand in for the other (the D-195 rule): `assessed_by` is the clinician whose
+judgment it is (still selectable — the anaesthetist is not always at the keyboard) and the NEW
+`recorded_by` is the ACTOR, from the authenticated user and never the request. **The recipe is ED's, and
+ED got it from here** — `ed_triages` is append-only with provenance and its docblock names
+`SurgicalCase::asa_class` as the shape it followed; the ASA never got it back. Guarded twice (model
+guards + `SIGNAL '45000'` triggers) and audited on the EXISTING `created`-hook path
+(`surgical_case.anesthesia_assessed`), with a test asserting exactly ONE audit row so a second path would
+fail. `surgical_cases.asa_*` deliberately kept as the denormalised CURRENT value — no reader breaks, no
+historical row rewritten. **Browser-verified by re-driving the finding's own steps** as `johann.wyss`
+naming Tim Graf: the ASA III now SURVIVES the overwrite to ASA I, and the seeded row proves the two
+fields are independent (assessed by Wyss, recorded by org_admin Berg). **Role-blind dropdowns stay open
+as P6-M6** — the fix makes the naming traceable, not impossible. **A CORRECTION TO THE AUDIT, made here:**
+P6-C2 claimed the ASA was the ONLY unaudited write in the module — false, `addTeamMember()` is unaudited
+too AND overwrites `team_role` in place; both recorded against P6-M5, not fixed. P6-C3's '13 withErrors'
+is actually 16.
+
 **QA-FIX.5 is fixing the Phase-5 critical pair.** Part 1 (`b9f5c91`, D-206) is done: **recorded
 allergies and the medication-safety seam now render on all three medication-action screens**
 (dispensing, medications, eMAR), using the SAME shared `AllergyRecordPanel` the clinical chart uses.

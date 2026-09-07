@@ -31,6 +31,11 @@ class SurgicalCaseException extends RuntimeException
         return new self('surgical_case_events are append-only: a correction is a new event, never an edit.');
     }
 
+    public static function assessmentAppendOnly(): self
+    {
+        return new self('surgical_case_anesthesia_assessments are append-only: a revision is a new assessment, never an edit.');
+    }
+
     public static function invalidAsaClass(string $value): self
     {
         return new self("Invalid ASA physical-status class: {$value}. It is assigned by the anesthetist (I–VI).");

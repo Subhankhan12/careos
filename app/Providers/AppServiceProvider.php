@@ -95,6 +95,7 @@ use Modules\Scheduling\Models\WaitlistOffer;
 use Modules\Surgery\Models\CaseItemUsage;
 use Modules\Surgery\Models\ImplantPlacement;
 use Modules\Surgery\Models\SurgicalCase;
+use Modules\Surgery\Models\SurgicalCaseAnesthesiaAssessment;
 use Modules\Surgery\Models\SurgicalCaseEvent;
 use Modules\Surgery\Models\SurgicalChecklist;
 use Modules\Surgery\Models\SurgicalChecklistItem;
@@ -419,6 +420,23 @@ class AppServiceProvider extends ServiceProvider
             'resource_type' => 'surgical_case_event',
             'resource_id' => $m->id,
             'context' => ['surgical_case_id' => $m->surgical_case_id, 'event_type' => $m->event_type, 'reason' => $m->reason],
+        ]));
+        // The anesthesia assessment (QA-FIX.6b, P6-C2) — patient-scoped, APPEND-ONLY, one row per recorded
+        // ASA/Mallampati. This was the ONE write in the module that raised no audit event at all, while every
+        // sibling around it did; it now follows the same `created`-hook path rather than a second one. The
+        // context names BOTH people deliberately — the clinician whose judgment it is, and the actor who
+        // entered it — because conflating them is exactly what P6-C2 was.
+        SurgicalCaseAnesthesiaAssessment::created(fn (SurgicalCaseAnesthesiaAssessment $m) => $this->auditChange('surgical_case.anesthesia_assessed', [
+            'patient_id' => $m->patient_id,
+            'resource_type' => 'surgical_case_anesthesia_assessment',
+            'resource_id' => $m->id,
+            'context' => [
+                'surgical_case_id' => $m->surgical_case_id,
+                'asa_class' => $m->asa_class,
+                'mallampati' => $m->mallampati,
+                'assessed_by' => $m->assessed_by,
+                'recorded_by' => $m->recorded_by,
+            ],
         ]));
         // The WHO Surgical Safety Checklist (SURGERY.G3) — patient-scoped — so Surgery stays free of Audit. The
         // checklist is a RECORD: opening the container + each APPEND-ONLY item confirmation is audited; it

@@ -15,6 +15,7 @@ use Modules\Platform\Exceptions\CrossTenantReferenceException;
 use Modules\Platform\Models\User;
 use Modules\Surgery\Exceptions\SurgicalCaseException;
 use Modules\Surgery\Models\SurgicalCase;
+use Modules\Surgery\Models\SurgicalCaseAnesthesiaAssessment;
 use Modules\Surgery\Models\SurgicalCaseEncounter;
 use Modules\Surgery\Models\SurgicalCaseEvent;
 use Modules\Surgery\Models\SurgicalCaseTeamMember;
@@ -82,7 +83,7 @@ class SurgicalCaseController
         return redirect()->route('surgery.cases.show', $case->id)->with('status', 'surgical-case-scheduled');
     }
 
-    public function show(Request $request, string $case): Response
+    public function show(Request $request, string $case, SurgicalCaseService $cases): Response
     {
         Gate::authorize('surgery.manage');
         abort_unless($request->user() instanceof User, 403);
@@ -110,6 +111,11 @@ class SurgicalCaseController
                 ],
                 'asa' => ['class' => $record->asa_class, 'mallampati' => $record->mallampati, 'assessed_at' => $record->asa_assessed_at?->toIso8601String()],
             ],
+            // QA-FIX.6b (P6-C2): every assessment ever recorded for this case, newest first. The overwrite
+            // used to destroy the previous one, and the screen showed neither who assessed nor who entered
+            // it. BOTH people are named here and they are never conflated: `assessed_by` is the clinician
+            // whose judgment it is, `recorded_by` is the actor who typed it, and the two can differ.
+            'anesthesia_assessments' => $this->anesthesiaHistory($record, $cases),
             'team' => $record->teamMembers->map(fn (SurgicalCaseTeamMember $m): array => [
                 'id' => $m->id,
                 'name' => $m->staffProfile?->display_name,
@@ -240,6 +246,35 @@ class SurgicalCaseController
      *
      * @return list<array<string, mixed>>
      */
+    /**
+     * The case's anesthesia assessments, newest first, with BOTH people named (QA-FIX.6b, P6-C2).
+     *
+     * `assessed_by` is the clinician whose judgment it is; `recorded_by` is the actor who entered it. They
+     * are resolved separately and never substituted for one another — that substitution is what P2-C1 and
+     * P6-C2 both were. A recorder with no staff profile is shown by the account that acted (the email)
+     * rather than guessed at from a nearby name (the D-195 "refuse, do not guess" rule).
+     *
+     * @return list<array<string, string|null>>
+     */
+    private function anesthesiaHistory(SurgicalCase $case, SurgicalCaseService $cases): array
+    {
+        $assessments = $cases->anesthesiaAssessmentsFor($case);
+
+        // One query for every recorder's profile rather than one per row.
+        $recorderNames = StaffProfile::query()
+            ->whereIn('user_id', $assessments->pluck('recorded_by')->unique()->all())
+            ->pluck('display_name', 'user_id');
+
+        return $assessments->map(fn (SurgicalCaseAnesthesiaAssessment $a): array => [
+            'id' => $a->id,
+            'asa_class' => $a->asa_class,
+            'mallampati' => $a->mallampati,
+            'assessed_by' => $a->assessedBy?->display_name,
+            'recorded_by' => $recorderNames[$a->recorded_by] ?? $a->recordedBy?->email,
+            'assessed_at' => $a->assessed_at->toIso8601String(),
+        ])->all();
+    }
+
     private function notesFor(SurgicalCase $case): array
     {
         $notes = [];

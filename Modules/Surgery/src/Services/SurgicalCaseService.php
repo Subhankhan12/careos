@@ -18,6 +18,7 @@ use Modules\Platform\Models\User;
 use Modules\Platform\Services\TenantContext;
 use Modules\Surgery\Exceptions\SurgicalCaseException;
 use Modules\Surgery\Models\SurgicalCase;
+use Modules\Surgery\Models\SurgicalCaseAnesthesiaAssessment;
 use Modules\Surgery\Models\SurgicalCaseEncounter;
 use Modules\Surgery\Models\SurgicalCaseEvent;
 use Modules\Surgery\Models\SurgicalCaseTeamMember;
@@ -119,6 +120,34 @@ class SurgicalCaseService
      * Record the anesthetist's ASSIGNED ASA physical-status class (I–VI) + optional Mallampati (I–IV) — a
      * RECORDED FACT, with provenance. Gated `surgery.manage`; tenant fail-closed. CareOS computes NOTHING: no
      * surgical-risk score, no prediction — the class is the clinician's assessment (the electric fence).
+     *
+     * APPEND-ONLY, WITH BOTH PEOPLE NAMED (QA-FIX.6b, P6-C2, D-209). This used to `forceFill(...)->save()`
+     * straight onto the case: a revision OVERWROTE the previous assessment with no history anywhere, the
+     * only person recorded was the one PICKED from a dropdown, and it was the single write in this module
+     * that raised no audit event. Driven in a browser, an anaesthetist recorded an ASA III naming a
+     * **pharmacy technician** as the assessor, then overwrote it with an ASA I — and nothing recorded who
+     * had done either.
+     *
+     * Every assessment is now a NEW {@see SurgicalCaseAnesthesiaAssessment} row carrying BOTH people,
+     * because they can legitimately differ and must never stand in for one another (the QA-FIX.2a / D-195
+     * rule):
+     *   - `assessed_by` — the clinician whose judgment it is (selected; the anaesthetist who assessed the
+     *     patient is not always the person at the keyboard).
+     *   - `recorded_by` — **the ACTOR**, taken from the authenticated user and never submitted. This is the
+     *     column that did not exist.
+     *
+     * The `surgical_cases.asa_*` columns are still written, as the denormalised CURRENT value — the same
+     * posture as `status` beside `surgical_case_events`, so no existing reader breaks and no historical row
+     * is rewritten (the D-193 / D-197 / D-202 precedent). The row and the denormalised copy are written in
+     * ONE transaction so the case can never claim an assessment that has no record behind it.
+     *
+     * The audit event follows from the row's `created` hook, exactly like every sibling write in this
+     * module — no second audit path (see `AppServiceProvider`).
+     *
+     * NOT CHANGED HERE, deliberately: the staff dropdown is still unfiltered, so a non-anaesthetist can
+     * still be NAMED as the assessor. That is `P6-M6` (role-blind staff selectors, which affects the
+     * surgeon and team pickers too) and constraining it here would fix one selector and leave its
+     * siblings — it stays open rather than being half-closed inside this part.
      */
     public function recordAnesthesiaAssessment(
         User $actor,
@@ -129,7 +158,7 @@ class SurgicalCaseService
     ): SurgicalCase {
         Gate::forUser($actor)->authorize('surgery.manage');
         $this->assertSameTenant($case->tenant_id, 'surgical_case_id', $case->id);
-        $this->assertSameTenant($anesthetist->tenant_id, 'asa_assessed_by', $anesthetist->id);
+        $this->assertSameTenant($anesthetist->tenant_id, 'assessed_by', $anesthetist->id);
 
         if (! in_array($asaClass, SurgicalCase::ASA_CLASSES, true)) {
             throw SurgicalCaseException::invalidAsaClass($asaClass);
@@ -138,14 +167,46 @@ class SurgicalCaseService
             throw SurgicalCaseException::invalidMallampati($mallampati);
         }
 
-        $case->forceFill([
-            'asa_class' => $asaClass,
-            'mallampati' => $mallampati,
-            'asa_assessed_by' => $anesthetist->id,
-            'asa_assessed_at' => Carbon::now(),
-        ])->save();
+        return DB::transaction(function () use ($actor, $case, $asaClass, $mallampati, $anesthetist): SurgicalCase {
+            $assessedAt = Carbon::now();
 
-        return $case->refresh();
+            // The record of fact — append-only, audited by its `created` hook.
+            SurgicalCaseAnesthesiaAssessment::query()->create([
+                'patient_id' => $case->patient_id,
+                'surgical_case_id' => $case->id,
+                'assessed_by' => $anesthetist->id,
+                'recorded_by' => $actor->id,
+                'assessed_at' => $assessedAt,
+                'asa_class' => $asaClass,
+                'mallampati' => $mallampati,
+            ]);
+
+            // The denormalised CURRENT value, so existing readers are unaffected.
+            $case->forceFill([
+                'asa_class' => $asaClass,
+                'mallampati' => $mallampati,
+                'asa_assessed_by' => $anesthetist->id,
+                'asa_assessed_at' => $assessedAt,
+            ])->save();
+
+            return $case->refresh();
+        });
+    }
+
+    /**
+     * Every anesthesia assessment recorded for a case, newest first — the history the overwrite used to
+     * destroy. A read model only: it computes nothing and ranks nothing.
+     *
+     * @return Collection<int, SurgicalCaseAnesthesiaAssessment>
+     */
+    public function anesthesiaAssessmentsFor(SurgicalCase $case): Collection
+    {
+        return SurgicalCaseAnesthesiaAssessment::query()
+            ->with(['assessedBy', 'recordedBy'])
+            ->where('surgical_case_id', $case->id)
+            ->orderByDesc('assessed_at')
+            ->orderByDesc('id')
+            ->get();
     }
 
     /**

@@ -31,6 +31,8 @@ const props = defineProps<{
     notes: Note[];
     available_transitions: string[];
     events: Event[];
+    // Every assessment ever recorded for this case, newest first (QA-FIX.6b, P6-C2). Both people named.
+    anesthesia_assessments: { id: string; asa_class: string; mallampati: string | null; assessed_by: string | null; recorded_by: string | null; assessed_at: string }[];
     options: { staff: Option[]; team_roles: string[]; asa_classes: string[]; mallampati_classes: string[]; phases: string[] };
     actions: {
         can_manage: boolean;
@@ -122,6 +124,30 @@ function fmt(iso: string | null): string {
                     </select>
                     <button type="submit" class="rounded-full bg-euca-600 px-4 py-1.5 text-sm font-semibold text-white transition hover:bg-euca-700">{{ t('surgery.case.recordAsa') }}</button>
                 </form>
+
+                <!--
+                    QA-FIX.6b (P6-C2): the assessment history the overwrite used to destroy. Each row names
+                    BOTH people and never conflates them — the clinician whose judgment it is, and the actor
+                    who entered it. They can legitimately differ (an anaesthetist assesses; someone else may
+                    type it), and letting one stand in for the other is exactly what P2-C1 and P6-C2 were.
+                    A revision is a new row, so an earlier class is still here.
+                -->
+                <div v-if="anesthesia_assessments.length" class="mt-4 border-t border-euca-200 pt-3">
+                    <h3 class="text-xs font-semibold uppercase tracking-wide text-ink-subtle">{{ t('surgery.case.asaHistory') }}</h3>
+                    <ul class="mt-2 divide-y divide-euca-100">
+                        <li v-for="a in anesthesia_assessments" :key="a.id" class="py-2 text-sm">
+                            <p class="text-ink">
+                                <span class="font-semibold">{{ t('surgery.case.asaClass') }} {{ a.asa_class }}</span>
+                                <span v-if="a.mallampati" class="text-ink-muted"> · {{ t('surgery.case.mallampati') }} {{ a.mallampati }}</span>
+                            </p>
+                            <p class="text-xs text-ink-muted">
+                                {{ t('surgery.case.assessedBy', { name: a.assessed_by ?? '—' }) }}
+                                · {{ t('surgery.case.recordedBy', { name: a.recorded_by ?? '—' }) }}
+                                · {{ fmt(a.assessed_at) }}
+                            </p>
+                        </li>
+                    </ul>
+                </div>
             </div>
 
             <!-- Team -->

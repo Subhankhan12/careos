@@ -4450,3 +4450,49 @@ references the old ID.
   page-side sum reddens the Vue money fence. Positive controls assert a clean capture still produces
   the full set, is still idempotent, and still verifies the audit chain. See [[Surgery]], [[Billing]],
   `docs/qa/ROLE-AUDIT.md` (P6-C1, P6-M10), D-170, D-174, D-182, [[LOG]].
+- **D-209 — An ASA assessment is an APPEND-ONLY record naming two people: the clinician whose
+  judgment it is, and the actor who entered it (QA-FIX.6b, P6-C2).**
+  **WHAT WAS WRONG, all three of it.** `recordAnesthesiaAssessment()` wrote four columns onto the case
+  with `forceFill(...)->save()`. (a) The only person stored was the one **PICKED** from a dropdown —
+  `$actor` was used for the Gate check and then discarded, so an anaesthetist could record an ASA III
+  naming a **pharmacy technician** as the assessor and nothing recorded who had typed it. (b) A
+  revision **overwrote** in place, so the earlier judgment was gone. (c) It raised **no audit event**,
+  while the checklist beside it is append-only with actor and timestamp on every row.
+  **THE SHAPE WAS ALREADY IN THE PRODUCT, one vertical over.** `ed_triages` records a NURSE-ASSIGNED
+  acuity append-only with provenance and `SIGNAL '45000'` triggers, and `EdTriage`'s docblock names
+  `SurgicalCase::asa_class` as the shape it followed. ED copied the ASA's *fence* posture (a value a
+  clinician assigns, never computed) and added the record discipline; the ASA never got it back. The
+  new `surgical_case_anesthesia_assessments` is that recipe applied where it originated, matching the
+  module's own `surgical_checklist_items` / `surgical_case_events`. Nothing here is invented (D-170).
+  **TWO PEOPLE, TWO COLUMNS — the D-195 rule, applied one module further on.** `assessed_by` stays the
+  clinician whose judgment it is, because the anaesthetist who assessed the patient genuinely may not
+  be the person at the keyboard; `recorded_by` is **the ACTOR**, taken from the authenticated user and
+  never from the request (a test posts a forged `recorded_by` and asserts it is ignored). The screen
+  renders both — *"Assessed by X · recorded by Y"* — so neither can silently stand in for the other,
+  which is the presentation half of QA-FIX.2a.
+  **HISTORY BY APPEND, GUARDED TWICE.** Model `updating`/`deleting` guards (belt) plus DB triggers
+  (suspenders), so the record survives a write that bypasses Eloquent — asserted by driving
+  `DB::table(...)->update()` straight at the driver.
+  **AUDIT ON THE EXISTING PATH.** A `created` hook in `AppServiceProvider` emitting
+  `surgical_case.anesthesia_assessed`, exactly like every sibling. A test asserts **exactly one** row
+  per assessment, so adding a second audit path would fail it, and that the chain still verifies.
+  **`surgical_cases.asa_*` IS DELIBERATELY KEPT** as the denormalised CURRENT value — the `status`
+  beside `surgical_case_events` posture — so no reader breaks and **no historical row is rewritten**
+  (the D-193/D-197/D-202 precedent).
+  **WHAT WAS DELIBERATELY NOT DONE.** The staff dropdown stays unfiltered, so a non-anaesthetist can
+  still be *named*: that is `P6-M6` (role-blind selectors, which affects the surgeon and team pickers
+  too) and closing one selector would leave its siblings. Two rejected options are worth recording
+  because both redden the existing suite: dropping the picked person and deriving the assessor from
+  `StaffProfile::forUser($actor)` breaks `SurgicalCaseLifecycleTest`, whose profiles have no
+  `user_id`; and constraining the named person to the case's team with `ROLE_ANESTHETIST` breaks the
+  same test, which never adds a team member. A `profession` filter is not merely weak but
+  **non-functional** — every clinician in the seeder carries `'doctor'`, so no value anywhere
+  identifies an anaesthetist. **The fix makes the naming TRACEABLE, not impossible.**
+  **A CORRECTION TO THE AUDIT, MADE HERE.** `P6-C2` called this "the only write in the module that
+  raises no audit event". That is wrong: `addTeamMember()` is unaudited too, and it also overwrites
+  `team_role` in place via `updateOrCreate`. Both are recorded against `P6-M5` and the correction is
+  written into `P6-C2` where its evidence sits. It is not fixed here — this part is scoped to the ASA.
+  **Guarded by** eleven tests, mutation-checked three ways (attribute to the picked person → two red;
+  drop the append-only row → two red; drop the audit hook → two red). **The fixture deliberately makes
+  actor ≠ picked person**, which is exactly why `P2-C1`'s identical defect survived its own suite.
+  See [[Surgery]], `docs/qa/ROLE-AUDIT.md` (P6-C2, P6-M5), D-170, D-182, D-195, [[LOG]].

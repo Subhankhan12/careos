@@ -80,6 +80,7 @@ every later phase's timestamp observation suspect, and past-time booking was liv
 | `P6-C1` | CRITICAL | ✅ **FIXED** | QA-FIX.6a | `9d5c047` |
 | `P6-M10` | MEDIUM | ✅ **FIXED** | QA-FIX.6a | `9d5c047` |
 | `P6-L2` | LOW | ✅ **FIXED** | QA-FIX.6a | `9d5c047` |
+| `P6-C2` | CRITICAL | ✅ **FIXED** | QA-FIX.6b | `<pending>` |
 | all others | — | 📋 recorded, not fixed | — | — |
 
 *(A commit cannot contain its own hash. Per the repo-wide marker convention, `<pending>` is backfilled
@@ -2960,6 +2961,76 @@ by any of the four and would otherwise have gone undriven.
   afterwards without trace, and reconstructed from nothing. `D-196` (identity-namespace drift) is the
   mechanism behind the first defect — see the cross-phase note.
 
+> ⚠️ **CORRECTION TO THIS FINDING, made during QA-FIX.6b and recorded rather than quietly amended.**
+> Defect **(c)** above says the ASA write is *"the **only** write in the Surgery module that raises no
+> audit event"*. **That is wrong, and the error is mine.** `SurgicalCaseService::addTeamMember()`
+> (`:106-116`) is a second one: `grep SurgicalCaseTeamMember app/Providers/AppServiceProvider.php`
+> returns **nothing**, so adding a person to a surgical team is also unaudited. It also carries defect
+> **(b)** — it writes with `updateOrCreate`, so re-roling a team member **overwrites `team_role` in
+> place with no history**, exactly as the ASA did.
+>
+> The evidence for the mistake was in the audit's own text the whole time: the distinct-action list
+> quoted under defect (c) contains no team action, and I read that as "the ASA is the exception"
+> rather than "two things are missing". The ASA is still the more severe of the two — it is a clinical
+> judgment rather than a staffing note — so the CRITICAL grade stands on its own terms, but the word
+> "only" does not.
+>
+> **The team-write gap is NOT fixed by QA-FIX.6b** (that part is scoped to the ASA) and is recorded
+> against `P6-M5`, which already covers team attribution. See its note below.
+
+> ✅ **FIXED — QA-FIX.6b, commit `<pending>` (D-209).** All three defects, each closed by the same
+> change: an assessment is now an **append-only row** rather than four columns overwritten in place.
+>
+> - **THE SHAPE IS NOT NEW — the ED vertical already applies it to this exact kind of value.**
+>   `ed_triages` records a NURSE-ASSIGNED acuity append-only with provenance and DB triggers, and
+>   `EdTriage`'s own docblock names `SurgicalCase::asa_class` as the shape it followed. ED copied the
+>   ASA's *fence* posture and added the discipline; the ASA never got it back. The new
+>   `surgical_case_anesthesia_assessments` is that recipe applied where it started, alongside the
+>   module's own `surgical_checklist_items` and `surgical_case_events`.
+> - **(a) ATTRIBUTION — two people, two columns, and neither can stand in for the other** (the
+>   QA-FIX.2a / D-195 rule). `assessed_by` remains the clinician whose judgment it is, because the
+>   anaesthetist who assessed the patient genuinely is not always the person at the keyboard. The new
+>   `recorded_by` is **the ACTOR**, taken from the authenticated user and never from the request — a
+>   test posts a forged `recorded_by` and asserts it is ignored entirely.
+> - **(b) HISTORY — a revision is a NEW row.** Guarded twice: model `updating`/`deleting` guards
+>   (belt) and `SIGNAL '45000'` DB triggers (suspenders), so the record survives even a write that
+>   bypasses Eloquent. A test drives `DB::table(...)->update()` straight at the driver and asserts the
+>   database refuses it.
+> - **(c) AUDIT — on the EXISTING path, not a second one.** A `created` hook in `AppServiceProvider`
+>   emitting `surgical_case.anesthesia_assessed`, exactly like every sibling. A test asserts **exactly
+>   one** audit row per assessment, so a second path would fail it, and that the hash chain still
+>   verifies.
+> - **`surgical_cases.asa_*` is deliberately left in place** as the denormalised CURRENT value — the
+>   same posture as `status` beside `surgical_case_events`. No historical row is rewritten (the
+>   D-193/D-197/D-202 precedent) and no existing reader breaks.
+> - **BROWSER-VERIFIED by re-driving this finding's own steps**, as `johann.wyss` (anesthetist) on the
+>   seeded case. Recorded **ASA III / Mallampati II naming Tim Graf**, then overwrote with **ASA I**.
+>   The screen now shows:
+>
+>   ```
+>   ASSESSMENT HISTORY
+>   ASA class I   · Mallampati II   Assessed by Dr. med. Johann Wyss · recorded by Dr. med. Johann Wyss
+>   ASA class III · Mallampati II   Assessed by Tim Graf             · recorded by Dr. med. Johann Wyss
+>   ASA class II  · Mallampati I    Assessed by Dr. med. Johann Wyss · recorded by Dr. Anke Berg
+>   ```
+>
+>   **The ASA III survives the overwrite** — this finding's "III is gone" is now three rows deep — and
+>   the middle row shows the technician still *named* as assessor while the person who actually typed
+>   it is permanently recorded beside them. The bottom row is the seeded assessment and is the
+>   cleanest proof the two fields are independent: the seeder names Wyss as assessor while `org_admin`
+>   Anke Berg is the actor who ran it. Confirmed in the database: three assessment rows, three
+>   `surgical_case.anesthesia_assessed` audit rows, `verifyChain()` true, and the case's denormalised
+>   current class `I`.
+> - **NOT changed, deliberately:** the staff dropdown is still unfiltered, so a non-anaesthetist can
+>   still be *named*. That is `P6-M6` (role-blind selectors, which affects the surgeon and team
+>   pickers too); constraining this one selector would half-close it and leave its siblings, so it
+>   stays open. The fix makes the naming **traceable**, not impossible.
+> - **Guarded by** eleven tests, mutation-checked three ways — attributing to the picked person
+>   instead of the actor reddens two; removing the append-only row reddens two; removing the audit
+>   hook reddens two. **The fixture deliberately makes actor ≠ picked person**, which is precisely why
+>   `P2-C1`'s identical defect survived its own suite: where the two coincide, no assertion can tell
+>   which was stored.
+
 #### `P6-C3` — Every refusal in the Surgery module is invisible: 13 error flashes, zero renderers
 
 - **Roles:** all · **Routes:** every `POST` in the Surgery module
@@ -3197,6 +3268,22 @@ marker, **no** scrub-in/scrub-out time, and **no** way to record that someone wa
 `SurgicalCaseService::addTeamMember()` writes the row and no event. So the "surgical team" is a flat
 list of names with no record of who asserted them or whether they were in the room — which is the same
 question `P2-C1` raised about attribution, one table further on.
+
+> ➕ **EXTENDED during QA-FIX.6b (still open, not fixed).** Two further properties of this same write
+> were found while fixing `P6-C2`, and they make this finding worse than recorded:
+> - **It is UNAUDITED.** `grep SurgicalCaseTeamMember app/Providers/AppServiceProvider.php` returns
+>   nothing, so adding or re-roling a member of a surgical team raises no audit event at all. This
+>   corrects `P6-C2`'s claim that the ASA write was the *only* unaudited write in the module — there
+>   were two. The correction is written into `P6-C2` above, where its evidence sits.
+> - **It OVERWRITES with no history.** `SurgicalCaseService.php:112` uses `updateOrCreate` keyed on
+>   `(surgical_case_id, staff_profile_id)`, so re-roling someone replaces `team_role` in place. Who
+>   was scrubbed in as what, and when it changed, is unrecoverable — the same defect `P6-C2`'s
+>   `forceFill` had.
+>
+> **Why it was not fixed alongside `P6-C2`:** QA-FIX.6b is scoped to the ASA assessment. The remedy
+> here is the same append-only + audit-hook recipe and would be small, but it is a different write on
+> a different table, and widening a fix part to cover findings a gate did not name is how scope
+> creeps. Recorded for whichever gate takes `P6-M5`.
 
 #### `P6-M6` — The surgeon, anesthetist and team dropdowns are role-blind: a pharmacy technician is offered as "Primary surgeon"
 
