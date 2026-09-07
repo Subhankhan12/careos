@@ -80,6 +80,30 @@ lacks, inside a swallowing `catch (Throwable)`. **P3-H4 is resolved:** a pharmac
 `validated`, and `invoicePatient()` has no route. The dispense triple itself is atomic, append-only, and
 four driven refusals left nothing behind. **Nothing is fixed — audit only.**
 
+**Phase 6 (surgery / OR) is DONE**: 19 findings — 3 CRITICAL, 5 HIGH, 9 MEDIUM, 2 LOW. Roles driven:
+`surgeon`, `anesthetist`, `scrub_nurse`, `surgical_scheduler`, plus `org_admin` for the billing
+surface **no surgery role can reach**. **Surgical billing cannot be used at all** (P6-C1): a prop /
+function name collision on `invoice` in `CaseBilling.vue` (prop line 20, `function invoice()` line 35)
+makes every `v-if="invoice"` always true — the capture form never renders, the invoice button is
+unreachable, "View invoice" links to itself, and a real case with CHF 2,974.00 of charges shows
+**"Total: NaN"**. A driven implant placement decremented stock 20 → 19 and accrued **zero** charges.
+**The ASA assessment is the one falsifiable record in the module** (P6-C2): attributed to whoever the
+operator picks from a role-blind list (a pharmacy technician was successfully recorded as the
+assessing anesthetist), overwritten in place with no history, and **the only write in the module that
+raises no audit event** — while the checklist beside it is append-only with actor and timestamp.
+**All 13 refusals in the module are invisible** (P6-C3): no empty catches anywhere, but **no Surgery
+Vue page renders `errors`**, so a blank implant lot and a 99999-unit stock request each returned 302
+with no record and no message. **The theatre concurrency guard is textbook and unreachable** (P6-H2):
+`lockTheatre` → `assertNoOverlap` is correct and hammer-tested, and `TheatreSchedulingService` has
+**no HTTP controller** — the real form has no theatre field, so two cases for one surgeon at one
+instant were both accepted, as was one scheduled for **2020-01-01** (P6-H3, no past-time guard;
+QA-FIX.1b's lives in Scheduling, which Surgery does not reuse). **`surgical_scheduler` is 403 on all
+seven surgery routes** (P6-H1) — `theatre.manage`/`surgery.schedule` gate only that controller-less
+service. **The scrub nurse cannot reach either surface she is permitted to use** (P6-H4). **The
+fences hold and the WHO checklist is the clearest D-179 statement in the product** — "a record of
+what the team confirmed… it does not block the surgery" — plus an honest recall lookup driven end to
+end (lot → patient). **Nothing is fixed — audit only.**
+
 **QA-FIX.5 is fixing the Phase-5 critical pair.** Part 1 (`b9f5c91`, D-206) is done: **recorded
 allergies and the medication-safety seam now render on all three medication-action screens**
 (dispensing, medications, eMAR), using the SAME shared `AllergyRecordPanel` the clinical chart uses.

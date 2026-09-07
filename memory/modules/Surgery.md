@@ -335,3 +335,86 @@ anesthetist-ASSIGNED fact, never computed). **Next verticals: Phases 3 (lab), 4 
   anesthesia record (their consumer) is built.
 - **Next verticals (outside Surgery): Phases 3 (lab), 4 (radiology), 6 (ED) remain** per the master hospital
   build sequence — Surgery/Phase-5 itself needs no further core gate.
+
+## QA PHASE 6 — the audit findings (2026-09-07, `docs/qa/ROLE-AUDIT.md`)
+
+**AUDIT ONLY — nothing here is fixed.** All four surgery roles driven separately in a real browser
+(`surgeon`, `anesthetist`, `scrub_nurse`, `surgical_scheduler`), plus `org_admin` for the billing
+surface **no surgery role can reach**. 19 findings: 3 CRITICAL, 5 HIGH, 9 MEDIUM, 2 LOW.
+
+- **`P6-C1` — surgical billing cannot be used at all.** `CaseBilling.vue` declares the prop `invoice`
+  (line 20) **and** `function invoice()` (line 35); in `<script setup>` the function shadows the prop
+  in the template and a function is always truthy, so `v-if="actions.can_bill && !invoice"` is
+  permanently false (**the capture form never renders**), `v-if="invoice"` is permanently true (a dead
+  "View invoice" pointing at the current page), the `v-else-if` issue-invoice button is unreachable,
+  and `money(invoice.total_minor)` on `undefined` prints **"Total: NaN"** over a real CHF 2,974.00
+  case. Verified against the server (`can_bill: true`, `invoice: null`) and against the **built**
+  bundle (not stale — the chunk contains the capture form's keys). G5's engine orchestration is
+  correct and completely unreachable: a driven implant decremented stock 20 → 19 and accrued **0**
+  charges. The seeded case's 3 charges exist only because the seeder called the service directly.
+- **`P6-C2` — the ASA record is the module's one falsifiable write.** `asa_assessed_by` is written
+  from the **submitted `anesthetist_id`**, not the actor (`SurgicalCaseService.php:143`); `$actor` is
+  used only for the Gate and discarded. Driven: the anesthetist recorded an ASA III naming **Tim Graf,
+  a `pharmacy_technician`**, and the record says Graf assessed it. `forceFill(...)->save()` overwrites
+  in place with **no history**, and it is **the only write in the module that raises no audit event**
+  (every lifecycle transition, checklist confirm, item use and stock movement does). The G2 docblock
+  calls it "a RECORDED FACT, with provenance" — the provenance is a name the operator chose.
+- **`P6-C3` — all 13 refusals are invisible.** **No empty catches anywhere** (Pharmacy's `catch
+  (Throwable) {}` shape does NOT recur); every catch flashes `->withErrors([...])`. But **no Surgery
+  Vue page references `errors`** — 0 matches across all seven. Driven: a blank implant lot and a
+  99999-unit stock request each returned **302 with no record and no message**. Guards fire correctly
+  and report into a void.
+- **`P6-H1` — `theatre.manage` / `surgery.schedule` gate a controller-less service.**
+  `TheatreSchedulingService`'s only callers are the seeder, the tests and `AttemptBookSlotCommand`
+  (which exists to feed the hammer test). There is **no theatre route, no OR-list route, no booking
+  route**. `surgical_scheduler` — "runs the OR list" — is **403 on all seven surgery routes**.
+- **`P6-H2` — the G1 concurrency invariant is textbook and unreachable.** `lockTheatre` (`SELECT …
+  FOR UPDATE`) → `assertNoOverlap` (correct half-open predicate) is exactly the `BookingService`
+  idiom and is hammer-tested. The product's only scheduling path is
+  `SurgicalCaseController::store` → `SurgicalCaseService::schedule`, which has **no theatre field, no
+  slot, no lock, no overlap check and no transaction**. Driven: two cases, same surgeon, same instant
+  — **both accepted**. `theatre_slots` is written by the seeder alone.
+- **`P6-H3` — no past-time guard.** A case scheduled for **2020-01-01** was accepted and renders in
+  `Scheduled`. QA-FIX.1b's guard lives in Scheduling, which Surgery deliberately does not reuse (the
+  G1 decision above) — so the guard did not come with the invariant.
+- **`P6-H4` — the scrub nurse is stranded.** `note.write` gives her `…/checklist` and `…/supplies`
+  (both work); `surgery.manage` withholds the case list and case detail (403). There is **no link to
+  either**, and the checklist's only link ("Back to case") 403s for her.
+- **`P6-H5` — the Phase-2 permission anomalies, driven.** The surgeon cannot write the post-op
+  prescription (no `medication.prescribe`; the med page renders with **zero buttons**). The
+  anesthetist can prescribe nothing **and** order nothing (no `order.manage` → `/clinical/orders/review`
+  403, the nav "Orders" link disappears) — yet through `surgery.manage` can author inventory items and
+  adjust theatre stock. Neither role can perform the medication act its specialty is defined by.
+- **MEDIUM:** no surgery permission in the 14-key nav map, so **no surgery link for any role**
+  (`P6-M1`); landing offers `Nursing dispatch` to all four and it 403s (`P6-M2`); `Case.vue:79-81`
+  renders the Billing link ungated though no surgery role holds `billing.manage` (`P6-M3`); the
+  checklist count is invisible from the case, so a case completed at **0 of 17** looks identical to
+  17 of 17 (`P6-M4`); team rows carry **no attribution and no planned-vs-present distinction**
+  (`P6-M5`); all three staff dropdowns are **role-blind** — a pharmacy technician is offered as
+  "Primary surgeon" (`P6-M6`); counts are a tick-box with **no numbers and no way to record a
+  discrepancy** (`P6-M7`); a checklist item can be un-confirmed after the case closed, and the screen
+  shows neither who nor when though the rows do (`P6-M8`); the actor is stored on every event and
+  usage row and displayed on none (`P6-M9`).
+- **LOW:** a **fifth** date mechanism — `iso.replace('T',' ').slice(0,16)` on four pages keeps the UTC
+  wall-clock and drops the offset, so 09:00 UTC reads "09:00" to a Zurich user for whom it is 11:00
+  (`P6-L1`); money with **no currency** on billing and pricing (`P6-L2`).
+
+**GUARDS THAT HELD (driven, not assumed).** The **WHO checklist is the clearest D-179 statement in
+the product**: *"This checklist is a record of what the team confirmed. It does not block the surgery
+— the team owns the decision to proceed."*, honest per-phase counts, no "passed / safe to proceed"
+verdict, and the case completed at 0 of 17 with nothing claiming otherwise. The checklist is
+**append-only with actor + timestamp** and audits every confirm **and** un-confirm. The case detail
+states *"the system computes no surgical-risk score"* and computes none. **Case-event attribution is
+the ACTOR, not the plan** — proven with a role split (Wyss transitioning Vogt's case recorded Wyss),
+after an earlier confounded probe of mine was caught and redone. The **implant recall lookup works
+end to end** (lot → patient) and calls itself *"a factual traceability lookup, not a device-safety
+verdict"*, with an empty state that says no implants **match** rather than implying a clearance.
+`lot_number` is genuinely `required`. The stock guard held under an over-quantity request. The
+lifecycle is legal-transitions-only.
+
+**D-196 (identity-namespace drift) is promoted from a candidate to a pattern here, with a
+consequence.** The module uses **both** namespaces on one case row: `surgical_case_events.performed_by`,
+`case_item_usages.used_by` and `surgical_checklist_items.confirmed_by` are `bigint` → `users.id` and
+are all written from the **actor**; `surgical_cases.asa_assessed_by` is `char(26)` →
+`staff_profiles.id` and is the one written from a **picked value**. A `staff_profiles.id` is something
+you choose from a dropdown; a `users.id` is who is logged in. The drift and `P6-C2` are the same fact.
