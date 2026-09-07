@@ -429,3 +429,60 @@ you choose from a dropdown; a `users.id` is who is logged in. The drift and `P6-
   reading empty and a **retry re-captures everything that already succeeded**. Third module with the
   `P3-C1` / `P4-H2` create-then-associate shape. Graded MEDIUM because it is **latent**: no user can
   reach it while `P6-C1` stands. **Fixing `P6-C1` activates it** — read and fix in that order.
+
+## QA-FIX.6a — surgical billing renders the engine total, and capture is atomic (P6-C1 + P6-M10, D-208)
+
+**P6-C1 — the collision.** `resources/js/pages/Surgery/CaseBilling.vue` declared the **prop** `invoice`
+and a top-level **`function invoice()`**. In `<script setup>` both reach the template and the function
+wins; a function is always truthy, so `v-if="can_bill && !invoice"` (the capture form) was permanently
+false, the issue-invoice `v-else-if` was unreachable, `<Link v-if="invoice" :href="invoice.url">`
+always rendered pointing at the current page, and `money(invoice.total_minor)` on a function printed
+literal **"NaN"** over a real **CHF 2,974.00** case. **Surgical billing was structurally unusable** —
+neither of its two operations could be invoked. The action is now `issueInvoice()`; a **structural**
+test asserts no top-level `function invoice(` returns, because a payload assertion cannot see this
+(the props are byte-identical either way — the QA-FIX.5a lesson).
+
+**The deeper half: the page derived its own money.** `quantity × unit_price_minor` per line plus a
+client-side sum. Now `ChargeSetReader` (Billing — see [[Billing]]) returns the engine's stored
+`line_total_minor` per line and their Σ **already formatted**. The Vue holds no rate, does no
+arithmetic, divides by nothing and picks no currency.
+
+**THE READER IS IN BILLING FOR A CONCRETE REASON.** `SurgicalBillingTest`'s money fence is a byte-level
+scan forbidding `line_total_minor` **anywhere in `Modules/Surgery/src`**. Naming the column in the
+Surgery controller would have reddened a passing guard; weakening that guard to fit the fix would have
+been the wrong trade. Surgery therefore names **no money column at all** and the fence stays green,
+untouched. Remember this before "simplifying" the reader away.
+
+**`SurgicalPricing.vue` was fixed too**, because the new Vue fence covers every Surgery surface: it
+displayed prices via `/ 100` + `toLocaleString`. Displayed prices now arrive as `price_formatted`;
+`price_minor` is still sent because the EDIT FIELD is populated in major units from it. That
+input-affordance/displayed-figure distinction is why `/ 100` is deliberately NOT in the fence's
+forbidden list — the test says so explicitly so a later reader knows it was considered.
+
+**P6-M10 — fixed in the SAME part because fixing C1 arms it.** `chargeCase()` captured every charge
+first (each committing in its own transaction inside `ChargeCaptureService::capture()`) and wrote the
+`surgical_case_charges` links afterwards — and those links **are** the idempotency key read on entry.
+A throw partway through left earlier charges durable + unlinked AND the guard reading empty, so a
+retry re-captured what had succeeded: **the anti-double-billing mechanism permitted double-billing.**
+The unit of idempotency is the CASE, so the case's whole charge set is now the unit of atomicity: one
+`DB::transaction` around every capture **and** its link row, each link written beside its charge (the
+`BedBillingService::accrueBedDays()` pairing). The case row is locked `FOR UPDATE` first (the
+`lockTheatre` idiom) so concurrent captures serialise — without it "billed once" held only for
+sequential retries.
+
+**The cost, stated:** nested `DB::transaction` is a savepoint, so `AuditService`'s per-tenant
+`FOR UPDATE` on the latest `audit_events` row is now held for the whole capture rather than per
+charge; other audited writes in the tenant serialise behind it. Bounded, and no I/O inside the
+closure. A rollback also erases the audit trace of the ATTEMPT — correct for chain integrity, and a
+test asserts the chain still verifies.
+
+**FOUND WHILE FIXING, NOT FIXED (gate discipline) — verified from source, reported for later phases:**
+- **`Lab/Billing.vue` and `Radiology/Billing.vue` carry the IDENTICAL collision** (prop `invoice` +
+  `function invoice()`), and are **worse**: their `<div v-if="invoice">` always renders, so both pages
+  claim the work is **"Issued"** with a total of **"NaN"** on cases that were never invoiced, while
+  the issue-invoice control (`v-if="isCharged && !invoice"`) never renders. → Phase 8.
+- **`ED/Billing.vue`** has the client-side money sum but **no** collision. → Phase 7.
+- All three derive money client-side, so Phase 3's "zero page-side sums across the billing surfaces"
+  is true only of `resources/js/pages/Billing/`.
+- **`Modules/ED/src/Services/EdBillingService.php`** has the identical P6-M10 shape — idempotency read
+  (:102), captures (:115/:121), link loop (:125), **no transaction**. → Phase 7.

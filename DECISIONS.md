@@ -4388,3 +4388,65 @@ references the old ID.
   a charged row is marked charged, the dispense triple is still atomic under its row lock, and a
   transient failure still leaves the dispense standing. See [[Pharmacy]], `docs/qa/ROLE-AUDIT.md`
   (P5-C2, P5-M4), D-170, [[LOG]].
+- **D-208 — A page never derives a money figure it displays: the engine owns it, formats it, and the
+  page prints it. And a case's charge capture is ALL-OR-NOTHING (QA-FIX.6a, P6-C1 + P6-M10).**
+  **THE VISIBLE DEFECT WAS A NAME COLLISION, AND IT IS WORTH NAMING PRECISELY.**
+  `resources/js/pages/Surgery/CaseBilling.vue` declared the **prop** `invoice` and, twenty lines
+  later, a top-level **`function invoice()`**. In a `<script setup>` component both bindings are
+  exposed to the template and the function wins, so every `invoice` test in the template evaluated a
+  FUNCTION — which is always truthy. The capture form (`v-if="can_bill && !invoice"`) could never
+  render, the issue-invoice button behind a `v-else-if` was unreachable, "View invoice" resolved to
+  the current page, and the total rendered `money(invoice.total_minor)` on a function: literally
+  **"NaN"** over a real **CHF 2,974.00** case. Surgical billing was not merely wrong on screen, it was
+  **structurally unusable** — neither of its two operations could be invoked at all. The action is now
+  `issueInvoice()` and a structural test asserts no top-level `function invoice(` ever returns,
+  because a payload assertion cannot see this: the props are byte-identical either way.
+  **THE DEEPER RULE, AND WHY THE FIX IS A READER RATHER THAN A RENAME.** The same page also derived
+  its own money — `quantity × unit_price_minor` per line, and a client-side sum for the total — a
+  SECOND derivation of figures the engine had already computed and stored in
+  `charges.line_total_minor`. Phase 3 proved **zero** page-side money sums across the twelve Billing
+  surfaces; this one was outside that glob and had drifted. `ChargeSetReader` (Billing) now returns
+  each line's stored engine amount and their Σ **already formatted**, following
+  `PatientBalanceReader` — the class written for exactly this defect on the patient portal, whose
+  docblock records that two independent derivations of one figure *did* disagree. The engine's own
+  aggregate is copied, not invented: `IssueService` builds an invoice subtotal the same way.
+  **THE READER LIVES IN BILLING FOR A CONCRETE REASON, not tidiness.** Surgery's existing money fence
+  (`SurgicalBillingTest`) is a byte-level scan forbidding `line_total_minor` anywhere in
+  `Modules/Surgery/src`. Putting the column in the Surgery controller would have reddened a passing
+  guard, and weakening that guard to fit the fix would have been the wrong trade. Reading the figure
+  through a Billing service keeps Surgery naming **no money column at all** and leaves the fence
+  untouched and green.
+  **CURRENCY IS READ, NOT GUESSED.** From the charges' own tariff catalog — the same source
+  `IssueService::tenantCurrencyFromCharges()` uses. The test tenant renders `EUR 2'824.00` and the
+  demo hospital `CHF`, from one code path. An empty set returns `''` rather than defaulting.
+  **THE FIGURE IS LABELLED FOR WHAT IT IS.** The pre-invoice Σ is a **net, ex-VAT** subtotal of what
+  has been captured, so it stays under the "Estimate" label; once an invoice exists the page shows the
+  invoice's own authoritative total. The two are not the same number and the screen does not pretend
+  they are.
+  **P6-M10, FIXED IN THE SAME PART BECAUSE FIXING C1 ARMS IT.** `chargeCase()` captured every charge
+  first — each committing in its OWN transaction inside `ChargeCaptureService::capture()` — and wrote
+  the `surgical_case_charges` link rows afterwards. Those links **are** the idempotency key read on
+  entry. A throw partway through (an unpriced consumable → `TariffNotFoundForDateException`) therefore
+  left earlier charges durable and unlinked AND left the guard reading empty, so a retry re-captured
+  what had already succeeded: **the mechanism meant to prevent double-billing was the one that
+  permitted it.** It was latent only because C1 made the capture control unreachable, so shipping C1
+  alone would have switched on a defect nobody had ever run.
+  Since the unit of idempotency is the CASE ("a case is billed once"), the case's whole charge set is
+  now the unit of atomicity: one transaction around every capture **and** its link row, each link
+  written beside its charge — the `BedBillingService::accrueBedDays()` pairing, whose unit is a
+  bed-day and which has always been transactional. The case row is additionally locked `FOR UPDATE`
+  (the `lockTheatre` idiom) so two concurrent captures serialise instead of both reading an empty
+  guard; without it "billed once" was true only for sequential retries.
+  **WHAT THIS COSTS, STATED.** Nested `DB::transaction` is a savepoint, so `AuditService`'s per-tenant
+  `FOR UPDATE` on the latest `audit_events` row is now held from the first capture until the whole
+  capture commits, rather than per charge. Other audited writes in the same tenant serialise behind
+  that window. It is bounded (a handful of inserts, no I/O inside the closure) and it is the price of
+  the charges and their links being one fact. A rollback also erases the audit trace of the ATTEMPT —
+  correct for chain integrity, and a test asserts the chain still verifies afterwards.
+  **NO HISTORICAL ROWS REWRITTEN** (the D-193/D-197/D-202 precedent): existing charges and links are
+  untouched; only the write path changed.
+  **Guarded by** nine tests, mutation-checked three ways: removing the outer transaction reddens three
+  atomicity tests, restoring `function invoice(` reddens the structural guard, and reintroducing a
+  page-side sum reddens the Vue money fence. Positive controls assert a clean capture still produces
+  the full set, is still idempotent, and still verifies the audit chain. See [[Surgery]], [[Billing]],
+  `docs/qa/ROLE-AUDIT.md` (P6-C1, P6-M10), D-170, D-174, D-182, [[LOG]].

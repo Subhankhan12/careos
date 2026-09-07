@@ -632,3 +632,31 @@ a swap at `AgingController:40` *and* at `BillingReportController:173` — both w
 Captions live in `resources/js/lang/en.json` under `billing.aging.collectedMtdBasis`,
 `billing.report.cards.collectedBasis` and `billing.report.cards.periodCollectedBasis`; the aging card's
 label was renamed `Collected (month to date)` → **`Cash received (month to date)`**.
+
+## `ChargeSetReader` — the engine presents its own figures (QA-FIX.6a, D-208)
+
+`Modules/Billing/src/Services/ChargeSetReader.php`. **THE one source for "what does this set of charges
+come to"**, and the {@see PatientBalanceReader} discipline applied to charges rather than balances.
+
+**Why it exists.** The surgical case-billing page received `quantity` + `unit_price_minor` and derived
+both the line amounts (`quantity × rate`) and their total (a client-side sum) — a SECOND derivation of
+figures the engine had already computed and stored in `charges.line_total_minor`. That is exactly the
+defect `PatientBalanceReader`'s docblock records from the patient portal, where the two derivations
+*did* disagree once a credit note was on the account.
+
+**What it returns.** `present(Collection<Charge>)` → `lines[]` (each with the engine's stored
+`line_total_minor` as `amount_minor` **plus** `amount_formatted`), `total_minor`, `currency`,
+`total_formatted`. Also `totalMinor()`, `currency()` and a `format()` passthrough so a caller can put
+an issued invoice's own total through the SAME formatter as the lines.
+
+- **The aggregate is the engine's, copied not invented** — `Σ line_total_minor`, the same sum
+  `IssueService` uses for an invoice subtotal. No multiplication, no division, no rounding.
+- **Currency is READ** from the charges' tariff catalog, the source
+  `IssueService::tenantCurrencyFromCharges()` uses. An empty set returns `''`, never a default.
+- **The Σ is a NET, ex-VAT subtotal** and callers must label it as such — VAT is applied by the engine
+  at issue, so it is NOT an invoice total. Surgery labels it "Estimate" and switches to the invoice's
+  own `total_minor` once one exists.
+- **Formatting lives here** so no template divides by 100 (the DENTAL-B.P4 contract).
+
+**Reach for it whenever a non-Billing surface must SHOW money.** The rule it encodes: a page never
+derives a money figure it displays — the engine owns it, formats it, and the page prints it.

@@ -10,6 +10,7 @@ use Inertia\Response;
 use Modules\Billing\Models\Charge;
 use Modules\Billing\Models\Invoice;
 use Modules\Billing\Models\TariffItem;
+use Modules\Billing\Services\ChargeSetReader;
 use Modules\Platform\Exceptions\CrossTenantReferenceException;
 use Modules\Platform\Models\User;
 use Modules\Surgery\Exceptions\SurgicalBillingException;
@@ -25,7 +26,7 @@ use Modules\Surgery\Services\SurgicalBillingService;
  */
 class SurgicalBillingController
 {
-    public function show(Request $request, string $case, SurgicalBillingService $billing): Response
+    public function show(Request $request, string $case, SurgicalBillingService $billing, ChargeSetReader $chargeSet): Response
     {
         Gate::authorize('billing.manage');
         abort_unless($request->user() instanceof User, 403);
@@ -34,12 +35,15 @@ class SurgicalBillingController
         $record->auditRead(); // patient-scoped read log
 
         $chargeIds = SurgicalCaseCharge::query()->where('surgical_case_id', $record->id)->pluck('charge_id');
-        $charges = Charge::query()->whereIn('id', $chargeIds->all())->orderBy('id')->get();
+        $charges = Charge::query()->with('tariffCatalog')->whereIn('id', $chargeIds->all())->orderBy('id')->get();
         $invoiceId = $charges->firstWhere('invoice_id', '!=', null)?->invoice_id;
-        // The AUTHORITATIVE total is the issued invoice's (a Billing-owned figure we only READ). Pre-invoice,
-        // the page shows a client-side estimate from quantity × rate — the FENCE keeps every money math out
-        // of this module (no engine line-total is recomputed here).
+        // EVERY money figure on this screen is the ENGINE's, read — never recomputed here and never
+        // recomputed in the Vue (QA-FIX.6a, P6-C1). `ChargeSetReader` returns each line's stored engine
+        // total and their net Σ, already formatted with the charges' own currency; the AUTHORITATIVE total
+        // of an ISSUED invoice is read straight off the invoice. Surgery names no money column at all —
+        // the fence test asserts that literally.
         $invoice = $invoiceId === null ? null : Invoice::query()->find($invoiceId);
+        $captured = $chargeSet->present($charges);
 
         return Inertia::render('Surgery/CaseBilling', [
             'surgicalCase' => [
@@ -49,19 +53,27 @@ class SurgicalBillingController
                 'status' => $record->status,
                 'case_url' => route('surgery.cases.show', $record->id),
             ],
-            // A charge exposes its code + quantity + the snapshotted RATE (unit price). The line/estimate math
-            // is done presentationally in the Vue; the module computes no money.
-            'charges' => $charges->map(fn (Charge $c): array => [
-                'code' => $c->code,
-                'description' => $c->description,
-                'quantity' => $c->quantity,
-                'unit_price_minor' => $c->unit_price_minor,
-                'status' => $c->status,
-            ])->all(),
+            // Each line carries the ENGINE's own stored amount, already formatted. The Vue does no
+            // arithmetic and never divides by 100 — it prints what the engine says.
+            'charges' => $captured['lines'],
+            // The NET (ex-VAT) Σ of those engine amounts. Labelled an ESTIMATE on screen because it is
+            // not an invoice total: VAT is applied by the engine at issue, and more charges may still be
+            // captured. Once an invoice exists, its own `total_minor` is the authoritative figure.
+            'capturedTotal' => [
+                'minor' => $captured['total_minor'],
+                'currency' => $captured['currency'],
+                'formatted' => $captured['total_formatted'],
+            ],
             'procedures' => $billing->catalogTariffs()->where('unit', 'procedure')->map(fn (TariffItem $t): array => [
                 'code' => $t->code, 'name' => $t->description,
             ])->values()->all(),
-            'invoice' => $invoice === null ? null : ['id' => $invoice->id, 'url' => route('billing.invoices.show', $invoice->id), 'total_minor' => $invoice->total_minor],
+            // The AUTHORITATIVE figure once issued — the engine's own invoice total, formatted through the
+            // same formatter as the lines above so the two can never disagree in style.
+            'invoice' => $invoice === null ? null : [
+                'id' => $invoice->id,
+                'url' => route('billing.invoices.show', $invoice->id),
+                'total_formatted' => $chargeSet->format((int) $invoice->total_minor, (string) $invoice->currency),
+            ],
             'actions' => [
                 'can_bill' => Gate::allows('billing.manage'),
                 'charge_url' => route('surgery.cases.billing.charge', $record->id),

@@ -1,42 +1,44 @@
 <script setup lang="ts">
 import { Head, Link, router } from '@inertiajs/vue3';
-import { computed, reactive } from 'vue';
+import { reactive } from 'vue';
 import { useI18n } from 'vue-i18n';
 import AppLayout from '@/Layouts/AppLayout.vue';
 
 // Surgical case billing (SURGERY.G5) — PRESENTATIONAL. Capture the case's charges (procedure + theatre-time +
-// consumables/implants) through the EXISTING engine, then issue an invoice that reconciles-to-the-unit. The
-// ENGINE owns every authoritative figure (the issued invoice's total); pre-invoice, this page shows a
-// CLIENT-SIDE estimate from quantity × the snapshotted rate — the module itself computes no money (the fence).
-const { t, locale } = useI18n();
+// consumables/implants) through the EXISTING engine, then issue an invoice that reconciles-to-the-unit.
+//
+// THIS PAGE COMPUTES NO MONEY AT ALL (QA-FIX.6a, P6-C1). It used to receive the quantity and the unit rate
+// and derive both the line amounts and their sum client-side — a SECOND derivation of figures the engine
+// has already computed and stored. Every amount below now arrives already summed and already formatted
+// from `ChargeSetReader`, the engine-side reader. There is no arithmetic, no division by 100 and no
+// currency guess in this file, and a test asserts that literally over every Surgery surface.
+//
+// NOTHING HERE MAY BE NAMED `invoice` EXCEPT THE PROP. A top-level function called `invoice()` used to
+// shadow the `invoice` prop in the template; a function is always truthy, so the capture form's
+// `v-if="!invoice"` was permanently false, the issue-invoice button was unreachable, and the total
+// rendered as literal "NaN". The action is called `issueInvoice()` for that reason — see P6-C1.
+const { t } = useI18n();
 
-type Charge = { code: string; description: string | null; quantity: number; unit_price_minor: number; status: string };
+type Charge = { code: string; description: string | null; quantity: number; status: string; amount_formatted: string };
 type Procedure = { code: string; name: string };
 
 const props = defineProps<{
     surgicalCase: { id: string; patient: string; procedure: string; status: string; case_url: string };
     charges: Charge[];
     procedures: Procedure[];
-    invoice: { id: string; url: string; total_minor: number } | null;
+    // The NET (ex-VAT) Σ of the captured charges, from the engine. Not an invoice total.
+    capturedTotal: { minor: number; currency: string; formatted: string };
+    invoice: { id: string; url: string; total_formatted: string } | null;
     actions: { can_bill: boolean; charge_url: string; invoice_url: string };
 }>();
 
 const billForm = reactive({ procedure_code: '', theatre_minutes: '' });
 
-// A client-side estimate (quantity × rate) shown until the engine issues the authoritative invoice total.
-const estimateMinor = computed<number>(() => props.charges.reduce((sum, c) => sum + c.quantity * c.unit_price_minor, 0));
-
-function lineMinor(c: Charge): number {
-    return c.quantity * c.unit_price_minor;
-}
 function charge(): void {
     router.post(props.actions.charge_url, { procedure_code: billForm.procedure_code || null, theatre_minutes: billForm.theatre_minutes ? Number(billForm.theatre_minutes) : null }, { preserveScroll: true });
 }
-function invoice(): void {
+function issueInvoice(): void {
     router.post(props.actions.invoice_url, {}, { preserveScroll: true });
-}
-function money(minor: number): string {
-    return (minor / 100).toLocaleString(locale.value, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 </script>
 
@@ -72,16 +74,25 @@ function money(minor: number): string {
                 <ul v-else class="mt-4 divide-y divide-euca-100">
                     <li v-for="(c, i) in charges" :key="i" class="flex items-center justify-between py-2 text-sm">
                         <span class="text-ink">{{ c.description ?? c.code }} <span class="text-ink-muted">· ×{{ c.quantity }}</span></span>
-                        <span class="font-semibold text-ink">{{ money(lineMinor(c)) }}</span>
+                        <span class="font-semibold text-ink">{{ c.amount_formatted }}</span>
                     </li>
                 </ul>
+                <!--
+                    TWO DIFFERENT FIGURES, LABELLED DIFFERENTLY ON PURPOSE. Pre-invoice this is the net
+                    (ex-VAT) Σ of THIS CASE's captured charges — the lines directly above — so it reads
+                    "Estimated total". Once issued it is the INVOICE's own total, which is a broader
+                    figure: `invoiceCase()` gathers every validated, uninvoiced charge for the patient
+                    across the whole service DAY, so it can legitimately exceed the lines above it. It is
+                    therefore labelled "Invoice total", not "Total", and the link beside it goes to the
+                    invoice itself. Calling both "Total" would assert that the number sums this list.
+                -->
                 <div v-if="charges.length" class="mt-3 flex items-center justify-between border-t border-euca-200 pt-3">
                     <span class="text-sm font-semibold text-ink">{{ invoice ? t('surgery.billing.total') : t('surgery.billing.estimate') }}</span>
-                    <span class="text-lg font-semibold text-ink">{{ money(invoice ? invoice.total_minor : estimateMinor) }}</span>
+                    <span class="text-lg font-semibold text-ink">{{ invoice ? invoice.total_formatted : capturedTotal.formatted }}</span>
                 </div>
                 <div class="mt-4">
                     <Link v-if="invoice" :href="invoice.url" class="rounded-full bg-euca-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-euca-700">{{ t('surgery.billing.viewInvoice') }}</Link>
-                    <button v-else-if="actions.can_bill && charges.length" type="button" class="rounded-full bg-euca-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-euca-700" @click="invoice">{{ t('surgery.billing.issueInvoice') }}</button>
+                    <button v-else-if="actions.can_bill && charges.length" type="button" class="rounded-full bg-euca-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-euca-700" @click="issueInvoice">{{ t('surgery.billing.issueInvoice') }}</button>
                 </div>
             </div>
         </div>

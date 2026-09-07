@@ -104,6 +104,36 @@ fences hold and the WHO checklist is the clearest D-179 statement in the product
 what the team confirmed… it does not block the surgery" — plus an honest recall lookup driven end to
 end (lot → patient). **Nothing is fixed — audit only.**
 
+**QA-FIX.6 is fixing the Phase-6 critical cluster in four parts.** Part 1 (`<pending>`, D-208) is done:
+**surgical case billing renders the engine total, and charge capture is all-or-nothing (P6-C1 + P6-M10,
+and P6-L2 falls out of it).** The visible defect was a **name collision**: `CaseBilling.vue` declared the
+prop `invoice` AND a top-level `function invoice()`; in `<script setup>` the function wins in the
+template and is always truthy, so the capture form never rendered, the issue-invoice button was
+unreachable, "View invoice" pointed at the current page, and the total printed literal **"NaN"**.
+**A rename alone would NOT have fixed it** — `money()` carried no currency (so it would have shown
+`2,974.00`), and the page derived its own money (`quantity × rate` per line plus a client-side sum), a
+second derivation of figures the engine had already stored in `charges.line_total_minor`. New
+`Modules/Billing/src/Services/ChargeSetReader` (the `PatientBalanceReader` precedent) returns each line's
+stored engine amount and their Σ **already formatted**; the Vue holds no rate, does no arithmetic and
+picks no currency. **The reader lives in Billing for a concrete reason:** Surgery's existing money fence
+is a byte-level scan forbidding `line_total_minor` anywhere in `Modules/Surgery/src`, so naming the
+column there would have reddened a passing guard — Surgery now names no money column at all and the
+fence stays green, untouched. **Making the figure visible meant making it accurate:** `invoiceCase()`
+gathers the patient's charges across the whole service DAY, so on the seeded case the three surgical
+charges sum to **CHF 2,974.00** while the composite stay invoice they sit on totals **CHF 6,687.20** —
+the label is therefore **"Invoice total"**, not "Total", with "Estimated total" pre-invoice. **P6-M10
+was fixed in the same part because fixing C1 arms it:** `chargeCase()` now wraps every capture AND its
+link row in one transaction (the `BedBillingService::accrueBedDays()` pairing) with the case locked
+`FOR UPDATE`, so a partial failure leaves nothing behind and a retry cannot double-bill. The audit chain
+is safe because `AuditService` re-derives its head from the DB on every append; the cost is that the
+per-tenant audit lock is now held for the whole capture. **Browser-verified** as `org_admin` (no surgery
+role holds `billing.manage`): NaN → `CHF 6'687.20`; capture form `forms: 0` → `forms: 1`; charges
+captured through the UI for the first time showing **`Estimated total CHF 2'725.00`** which ties; a
+second capture produced no duplicates. **Found while fixing, NOT fixed (reported for Phases 7–8):**
+`Lab/Billing.vue` and `Radiology/Billing.vue` carry the IDENTICAL collision and are worse — they always
+claim work is **"Issued"** with a **"NaN"** total on never-invoiced cases — and
+`EdBillingService::chargeVisit()` has the identical P6-M10 shape.
+
 **QA-FIX.5 is fixing the Phase-5 critical pair.** Part 1 (`b9f5c91`, D-206) is done: **recorded
 allergies and the medication-safety seam now render on all three medication-action screens**
 (dispensing, medications, eMAR), using the SAME shared `AllergyRecordPanel` the clinical chart uses.

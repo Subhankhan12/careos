@@ -484,7 +484,7 @@
             "theatreMinutes": "Theatre minutes",
             "charges": "Charges",
             "noCharges": "No charges captured yet.",
-            "total": "Total",
+            "total": "Invoice total",
             "estimate": "Estimated total",
             "issueInvoice": "Issue invoice",
             "viewInvoice": "View invoice"

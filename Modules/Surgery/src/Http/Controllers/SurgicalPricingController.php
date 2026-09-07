@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Gate;
 use Inertia\Inertia;
 use Inertia\Response;
 use Modules\Billing\Models\TariffItem;
+use Modules\Billing\Services\ChargeSetReader;
 use Modules\Platform\Exceptions\CrossTenantReferenceException;
 use Modules\Platform\Models\User;
 use Modules\Surgery\Exceptions\SurgicalBillingException;
@@ -22,13 +23,20 @@ use Modules\Surgery\Services\SurgicalBillingService;
  */
 class SurgicalPricingController
 {
-    public function index(Request $request, SurgicalBillingService $billing): Response
+    public function index(Request $request, SurgicalBillingService $billing, ChargeSetReader $chargeSet): Response
     {
         Gate::authorize('billing.manage');
         abort_unless($request->user() instanceof User, 403);
 
         $tariffs = $billing->catalogTariffs();
         $theatreTime = $tariffs->firstWhere('code', SurgicalBillingService::THEATRE_TIME_CODE);
+
+        // QA-FIX.6a: a price the page DISPLAYS arrives already formatted, with the catalog's own currency —
+        // the page never divides by 100 or picks a currency for display. `price_minor` is still sent because
+        // the EDIT FIELD is populated in major units from it; that is an input affordance, not a figure
+        // presented as fact, and the fence test says so explicitly.
+        $currency = (string) ($billing->catalog()->currency ?? '');
+        $price = fn (?int $minor): ?string => $minor === null ? null : $chargeSet->format($minor, $currency);
 
         return Inertia::render('Surgery/SurgicalPricing', [
             'items' => SurgicalItem::query()->where('active', true)->with('tariffItem')->orderBy('name')->get()
@@ -38,6 +46,7 @@ class SurgicalPricingController
                     'name' => $item->name,
                     'is_implant' => $item->is_implant,
                     'price_minor' => $item->tariffItem?->unit_price_minor,
+                    'price_formatted' => $price($item->tariffItem?->unit_price_minor),
                     'set_url' => route('surgery.pricing.item', $item->id),
                 ])->all(),
             // Procedures = the surgery catalog's tariffs authored as procedures (unit 'procedure').
@@ -45,8 +54,13 @@ class SurgicalPricingController
                 'code' => $t->code,
                 'name' => $t->description,
                 'price_minor' => $t->unit_price_minor,
+                'price_formatted' => $price($t->unit_price_minor),
             ])->values()->all(),
-            'theatre_time' => ['price_minor' => $theatreTime?->unit_price_minor, 'unit' => $theatreTime?->unit],
+            'theatre_time' => [
+                'price_minor' => $theatreTime?->unit_price_minor,
+                'price_formatted' => $price($theatreTime?->unit_price_minor),
+                'unit' => $theatreTime?->unit,
+            ],
             'actions' => [
                 'procedure_url' => route('surgery.pricing.procedure'),
                 'theatre_time_url' => route('surgery.pricing.theatre-time'),

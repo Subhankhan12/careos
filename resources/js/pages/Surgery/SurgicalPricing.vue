@@ -5,18 +5,22 @@ import { useI18n } from 'vue-i18n';
 import AppLayout from '@/Layouts/AppLayout.vue';
 
 // Surgical pricing (SURGERY.G5) — PRESENTATIONAL. Set tenant-authored prices in the EXISTING tariff store for
-// surgical items, theatre time, and procedures. Prices are integer minor units server-side; the input is
-// major units, converted on send (a display convenience — the billing ENGINE owns all money math). A price
-// is a RATE, not a verdict.
-const { t, locale } = useI18n();
+// surgical items, theatre time, and procedures. A price is a RATE, not a verdict.
+//
+// TWO DIFFERENT THINGS, kept apart (QA-FIX.6a, P6-C1's fence). A price this page DISPLAYS arrives already
+// formatted from the server, with the catalog's own currency — the page neither divides by 100 nor picks a
+// currency for a figure it presents as fact. A price the user EDITS is populated in major units from
+// `price_minor` and converted back on send; that is an input affordance on a value the user is typing, not
+// a figure asserted to them, and the fence test names the distinction explicitly.
+const { t } = useI18n();
 
-type Item = { id: string; code: string; name: string; is_implant: boolean; price_minor: number | null; set_url: string };
-type Procedure = { code: string; name: string; price_minor: number };
+type Item = { id: string; code: string; name: string; is_implant: boolean; price_minor: number | null; price_formatted: string | null; set_url: string };
+type Procedure = { code: string; name: string; price_minor: number; price_formatted: string | null };
 
 const props = defineProps<{
     items: Item[];
     procedures: Procedure[];
-    theatre_time: { price_minor: number | null; unit: string | null };
+    theatre_time: { price_minor: number | null; price_formatted: string | null; unit: string | null };
     actions: { procedure_url: string; theatre_time_url: string };
 }>();
 
@@ -39,8 +43,9 @@ function setProcedure(): void {
 function setTheatreTime(): void {
     router.post(props.actions.theatre_time_url, { price_minor: Math.round(parseFloat(theatreForm.price) * 100), unit: theatreForm.unit }, { preserveScroll: true });
 }
-function fmt(minor: number | null): string {
-    return minor === null ? '—' : (minor / 100).toLocaleString(locale.value, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+// A DISPLAYED price is whatever the server formatted; an absent price is an em dash, never a zero.
+function shown(formatted: string | null): string {
+    return formatted ?? '—';
 }
 </script>
 
@@ -70,7 +75,7 @@ function fmt(minor: number | null): string {
                 <ul v-if="procedures.length" class="mt-3 divide-y divide-euca-100">
                     <li v-for="p in procedures" :key="p.code" class="flex items-center justify-between py-2 text-sm">
                         <span class="text-ink">{{ p.name }} <span class="text-ink-muted">· {{ p.code }}</span></span>
-                        <span class="font-semibold text-ink">{{ fmt(p.price_minor) }}</span>
+                        <span class="font-semibold text-ink">{{ shown(p.price_formatted) }}</span>
                     </li>
                 </ul>
                 <form class="mt-3 flex flex-wrap items-end gap-2" @submit.prevent="setProcedure">
@@ -89,7 +94,7 @@ function fmt(minor: number | null): string {
                     <li v-for="item in items" :key="item.id" class="flex flex-col gap-2 py-3 sm:flex-row sm:items-center sm:justify-between">
                         <div>
                             <p class="text-sm font-semibold text-ink">{{ item.name }}<span v-if="item.is_implant" class="ml-1 rounded-full bg-euca-100 px-2 py-0.5 text-xs font-semibold text-euca-800">{{ t('surgery.pricing.implant') }}</span></p>
-                            <p class="text-xs text-ink-muted">{{ item.code }} · {{ t('surgery.pricing.current', { price: fmt(item.price_minor) }) }}</p>
+                            <p class="text-xs text-ink-muted">{{ item.code }} · {{ t('surgery.pricing.current', { price: shown(item.price_formatted) }) }}</p>
                         </div>
                         <div class="flex items-center gap-2">
                             <input v-model="itemForms[item.id]" :value="itemPrice(item)" type="number" step="0.01" min="0" :placeholder="t('surgery.pricing.price')" class="w-28 rounded-xl border border-euca-200 bg-white/70 px-3 py-1 text-sm text-ink focus:border-euca-400 focus:outline-none" />

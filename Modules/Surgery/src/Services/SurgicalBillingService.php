@@ -4,6 +4,7 @@ namespace Modules\Surgery\Services;
 
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Modules\Billing\Models\Charge;
 use Modules\Billing\Models\Invoice;
@@ -101,6 +102,23 @@ class SurgicalBillingService
      * tenant fail-closed. IDEMPOTENT: a case is billed once (the `surgical_case_charges` link). The engine
      * resolves each tariff by code, SNAPSHOTS the fee, and computes the line total — NO money math here.
      *
+     * ALL-OR-NOTHING (QA-FIX.6a, P6-M10, D-208). This used to capture every charge first — each committing
+     * in its OWN transaction inside `ChargeCaptureService::capture()` — and only then write the link rows.
+     * A throw partway through (an unpriced consumable raises `TariffNotFoundForDateException`) therefore
+     * left the earlier charges DURABLE and UNLINKED on the patient's account. Worse, those link rows are
+     * also the idempotency key read at the top of this method, so the guard read empty afterwards and a
+     * retry — the natural response to an error — re-captured everything that had already succeeded. The
+     * mechanism meant to prevent double-billing was the one that permitted it.
+     *
+     * The unit of idempotency here is the CASE ("a case is billed once"), so the case's whole charge set is
+     * the unit of atomicity: one transaction around every capture AND its link row, with each link written
+     * beside its charge (the `BedBillingService::accrueBedDays()` pairing, whose unit is a bed-DAY and which
+     * has always been transactional). A failure now leaves nothing behind, so a retry starts clean.
+     *
+     * The case row is locked FOR UPDATE first so two concurrent captures serialise rather than both reading
+     * an empty idempotency guard and both capturing — the `lockResource` / `lockTheatre` idiom this codebase
+     * already uses in {@see TheatreSchedulingService::bookSlot()}.
+     *
      * @return Collection<int, Charge>
      */
     public function chargeCase(User $actor, SurgicalCase $case, ?string $procedureCode = null, ?int $theatreMinutes = null): Collection
@@ -108,34 +126,60 @@ class SurgicalBillingService
         Gate::forUser($actor)->authorize('billing.manage');
         $this->assertSameTenant($case->tenant_id, 'surgical_case_id', $case->id);
 
-        // Idempotent: return the existing charges if the case is already billed.
-        $existing = SurgicalCaseCharge::query()->where('surgical_case_id', $case->id)->pluck('charge_id');
-        if ($existing->isNotEmpty()) {
-            return Charge::query()->whereIn('id', $existing->all())->get();
-        }
+        return DB::transaction(function () use ($actor, $case, $procedureCode, $theatreMinutes): Collection {
+            $this->lockCase($case);
 
-        $patient = Patient::query()->findOrFail($case->patient_id);
-        $branch = Branch::query()->firstOrFail(); // charges are branch-attributed
-        $serviceDate = $case->completed_at ?? $case->scheduled_at;
+            // Idempotent: return the existing charges if the case is already billed. Read INSIDE the lock,
+            // so a concurrent capture cannot pass this check at the same moment.
+            $existing = SurgicalCaseCharge::query()->where('surgical_case_id', $case->id)->pluck('charge_id');
+            if ($existing->isNotEmpty()) {
+                return Charge::query()->whereIn('id', $existing->all())->get();
+            }
 
-        /** @var Collection<int, Charge> $captured */
-        $captured = new Collection;
+            $patient = Patient::query()->findOrFail($case->patient_id);
+            $branch = Branch::query()->firstOrFail(); // charges are branch-attributed
+            $serviceDate = $case->completed_at ?? $case->scheduled_at;
 
-        if ($procedureCode !== null && trim($procedureCode) !== '') {
-            $captured->push($this->charges->captureManual($patient, $branch, $serviceDate, $procedureCode, 1, $actor));
-        }
-        if ($theatreMinutes !== null && $theatreMinutes > 0) {
-            $captured->push($this->charges->captureManual($patient, $branch, $serviceDate, self::THEATRE_TIME_CODE, $theatreMinutes, $actor));
-        }
-        foreach ($this->pricedUsageTotals($case) as $code => $quantity) {
-            $captured->push($this->charges->captureManual($patient, $branch, $serviceDate, $code, $quantity, $actor));
-        }
+            /** @var Collection<int, Charge> $captured */
+            $captured = new Collection;
 
-        foreach ($captured as $charge) {
-            SurgicalCaseCharge::query()->create(['surgical_case_id' => $case->id, 'charge_id' => $charge->id]);
-        }
+            $capture = function (string $code, int $quantity) use ($actor, $case, $patient, $branch, $serviceDate, $captured): void {
+                $charge = $this->charges->captureManual($patient, $branch, $serviceDate, $code, $quantity, $actor);
+                // The link is written BESIDE its charge, never in a later pass: within this transaction no
+                // charge can exist without the row that makes it findable and makes re-billing impossible.
+                SurgicalCaseCharge::query()->create(['surgical_case_id' => $case->id, 'charge_id' => $charge->id]);
+                $captured->push($charge);
+            };
 
-        return $captured;
+            if ($procedureCode !== null && trim($procedureCode) !== '') {
+                $capture($procedureCode, 1);
+            }
+            if ($theatreMinutes !== null && $theatreMinutes > 0) {
+                $capture(self::THEATRE_TIME_CODE, $theatreMinutes);
+            }
+            foreach ($this->pricedUsageTotals($case) as $code => $quantity) {
+                $capture((string) $code, (int) $quantity);
+            }
+
+            return $captured;
+        });
+    }
+
+    /**
+     * Serialise concurrent captures for one case: a `SELECT … FOR UPDATE` on the case row, so N racing
+     * callers queue on it and only the first finds the idempotency guard empty. Fails closed if the case is
+     * not in the tenant (the `TheatreSchedulingService::lockTheatre` idiom).
+     */
+    private function lockCase(SurgicalCase $case): void
+    {
+        $rows = DB::select(
+            'select id from surgical_cases where tenant_id = ? and id = ? for update',
+            [(string) $this->tenantContext->id(), $case->id],
+        );
+
+        if ($rows === []) {
+            throw CrossTenantReferenceException::forAttribute('surgical_case_id', (string) $case->id);
+        }
     }
 
     /**

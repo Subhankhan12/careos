@@ -77,6 +77,9 @@ every later phase's timestamp observation suspect, and past-time booking was liv
 | `P5-C1` | CRITICAL | ✅ **FIXED** | QA-FIX.5a | `b9f5c91` |
 | `P5-C2` | CRITICAL | ✅ **FIXED** | QA-FIX.5b | `88d50eb` |
 | `P5-M4` | MEDIUM | ✅ **FIXED** | QA-FIX.5b | `88d50eb` |
+| `P6-C1` | CRITICAL | ✅ **FIXED** | QA-FIX.6a | `<pending>` |
+| `P6-M10` | MEDIUM | ✅ **FIXED** | QA-FIX.6a | `<pending>` |
+| `P6-L2` | LOW | ✅ **FIXED** | QA-FIX.6a | `<pending>` |
 | all others | — | 📋 recorded, not fixed | — | — |
 
 *(A commit cannot contain its own hash. Per the repo-wide marker convention, `<pending>` is backfilled
@@ -2857,6 +2860,62 @@ by any of the four and would otherwise have gone undriven.
   billing surface that cannot perform either of its two operations. The seeded case's 3 charges exist
   only because the **seeder** called the service directly.
 
+> ✅ **FIXED — QA-FIX.6a, commit `<pending>` (D-208).** The action is now `issueInvoice()`, so nothing
+> shadows the `invoice` prop, and **every money figure on the screen is the engine's, formatted by the
+> engine**.
+>
+> - **A rename alone would NOT have been enough, and that is the substance of this fix.** `money()`
+>   carried **no currency** (`(minor / 100).toLocaleString(locale)`), so a pure rename would have
+>   rendered `2,974.00`, not `CHF 2'974.00`. And the page derived its own money — `quantity ×
+>   unit_price_minor` per line plus a client-side sum — a **second derivation** of figures the engine
+>   had already computed and stored in `charges.line_total_minor`. Both are gone: the page now holds
+>   no rate, does no arithmetic, divides by nothing and picks no currency.
+> - **The totalling went into Billing, not Surgery, for a concrete reason.** Surgery's existing money
+>   fence (`SurgicalBillingTest`) is a byte-level scan forbidding `line_total_minor` **anywhere** in
+>   `Modules/Surgery/src`; naming the column in the Surgery controller would have reddened a passing
+>   guard, and weakening that guard to fit the fix would have been the wrong trade. The new
+>   `Modules/Billing/src/Services/ChargeSetReader` follows `PatientBalanceReader` — the class written
+>   for this exact defect on the patient portal — and returns each line's stored engine amount plus
+>   their Σ already formatted. **Surgery now names no money column at all** and the fence stays green,
+>   untouched. Currency is read from the charges' own tariff catalog, the same source
+>   `IssueService::tenantCurrencyFromCharges()` uses.
+> - **Making the figure visible meant making it accurate.** Once an invoice exists the page shows the
+>   invoice's own total — but `invoiceCase()` gathers every validated, uninvoiced charge for the
+>   patient across the whole service **day**, so that figure can legitimately exceed the case's lines.
+>   On the seeded case it does, by a lot: the three surgical charges sum to **CHF 2,974.00** while the
+>   composite stay invoice they sit on totals **CHF 6,687.20**. Labelling that "Total" directly under
+>   the case's lines would have asserted that it summed them, so the label is now **"Invoice total"**
+>   (pre-invoice it stays "Estimated total", a net ex-VAT Σ of *this case's* charges). A naive rename
+>   would have shipped `6,687.20` labelled "Total" — plausible-looking and wrong, which is worse than
+>   `NaN`.
+> - **BROWSER-VERIFIED as `org_admin`** (the only role holding `billing.manage`; no surgery role does).
+>   **Before —** `Total  NaN`, `document.querySelectorAll('main form').length === 0`, "View invoice"
+>   pointing at the current page. **After —** the seeded case renders
+>   `Laparoskopische Appendektomie ×1  CHF 2'500.00 · Theatre time ×90  CHF 450.00 · Steriler Tupfer ×8
+>   CHF 24.00 · Invoice total  CHF 6'687.20`, with "View invoice" now resolving to
+>   `/billing/invoices/01m1ydcwnwed6s6gv94q60yxr8`. On a fresh, uninvoiced case the **capture form
+>   renders** (`forms: 1`), charges were captured **through the UI for the first time**, and the page
+>   showed `CHF 2'500.00 + CHF 225.00` under **`Estimated total  CHF 2'725.00`** — which ties — with the
+>   **"Issue invoice" button now reachable**. No `NaN` anywhere.
+> - **`SurgicalPricing.vue` was fixed in the same part**, because the new fence covers every Surgery
+>   surface and it formatted prices client-side too. Displayed prices now arrive as `price_formatted`;
+>   `price_minor` still ships because the **edit field** is populated in major units from it. That
+>   input-affordance/displayed-figure distinction is why `/ 100` is deliberately *not* in the fence's
+>   forbidden list, and the test says so explicitly rather than leaving it looking like an oversight.
+> - **This also closes `P6-L2`** (Surgery money rendered with no currency unit) for both money surfaces.
+>
+> **FOUND WHILE FIXING, NOT FIXED — the identical collision ships in two other modules.** Verified from
+> source: **`Lab/Billing.vue`** (prop `:18`, `function invoice()` `:42`) and
+> **`Radiology/Billing.vue`** (`:18`, `:41`) carry the same prop/function collision, and are **worse**
+> than Surgery's was — their `<div v-if="invoice">` always renders, so both pages announce the work is
+> **"Issued"** and show its total as **"NaN"** on cases that were never invoiced, while the
+> issue-invoice control behind `v-if="isCharged && !invoice"` never renders at all. `ED/Billing.vue`
+> has the client-side money sum but **no** collision (it already names its action `issueInvoice()` —
+> the in-repo precedent this fix follows). All three still derive money client-side, so Phase 3's
+> "zero page-side sums across the billing surfaces" holds only for `resources/js/pages/Billing/`.
+> Recorded for **Phase 7 (ED)** and **Phase 8 (Lab + Radiology)** rather than fixed here, per gate
+> discipline.
+
 #### `P6-C2` — The ASA assessment is attributed to a person the operator picks, silently overwritable, and the only unaudited write in the module
 
 - **Roles:** `surgeon`, `anesthetist` (anyone with `surgery.manage`) · **Route:** `POST /surgery/cases/{case}/anesthesia`
@@ -3234,6 +3293,46 @@ statement, the wording says so explicitly rather than implying a driven result.
   severity is `P4-C4` (re-graded CRITICAL → HIGH for exactly this reason). **It becomes active the
   moment `P6-C1` is fixed**, which is the order those two findings should be read in.
 
+> ✅ **FIXED — QA-FIX.6a, commit `<pending>` (D-208), in the SAME part as `P6-C1` and for that
+> reason.** Fixing C1 makes the capture control reachable, so shipping C1 alone would have switched on
+> a defect nobody had ever run.
+>
+> - **The unit of idempotency is the CASE** ("a case is billed once" — the link table's own migration
+>   docblock), so the case's whole charge set is now the unit of atomicity: one `DB::transaction`
+>   around every capture **and** its link row, with each link written **beside** its charge rather than
+>   in a later pass. That pairing is copied from `BedBillingService::accrueBedDays()`, whose unit is a
+>   bed-day and which has always been transactional — the discipline already existed in the repo.
+> - **The case row is additionally locked `FOR UPDATE`** (the `lockTheatre` / `lockResource` idiom) so
+>   two concurrent captures serialise instead of both reading an empty idempotency guard. Without it,
+>   "billed once" was true only for sequential retries: `unique(tenant_id, charge_id)` cannot stop two
+>   racing captures, because the charge ids differ.
+> - **The hash-chained audit ledger is safe under this, and that was checked rather than assumed.**
+>   `AuditService::record()` re-derives the chain head **from the database on every append**
+>   (`SELECT hash, occurred_at … ORDER BY … LIMIT 1 FOR UPDATE`) — there is no cached head anywhere —
+>   so a rollback takes its audit rows with it and the next append reads the unchanged real head. No
+>   gap, no dangling `prev_hash`. A test asserts the chain still verifies after a failed capture.
+> - **What it costs, stated rather than glossed:** nested `DB::transaction` is a savepoint, so
+>   `AuditService`'s **per-tenant** `FOR UPDATE` on the latest `audit_events` row is now held from the
+>   first capture until the whole capture commits, rather than being released per charge. Every other
+>   audited write in that tenant serialises behind that window. It is bounded — tariff resolution plus
+>   N charge inserts and N link rows, with no HTTP, PDF or queue work inside the closure — and it is
+>   the price of the charges and their links being one fact. A rollback also erases the audit trace of
+>   the **attempt**; correct for chain integrity, and worth knowing when reading the log.
+> - **Guarded by four tests, mutation-checked.** Removing the outer transaction reddens three of them:
+>   the failed capture then leaves 1 orphan charge and 0 links, and the retry double-bills the
+>   procedure exactly as the finding describes. The fourth exercises a clean run and correctly stays
+>   green. **The retry test is the D-182 shape**: it would pass trivially without the guard only if the
+>   guard worked, and it fails loudly without it.
+> - **BROWSER-VERIFIED, which this finding never was before** — it was code-established precisely
+>   because `P6-C1` made it unreachable. Charges were captured **through the UI** on a fresh case, and
+>   the database showed **2 charges and 2 link rows** — every charge paired. Pressing *Capture charges*
+>   a second time produced **no duplicates** (still 2), and `verifyChain()` returned true afterwards.
+> - **No historical rows rewritten** (the D-193/D-197/D-202 precedent): only the write path changed.
+>
+> **FOUND WHILE FIXING, NOT FIXED:** `Modules/ED/src/Services/EdBillingService.php` carries the
+> **identical** shape — idempotency read (`:102`), captures (`:115`, `:121`), link loop (`:125`), and
+> **no transaction**. Recorded for **Phase 7** rather than fixed here, per gate discipline.
+
 ---
 
 ### LOW
@@ -3261,6 +3360,17 @@ with **no currency**. Driven: the case-billing screen shows `2,500.00`, `450.00`
 and US grouping (`2,500.00` rather than the Swiss `2'500.00`). The shared, tested `formatSwissMoney()`
 exists and is not used. Identical to `P5-M3` and to the Phase-3 currency finding — third consecutive
 phase, third module.
+
+> ✅ **FIXED — QA-FIX.6a, commit `<pending>` (D-208)**, as a consequence of fixing `P6-C1` rather than
+> as a separate effort: once the engine formats the figures, the currency comes with them. Both Surgery
+> money surfaces now render server-formatted amounts — **browser-verified** as `CHF 2'500.00`,
+> `CHF 450.00`, `CHF 24.00`, `CHF 6'687.20` and `CHF 2'725.00`, with the Swiss apostrophe grouping and
+> the currency read from the charges' own tariff catalog rather than assumed. The client-side
+> `toLocaleString` is gone from every Surgery surface and a fence test keeps it out.
+>
+> **Note on scope:** this closes the finding for **Surgery only**. `P6-L2`'s sibling instances outside
+> this module — and `P5-M3`, and the Phase-3 currency finding — are untouched, and the ED, Lab and
+> Radiology billing surfaces still format money client-side (recorded under `P6-C1`'s banner).
 
 ---
 
