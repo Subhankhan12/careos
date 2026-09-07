@@ -43,8 +43,8 @@ missing · `LOW` cosmetic / polish.
 | 3 — Billing / finance | 1 | 4 | 8 | 2 | 15 |
 | 4 — Nursing / Spitex (incl. Nurse PWA) | **5** | 5 | 10 | 3 | 23 |
 | 5 — Pharmacy | 2 | 3 | 7 | 2 | 14 |
-| 6 — Surgery / OR | 3 | 5 | 9 | 2 | 19 |
-| **Total to date** | **13** | **24** | **51** | **20** | **108** |
+| 6 — Surgery / OR | 3 | 5 | 10 | 2 | 20 |
+| **Total to date** | **13** | **24** | **52** | **20** | **109** |
 
 *(Counts are as RECORDED at audit time and are not restated when a later gate re-grades a finding.
 `P4-C4` was re-graded **CRITICAL → HIGH** by QA-FIX.4b — the defect was latent rather than active,
@@ -3190,6 +3190,50 @@ Both underlying tables *do* carry the actor: `surgical_case_events.performed_by`
 and `case_item_usages.used_by`. So the data is correct and the display simply omits it. This is the
 benign half of the `P2-C1` shape: attribution captured, attribution not shown.
 
+#### `P6-M10` — Surgical charge capture writes its idempotency key last, so a partial failure both orphans charges and defeats the guard against re-billing
+
+**ESTABLISHED FROM CODE, NOT DRIVEN — and the reason is `P6-C1`.** The capture control cannot render,
+so there is no browser path to this code at all. It is recorded because the gate asked for cross-phase
+pattern 6 to be probed in **both** directions, and this is the *refused-write* direction that `P6-C1`
+(the succeeded-write direction) would otherwise have left unexamined. Per this audit's method
+statement, the wording says so explicitly rather than implying a driven result.
+
+- **Route:** `POST /surgery/cases/{case}/billing/charge` → `SurgicalBillingService::chargeCase()`
+- **The shape:** `chargeCase()` (lines 106-138) has **no `DB::transaction`**. It captures N charges in
+  three separate steps — the procedure, the theatre time, and one per priced consumable/implant — and
+  **then**, in a second loop, writes the N `SurgicalCaseCharge` link rows:
+
+  ```php
+  $captured->push($this->charges->captureManual(…$procedureCode…));   // commit 1
+  $captured->push($this->charges->captureManual(…THEATRE_TIME_CODE…)); // commit 2
+  foreach ($this->pricedUsageTotals($case) as $code => $quantity) {    // commits 3..N
+      $captured->push($this->charges->captureManual(…$code…));
+  }
+  foreach ($captured as $charge) {                                     // the links, only now
+      SurgicalCaseCharge::query()->create([...]);
+  }
+  ```
+
+  Each `captureManual` commits independently — `ChargeCaptureService::capture()` wraps **each single
+  charge** in its own `DB::transaction` (line 128). So a throw partway through leaves the earlier
+  charges **durable on the patient's account with no link row**.
+- **The idempotency guard is what makes this worse than an orphan.** `chargeCase()` opens by reading
+  `surgical_case_charges` to decide whether the case is already billed (lines 112-115). Those link
+  rows are written **after** every charge. So a partial failure leaves the guard reading *empty*, and
+  a retry — the natural response to an error — **re-captures every charge that already succeeded**.
+  The mechanism intended to prevent double-billing is the one that permits it.
+- **The escaping exception is real.** `SurgicalBillingController::charge()` catches only
+  `SurgicalBillingException|CrossTenantReferenceException`; a `TariffNotFoundForDateException` raised
+  by a later `captureManual` (an unpriced consumable code, or a tariff with no version covering the
+  case's service date) is **not** caught and escapes the controller.
+- **This is the third module with the Phase-3 shape.** `P3-C1` (payment then allocation),
+  `P4-H2` (per-action transactions with no batch boundary), and now surgical charge capture — the
+  same create-then-associate pair outside a transaction that Phase 3 predicted would generalise.
+- **Recorded MEDIUM, not CRITICAL, and the reason is stated:** it is **latent**. No user can trigger
+  it while `P6-C1` stands. The Phase-4 precedent for grading a latent defect below its active
+  severity is `P4-C4` (re-graded CRITICAL → HIGH for exactly this reason). **It becomes active the
+  moment `P6-C1` is fixed**, which is the order those two findings should be read in.
+
 ---
 
 ### LOW
@@ -3604,14 +3648,35 @@ event** — driven, with a pharmacy technician successfully recorded as the asse
 fence is about not computing judgments; this is about not being able to trust who made one. They are
 different failures and the audit should not let the first excuse the second.
 
-**6. A partial record — PRESENT in the mirror form Phase 5 identified, and Phase 6 confirms that is
-now the more common direction.** Phase 5 reframed the question from *"what does a refused operation
-leave behind?"* to *"what does a **successful** operation fail to leave behind?"*. `P6-C1` is that
-question again with a structural rather than an exception-handling cause: an implant was placed, stock
-decremented 20 → 19, the placement is traceable to the patient — and `surgical_case_charges` stayed at
-**0**, permanently, because the capture control cannot render. Nothing failed; nothing was caught;
-there is no error to find. The financial half of a completed clinical act simply has no path into
-existence.
+**6. A partial record — PRESENT IN BOTH DIRECTIONS, which the gate asked to be probed and which no
+earlier phase has had at once.**
+
+*The succeeded-write direction (Phase 5's reframing).* Phase 5 moved the question from *"what does a
+refused operation leave behind?"* to *"what does a **successful** operation fail to leave behind?"*.
+`P6-C1` is that question again with a structural rather than an exception-handling cause: an implant
+was placed, stock decremented 20 → 19, the placement is traceable to the patient — and
+`surgical_case_charges` stayed at **0**, permanently, because the capture control cannot render.
+Nothing failed; nothing was caught; there is no error to find. The financial half of a completed
+clinical act simply has no path into existence.
+
+*The refused-write direction (Phase 3's original shape), third module.* `P6-M10`:
+`SurgicalBillingService::chargeCase()` captures N charges — each committing in its **own**
+`DB::transaction` inside `ChargeCaptureService::capture()` — and only then writes the
+`SurgicalCaseCharge` link rows, with **no outer transaction**. A throw partway through (an unpriced
+consumable raises `TariffNotFoundForDateException`, which the controller does not catch) leaves the
+earlier charges durable and unlinked. **And the link rows are the idempotency key**: `chargeCase()`
+decides whether a case is already billed by reading them, so a partial failure leaves that guard
+reading empty and a retry re-captures everything that already succeeded. The mechanism intended to
+prevent double-billing is the one that permits it. This is `P3-C1` and `P4-H2`'s shape in a third
+module, exactly as Phase 3 predicted when it wrote that "it is the kind that generalises".
+
+**The two are recorded at different severities on purpose, and the reason is a general one.**
+`P6-C1` is CRITICAL because it is *active* — it is happening on every surgical case today. `P6-M10`
+is MEDIUM because it is *latent*: `P6-C1` removes the only surface that could trigger it. **Fixing
+`P6-C1` activates `P6-M10`**, so the two must be read and fixed in that order. Phase 4 set the
+precedent for grading a latent defect below its active severity when it re-graded `P4-C4`
+CRITICAL → HIGH; this is the first time the audit has found a latent defect whose activation is
+gated by another finding in the same phase.
 
 `P6-C3` is the other half and is new in shape: **not a swallowed exception, but a swallowed
 message**. The Surgery module contains **no empty `catch`** — Phase 5's Pharmacy shape was searched

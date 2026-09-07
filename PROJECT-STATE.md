@@ -80,7 +80,7 @@ lacks, inside a swallowing `catch (Throwable)`. **P3-H4 is resolved:** a pharmac
 `validated`, and `invoicePatient()` has no route. The dispense triple itself is atomic, append-only, and
 four driven refusals left nothing behind. **Nothing is fixed — audit only.**
 
-**Phase 6 (surgery / OR) is DONE**: 19 findings — 3 CRITICAL, 5 HIGH, 9 MEDIUM, 2 LOW. Roles driven:
+**Phase 6 (surgery / OR) is DONE**: 20 findings — 3 CRITICAL, 5 HIGH, 10 MEDIUM, 2 LOW. Roles driven:
 `surgeon`, `anesthetist`, `scrub_nurse`, `surgical_scheduler`, plus `org_admin` for the billing
 surface **no surgery role can reach**. **Surgical billing cannot be used at all** (P6-C1): a prop /
 function name collision on `invoice` in `CaseBilling.vue` (prop line 20, `function invoice()` line 35)

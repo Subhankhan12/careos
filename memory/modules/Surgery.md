@@ -340,7 +340,7 @@ anesthetist-ASSIGNED fact, never computed). **Next verticals: Phases 3 (lab), 4 
 
 **AUDIT ONLY — nothing here is fixed.** All four surgery roles driven separately in a real browser
 (`surgeon`, `anesthetist`, `scrub_nurse`, `surgical_scheduler`), plus `org_admin` for the billing
-surface **no surgery role can reach**. 19 findings: 3 CRITICAL, 5 HIGH, 9 MEDIUM, 2 LOW.
+surface **no surgery role can reach**. 20 findings: 3 CRITICAL, 5 HIGH, 10 MEDIUM, 2 LOW.
 
 - **`P6-C1` — surgical billing cannot be used at all.** `CaseBilling.vue` declares the prop `invoice`
   (line 20) **and** `function invoice()` (line 35); in `<script setup>` the function shadows the prop
@@ -418,3 +418,14 @@ consequence.** The module uses **both** namespaces on one case row: `surgical_ca
 are all written from the **actor**; `surgical_cases.asa_assessed_by` is `char(26)` →
 `staff_profiles.id` and is the one written from a **picked value**. A `staff_profiles.id` is something
 you choose from a dropdown; a `users.id` is who is logged in. The drift and `P6-C2` are the same fact.
+- **`P6-M10` (ESTABLISHED FROM CODE, NOT DRIVEN — `P6-C1` makes it unreachable).**
+  `SurgicalBillingService::chargeCase()` (lines 106-138) has **no outer `DB::transaction`**: it captures
+  N charges — each committing in its **own** transaction inside `ChargeCaptureService::capture()` (line
+  128) — and only **then** writes the `SurgicalCaseCharge` link rows. A throw partway through leaves the
+  earlier charges durable and unlinked; `TariffNotFoundForDateException` from a later `captureManual`
+  (an unpriced consumable, or no tariff version covering the service date) is **not** in the
+  controller's catch clause and escapes. **The link rows are also the idempotency key** — `chargeCase()`
+  reads them to decide whether the case is already billed — so a partial failure leaves that guard
+  reading empty and a **retry re-captures everything that already succeeded**. Third module with the
+  `P3-C1` / `P4-H2` create-then-associate shape. Graded MEDIUM because it is **latent**: no user can
+  reach it while `P6-C1` stands. **Fixing `P6-C1` activates it** — read and fix in that order.
