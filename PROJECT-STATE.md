@@ -80,13 +80,13 @@ lacks, inside a swallowing `catch (Throwable)`. **P3-H4 is resolved:** a pharmac
 `validated`, and `invoicePatient()` has no route. The dispense triple itself is atomic, append-only, and
 four driven refusals left nothing behind. **Nothing is fixed — audit only.**
 
-**QA-FIX.5 is fixing the Phase-5 critical pair.** Part 1 (`<pending>`, D-206) is done: **recorded
+**QA-FIX.5 is fixing the Phase-5 critical pair.** Part 1 (`b9f5c91`, D-206) is done: **recorded
 allergies and the medication-safety seam now render on all three medication-action screens**
 (dispensing, medications, eMAR), using the SAME shared `AllergyRecordPanel` the clinical chart uses.
 **The empty state was the real risk** — "no recorded allergies" must never read as "checked and
 clear" — so the seam renders even with an empty list and the empty line denies being a check. The
 chart is unchanged (`alwaysShowSeam` defaults false). Nothing compares the list against the drug:
-that is the certified-partner judgment. Part 2 (`<pending>`, D-207) is done: **branch (b)** — a technician's dispense still produces no
+that is the certified-partner judgment. Part 2 (`88d50eb`, D-207) is done: **branch (b)** — a technician's dispense still produces no
 charge (the permission boundary is deliberate and every other capture path requires `billing.manage`
 on the actor), but it is **no longer silent**: an authorization failure is now distinguished from a
 transient one and BOTH are recorded, and uncharged dispenses are findable via

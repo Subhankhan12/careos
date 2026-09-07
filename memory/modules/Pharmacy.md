@@ -338,7 +338,7 @@ four driven refusals left the ledger completely unchanged. **But there is NO rev
 **The model has NO batch and NO expiry** (`medication_stocks`: `location, on_hand, unit,
 reorder_threshold`), so "from which batch" cannot be asked.
 
-### QA-FIX.5a — allergies + the safety seam on every medication-action screen (P5-C1, D-206, `<pending>`)
+### QA-FIX.5a — allergies + the safety seam on every medication-action screen (P5-C1, D-206, `b9f5c91`)
 
 **All three screens now render the SAME `AllergyRecordPanel` the clinical chart renders** —
 `…/dispensing`, `…/medications`, `…/emar` — fed by one `Pharmacy\Support\PatientSafetyRecord`.
@@ -366,7 +366,7 @@ Inertia payload identical, so the empty-case payload test stays **green** — me
 The guard is the structural template assertion (`always-show-seam` present on all three pages, the
 panel's condition intact) plus the browser verification. There is no `@vue/test-utils` here.
 
-### QA-FIX.5b — a technician's dispense is unbilled but VISIBLE (P5-C2 + P5-M4, D-207, `<pending>`)
+### QA-FIX.5b — a technician's dispense is unbilled but VISIBLE (P5-C2 + P5-M4, D-207, `88d50eb`)
 
 **BRANCH (b) WAS CHOSEN: the technician's dispense still produces NO charge.** Do not "fix" this by
 removing the actor check from `chargeForDispense()` without a product decision —

@@ -73,9 +73,9 @@ every later phase's timestamp observation suspect, and past-time booking was liv
 | `P4-C2` · `P4-C3` | CRITICAL | ✅ **FIXED** | QA-FIX.4c | `3710efe` |
 | `P4-C5` | CRITICAL | ✅ **FIXED** | QA-FIX.4d | `6f48c24` |
 | `P4-H3` | HIGH | ✅ **FIXED** | QA-FIX.4e | `e7fc442` |
-| `P5-C1` | CRITICAL | ✅ **FIXED** | QA-FIX.5a | `<pending>` |
-| `P5-C2` | CRITICAL | ✅ **FIXED** | QA-FIX.5b | `<pending>` |
-| `P5-M4` | MEDIUM | ✅ **FIXED** | QA-FIX.5b | `<pending>` |
+| `P5-C1` | CRITICAL | ✅ **FIXED** | QA-FIX.5a | `b9f5c91` |
+| `P5-C2` | CRITICAL | ✅ **FIXED** | QA-FIX.5b | `88d50eb` |
+| `P5-M4` | MEDIUM | ✅ **FIXED** | QA-FIX.5b | `88d50eb` |
 | all others | — | 📋 recorded, not fixed | — | — |
 
 *(A commit cannot contain its own hash. Per the repo-wide marker convention, `<pending>` is backfilled
@@ -2443,7 +2443,7 @@ visible difference.
   omission is the misrepresentation: a screen that lists everything relevant to a dispense, and omits
   the anaphylaxis, reads as though there were nothing to say.
 
-> ✅ **FIXED — QA-FIX.5a, commit `<pending>` (D-206).** The recorded allergies and the medication-safety
+> ✅ **FIXED — QA-FIX.5a, commit `b9f5c91` (D-206).** The recorded allergies and the medication-safety
 > seam now render on **all three** medication-action screens — `…/dispensing`, `…/medications` and
 > `…/emar` — using the **same** `AllergyRecordPanel` the clinical chart renders, so the wording cannot
 > drift into a second dialect.
@@ -2497,7 +2497,7 @@ visible difference.
   dispense, the stock movement and the audit trail are all correct — so this is a financial-data loss,
   not a clinical one, but it is complete and undetectable.
 
-> ✅ **FIXED — QA-FIX.5b, commit `<pending>` (D-207).** The dispense still does not bill — **branch
+> ✅ **FIXED — QA-FIX.5b, commit `88d50eb` (D-207).** The dispense still does not bill — **branch
 > (b)** — but it is no longer **silent**, which is what this finding is about.
 >
 > - **Branch (b), and why.** `ChargeCaptureService::authorize()` requires `billing.manage` on the
