@@ -318,7 +318,7 @@ cross-phase pattern 6's second instance). Payload contents are never validated �
 offers no control, so no execution `Visit` is ever created from the field and EVV is unreachable.
 That is also why the demo seed has no in-progress or missed visits.
 
-### QA-FIX.4a — the API is TOKEN-ONLY; never re-add `statefulApi()` (P4-C1, D-201, `<pending>`)
+### QA-FIX.4a — the API is TOKEN-ONLY; never re-add `statefulApi()` (P4-C1, D-201, `ba7ddec`)
 
 **`bootstrap/app.php` no longer calls `$middleware->statefulApi()`, and the comment there says why.**
 That line made Sanctum treat any request whose `Origin` is a stateful domain as a first-party
@@ -344,7 +344,7 @@ assertion is the guard; the browser is the proof.
 **`DayPackService` throws 403 at each missing link in user → StaffProfile → practitioner `Resource`.**
 A test nurse without that chain 403s for reasons unrelated to whatever you are testing.
 
-### QA-FIX.4b — device times are parsed to UTC at ONE boundary (P4-C4, D-202, `<pending>`)
+### QA-FIX.4b — device times are parsed to UTC at ONE boundary (P4-C4, D-202, `ce2ebaa`)
 
 **`NurseSyncService::normaliseDeviceTimes()` runs once in `process()`, before dispatch, inside the
 existing per-action transaction.** It rewrites `device_timestamp` — and the incident payload's
@@ -380,7 +380,7 @@ record an incident at a time the reporter never stated (D-176/D-179).
 passes with or without the fix (D-174). Mutation: neutering the conversion reddens 8/10, and the 2
 still green are exactly the positive controls.
 
-### QA-FIX.4c — TWO KEYS, TWO LIFETIMES in the PWA store (P4-C2 + P4-C3, D-203, `<pending>`)
+### QA-FIX.4c — TWO KEYS, TWO LIFETIMES in the PWA store (P4-C2 + P4-C3, D-203, `3710efe`)
 
 **Read this before touching `nurse-pwa/src/storage/dayPackStore.ts`.**
 
@@ -409,7 +409,7 @@ already unrecoverable) rather than throwing — which also stops one bad row jam
 **STILL OPEN:** a nurse who reloads **while offline** cannot re-enter the app (login needs the
 network). Their care is safe and syncs later, but the app is not usable offline after a reload.
 
-### QA-FIX.4d — one save gesture, one note (P4-C5, D-204, `<pending>`)
+### QA-FIX.4d — one save gesture, one note (P4-C5, D-204, `6f48c24`)
 
 **`App.vue` binds `@change` on the note textarea AND `@click` on the Save button, both to
 `saveNote()`. Clicking the button BLURS the textarea, so one gesture fires both.** Each enqueued an

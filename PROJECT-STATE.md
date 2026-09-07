@@ -69,21 +69,21 @@ refused under forgery, day-pack scoped to the nurse's own visits, clinical fence
 defects are in the data LIFECYCLE. A `nurse` is 403 on every nursing WEB route, so the PWA is their
 only surface. **Nothing is fixed — audit only.**
 
-**QA-FIX.4 is fixing the Phase-4 PWA critical cluster in five parts.** Part 1 (`<pending>`,
+**QA-FIX.4 is fixing the Phase-4 PWA critical cluster in five parts.** Part 1 (`ba7ddec`,
 D-201) is done: **the API is token-only** — `statefulApi()` is removed from `bootstrap/app.php`, so
 the Nurse PWA can finally authenticate and sync from the origin it is served on (P4-C1). The study
 found no cookie client to protect: all six `api/*` routes are Bearer-token and the PWA is their only
 consumer. **This was never local-only** — `SANCTUM_STATEFUL_DOMAINS` derives from `APP_URL`, so it
-broke in production too. Part 2 (`<pending>`, D-202) is done: **device times are parsed to UTC at one sync boundary** —
+broke in production too. Part 2 (`ce2ebaa`, D-202) is done: **device times are parsed to UTC at one sync boundary** —
 `normaliseDeviceTimes()` in `NurseSyncService::process()`, with all eleven call sites unchanged.
 **P4-C4 is re-graded CRITICAL → HIGH:** the shipped PWA only ever sends `toISOString()` (`Z`), so
 rows written by the real client were already correct — the defect was **latent**, not active, and the
-audit record says so. Part 3 (`<pending>`, D-203) is done:
+audit record says so. Part 3 (`3710efe`, D-203) is done:
 **two keys, two lifetimes** — the day-pack cache keeps the session-derived memory-only key (still
 wiped on 401/403), while the outbox moves to a device-lifetime non-extractable key, so recorded care
 survives a reload AND a session expiry and is never silently deleted (P4-C2, P4-C3). Residual risk
 stated in D-203. **Still open:** a reload while OFFLINE leaves the app unusable until the nurse can
-reach the network to log in. Part 4 (`<pending>`, D-204) is done: **one save gesture writes one note** — the textarea's
+reach the network to log in. Part 4 (`6f48c24`, D-204) is done: **one save gesture writes one note** — the textarea's
 `@change` and the button's `@click` both fired on a single gesture; both affordances are kept and the
 save is now idempotent for unchanged text (P4-C5). Only the note had that shape. Part 5 (`<pending>`, D-205) is done: **the PWA can check in and out** — the server always
 implemented both and the client simply never imported them, so this was wiring, not a feature. No GPS

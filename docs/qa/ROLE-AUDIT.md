@@ -67,10 +67,10 @@ every later phase's timestamp observation suspect, and past-time booking was liv
 | `P2-H1` | HIGH | ✅ **FIXED** | QA-FIX.2b | `706ed77` |
 | `P3-C1` | CRITICAL | ✅ **FIXED** | QA-FIX.3a | `348d41c` |
 | `P3-H1` | HIGH | ✅ **FIXED** | QA-FIX.3b | `d6f0cc5` |
-| `P4-C1` | CRITICAL | ✅ **FIXED** | QA-FIX.4a | `<pending>` |
-| `P4-C4` | CRITICAL → **HIGH** (latent, see banner) | ✅ **FIXED** | QA-FIX.4b | `<pending>` |
-| `P4-C2` · `P4-C3` | CRITICAL | ✅ **FIXED** | QA-FIX.4c | `<pending>` |
-| `P4-C5` | CRITICAL | ✅ **FIXED** | QA-FIX.4d | `<pending>` |
+| `P4-C1` | CRITICAL | ✅ **FIXED** | QA-FIX.4a | `ba7ddec` |
+| `P4-C4` | CRITICAL → **HIGH** (latent, see banner) | ✅ **FIXED** | QA-FIX.4b | `ce2ebaa` |
+| `P4-C2` · `P4-C3` | CRITICAL | ✅ **FIXED** | QA-FIX.4c | `3710efe` |
+| `P4-C5` | CRITICAL | ✅ **FIXED** | QA-FIX.4d | `6f48c24` |
 | `P4-H3` | HIGH | ✅ **FIXED** | QA-FIX.4e | `<pending>` |
 | all others | — | 📋 recorded, not fixed | — | — |
 
@@ -1827,7 +1827,7 @@ with zero cookies.
   that *does* work is the one that puts patient data on a phone.
 
 
-> ✅ **FIXED — QA-FIX.4a, commit `<pending>` (D-201).** `statefulApi()` is **removed** from
+> ✅ **FIXED — QA-FIX.4a, commit `ba7ddec` (D-201).** `statefulApi()` is **removed** from
 > `bootstrap/app.php`; the API is token-only, which is what all six of its routes already were.
 >
 > - **The study found no cookie client to protect.** Every `api/*` route authenticates with a Sanctum
@@ -1877,7 +1877,7 @@ with zero cookies.
   **key lifetime is shorter than the data's**.
 
 
-> ✅ **FIXED — QA-FIX.4c, commit `<pending>` (D-203)** — jointly with `P4-C3`, which shares its
+> ✅ **FIXED — QA-FIX.4c, commit `3710efe` (D-203)** — jointly with `P4-C3`, which shares its
 > root cause. The full banner is under `P4-C3` below: the day-pack cache and the outbox were sharing
 > a key whose lifetime only suited the cache, so a reload stranded the queue for ever. The outbox now
 > uses a device-lifetime non-extractable key and survives.
@@ -1902,7 +1902,7 @@ with zero cookies.
   poor signal are exactly the intended use.
 
 
-> ✅ **FIXED — QA-FIX.4c, commit `<pending>` (D-203).** `P4-C2` and `P4-C3` shared one root cause and
+> ✅ **FIXED — QA-FIX.4c, commit `3710efe` (D-203).** `P4-C2` and `P4-C3` shared one root cause and
 > are closed together: **the day-pack cache and the outbox were sharing a key whose lifetime only
 > suited the cache.**
 >
@@ -1970,7 +1970,7 @@ with zero cookies.
   the clock belongs to a phone the server does not control.
 
 
-> ✅ **FIXED — QA-FIX.4b, commit `<pending>` (D-202).** Device times are now parsed to UTC at **one**
+> ✅ **FIXED — QA-FIX.4b, commit `ce2ebaa` (D-202).** Device times are now parsed to UTC at **one**
 > boundary (`NurseSyncService::normaliseDeviceTimes()`), before dispatch and inside the existing
 > per-action transaction. All eleven call sites are unchanged — they receive a value with no offset
 > left to misinterpret.
@@ -2025,7 +2025,7 @@ with zero cookies.
   a cosmetic one.
 
 
-> ✅ **FIXED — QA-FIX.4d, commit `<pending>` (D-204).** One gesture now records one note.
+> ✅ **FIXED — QA-FIX.4d, commit `6f48c24` (D-204).** One gesture now records one note.
 >
 > - **The shape is unique to the note, and that was checked rather than assumed.** Every other
 >   control has exactly one handler — vitals, incident, signature and both task buttons are `@click`
