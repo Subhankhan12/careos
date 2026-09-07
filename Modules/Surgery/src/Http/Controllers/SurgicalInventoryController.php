@@ -5,10 +5,12 @@ namespace Modules\Surgery\Http\Controllers;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
 use Modules\Platform\Exceptions\CrossTenantReferenceException;
 use Modules\Platform\Models\User;
+use Modules\Platform\Services\TenantContext;
 use Modules\Surgery\Exceptions\SurgicalInventoryException;
 use Modules\Surgery\Models\ImplantPlacement;
 use Modules\Surgery\Models\SurgicalItem;
@@ -74,14 +76,22 @@ class SurgicalInventoryController
         ]);
     }
 
-    public function createItem(Request $request, SurgicalStockService $stock): RedirectResponse
+    public function createItem(Request $request, SurgicalStockService $stock, TenantContext $tenants): RedirectResponse
     {
         Gate::authorize('surgery.manage');
         $actor = $request->user();
         abort_unless($actor instanceof User, 403);
 
         $data = $request->validate([
-            'code' => ['required', 'string', 'max:60'],
+            // QA-FIX.6c (P6-C3): `surgical_items` carries `unique(tenant_id, code)`, and nothing checked
+            // it before the INSERT — so re-using a code raised a raw `QueryException` and the operator got
+            // an uncaught 500 rather than being told the code was taken. The rule is scoped to the tenant
+            // by hand because the unique index is composite; `BelongsToTenant` scopes Eloquent, not the
+            // validator. The DB constraint remains the hard guard (this only makes it speak).
+            'code' => [
+                'required', 'string', 'max:60',
+                Rule::unique('surgical_items', 'code')->where('tenant_id', $tenants->id()),
+            ],
             'name' => ['required', 'string', 'max:200'],
             'is_implant' => ['boolean'],
             'unit' => ['nullable', 'string', 'max:40'],

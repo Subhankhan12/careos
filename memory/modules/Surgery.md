@@ -536,3 +536,47 @@ module that raises no audit event". **False** — `addTeamMember()` is unaudited
 **overwrites** `team_role` in place via `updateOrCreate` with no history. Both recorded against
 `P6-M5`, not fixed (this part is scoped to the ASA). Also corrected: `P6-C3`'s "13 `withErrors` sites"
 is actually **16** — Phase 6 missed `SurgicalInventoryController` entirely.
+
+## QA-FIX.6c — Surgery surfaces render their refusals (P6-C3, D-210)
+
+**The module refused correctly and said nothing.** 16 `withErrors` sites across six controllers plus
+every `validate()` rule, and **no Surgery page read the error bag**. A refusal and a success were
+identical: page reloads, nothing recorded, 302 (success-shaped).
+
+**NEW: `resources/js/Components/RefusalNotice.vue`** — a presentation wrapper over the EXISTING
+`page.props.errors` path (the `Admin/Branches.vue` / Billing idiom + the house danger classes). Added
+to **six** pages; `Checklist.vue` deliberately excluded.
+
+- **It reads the WHOLE bag** — `validate()` keys by FIELD, `withErrors` by DOMAIN. Naming keys would
+  miss half the refusals. This is the load-bearing decision.
+- **It authors no copy (D-176).** The server's own sentence, verbatim; empty bag → renders nothing. A
+  generic renderer cannot invent a refusal; a per-key copy table would have authored messages for
+  domain keys that **cannot fire from any live control**.
+- **`Checklist.vue` has NO region and a test PINS its absence** — `template_item_id` + `checked` are
+  always supplied by its only control, so it has no reachable refusal. Do not "add it for consistency".
+- **`role="alert"`** is the one thing beyond the established pattern (the repo has **zero**
+  `role="alert"`/`aria-live` anywhere).
+
+**TWO REFUSALS WERE UNCAUGHT 500s, fixed here too** (a deliberate 500 → 302; nothing weakened):
+- theatre minutes before theatre time is priced → `TariffNotFoundForDateException`, caught nowhere.
+  Now caught **narrowly** in `SurgicalBillingController::charge` (not `Throwable`).
+- duplicate surgical item code → `unique(tenant_id, code)` raised a raw `QueryException`. Now a
+  tenant-scoped `Rule::unique` in `createItem` (the composite index means the rule needs the
+  `->where('tenant_id', ...)` by hand — `BelongsToTenant` scopes Eloquent, not the validator).
+- `bootstrap/app.php` renders the branded page for **403/404/419/503 only**, so a 500 got neither a
+  page nor an error bag; `test:smoke` is GET-only so CI could not catch either.
+
+**BROWSER-VERIFIED, three refusals as `surgeon`:** *"The lot number field is required."* ·
+*"Insufficient stock for surgical item …: requested 99999, on hand 492."* · *"The code has already
+been taken."* (that last one was a 500). **Positive control in the browser:** a valid item creation
+showed **no alert**, with the write confirmed in the DB.
+
+**Mutation-checked three ways:** remove `<RefusalNotice />` → structural guard reddens; remove the
+tariff catch → the response is a literal **500** again; remove `Rule::unique` → duplicate test reddens.
+
+**CORRECTIONS TO MY OWN PHASE-6 AUDIT:** P6-C3 said "13 withErrors sites" — it is **16**, and it
+missed `SurgicalInventoryController` entirely (and over-counted `CaseSuppliesController`). It also
+said "the server refuses correctly", which is untrue of the two 500s.
+
+**NOTED, NOT FIXED:** the insufficient-stock message names the item by **ULID**, not name. It is the
+service's own message rendered verbatim (D-152) and it is accurate, but it reads poorly.

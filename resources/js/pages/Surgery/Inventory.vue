@@ -3,6 +3,7 @@ import { Head, router } from '@inertiajs/vue3';
 import { reactive, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import AppLayout from '@/Layouts/AppLayout.vue';
+import RefusalNotice from '@/Components/RefusalNotice.vue';
 
 // Surgical inventory (SURGERY.G4) — PRESENTATIONAL. The item catalog + stock (below-threshold factual) +
 // receive/adjust + the lot/UDI recall lookup. Operational: "below stock" is a factual count; the recall
@@ -50,6 +51,8 @@ function fmt(iso: string): string {
     <AppLayout>
         <Head :title="t('surgery.inventory.title')" />
         <div class="space-y-5">
+            <!-- The server's own refusal, shown where it happened (QA-FIX.6c, P6-C3). -->
+            <RefusalNotice />
             <div class="euca-tile-dark p-6">
                 <p class="text-xs font-semibold uppercase tracking-[0.14em] text-euca-200">{{ t('surgery.inventory.eyebrow') }}</p>
                 <h1 class="mt-1 text-2xl font-semibold tracking-tight text-euca-50">{{ t('surgery.inventory.title') }}</h1>

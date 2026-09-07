@@ -81,6 +81,7 @@ every later phase's timestamp observation suspect, and past-time booking was liv
 | `P6-M10` | MEDIUM | ✅ **FIXED** | QA-FIX.6a | `9d5c047` |
 | `P6-L2` | LOW | ✅ **FIXED** | QA-FIX.6a | `9d5c047` |
 | `P6-C2` | CRITICAL | ✅ **FIXED** | QA-FIX.6b | `f8b7a7b` |
+| `P6-C3` | CRITICAL | ✅ **FIXED** | QA-FIX.6c | `<pending>` |
 | all others | — | 📋 recorded, not fixed | — | — |
 
 *(A commit cannot contain its own hash. Per the repo-wide marker convention, `<pending>` is backfilled
@@ -3064,6 +3065,72 @@ by any of the four and would otherwise have gone undriven.
   anyway; combined with the **recall lookup**, an implant whose lot was mistyped short of validation
   is simply not in the traceability index, and the recall screen will honestly report "no implants
   match" for a device that is in the patient.
+
+> ⚠️ **TWO CORRECTIONS TO THIS FINDING, made during QA-FIX.6c.**
+> 1. **"13" is wrong — there are 16 `withErrors` sites**, and the enumeration above missed
+>    `SurgicalInventoryController` (3 sites) entirely while over-counting `CaseSuppliesController`
+>    (2, not 3). The real distribution is `SurgicalCaseController` 5, `SurgicalPricingController` 3,
+>    `SurgicalInventoryController` 3, `CaseSuppliesController` 2, `SurgicalBillingController` 2,
+>    `SurgicalChecklistController` 1.
+> 2. **"The server refuses correctly" is not true of every refusal.** Two that a user can reach were
+>    not 302s at all — they escaped as **uncaught HTTP 500s**, so they were worse than invisible:
+>    asking for theatre minutes before theatre time is priced (`TariffNotFoundForDateException`, never
+>    caught anywhere), and re-using a surgical item code (`surgical_items` carries
+>    `unique(tenant_id, code)` and nothing checked it before the INSERT). `bootstrap/app.php` renders
+>    the branded error page for **403/404/419/503 only**, so a 500 got neither a page nor an error bag.
+>    Neither is caught by CI: `test:smoke` covers GET routes only.
+
+> ✅ **FIXED — QA-FIX.6c, commit `<pending>` (D-210).**
+>
+> - **The mechanism is the product's, not a new one.** Inertia's middleware already shares the error
+>   bag on every response, and `Admin/Branches.vue` and the Billing surfaces already read
+>   `page.props.errors` and render it in the house danger classes. The new
+>   `resources/js/Components/RefusalNotice.vue` is a presentation wrapper over that same path so six
+>   pages cannot drift apart in wording or styling (D-170).
+> - **It reads the WHOLE bag, and that is the load-bearing decision.** Two shapes arrive there:
+>   `$request->validate()` keys by **field** (`lot_number`, `quantity`) while the controllers'
+>   `withErrors` keys by **domain** (`surgical_supplies`, `surgical_billing`). Naming keys would have
+>   silently missed half the refusals — which is exactly how a module can look handled while most of
+>   its refusals stay invisible.
+> - **It authors no copy of its own (D-176).** The text is the server's own sentence rendered
+>   verbatim, and with an empty bag the component renders nothing. It cannot manufacture a refusal
+>   that did not occur — which is why a generic renderer is the *safe* choice here and a per-key copy
+>   table would not have been: several Surgery domain keys cannot fire from any live control.
+> - **`Checklist.vue` deliberately has NO error region**, and a test pins its absence. Its controller
+>   validates `template_item_id` (required) and `checked` (required boolean), both always supplied by
+>   the page's only control, so no refusal there is reachable. An affordance for it would be the same
+>   defect class as an unbacked badge. The other six pages all have a reachable refusal.
+> - **The two 500s are now refusals.** `SurgicalBillingController::charge` catches
+>   `TariffNotFoundForDateException` — narrowly, not `Throwable` — and `createItem` gains a
+>   tenant-scoped `Rule::unique`, so the duplicate code is reported on the field. **This is a
+>   deliberate 500 → 302 status change and it weakens nothing**: both still refuse, nothing is
+>   written either way, and `chargeCase()` remains transactional (D-208). The DB unique index remains
+>   the hard guard; the rule only makes it speak.
+> - **`role="alert"` is the one addition beyond the established pattern.** The repo has **zero**
+>   `role="alert"` or `aria-live` anywhere, and an error a screen reader never announces is invisible
+>   in precisely the way this finding is about.
+> - **BROWSER-VERIFIED — three refusals driven as `surgeon`, including one of the former 500s.**
+>   Verbatim, in a `role="alert"` carrying the house classes:
+>
+>   | Gesture | Phase 6 | Now |
+>   |---|---|---|
+>   | Place implant, lot blank | 302, nothing, silence | **"The lot number field is required."** |
+>   | Record use ×99999 (492 on hand) | 302, nothing, silence | **"Insufficient stock for surgical item …: requested 99999, on hand 492."** |
+>   | Add item with an existing code | **uncaught 500** | **"The code has already been taken."** |
+>
+>   And the **positive control held in the browser**: creating a valid item showed **no alert at all**,
+>   with the write confirmed in the database — so the tests cannot be satisfied by a page that always
+>   shows something. The refusals still refused: 0 implant placements, 1 usage (the seeded one), and
+>   exactly one item with the duplicated code.
+> - **Guarded by** eight tests, mutation-checked three ways: removing `<RefusalNotice />` from a page
+>   reddens the structural guard; removing the tariff catch makes the response a literal **500** again;
+>   removing `Rule::unique` reddens the duplicate-code test.
+>
+> **NOTED, NOT FIXED:** the insufficient-stock message names the item by **ULID** rather than by name
+> ("Insufficient stock for surgical item `01m1ytkgme6q1wjvjf3rvpkq4p`…"). It is the service's own
+> message rendered verbatim, which is the established idiom (D-152), and it is accurate — the count is
+> the actionable part and the user chose the item a moment earlier — but it reads poorly. Changing it
+> means editing a domain exception's wording, which is not what this part is for.
 
 ---
 

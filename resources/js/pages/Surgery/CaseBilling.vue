@@ -3,6 +3,7 @@ import { Head, Link, router } from '@inertiajs/vue3';
 import { reactive } from 'vue';
 import { useI18n } from 'vue-i18n';
 import AppLayout from '@/Layouts/AppLayout.vue';
+import RefusalNotice from '@/Components/RefusalNotice.vue';
 
 // Surgical case billing (SURGERY.G5) — PRESENTATIONAL. Capture the case's charges (procedure + theatre-time +
 // consumables/implants) through the EXISTING engine, then issue an invoice that reconciles-to-the-unit.
@@ -46,6 +47,8 @@ function issueInvoice(): void {
     <AppLayout>
         <Head :title="t('surgery.billing.title')" />
         <div class="space-y-5">
+            <!-- The server's own refusal, shown where it happened (QA-FIX.6c, P6-C3). -->
+            <RefusalNotice />
             <div class="euca-tile-dark p-6">
                 <p class="text-xs font-semibold uppercase tracking-[0.14em] text-euca-200">{{ t('surgery.billing.eyebrow') }}</p>
                 <h1 class="mt-1 text-2xl font-semibold tracking-tight text-euca-50">{{ surgicalCase.patient }}</h1>

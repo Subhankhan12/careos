@@ -3,6 +3,7 @@ import { Head, Link, router } from '@inertiajs/vue3';
 import { reactive } from 'vue';
 import { useI18n } from 'vue-i18n';
 import AppLayout from '@/Layouts/AppLayout.vue';
+import RefusalNotice from '@/Components/RefusalNotice.vue';
 
 // Surgical case detail (SURGERY.G2) — PRESENTATIONAL. Drives the legal-only lifecycle, records the team + the
 // anesthetist-ASSIGNED ASA/Mallampati, and authors op notes by REUSING the sign-and-lock note editor. The
@@ -71,6 +72,8 @@ function fmt(iso: string | null): string {
     <AppLayout>
         <Head :title="t('surgery.case.title')" />
         <div class="space-y-5">
+            <!-- The server's own refusal, shown where it happened (QA-FIX.6c, P6-C3). -->
+            <RefusalNotice />
             <!-- Header -->
             <div class="euca-tile-dark p-6">
                 <p class="text-xs font-semibold uppercase tracking-[0.14em] text-euca-200">{{ t('surgery.case.eyebrow') }}</p>

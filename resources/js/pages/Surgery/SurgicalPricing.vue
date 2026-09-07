@@ -3,6 +3,7 @@ import { Head, router } from '@inertiajs/vue3';
 import { reactive } from 'vue';
 import { useI18n } from 'vue-i18n';
 import AppLayout from '@/Layouts/AppLayout.vue';
+import RefusalNotice from '@/Components/RefusalNotice.vue';
 
 // Surgical pricing (SURGERY.G5) — PRESENTATIONAL. Set tenant-authored prices in the EXISTING tariff store for
 // surgical items, theatre time, and procedures. A price is a RATE, not a verdict.
@@ -53,6 +54,8 @@ function shown(formatted: string | null): string {
     <AppLayout>
         <Head :title="t('surgery.pricing.title')" />
         <div class="space-y-5">
+            <!-- The server's own refusal, shown where it happened (QA-FIX.6c, P6-C3). -->
+            <RefusalNotice />
             <div class="euca-tile-dark p-6">
                 <p class="text-xs font-semibold uppercase tracking-[0.14em] text-euca-200">{{ t('surgery.pricing.eyebrow') }}</p>
                 <h1 class="mt-1 text-2xl font-semibold tracking-tight text-euca-50">{{ t('surgery.pricing.title') }}</h1>

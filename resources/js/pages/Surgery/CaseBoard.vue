@@ -3,6 +3,7 @@ import { Head, Link, router } from '@inertiajs/vue3';
 import { reactive } from 'vue';
 import { useI18n } from 'vue-i18n';
 import AppLayout from '@/Layouts/AppLayout.vue';
+import RefusalNotice from '@/Components/RefusalNotice.vue';
 
 // Surgical case board (SURGERY.G2) — PRESENTATIONAL. The OR worklist + a lean "schedule a case" form. From a
 // case, the detail page drives the legal-only lifecycle. Record-not-judge: nothing here computes a risk.
@@ -34,6 +35,8 @@ function fmt(iso: string): string {
     <AppLayout>
         <Head :title="t('surgery.board.title')" />
         <div class="space-y-5">
+            <!-- The server's own refusal, shown where it happened (QA-FIX.6c, P6-C3). -->
+            <RefusalNotice />
             <div class="euca-tile-dark p-6">
                 <p class="text-xs font-semibold uppercase tracking-[0.14em] text-euca-200">{{ t('surgery.board.eyebrow') }}</p>
                 <h1 class="mt-1 text-2xl font-semibold tracking-tight text-euca-50">{{ t('surgery.board.title') }}</h1>

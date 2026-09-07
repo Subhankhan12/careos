@@ -4496,3 +4496,46 @@ references the old ID.
   drop the append-only row → two red; drop the audit hook → two red). **The fixture deliberately makes
   actor ≠ picked person**, which is exactly why `P2-C1`'s identical defect survived its own suite.
   See [[Surgery]], `docs/qa/ROLE-AUDIT.md` (P6-C2, P6-M5), D-170, D-182, D-195, [[LOG]].
+- **D-210 — A refusal is shown to the person who made it, in the server's own words, by a component
+  that authors nothing of its own (QA-FIX.6c, P6-C3).**
+  **WHAT WAS WRONG.** The Surgery module refused correctly — **sixteen** `->withErrors([...])` sites
+  across six controllers, plus every `$request->validate()` rule — and **not one Surgery page rendered
+  any of it**. A refused action and a successful one were identical to the user: the page reloaded,
+  nothing was recorded, no message appeared, and the POST returned **302**, which is success-shaped.
+  Driven in the Phase 6 audit, a blank implant lot and a 99999-unit stock request both vanished.
+  **THE MECHANISM ALREADY EXISTED; ONLY SURGERY WAS DEAF TO IT.** Inertia's middleware shares the
+  error bag on every response, and `Admin/Branches.vue` and the Billing surfaces already read
+  `page.props.errors` and render it in the house danger classes. `RefusalNotice.vue` is a presentation
+  wrapper over that same path, so six pages cannot drift apart in wording or styling. No new error
+  mechanism was invented (D-170).
+  **IT READS THE WHOLE BAG, AND THAT IS THE LOAD-BEARING DECISION.** Two shapes arrive there:
+  `validate()` keys by **field**, the controllers' `withErrors` by **domain**. Naming keys would have
+  missed half the refusals — the failure mode where a module looks handled while most of its refusals
+  stay invisible.
+  **IT AUTHORS NO COPY (D-176).** The text is the server's own sentence, verbatim; with an empty bag
+  it renders nothing. It cannot manufacture a refusal that did not occur. That is why a GENERIC
+  renderer is the safe choice and a per-key copy table would not have been: several Surgery domain
+  keys cannot fire from any live control, and authoring messages for them would be a presence the
+  user cannot distinguish from a real one.
+  **`Checklist.vue` DELIBERATELY HAS NO ERROR REGION**, and a test pins its absence so a later
+  "consistency" pass does not add one. Its controller validates `template_item_id` and `checked`, both
+  always supplied by the page's only control, so it has no reachable refusal.
+  **TWO REFUSALS WERE WORSE THAN INVISIBLE AND ARE FIXED HERE TOO.** Asking for theatre minutes before
+  theatre time is priced raised `TariffNotFoundForDateException`, caught nowhere; re-using a surgical
+  item code hit `unique(tenant_id, code)` with nothing checking first. Both escaped as **uncaught
+  500s**, and `bootstrap/app.php` renders the branded page for 403/404/419/503 only — so neither got a
+  page or an error bag, and `test:smoke` (GET-only) could not catch them. Now: a narrow catch for the
+  tariff exception, and a tenant-scoped `Rule::unique` for the code. **This is a deliberate 500 → 302
+  change and it weakens nothing** — both still refuse, nothing is written either way, `chargeCase()`
+  stays transactional (D-208), and the DB index remains the hard guard.
+  **`role="alert"` is the one addition beyond the established pattern.** The repo has zero
+  `role="alert"` / `aria-live` anywhere; an error a screen reader never announces is invisible in
+  exactly the way this finding is about.
+  **Guarded by** eight tests, mutation-checked three ways: removing `<RefusalNotice />` reddens the
+  structural guard; removing the tariff catch makes the response a literal **500** again; removing
+  `Rule::unique` reddens the duplicate-code test. The positive control asserts a SUCCESS flashes no
+  error, so the suite cannot be satisfied by a page that always shows something.
+  **A CORRECTION TO THE AUDIT, MADE HERE.** `P6-C3` said "13" sites; there are **16**, and it missed
+  `SurgicalInventoryController` entirely. It also said "the server refuses correctly", which is untrue
+  of the two 500s above. Both corrections are written into the finding.
+  See [[Surgery]], `docs/qa/ROLE-AUDIT.md` (P6-C3), D-152, D-170, D-176, D-182, [[LOG]].

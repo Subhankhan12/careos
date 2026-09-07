@@ -153,6 +153,24 @@ P6-C2 claimed the ASA was the ONLY unaudited write in the module — false, `add
 too AND overwrites `team_role` in place; both recorded against P6-M5, not fixed. P6-C3's '13 withErrors'
 is actually 16.
 
+Part 3 (`<pending>`, D-210) is done: **Surgery surfaces render their refusals (P6-C3).** The module
+refused correctly at **16** `withErrors` sites plus every `validate()` rule and **no page read the error
+bag**, so a refusal and a success were identical (page reloads, nothing recorded, 302 — success-shaped).
+New `RefusalNotice.vue` is a presentation wrapper over the EXISTING `page.props.errors` path (the
+`Admin/Branches.vue` / Billing idiom + house danger classes), added to SIX pages. **It reads the WHOLE
+bag** — `validate()` keys by FIELD, `withErrors` by DOMAIN, so naming keys would have missed half the
+refusals. **It authors no copy (D-176):** the server's own sentence verbatim, and nothing at all with an
+empty bag, so it cannot invent a refusal that did not occur. **`Checklist.vue` is deliberately excluded
+and a test PINS its absence** — its two required fields are always supplied by its only control, so it has
+no reachable refusal. **TWO refusals were uncaught 500s and are fixed too** (a deliberate 500 -> 302,
+weakening nothing): theatre minutes before theatre time is priced, and a duplicate item code; both got
+neither a branded page nor an error bag, and `test:smoke` is GET-only so CI could not catch them.
+**Browser-verified, three refusals driven** including one former 500 — *"The lot number field is
+required."*, *"Insufficient stock … requested 99999, on hand 492."*, *"The code has already been
+taken."* — with the positive control holding (a valid create showed NO alert, write confirmed in the DB).
+**Corrections to the audit:** P6-C3 said 13 sites (it is 16, missing `SurgicalInventoryController`) and
+said "the server refuses correctly", untrue of the two 500s.
+
 **QA-FIX.5 is fixing the Phase-5 critical pair.** Part 1 (`b9f5c91`, D-206) is done: **recorded
 allergies and the medication-safety seam now render on all three medication-action screens**
 (dispensing, medications, eMAR), using the SAME shared `AllergyRecordPanel` the clinical chart uses.

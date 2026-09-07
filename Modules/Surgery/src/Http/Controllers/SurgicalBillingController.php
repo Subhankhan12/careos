@@ -7,6 +7,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 use Inertia\Inertia;
 use Inertia\Response;
+use Modules\Billing\Exceptions\TariffNotFoundForDateException;
 use Modules\Billing\Models\Charge;
 use Modules\Billing\Models\Invoice;
 use Modules\Billing\Models\TariffItem;
@@ -98,6 +99,15 @@ class SurgicalBillingController
         try {
             $billing->chargeCase($actor, $record, $data['procedure_code'] ?? null, $data['theatre_minutes'] ?? null);
         } catch (SurgicalBillingException|CrossTenantReferenceException $e) {
+            return back()->withErrors(['surgical_billing' => $e->getMessage()]);
+        } catch (TariffNotFoundForDateException $e) {
+            // QA-FIX.6c (P6-C3): a REACHABLE refusal that used to escape as an uncaught 500. Ask for
+            // theatre minutes before theatre time has been priced — the minutes box is a free numeric
+            // input and the price is nullable on a fresh tenant — and the engine correctly refuses to
+            // invent a rate. That refusal is now shown; it was not a crash, it was a message with
+            // nowhere to go. NOTHING IS WEAKENED: `chargeCase()` is transactional (D-208) and already
+            // leaves nothing behind, so this changes only what the operator is told, from a 500 page to
+            // the engine's own sentence. Deliberately narrow — the tariff exception only, not Throwable.
             return back()->withErrors(['surgical_billing' => $e->getMessage()]);
         }
 
