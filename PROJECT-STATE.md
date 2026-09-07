@@ -69,7 +69,7 @@ refused under forgery, day-pack scoped to the nurse's own visits, clinical fence
 defects are in the data LIFECYCLE. A `nurse` is 403 on every nursing WEB route, so the PWA is their
 only surface. **Nothing is fixed — audit only.**
 
-**Phase 5 (pharmacy) is DONE** (`<pending>`): 14 findings — 2 CRITICAL, 3 HIGH, 7 MEDIUM, 2 LOW.
+**Phase 5 (pharmacy) is DONE** (`3199a7c`): 14 findings — 2 CRITICAL, 3 HIGH, 7 MEDIUM, 2 LOW.
 **The medication-safety seam is honest and it is on the wrong screen:** the clinical chart states plainly
 that no automated checking is configured and that cross-reactivity is a certified-partner function, but the
 DISPENSING screen shows neither the recorded allergy nor that statement — driven with a severe Penicillin
@@ -79,6 +79,15 @@ lacks, inside a swallowing `catch (Throwable)`. **P3-H4 is resolved:** a pharmac
 /billing/new-invoice and can never bill their own charges — captured `draft`, the screen lists only
 `validated`, and `invoicePatient()` has no route. The dispense triple itself is atomic, append-only, and
 four driven refusals left nothing behind. **Nothing is fixed — audit only.**
+
+**QA-FIX.5 is fixing the Phase-5 critical pair.** Part 1 (`<pending>`, D-206) is done: **recorded
+allergies and the medication-safety seam now render on all three medication-action screens**
+(dispensing, medications, eMAR), using the SAME shared `AllergyRecordPanel` the clinical chart uses.
+**The empty state was the real risk** — "no recorded allergies" must never read as "checked and
+clear" — so the seam renders even with an empty list and the empty line denies being a check. The
+chart is unchanged (`alwaysShowSeam` defaults false). Nothing compares the list against the drug:
+that is the certified-partner judgment. Remaining: 5b, the silently unbilled technician dispense
+(P5-C2).
 
 **QA-FIX.4 is fixing the Phase-4 PWA critical cluster in five parts.** Part 1 (`ba7ddec`,
 D-201) is done: **the API is token-only** — `statefulApi()` is removed from `bootstrap/app.php`, so

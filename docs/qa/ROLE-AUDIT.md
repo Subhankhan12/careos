@@ -73,6 +73,8 @@ every later phase's timestamp observation suspect, and past-time booking was liv
 | `P4-C2` · `P4-C3` | CRITICAL | ✅ **FIXED** | QA-FIX.4c | `3710efe` |
 | `P4-C5` | CRITICAL | ✅ **FIXED** | QA-FIX.4d | `6f48c24` |
 | `P4-H3` | HIGH | ✅ **FIXED** | QA-FIX.4e | `e7fc442` |
+| `P5-C1` | CRITICAL | ✅ **FIXED** | QA-FIX.5a | `<pending>` |
+| `P5-C2` | CRITICAL | ⏳ same gate (Part 2) | QA-FIX.5b | — |
 | all others | — | 📋 recorded, not fixed | — | — |
 
 *(A commit cannot contain its own hash. Per the repo-wide marker convention, `<pending>` is backfilled
@@ -2439,6 +2441,35 @@ visible difference.
   product where a drug is physically released, when the same fact is displayed two clicks away. The
   omission is the misrepresentation: a screen that lists everything relevant to a dispense, and omits
   the anaphylaxis, reads as though there were nothing to say.
+
+> ✅ **FIXED — QA-FIX.5a, commit `<pending>` (D-206).** The recorded allergies and the medication-safety
+> seam now render on **all three** medication-action screens — `…/dispensing`, `…/medications` and
+> `…/emar` — using the **same** `AllergyRecordPanel` the clinical chart renders, so the wording cannot
+> drift into a second dialect.
+>
+> - **No new panel and no move.** `AllergyRecordPanel` already lived in the shared
+>   `resources/js/Components/`, so the behaviour-identity question never arose. A single
+>   `Pharmacy\Support\PatientSafetyRecord` assembles the payload — one path, not three copies.
+> - **THE EMPTY STATE WAS THE REAL RISK, and it is answered directly.** "No recorded allergies" read by
+>   a pharmacist as *"checked, and clear"* would be a worse defect than the silence this closes. So the
+>   seam renders **whether or not any allergy exists**, and the empty state states the **record** and
+>   immediately denies being a check: *"No allergies are recorded for this patient. That is the state
+>   of the record — it is not the result of a check."* No tick, no success colour, no reassurance.
+> - **The fence is unchanged.** Nothing compares the allergy list against the drug being dispensed —
+>   that comparison *is* the certified-partner judgment (ALLERGY.P1). No interstitial confirm, no
+>   "dispense anyway", no blocking verdict, no ranking, no severity styling (D-169); the list is
+>   ordered by **substance**, asserted.
+> - **The clinical chart is untouched.** `alwaysShowSeam` defaults to **false** and the chart does not
+>   pass it — a positive control asserts that.
+> - **No second audit path**: exactly one read-audit row per render, asserted.
+> - **A test-design lesson, caught by mutation and recorded rather than hidden.** The payload test for
+>   the empty case stayed **green** when the panel's own condition was reverted to
+>   `v-if="active.length > 0"` — the exact D-179 shape — because the server payload is identical either
+>   way. With no `@vue/test-utils` in this repo, the guard is a structural template assertion plus the
+>   browser verification; the payload test is regression cover, not the guard.
+> - **Verified in a real browser as BOTH pharmacy roles**, reproducing Phase 5's exact steps, including
+>   the no-allergy case — see the gate report for the verbatim screen text.
+
 
 #### `P5-C2` — A technician's dispense is silently never billed, and nothing surfaces it
 

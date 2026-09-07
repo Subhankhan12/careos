@@ -4297,3 +4297,47 @@ references the old ID.
   nurse **in the same tenant** (two tenants would only prove tenant isolation, a different guard).
   Corrected rather than argued with. See [[Nursing]], `docs/qa/ROLE-AUDIT.md` (P4-H3), D-170, D-176,
   [[LOG]].
+
+- **D-206 — Recorded allergies and the medication-safety seam belong on every medication-ACTION screen,
+  and the empty state must deny being a check (QA-FIX.5a, closing P5-C1).**
+  Phase 5 drove the dispensing screen for a patient with a **recorded severe Penicillin allergy**
+  ("Anaphylaxis requiring adrenaline and hospital admission") holding an **active Amoxicillin order**,
+  and the screen showed the order, the stock and the history — and nothing else.
+  **THE FENCE ITSELF WAS NEVER BROKEN, AND THAT MATTERS FOR WHAT THE FIX IS ALLOWED TO DO.** There was
+  no "no interactions found", no "safe to dispense", no green tick, no computed severity and no
+  substitution suggestion. Nothing claimed a check had happened. The defect was the **omission** of a
+  recorded, life-threatening fact at the one point where the drug is physically released, while the
+  clinical chart displayed that same fact two clicks away.
+  **THE NAIVE FIX WOULD HAVE BEEN WORSE THAN THE DEFECT.** An allergy panel whose empty state reads
+  "No recorded allergies" is read by a pharmacist as *"checked, and clear"* — a D-179 breach, and a
+  more dangerous one than silence, because silence at least prompts a human to look elsewhere. So the
+  seam statement renders **whether or not any allergy exists**, and the empty state is worded as a
+  fact about the **record** that immediately denies being a check: *"No allergies are recorded for
+  this patient. That is the state of the record — it is not the result of a check."* No tick, no
+  success colour, no reassuring styling.
+  **ONE COMPONENT, NOT TWO.** `AllergyRecordPanel` already lived in the shared
+  `resources/js/Components/`, so **no move was needed** and the behaviour-identity question never
+  arose. The three pharmacy screens render the *same* component the chart renders, so the wording
+  cannot drift into a second dialect. A new `alwaysShowSeam` prop (default **false**) is what the
+  medication-action screens opt into; the clinical chart does not pass it and is therefore unchanged
+  byte-for-byte — asserted by a positive control.
+  **WHICH SCREENS.** All three that put a medication action in front of a human and shared the
+  silence: `/pharmacy/patients/{p}/dispensing`, `…/medications` and `…/emar`. A single
+  `Pharmacy\Support\PatientSafetyRecord` assembles the payload so there is one path, not three copies.
+  **WHAT IT DELIBERATELY DOES NOT DO.** It does **not** compare the allergy list against the drug
+  being dispensed — that comparison *is* the certified-partner judgment the fence forbids (ALLERGY.P1).
+  No interstitial confirm, no "dispense anyway" step, no blocking verdict, no ranking, no severity
+  styling (D-169) and no ordering by severity — the list is ordered by substance, asserted.
+  **BOUNDARY AND COST.** Pharmacy reads `Clinical\Models\Allergy` directly, following the existing
+  `Comms\Services\InboxPatientContextReader` precedent for exactly the same need; no app-layer
+  controller move (the PC.P1 shape) applies, because the component was already shared. The read adds
+  **no second audit path** — the three screens each already `Gate::authorize('patient.view')` and call
+  `auditRead()` once, and a test asserts exactly one new audit row per render.
+  **A TEST-DESIGN LESSON REPEATED, AND CAUGHT BY MUTATION.** The payload test for the empty case
+  asserts the controller passes `allergies: []` and `medicationSafety` — and that payload is
+  **identical** whether the panel then renders the seam or hides itself. Reverting the panel's own
+  condition to `v-if="active.length > 0"` (the exact D-179 shape) left that test **green**. With no
+  `@vue/test-utils` in this repo (QA-FIX.4d), the guard is a structural assertion on the template plus
+  the browser verification; the payload test is regression cover, not the guard. Recorded in the test
+  file so a later reader does not mistake one for the other. See [[Pharmacy]],
+  `docs/qa/ROLE-AUDIT.md` (P5-C1), D-179, D-169, ALLERGY.P1, [[LOG]].

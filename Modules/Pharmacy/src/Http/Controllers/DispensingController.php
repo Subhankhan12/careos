@@ -14,6 +14,7 @@ use Modules\Pharmacy\Models\MedicationOrder;
 use Modules\Pharmacy\Services\DispensingService;
 use Modules\Pharmacy\Services\MedicationOrderService;
 use Modules\Pharmacy\Services\PharmacyBillingService;
+use Modules\Pharmacy\Support\PatientSafetyRecord;
 use Modules\Platform\Exceptions\CrossTenantReferenceException;
 use Modules\Platform\Models\User;
 use Throwable;
@@ -25,19 +26,25 @@ use Throwable;
  */
 class DispensingController
 {
-    public function index(Request $request, string $patient, DispensingService $dispensing, MedicationOrderService $orders): Response
+    public function index(Request $request, string $patient, DispensingService $dispensing, MedicationOrderService $orders, PatientSafetyRecord $safety): Response
     {
         Gate::authorize('patient.view');
         abort_unless($request->user() instanceof User, 403);
 
         $record = Patient::query()->whereKey($patient)->firstOrFail();
-        $record->auditRead(); // patient-scoped read log
+        $record->auditRead(); // patient-scoped read log — ONE per render; the safety record adds none
 
         return Inertia::render('Pharmacy/Dispensing', [
             'patient' => [
                 'id' => $record->id,
                 'name' => trim($record->first_name.' '.$record->last_name),
             ],
+            // QA-FIX.5a (P5-C1): the RECORDED allergies and the medication-safety seam, beside the
+            // action that releases the drug. Facts only — nothing here compares the list against what
+            // is being dispensed, because that comparison is the certified-partner judgment the fence
+            // forbids. The seam renders even when the list is empty, so an absence of records can
+            // never read as a clearance.
+            ...$safety->forPatient($record),
             'orders' => $orders->activeForPatient($record)->map(fn (MedicationOrder $order): array => [
                 'id' => $order->id,
                 'name' => $order->formularyItem->name,

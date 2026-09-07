@@ -12,6 +12,7 @@ use Modules\Pharmacy\Exceptions\MedicationAdministrationException;
 use Modules\Pharmacy\Models\MedicationAdministration;
 use Modules\Pharmacy\Models\MedicationOrder;
 use Modules\Pharmacy\Services\MedicationAdministrationService;
+use Modules\Pharmacy\Support\PatientSafetyRecord;
 use Modules\Platform\Exceptions\CrossTenantReferenceException;
 use Modules\Platform\Models\User;
 
@@ -26,19 +27,23 @@ use Modules\Platform\Models\User;
  */
 class MedicationAdministrationController
 {
-    public function index(Request $request, string $patient, MedicationAdministrationService $emar): Response
+    public function index(Request $request, string $patient, MedicationAdministrationService $emar, PatientSafetyRecord $safety): Response
     {
         Gate::authorize('patient.view');
         abort_unless($request->user() instanceof User, 403);
 
         $record = Patient::query()->whereKey($patient)->firstOrFail();
-        $record->auditRead(); // patient-scoped read log
+        $record->auditRead(); // patient-scoped read log — ONE per render; the safety record adds none
 
         return Inertia::render('Pharmacy/Emar', [
             'patient' => [
                 'id' => $record->id,
                 'name' => trim($record->first_name.' '.$record->last_name),
             ],
+            // QA-FIX.5a (P5-C1): recorded allergies + the medication-safety seam, on every
+            // medication-action surface — not just the clinical chart. Facts only; the seam renders
+            // even when the list is empty so an absence can never read as a clearance.
+            ...$safety->forPatient($record),
             // The FACTUAL due worklist: the patient's ACTIVE orders (not a computed priority).
             'due' => $emar->dueForPatient($record)->map(fn (MedicationOrder $order): array => [
                 'id' => $order->id,

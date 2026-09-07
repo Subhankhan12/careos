@@ -3,6 +3,7 @@ import { Head, router } from '@inertiajs/vue3';
 import { computed, reactive } from 'vue';
 import { useI18n } from 'vue-i18n';
 import AppLayout from '@/Layouts/AppLayout.vue';
+import AllergyRecordPanel from '@/Components/AllergyRecordPanel.vue';
 
 // Medication orders (PHARMACY.G2) — PRESENTATIONAL. Clinician-authored dose/route/frequency/PRN; active
 // orders + history + hold/discontinue. The alerts area is wired to the safety seam's SafetyResult and is
@@ -30,9 +31,23 @@ type Order = {
 type FormularyOption = { id: string; code: string; name: string; strength: string | null };
 type Alert = { code: string; message: string; source: string };
 
+type Allergy = {
+    id: string;
+    substance: string;
+    reaction: string | null;
+    source: string | null;
+    severity: string;
+    status: string;
+    recorded_at: string;
+    verified_at: string | null;
+};
 const props = defineProps<{
     patient: { id: string; name: string };
     active: Order[];
+    // QA-FIX.5a (P5-C1) — the RECORDED allergy list and the medication-safety seam state, rendered by
+    // the SAME shared component the clinical chart uses so the wording can never drift apart.
+    allergies: Allergy[];
+    medicationSafety: { providerConfigured: boolean; advisories: Array<{ code: string; message: string; source: string }> };
     history: Order[];
     alerts: Alert[];
     formulary: FormularyOption[];
@@ -67,6 +82,16 @@ function transition(order: Order, status: string): void {
                 <h1 class="mt-1 text-2xl font-semibold tracking-tight text-euca-50">{{ patient.name }}</h1>
                 <p class="mt-1 text-sm text-euca-200">{{ t('pharmacy.medications.subtitle') }}</p>
             </div>
+
+            <!--
+                QA-FIX.5a (P5-C1): the recorded allergies and the medication-safety seam, on the screen
+                where the medication action happens. The SAME component the clinical chart renders, so
+                the wording cannot drift. `always-show-seam` makes the seam statement appear even when
+                no allergy is recorded — an empty list must never be readable as "checked and clear".
+                Nothing here compares the list against the drug: that judgment is the certified
+                partner's, and CareOS does not make it.
+            -->
+            <AllergyRecordPanel :allergies="allergies" :medication-safety="medicationSafety" always-show-seam />
 
             <!-- Safety alerts — wired to the seam's SafetyResult; EMPTY today (renders nothing without alerts). -->
             <div v-if="alerts.length" class="glass-card border-l-4 border-amber-400 p-6">

@@ -12,6 +12,7 @@ use Modules\Pharmacy\Exceptions\MedicationOrderException;
 use Modules\Pharmacy\Models\FormularyItem;
 use Modules\Pharmacy\Models\MedicationOrder;
 use Modules\Pharmacy\Services\MedicationOrderService;
+use Modules\Pharmacy\Support\PatientSafetyRecord;
 use Modules\Platform\Exceptions\CrossTenantReferenceException;
 use Modules\Platform\Models\User;
 
@@ -25,19 +26,23 @@ use Modules\Platform\Models\User;
  */
 class MedicationOrderController
 {
-    public function index(Request $request, string $patient, MedicationOrderService $orders): Response
+    public function index(Request $request, string $patient, MedicationOrderService $orders, PatientSafetyRecord $safety): Response
     {
         Gate::authorize('patient.view');
         abort_unless($request->user() instanceof User, 403);
 
         $record = Patient::query()->whereKey($patient)->firstOrFail();
-        $record->auditRead(); // patient-scoped read log
+        $record->auditRead(); // patient-scoped read log — ONE per render; the safety record adds none
 
         return Inertia::render('Pharmacy/MedicationOrders', [
             'patient' => [
                 'id' => $record->id,
                 'name' => trim($record->first_name.' '.$record->last_name),
             ],
+            // QA-FIX.5a (P5-C1): recorded allergies + the medication-safety seam, on every
+            // medication-action surface — not just the clinical chart. Facts only; the seam renders
+            // even when the list is empty so an absence can never read as a clearance.
+            ...$safety->forPatient($record),
             'active' => $orders->activeForPatient($record)->map($this->present(...))->all(),
             'history' => $orders->historyForPatient($record)->map($this->present(...))->all(),
             // The safety seam's advisory result — EMPTY today (null-object). Wired for a future partner.

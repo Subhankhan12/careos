@@ -1083,7 +1083,8 @@
             "configuredNoFindings": "A medication-safety partner is connected. It runs advisory checks at prescribing time; there is nothing to show on this record view.",
             "provenance": "From {source}",
             "footnote": "When a licensed partner is connected, its findings appear here as advisory notes for the prescriber — they are never automatic and never block a prescription."
-        }
+        },
+        "noneRecorded": "No allergies are recorded for this patient. That is the state of the record — it is not the result of a check."
     },
     "schedulingSettings": {
         "eyebrow": "Administration",

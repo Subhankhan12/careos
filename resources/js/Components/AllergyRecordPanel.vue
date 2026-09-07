@@ -15,13 +15,22 @@ type Allergy = {
     verified_at: string | null;
 };
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
     allergies: Allergy[];
     // The display-only MedicationSafetyProvider seam state. Automated drug-allergy checking is a
     // certified-partner medical-device function CareOS never computes; today the seam is the
     // null-object (no partner), so there is nothing advisory to show.
     medicationSafety: { providerConfigured: boolean; advisories: Array<{ code: string; message: string; source: string }> };
-}>();
+    /**
+     * Render the seam statement EVEN WHEN NO ALLERGY IS RECORDED (QA-FIX.5a, P5-C1).
+     *
+     * On a MEDICATION-ACTION screen — dispensing, the eMAR, the order list — an empty allergy list must
+     * never be able to read as "checked and clear". So those screens opt in here: the panel then states
+     * that nothing is recorded AND that nothing was checked, together. Off by default so the clinical
+     * chart keeps its existing behaviour byte-for-byte.
+     */
+    alwaysShowSeam?: boolean;
+}>(), { alwaysShowSeam: false });
 
 // Only active allergies get a record card. This is a DISPLAY of recorded facts — it grades nothing.
 const active = computed(() => props.allergies.filter((a) => a.status === 'active'));
@@ -37,11 +46,21 @@ function formatDate(iso: string | null): string {
 </script>
 
 <template>
-    <section v-if="active.length > 0" class="space-y-4">
+    <section v-if="active.length > 0 || alwaysShowSeam" class="space-y-4">
         <div>
             <h3 class="text-sm font-semibold uppercase tracking-[0.12em] text-euca-700">{{ t('allergyAlert.title') }}</h3>
             <p class="mt-0.5 text-xs text-ink-muted">{{ t('allergyAlert.subtitle') }}</p>
         </div>
+
+        <!-- THE EMPTY STATE IS THE DANGEROUS ONE (QA-FIX.5a, P5-C1).
+             On a medication-action screen, "no recorded allergies" must never be readable as "checked
+             and clear" — that would be the D-179 breach this product avoids everywhere else. So it is
+             stated as a fact about the RECORD, immediately says it is not the result of a check, and
+             carries NO tick, NO success colour and NO reassuring styling. The seam paragraph below then
+             says the same thing about the system. -->
+        <p v-if="active.length === 0" class="rounded-2xl border border-line bg-surface-2 px-5 py-4 text-sm text-ink-muted">
+            {{ t('allergyAlert.noneRecorded') }}
+        </p>
 
         <!-- One record card per active allergy — every value is a CLINICIAN-RECORDED FACT (displayed,
              not computed). Severity is the recorded severity, not a grade this page derived. -->

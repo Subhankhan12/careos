@@ -304,7 +304,7 @@ non-goal. Phases 3–7 (lab / radiology / OR / ED) remain. See [[D-120]], [[D-12
   A homemade medication-safety checker is a **permanent non-goal** (medical-device territory; contradicts the
   clinical-safety eval).
 
-### QA Phase 5 — the dispensing screen is silent about allergies (audit only, `<pending>`)
+### QA Phase 5 — the dispensing screen is silent about allergies (audit only, `3199a7c`)
 
 **THE SAFETY SEAM IS HONEST, AND IT IS ON THE WRONG SCREEN.** `AllergyRecordPanel`
 (`resources/js/pages/Clinical/Chart.vue:232`) says, verbatim: *"No automated medication-safety
@@ -337,3 +337,31 @@ four driven refusals left the ledger completely unchanged. **But there is NO rev
 
 **The model has NO batch and NO expiry** (`medication_stocks`: `location, on_hand, unit,
 reorder_threshold`), so "from which batch" cannot be asked.
+
+### QA-FIX.5a — allergies + the safety seam on every medication-action screen (P5-C1, D-206, `<pending>`)
+
+**All three screens now render the SAME `AllergyRecordPanel` the clinical chart renders** —
+`…/dispensing`, `…/medications`, `…/emar` — fed by one `Pharmacy\Support\PatientSafetyRecord`.
+Do **not** build a second panel or a second wording: the point is that they cannot drift.
+
+**THE EMPTY STATE IS THE DANGEROUS CASE, and the design turns on it.** "No recorded allergies" read as
+*"checked, and clear"* is a worse defect than the silence this closed. So:
+- `alwaysShowSeam` (default **false**) makes the seam render **even with an empty list**; the three
+  pharmacy screens pass it, **the clinical chart does not** — that is why the chart is unchanged.
+- the empty line states the RECORD and denies being a check: *"No allergies are recorded for this
+  patient. That is the state of the record — it is not the result of a check."* No tick, no success
+  colour.
+
+**NOTHING COMPARES THE LIST AGAINST THE DRUG.** That comparison IS the certified-partner judgment
+(ALLERGY.P1). No interstitial confirm, no "dispense anyway", no blocking verdict, no ranking, no
+severity styling (D-169) — the list is ordered by **substance**, and a test asserts it.
+
+**Pharmacy reads `Clinical\Models\Allergy` directly**, following `Comms\InboxPatientContextReader`.
+`PatientSafetyRecord` adds **no** authorization and **no** audit: the three controllers already
+`Gate::authorize('patient.view')` and `auditRead()` once each, and a test pins **one** audit row per
+render.
+
+**A PAYLOAD TEST CANNOT GUARD THIS.** Reverting the panel to `v-if="active.length > 0"` leaves the
+Inertia payload identical, so the empty-case payload test stays **green** — measured, not assumed.
+The guard is the structural template assertion (`always-show-seam` present on all three pages, the
+panel's condition intact) plus the browser verification. There is no `@vue/test-utils` here.
