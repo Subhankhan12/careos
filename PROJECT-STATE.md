@@ -85,8 +85,10 @@ survives a reload AND a session expiry and is never silently deleted (P4-C2, P4-
 stated in D-203. **Still open:** a reload while OFFLINE leaves the app unusable until the nurse can
 reach the network to log in. Part 4 (`<pending>`, D-204) is done: **one save gesture writes one note** — the textarea's
 `@change` and the button's `@click` both fired on a single gesture; both affordances are kept and the
-save is now idempotent for unchanged text (P4-C5). Only the note had that shape. Remaining: 4e
-check-in/out wiring (P4-H3).
+save is now idempotent for unchanged text (P4-C5). Only the note had that shape. Part 5 (`<pending>`, D-205) is done: **the PWA can check in and out** — the server always
+implemented both and the client simply never imported them, so this was wiring, not a feature. No GPS
+was added: the check-in states that no location was captured and the server stores `manual_reason`
+with `location` NULL, the honest path Phase 4 verified. **QA-FIX.4 is COMPLETE (5/5).**
 
 **A refused money operation leaves nothing behind** (D-199): `record()` + `allocate()` now run in one
 transaction on the AR-account path, so a refused allocation unwinds the payment and every line already

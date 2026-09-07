@@ -6,6 +6,8 @@ import { hasSessionKey, loadDayPack, pendingOutboxCount, wipeLocalStore } from '
 import { startIdleWipe } from './idle';
 import {
     emptyNoteDraftMemo,
+    queueCheckIn,
+    queueCheckOut,
     queueTaskDone,
     queueTaskNotDone,
     queueIncidentReport,
@@ -126,6 +128,36 @@ async function saveNote(visit: VisitSummary): Promise<void> {
     if (queued !== null) {
         await refreshPending();
     }
+}
+
+/**
+ * Attendance state (QA-FIX.4e, P4-H3).
+ *
+ * `execution_visit_id` is the SERVER's view at day-pack time; `attendance` records what this device
+ * has queued since. Both are needed: offline, a queued check-in has not reached the server yet, and
+ * only offering the action the visit's state allows keeps a nurse away from the state-machine error
+ * that P4-H1 turns into a 500.
+ */
+const attendance = reactive<Record<string, 'checked_in' | 'checked_out'>>({});
+
+function isCheckedIn(visit: VisitSummary): boolean {
+    return attendance[visit.id] !== undefined || visit.execution_visit_id !== null;
+}
+
+function isCheckedOut(visit: VisitSummary): boolean {
+    return attendance[visit.id] === 'checked_out';
+}
+
+async function checkIn(visit: VisitSummary): Promise<void> {
+    await queueCheckIn(visit);
+    attendance[visit.id] = 'checked_in';
+    await refreshPending();
+}
+
+async function checkOut(visit: VisitSummary): Promise<void> {
+    await queueCheckOut(visit);
+    attendance[visit.id] = 'checked_out';
+    await refreshPending();
 }
 
 async function queuePhotoFromInput(visit: VisitSummary, event: Event): Promise<void> {
@@ -276,6 +308,26 @@ onUnmounted(() => {
                     <h2>{{ t('visits.detail') }}</h2>
                     <h3>{{ selectedVisit.patient.name }}</h3>
                     <p>{{ selectedVisit.address.line1 }} {{ selectedVisit.address.city }} {{ selectedVisit.address.postal }}</p>
+
+                    <!--
+                        CHECK IN / CHECK OUT (QA-FIX.4e, P4-H3). The server has always implemented
+                        both; the client simply offered no control, so no visit could be started or
+                        closed from the field and EVV was unreachable. Only the action the visit's
+                        current state allows is offered, so a nurse cannot drive the visit into the
+                        state-machine error that P4-H1 turns into a 500.
+                    -->
+                    <section class="visit-attendance">
+                        <h4>{{ t('visits.attendance') }}</h4>
+                        <button v-if="!isCheckedIn(selectedVisit)" type="button" @click="checkIn(selectedVisit)">
+                            {{ t('visits.checkIn') }}
+                        </button>
+                        <button v-else-if="!isCheckedOut(selectedVisit)" type="button" @click="checkOut(selectedVisit)">
+                            {{ t('visits.checkOut') }}
+                        </button>
+                        <p v-else>{{ t('visits.visitClosed') }}</p>
+                        <!-- Say plainly that no location was captured; never imply EVV verified a position. -->
+                        <p class="attendance-basis">{{ t('visits.noLocationCaptured') }}</p>
+                    </section>
 
                     <section class="allergy-banner">
                         <h4>{{ t('visits.allergies') }}</h4>

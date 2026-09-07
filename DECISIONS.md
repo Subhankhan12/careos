@@ -4249,3 +4249,51 @@ references the old ID.
   different visit still recording, and a control asserting **identical vitals twice are never
   deduped**. Mutation-checked twice: removing the guard reddens the gesture tests, and restoring the
   after-await ordering reddens the concurrent one. See [[Nursing]], `docs/qa/ROLE-AUDIT.md` (P4-C5), [[LOG]].
+
+- **D-205 — The PWA can check in and out: wiring an existing server capability to its missing client
+  control, WITHOUT adding GPS (QA-FIX.4e, closing P4-H3).**
+  The server has always implemented `check_in`/`check_out` — the visit state machine
+  (`scheduled → in_progress → completed`), the EVV `visit_events` record with
+  `location`/`accuracy_meters`/`location_source`/`manual_reason`/`distance_meters`, the
+  cross-assignment guard and the ledger — and it is tested. **`App.vue` never imported either
+  action.** So no visit could be started or closed from the field, EVV was unreachable, queued vitals
+  and notes referenced a visit that did not exist (which is why Phase 4's queued vitals came back
+  `visit_not_found`), and **no `in_progress` or `missed` visit could exist at all** — which is also
+  why the demo seed had none.
+  **THE FIX-OR-FEATURE CALL, MADE BEFORE WRITING ANY CODE, AS THE GATE REQUIRED: it is WIRING.** The
+  client already produced the exact payload both handlers need — `baseVisitPayload()` emits
+  `planned_visit_id`, `visit_id`, `client_visit_uuid` (`offline-${visit.id}`), `nurse_resource_id`
+  and `patient_id` — and `enqueueOutboxAction(type, payload)` is generic, so the offline queue, sync,
+  retry, replay idempotency and the device-key encryption from QA-FIX.4c all apply unchanged. Two new
+  functions, two buttons, and some button-state handling. **What WOULD have made it a feature — and
+  therefore a STOP — is GPS capture:** geolocation permission prompts, accuracy handling, a location
+  UI, a distance threshold. None of that is added.
+  **SO THE CHECK-IN SAYS IT HAS NO LOCATION, RATHER THAN PRETENDING OTHERWISE.** The server accepts
+  **either** a `location` (whose GPS fields it then requires) **or** a `manual_reason`. This client
+  captures no GPS, so it sends a stated reason and no coordinates — exactly the path Phase 4 verified
+  as honest (`manual_reason` stored, `location` NULL). It fabricates no position (D-176 / D-179) and
+  invents no accuracy or distance threshold the server does not define (D-170). The screen says so
+  too: *"No location is captured on this device; the visit records the time and the stated reason
+  only."* — so a nurse is never left believing EVV verified where they were.
+  **ONLY THE ACTION THE VISIT'S STATE ALLOWS IS OFFERED.** `VisitService` throws *"Only scheduled
+  visits can be checked in"* and *"A visit must be checked in before check-out"*, and `P4-H1` turns
+  an escaped throw into a 500 that takes the whole batch with it. The UI therefore shows Check in, or
+  Check out, or neither — driven by `execution_visit_id` (the server's view at day-pack time) **and**
+  a local record of what this device has queued since, because offline a queued check-in has not
+  reached the server yet. This does not FIX `P4-H1`, which remains open; it stops the client walking
+  into it.
+  **Guarded by** six server tests (`tests/Feature/Nursing/CheckInOutWiringTest.php`) including **the
+  full field round** — check in, vitals, note, check out, all accepted, visit `completed` — plus the
+  EVV honesty assertion (`manual_reason` set, `location`/`accuracy_meters`/`distance_meters` all
+  NULL) and two positive controls: cross-assignment still refused with
+  `schedule_changed_server_wins` and **no `Visit` created**, and the QA-FIX.4b UTC boundary still
+  holding on a check-in. Six client tests (`nurse-pwa/tests/checkInOut.test.ts`) pin the queued
+  payload shape, that both go through the same offline queue, and that the payload contains **no**
+  `latitude`/`longitude`/`accuracy`/`distance`.
+  **A NOTE ON THE FIRST CROSS-ASSIGNMENT TEST I WROTE, WHICH WAS WRONG.** It forged
+  `nurse_resource_id` on the nurse's OWN planned visit and expected a rejection; the sync returned
+  `accepted`, which is **correct** — the forged field is ignored because that resource is not in the
+  nurse's set, and the nurse is entitled to their own visit. Genuine cross-assignment needs a second
+  nurse **in the same tenant** (two tenants would only prove tenant isolation, a different guard).
+  Corrected rather than argued with. See [[Nursing]], `docs/qa/ROLE-AUDIT.md` (P4-H3), D-170, D-176,
+  [[LOG]].

@@ -71,7 +71,7 @@ every later phase's timestamp observation suspect, and past-time booking was liv
 | `P4-C4` | CRITICAL → **HIGH** (latent, see banner) | ✅ **FIXED** | QA-FIX.4b | `<pending>` |
 | `P4-C2` · `P4-C3` | CRITICAL | ✅ **FIXED** | QA-FIX.4c | `<pending>` |
 | `P4-C5` | CRITICAL | ✅ **FIXED** | QA-FIX.4d | `<pending>` |
-| `P4-H3` | HIGH | ⏳ same gate (Part 5) | QA-FIX.4e | — |
+| `P4-H3` | HIGH | ✅ **FIXED** | QA-FIX.4e | `<pending>` |
 | all others | — | 📋 recorded, not fixed | — | — |
 
 *(A commit cannot contain its own hash. Per the repo-wide marker convention, `<pending>` is backfilled
@@ -2117,6 +2117,37 @@ with zero cookies.
   visit that does not yet exist. This is also why the seed contains no in-progress or missed visits.
 - **Why HIGH:** starting and closing a visit is *the* core operation of a home-care round, and it is
   the one thing the field app cannot do.
+
+
+> ✅ **FIXED — QA-FIX.4e, commit `<pending>` (D-205).** Check in / Check out are wired to the
+> **existing** server actions through the **existing** offline queue.
+>
+> - **The fix-or-feature call, made before writing code: this is WIRING.** The client already
+>   produced the exact payload both handlers need (`baseVisitPayload()` emits `planned_visit_id`,
+>   `visit_id`, `client_visit_uuid`, `nurse_resource_id`, `patient_id`) and
+>   `enqueueOutboxAction(type, payload)` is generic — so the queue, sync, retry, replay idempotency
+>   and the QA-FIX.4c device-key encryption all apply unchanged. **What would have made it a feature,
+>   and a STOP, is GPS capture** — permission prompts, accuracy handling, a location UI, a distance
+>   threshold. None was added.
+> - **EVV honesty is preserved exactly as Phase 4 verified it.** The server accepts *either* a
+>   `location` (whose GPS fields it then requires) *or* a `manual_reason`. This client captures no
+>   GPS, so it states that and sends no coordinates: `manual_reason` is stored and `location`,
+>   `accuracy_meters` and `distance_meters` stay **NULL**. No position is fabricated (D-176/D-179)
+>   and no accuracy or distance threshold is invented (D-170). The screen says so too — *"No location
+>   is captured on this device; the visit records the time and the stated reason only."*
+> - **Only the action the visit's state allows is offered.** `VisitService` throws on an out-of-order
+>   transition and `P4-H1` turns an escaped throw into a 500, so the UI shows Check in, or Check out,
+>   or neither — driven by `execution_visit_id` plus what this device has queued since (offline, a
+>   queued check-in has not reached the server). **This does not fix `P4-H1`, which stays open** — it
+>   stops the client walking into it.
+> - **Six server tests and six client tests**, including **the full field round** (check in → vitals
+>   → note → check out, all accepted, visit `completed`), the EVV honesty assertion, and two positive
+>   controls: cross-assignment still refused with `schedule_changed_server_wins` and **no `Visit`
+>   created**, and QA-FIX.4b's UTC boundary still holding on a check-in.
+> - **Consequence:** `in_progress` and `completed` visits can now exist from the field at all, which
+>   is why the Phase-4 seed contained none.
+> - **Verified in a real browser on the DEFAULT origin** — a full round driven online and with an
+>   offline segment; see the gate report.
 
 #### `P4-H4` — Every nursing time is rendered as raw UTC, so a field nurse reads their visit two hours early
 

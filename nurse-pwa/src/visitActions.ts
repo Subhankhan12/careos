@@ -139,6 +139,34 @@ export async function saveVisitNoteOnce(
     }
 }
 
+/**
+ * WHY A CHECK-IN CARRIES A MANUAL REASON AND NO LOCATION (QA-FIX.4e, P4-H3, D-205).
+ *
+ * The server accepts EITHER a `location` (which it then requires to carry real GPS fields) OR a
+ * `manual_reason`. This client captures no GPS, so it says so: it records the ABSENCE of a location
+ * with a stated reason, exactly the path Phase 4 verified as honest (manual_reason stored,
+ * `location` NULL). It never fabricates coordinates (D-176/D-179) and never invents an accuracy or
+ * distance threshold the server does not define (D-170).
+ *
+ * Adding real GPS capture would be a new capability — permission prompts, accuracy handling, a
+ * location UI — and is deliberately NOT part of this fix.
+ */
+export const NO_LOCATION_REASON = 'No location captured on this device';
+
+export async function queueCheckIn(visit: VisitSummary): Promise<OutboxEntry> {
+    return enqueueOutboxAction('check_in', {
+        ...baseVisitPayload(visit),
+        manual_reason: NO_LOCATION_REASON,
+    });
+}
+
+export async function queueCheckOut(visit: VisitSummary): Promise<OutboxEntry> {
+    return enqueueOutboxAction('check_out', {
+        ...baseVisitPayload(visit),
+        manual_reason: NO_LOCATION_REASON,
+    });
+}
+
 export async function queueVisitPhoto(
     visit: VisitSummary,
     attachment: LocalAttachmentPayload,

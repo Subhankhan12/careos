@@ -437,3 +437,29 @@ enqueue path and assert the outbox — stronger than mounting the component.
 memo *after* the await: sequentially correct, green in every unit test, and it **still wrote two notes
 in a real browser**, because `@change` and `@click` are in flight simultaneously. If you refactor this,
 keep the claim before the await and keep the `Promise.all` test — it is the only one that catches it.
+
+### QA-FIX.4e — the PWA can check in and out (P4-H3, D-205, `<pending>`)
+
+**This was WIRING, not a feature, and the call was made before any code was written.** The server had
+always implemented `check_in`/`check_out` (state machine, EVV `visit_events`, cross-assignment guard,
+ledger); `App.vue` simply never imported them. The client already emitted the exact payload via
+`baseVisitPayload()`, and `enqueueOutboxAction()` is generic — so the offline queue, sync, retry,
+replay idempotency and the 4c device-key encryption all applied unchanged.
+
+**THE PWA CAPTURES NO GPS, AND SAYS SO.** `queueCheckIn`/`queueCheckOut` send
+`manual_reason: NO_LOCATION_REASON` and **no** coordinates. The server stores that with `location`,
+`accuracy_meters` and `distance_meters` **NULL** — the honest path Phase 4 verified. **Do not "improve"
+this by adding GPS**: that is a new capability (permission prompts, accuracy handling, a location UI,
+a distance threshold) and would need its own gate. Never fabricate a position (D-176/D-179) and never
+invent an accuracy or distance threshold the server does not define (D-170).
+
+**BUTTON STATE EXISTS TO AVOID P4-H1, NOT TO FIX IT.** `VisitService` throws on an out-of-order
+transition and P4-H1 turns an escaped throw into a 500 that kills the whole batch. The UI offers only
+the legal action, using `execution_visit_id` (server view at day-pack time) **plus** a local
+`attendance` map of what this device has queued since — offline, a queued check-in has not reached
+the server. **P4-H1 remains OPEN.**
+
+**Writing a cross-assignment test?** Forging `nurse_resource_id` on the nurse's OWN visit returns
+`accepted` and that is correct — the forged field is ignored and the visit is theirs. A real
+cross-assignment test needs a **second nurse in the SAME tenant**; two tenants only prove tenant
+isolation, which is a different guard.
