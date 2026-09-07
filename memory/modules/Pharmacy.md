@@ -303,3 +303,37 @@ non-goal. Phases 3–7 (lab / radiology / OR / ED) remain. See [[D-120]], [[D-12
   each; the certified-partner engine + a licensed drug DB are the permanent partner surfaces (never homemade).
   A homemade medication-safety checker is a **permanent non-goal** (medical-device territory; contradicts the
   clinical-safety eval).
+
+### QA Phase 5 — the dispensing screen is silent about allergies (audit only, `<pending>`)
+
+**THE SAFETY SEAM IS HONEST, AND IT IS ON THE WRONG SCREEN.** `AllergyRecordPanel`
+(`resources/js/pages/Clinical/Chart.vue:232`) says, verbatim: *"No automated medication-safety
+checking is configured… drug-allergy interaction, cross-reactivity and contraindication checking is a
+certified-partner function and is not performed here."* No cleared state, no green tick, no grading —
+**the fence holds**. But **`/pharmacy/patients/{p}/dispensing` shows neither the allergy nor that
+statement**: `DispensingController::index()` passes `patient` as **id + name only**, and no
+`resources/js/pages/Pharmacy/*` file mentions allergies at all. Driven with a **severe Penicillin
+(anaphylaxis)** allergy against an active **Amoxicillin** order: the screen showed nothing (`P5-C1`).
+
+**THE TECHNICIAN'S DISPENSE IS NEVER BILLED (`P5-C2`) — know this before touching
+`PharmacyBillingService`.** `chargeForDispense()` opens with `Gate::authorize('billing.manage')`, which
+`pharmacy_technician` deliberately lacks, and `DispensingController.php:81-86` calls it inside
+`catch (Throwable) {}`. So an authorization failure is swallowed exactly like a transient hiccup:
+stock decrements, the dispense commits, **no charge exists**, and the screen is identical to the
+pharmacist's. Dispensing is that role's primary job. **Nothing anywhere lists uncharged dispenses**,
+so the code comment's "reconcilable later" is unbacked.
+
+**A PHARMACIST CANNOT BILL WHAT THEY DISPENSE (`P5-H1`, resolving Phase 3's `P3-H4`).** Charges are
+created **`draft`** (`ChargeCaptureService.php:143`); `/billing/new-invoice` filters `VALIDATED` at
+`InvoiceDraftController` lines 43/76/124 and never validates; and
+`PharmacyBillingService::invoicePatient()` — which *does* validate-then-issue — has **no route and no
+production caller**. The screen reads "No validated, un-invoiced charges to bill." for ever.
+
+**What the dispense path gets RIGHT — do not regress it:** the dispense row + stock decrement +
+append-only `StockMovement` are **one transaction** with `lockForUpdate` and an in-lock stock re-check
+(`DispensingService.php:52`); `Dispense` and `StockMovement` throw on `updating` **and** `deleting`;
+four driven refusals left the ledger completely unchanged. **But there is NO reversal path at all**
+(`P5-H3`) — a mis-dispense is permanent; only stock can be corrected, via inventory adjust.
+
+**The model has NO batch and NO expiry** (`medication_stocks`: `location, on_hand, unit,
+reorder_threshold`), so "from which batch" cannot be asked.

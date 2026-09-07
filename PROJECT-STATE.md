@@ -69,6 +69,17 @@ refused under forgery, day-pack scoped to the nurse's own visits, clinical fence
 defects are in the data LIFECYCLE. A `nurse` is 403 on every nursing WEB route, so the PWA is their
 only surface. **Nothing is fixed — audit only.**
 
+**Phase 5 (pharmacy) is DONE** (`<pending>`): 14 findings — 2 CRITICAL, 3 HIGH, 7 MEDIUM, 2 LOW.
+**The medication-safety seam is honest and it is on the wrong screen:** the clinical chart states plainly
+that no automated checking is configured and that cross-reactivity is a certified-partner function, but the
+DISPENSING screen shows neither the recorded allergy nor that statement — driven with a severe Penicillin
+anaphylaxis against an active Amoxicillin order, it showed nothing (P5-C1). **A pharmacy_technician's
+dispense is silently never billed** (P5-C2): `chargeForDispense()` needs `billing.manage`, which that role
+lacks, inside a swallowing `catch (Throwable)`. **P3-H4 is resolved:** a pharmacist reaches
+/billing/new-invoice and can never bill their own charges — captured `draft`, the screen lists only
+`validated`, and `invoicePatient()` has no route. The dispense triple itself is atomic, append-only, and
+four driven refusals left nothing behind. **Nothing is fixed — audit only.**
+
 **QA-FIX.4 is fixing the Phase-4 PWA critical cluster in five parts.** Part 1 (`ba7ddec`,
 D-201) is done: **the API is token-only** — `statefulApi()` is removed from `bootstrap/app.php`, so
 the Nurse PWA can finally authenticate and sync from the origin it is served on (P4-C1). The study
@@ -85,7 +96,7 @@ survives a reload AND a session expiry and is never silently deleted (P4-C2, P4-
 stated in D-203. **Still open:** a reload while OFFLINE leaves the app unusable until the nurse can
 reach the network to log in. Part 4 (`6f48c24`, D-204) is done: **one save gesture writes one note** — the textarea's
 `@change` and the button's `@click` both fired on a single gesture; both affordances are kept and the
-save is now idempotent for unchanged text (P4-C5). Only the note had that shape. Part 5 (`<pending>`, D-205) is done: **the PWA can check in and out** — the server always
+save is now idempotent for unchanged text (P4-C5). Only the note had that shape. Part 5 (`e7fc442`, D-205) is done: **the PWA can check in and out** — the server always
 implemented both and the client simply never imported them, so this was wiring, not a feature. No GPS
 was added: the check-in states that no location was captured and the server stores `manual_reason`
 with `location` NULL, the honest path Phase 4 verified. **QA-FIX.4 is COMPLETE (5/5).**

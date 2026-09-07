@@ -438,7 +438,7 @@ memo *after* the await: sequentially correct, green in every unit test, and it *
 in a real browser**, because `@change` and `@click` are in flight simultaneously. If you refactor this,
 keep the claim before the await and keep the `Promise.all` test — it is the only one that catches it.
 
-### QA-FIX.4e — the PWA can check in and out (P4-H3, D-205, `<pending>`)
+### QA-FIX.4e — the PWA can check in and out (P4-H3, D-205, `e7fc442`)
 
 **This was WIRING, not a feature, and the call was made before any code was written.** The server had
 always implemented `check_in`/`check_out` (state machine, EVV `visit_events`, cross-assignment guard,

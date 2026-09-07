@@ -27,7 +27,7 @@ missing · `LOW` cosmetic / polish.
 | **2** | **Clinician / physician** (`doctor` — medical **and** dental, `ed_physician` driven; `hospitalist`, `surgeon`, `anesthetist`, `pathologist`, `radiologist` compared but not driven) | ✅ **DONE** — 2026-09-05 |
 | **3** | **Billing / finance** (`billing`, `org_admin` and `pharmacist` — the only three roles holding a `billing.*` permission) | ✅ **DONE** — 2026-09-06 |
 | **4** | **Nursing / Spitex** (`nurse`, `coordinator`, `ward_nurse`, `charge_nurse` + the offline **Nurse PWA**) | ✅ **DONE** — 2026-09-06 |
-| 5 | Pharmacy (`pharmacist`, `pharmacy_technician`) | ⏳ planned |
+| **5** | **Pharmacy** (`pharmacist`, `pharmacy_technician`) | ✅ **DONE** — 2026-09-07 |
 | 6 | Surgery / OR (`surgeon`, `anesthetist`, `scrub_nurse`, `surgical_scheduler`) | ⏳ planned |
 | 7 | ED (`ed_physician`, `triage_nurse`, `ed_charge_nurse`) | ⏳ planned |
 | 8 | Lab + Radiology (`lab_tech`, `pathologist`, `radiographer`, `radiologist`) | ⏳ planned |
@@ -42,7 +42,8 @@ missing · `LOW` cosmetic / polish.
 | 2 — Clinician (doctor / dentist) | 1 | 4 | 9 | 5 | 19 |
 | 3 — Billing / finance | 1 | 4 | 8 | 2 | 15 |
 | 4 — Nursing / Spitex (incl. Nurse PWA) | **5** | 5 | 10 | 3 | 23 |
-| **Total to date** | **8** | **16** | **35** | **16** | **75** |
+| 5 — Pharmacy | 2 | 3 | 7 | 2 | 14 |
+| **Total to date** | **10** | **19** | **42** | **18** | **89** |
 
 *(Counts are as RECORDED at audit time and are not restated when a later gate re-grades a finding.
 `P4-C4` was re-graded **CRITICAL → HIGH** by QA-FIX.4b — the defect was latent rather than active,
@@ -71,7 +72,7 @@ every later phase's timestamp observation suspect, and past-time booking was liv
 | `P4-C4` | CRITICAL → **HIGH** (latent, see banner) | ✅ **FIXED** | QA-FIX.4b | `ce2ebaa` |
 | `P4-C2` · `P4-C3` | CRITICAL | ✅ **FIXED** | QA-FIX.4c | `3710efe` |
 | `P4-C5` | CRITICAL | ✅ **FIXED** | QA-FIX.4d | `6f48c24` |
-| `P4-H3` | HIGH | ✅ **FIXED** | QA-FIX.4e | `<pending>` |
+| `P4-H3` | HIGH | ✅ **FIXED** | QA-FIX.4e | `e7fc442` |
 | all others | — | 📋 recorded, not fixed | — | — |
 
 *(A commit cannot contain its own hash. Per the repo-wide marker convention, `<pending>` is backfilled
@@ -2119,7 +2120,7 @@ with zero cookies.
   the one thing the field app cannot do.
 
 
-> ✅ **FIXED — QA-FIX.4e, commit `<pending>` (D-205).** Check in / Check out are wired to the
+> ✅ **FIXED — QA-FIX.4e, commit `e7fc442` (D-205).** Check in / Check out are wired to the
 > **existing** server actions through the **existing** offline queue.
 >
 > - **The fix-or-feature call, made before writing code: this is WIRING.** The client already
@@ -2308,11 +2309,350 @@ Driven in the browser, not inferred:
   reload is stated as unverified rather than claimed.
 - **Performance** — out of scope per the gate, deferred to staging.
 
+
+## Phase 5 — Pharmacy
+
+**Date:** 2026-09-07 · **Top commit at audit time:** `81b7138` (the QA-FIX.4 hash backfill), CI
+`completed / success` confirmed via `commits/<sha>/check-runs`. Tree clean apart from untracked
+`docs/marketing-site/`.
+
+**AUDIT ONLY.** No app code, test or seeder was changed. The only writes are those made by *driving
+the product* (two dispenses, one via each role) plus two allergies recorded through the product's own
+`ClinicalListService::recordAllergy()` — see the environment note. All demo tenants were re-seeded
+afterwards and verified back to baseline by query.
+
+### Environment
+
+| Item | State |
+|---|---|
+| Pharmacy tenant | `klinik-bergblick` — the **only** tenant with pharmacy data |
+| Formulary | 3 items: Paracetamol, **Amoxicillin**, Enoxaparin (all priced, all with a `tariff_item_id`) |
+| Stock | 2 rows (Amoxicillin 97, Paracetamol 196). **Enoxaparin has no stock row** |
+| Medication orders | 3 active — Karin Weber (Paracetamol, Enoxaparin), **Greta Zimmermann (Amoxicillin)** |
+| Dispenses / charges | 2 / 2 at baseline |
+| **Redis** | **UP — honestly.** `PING` → `+PONG` on 127.0.0.1:6379 (Memurai) |
+| App timezone | `UTC` storage; tenant `Europe/Zurich`; browser (viewer) `America/Los_Angeles` |
+| Out of scope | **Performance — deferred to staging**, per the gate |
+
+**THE FENCE CONTROL HAD TO BE CREATED, AND HOW IT WAS CREATED MATTERS.** The gate requires a patient
+with a recorded allergy that plausibly interacts with a stocked drug. `klinik-bergblick` had **zero
+allergies** (they exist only in `praxis-lindenhof` and `spitex-sonnengarten`). Greta Zimmermann has an
+**active Amoxicillin order**, so a **severe Penicillin allergy — "Anaphylaxis requiring adrenaline and
+hospital admission"** — was recorded against her, plus a **mild Latex** allergy later as the D-169
+positive control. Both were written through the product's own `ClinicalListService::recordAllergy()`
+rather than by seeding — because **the product has no HTTP route or UI control that records an
+allergy at all** (`P5-M7`), so the service is the closest thing to its real path. Stated rather than
+glossed.
+
+**Batches and expiry: the model has none.** `medication_stocks` is
+`id, tenant_id, formulary_item_id, location, on_hand, unit, reorder_threshold, …` and `dispenses` is
+`… medication_order_id, formulary_item_id, quantity, dispensed_by, dispensed_at, stay_id`. There is
+no batch number, no lot, no expiry column anywhere, so "dispense from which batch" has no answer to
+audit (`P5-M5`).
+
+### Roles covered
+
+| Role | Driven as | Permissions |
+|---|---|---|
+| `pharmacist` | `sofia.rieder@klinik-bergblick.test` | `patient.view`, `formulary.manage`, `dispense.manage`, `billing.manage` |
+| `pharmacy_technician` | `tim.graf@klinik-bergblick.test` | `patient.view`, `dispense.manage` |
+
+**Excluded, with reasons:** none. `RbacProvisioner::ROLE_TEMPLATES` contains exactly two pharmacy
+roles and both were driven separately on identical routes. Prescribing is a physician act
+(`doctor` / `hospitalist`, Phase 2) and medication *administration* on a ward is nursing (Phase 4);
+neither is a pharmacy role.
+
+**Pharmacist vs technician — the asymmetry is deliberate and correct at the route layer:**
+
+| Route | `pharmacist` | `pharmacy_technician` | Correct? |
+|---|---|---|---|
+| `/pharmacy/inventory` | 200 | **200** | ✅ the template says the technician "manages stock" |
+| `/pharmacy/formulary` | 200 | **403** | ✅ no `formulary.manage` |
+| `/pharmacy/pricing` | 200 | **403** | ✅ no `formulary.manage` |
+| `/billing/new-invoice` | 200 | **403** | ✅ no `billing.manage` |
+| dispensing screen + Dispense | 200 / works | 200 / works | ✅ both hold `dispense.manage` |
+
+**But the asymmetry does not stop at the route layer, and that is `P5-C2`:** the same Dispense button
+produces a *billable* dispense for one role and a *permanently unbilled* one for the other, with no
+visible difference.
+
+### Surfaces driven
+
+| Surface | Route | Roles | Result |
+|---|---|---|---|
+| Landing | `/app` | both | offers 4 links that 403 (`P5-H2`) |
+| Landing @ 390 px | `/app` | pharmacist | no nav, no menu button (`P5-M6`) |
+| Formulary | `/pharmacy/formulary` | pharmacist ✅ · technician 403 | renders, `store_url` present |
+| Inventory | `/pharmacy/inventory` | both ✅ | stock + append-only movement log; US dates |
+| Pricing | `/pharmacy/pricing` | pharmacist ✅ · technician 403 | prices with **no currency** (`P5-M3`) |
+| **Dispensing** | `/pharmacy/patients/{p}/dispensing` | both ✅ | **no allergy, no seam** (`P5-C1`) |
+| eMAR | `/pharmacy/patients/{p}/emar` | pharmacist ✅ | renders; US dates |
+| Medication orders | `/pharmacy/patients/{p}/medications` | pharmacist ✅ | renders; no allergy |
+| Dispense action | `POST …/dispense` | both | drives end to end; refusals probed |
+| New invoice | `/billing/new-invoice` | pharmacist ✅ · technician 403 | **permanently empty** (`P5-H1`) |
+| Clinical chart | `/clinical/chart/{p}` | pharmacist ✅ | the honest seam lives **here** |
+| Ward board | `/hospital/wards` | both ✅ | reachable (gated on `patient.view`) |
+
+---
+
+### CRITICAL
+
+#### `P5-C1` — The dispensing screen shows neither the recorded allergy nor the safety-seam statement
+
+- **Roles:** `pharmacist`, `pharmacy_technician` · **Route:** `/pharmacy/patients/{patient}/dispensing`
+- **Steps:** record a **severe Penicillin allergy** (anaphylaxis) for Greta Zimmermann, who has an
+  **active Amoxicillin order**; open the dispensing screen as the pharmacist.
+- **What happened — the screen, verbatim and in full:**
+
+  ```
+  PHARMACY · DISPENSING
+  Greta Zimmermann
+  Dispense a patient's active medication orders.
+  Active orders
+  Amoxicillin · 1 Kapsel
+  97 on hand
+  Dispense
+  DISPENSING HISTORY
+  Amoxicillin · ×3      9/6/26, 6:49 PM
+  ```
+
+- **THE HONESTY FENCE ITSELF HOLDS, AND THAT MUST BE SAID FIRST.** There is **no** "no interactions
+  found", **no** "safe to dispense", **no** green tick, **no** cleared state, **no** computed
+  severity or interaction grade, and **no** auto-substitution or alternative suggestion. Nothing on
+  this screen asserts a check that did not happen. **There is no D-179 breach.**
+- **The defect is the opposite failure: total silence.** The product *holds* a documented anaphylactic
+  allergy to the class of the drug being handed over, and the screen where it is handed over shows
+  neither the allergy nor the honest "no automated checking is configured" statement it shows
+  elsewhere. A pharmacist dispensing Amoxicillin to this patient sees **nothing at all**.
+- **Cause:** `Modules/Pharmacy/src/Http/Controllers/DispensingController.php:36-58` builds the Inertia
+  payload from `patient` (**id and name only**), `orders`, `history` and `actions`. No allergy data is
+  passed, so the screen structurally cannot show one. More broadly, **the entire Pharmacy module never
+  reads the allergy list** — a search of `Modules/Pharmacy/src/` finds allergies mentioned only in the
+  `MedicationSafetyProvider` contract's own docblocks, and **no `resources/js/pages/Pharmacy/*` file
+  mentions allergies at all**. The same silence holds on `…/medications` and `…/emar`.
+- **The contrast is what makes this severe.** The product already contains an *exemplary* honest panel
+  — `AllergyRecordPanel`, rendered at `resources/js/pages/Clinical/Chart.vue:232` — and the pharmacist
+  **can** reach it (`/clinical/chart/{patient}` → 200). It is simply not on, or linked from, the
+  dispensing screen. See *guards verified holding* for its verbatim text.
+- **Why CRITICAL:** the gate's own trigger is "a medication-safety misrepresentation". This is not a
+  false assurance — it is the omission of a recorded, life-threatening fact at the single point in the
+  product where a drug is physically released, when the same fact is displayed two clicks away. The
+  omission is the misrepresentation: a screen that lists everything relevant to a dispense, and omits
+  the anaphylaxis, reads as though there were nothing to say.
+
+#### `P5-C2` — A technician's dispense is silently never billed, and nothing surfaces it
+
+- **Role:** `pharmacy_technician` · **Route:** `POST /pharmacy/medication-orders/{order}/dispense`
+- **Steps:** as `tim.graf`, open Greta's dispensing screen and press **Dispense** (quantity 1).
+- **What happened:** the dispense succeeded — stock 96 → **95**, `dispenses` 3 → **4**, the row records
+  `dispensed_by = tim.graf` — and `dispense_charges` stayed at **3**. **No charge was created.** The
+  screen is byte-for-byte the same success view the pharmacist gets: same history entry, same
+  decremented stock, no notice, no warning, no difference of any kind.
+- **Cause:** `PharmacyBillingService::chargeForDispense()` opens with
+  `Gate::forUser($actor)->authorize('billing.manage')` — a permission the technician template
+  deliberately does **not** grant — and `DispensingController.php:81-86` calls it inside
+  `try { … } catch (Throwable) { }` with the comment *"best-effort billing; a charge failure must
+  never block the (completed) dispense."* The authorization failure is a `Throwable`, so it is
+  swallowed exactly like a transient billing hiccup.
+- **This is the role's PRIMARY ACTION, not an edge case.** The `pharmacy_technician` template's own
+  comment reads *"Dispenses + manages stock UNDER a pharmacist"*. Dispensing is what the role is for,
+  so on the intended configuration **every** medication a technician hands out is unbilled.
+- **And it is invisible.** The same comment promises the loss is *"reconcilable later"*, but a search
+  finds **no report, query, screen or command anywhere that lists dispenses without charges**
+  (`P5-M4`). Nothing accumulates, nothing alerts, nothing can be reconciled from.
+- **Why CRITICAL:** silent, permanent, unreconcilable loss of financial records, produced by the
+  ordinary use of a role whose whole purpose triggers it. The *clinical* record is intact — the
+  dispense, the stock movement and the audit trail are all correct — so this is a financial-data loss,
+  not a clinical one, but it is complete and undetectable.
+
+---
+
+### HIGH
+
+#### `P5-H1` — The pharmacist can open `/billing/new-invoice` and can never bill a single thing on it (resolves `P3-H4`)
+
+- **Role:** `pharmacist` · **Route:** `/billing/new-invoice` · **This is Phase 3's `P3-H4` carried
+  forward.** Phase 3 could only establish that the page was *reachable*; the gate asks this phase to
+  complete or refuse the write. **The answer is: the write is refused — not by a permission, but by a
+  state transition that has no surface.**
+- **Steps:** as the pharmacist, dispense Amoxicillin (which creates a charge), then open
+  `/billing/new-invoice`.
+- **What happened:** the page renders and says, in full: *"New invoice — Assemble an invoice from a
+  patient's validated charges and issue it. **No validated, un-invoiced charges to bill.**"* — while a
+  charge for that very dispense exists, `status = draft`, `invoice_id = NULL`, description
+  "Amoxicillin", `line_total_minor = 120`.
+- **Cause, in three parts:**
+  1. `ChargeCaptureService.php:143` creates captured charges as **`STATUS_DRAFT`**.
+  2. `InvoiceDraftController` — the controller behind this screen — filters `STATUS_VALIDATED` at
+     **lines 43, 76 and 124** for listing, drafting and issuing respectively, and never validates
+     anything.
+  3. `PharmacyBillingService::invoicePatient()` **does** the whole job correctly — it calls
+     `validateForPatientPeriod()` (which promotes draft → validated) and then issues through the
+     existing flow — and it has **no route and no production caller anywhere in the codebase**.
+- **So the pharmacist's charge-capture path terminates.** They may dispense, a draft charge is
+  created, and the only billing surface their `billing.manage` unlocks is permanently empty for the
+  charges they generate. **`P3-H4` is therefore worse than Phase 3 recorded:** not merely "reachable
+  while 403 on every billing read", but reachable, un-refused, and structurally unusable.
+- **Why HIGH:** the role holds `billing.manage` specifically so it can "bill dispensed meds through
+  the existing engine" (the template's own comment), and that is exactly what it cannot do.
+
+#### `P5-H2` — Every pharmacy role's landing page offers links that role cannot open
+
+- **Roles:** both · **Route:** `/app` · **Cross-phase pattern 1, fifth phase.**
+- **Measured:** for **both** roles, `/patients/register`, `/scheduling/day-board`, `/nursing/dispatch`
+  and `/comms/inbox` are offered and **all four return 403**.
+- **The page already holds the answer, as Phase 4 proved.** The Inertia payload carries an explicit
+  permission map; for the pharmacist it reads `"comms.manage": false`, `"dispatch.manage": false`,
+  `"appointment.manage": false` — and the links render anyway
+  (`resources/js/pages/App/Landing.vue:171,174,177`, still ungated).
+- **Phase 5 adds a new detail with a consequence:** that permission map contains **14 fixed keys and
+  none of the pharmacy permissions** — no `dispense.manage`, no `formulary.manage`. The shell
+  therefore cannot tell a pharmacist from anyone else, which is also why the Pharmacy module appears
+  in no navigation (`P5-M1`). One shared map both over-offers and under-offers.
+
+#### `P5-H3` — A dispense cannot be reversed, corrected or cancelled by any path
+
+- **Roles:** both · **Surface:** the whole Pharmacy module
+- **What I did:** dispensed end to end, then looked for any reversal, return, void or cancel path.
+- **What happened:** `Dispense` and `StockMovement` are strictly **append-only** — both throw
+  `DispensingException::appendOnly()` on `updating` **and** `deleting`
+  (`Dispense.php:54-55`, `StockMovement.php:67-68`). That is correct and is recorded below as a guard
+  holding. But **`DispensingService` offers no compensating action at all**: no reverse, no return, no
+  void. A dispense recorded against the wrong patient, the wrong drug or the wrong quantity is
+  permanent.
+- **Stock can be corrected** via `POST /pharmacy/inventory/{stock}/adjust`, so the *count* can be made
+  right — but the dispense record, its patient attribution and its charge all stand.
+- **Why HIGH:** an append-only clinical record with no compensating entry is a half-built ledger. The
+  Billing module solved exactly this with credit notes and reversals; dispensing has neither.
+
+---
+
+### MEDIUM
+
+- **`P5-M1` — The Pharmacy module appears in no navigation, for either role.** Driven: the pharmacist's
+  nav is *Dashboard, Patients* only; the technician's is the same. All of `/pharmacy/formulary`,
+  `/inventory`, `/pricing` and the dispensing screens are reachable **only by typing the URL**. The
+  cause is concrete and shared with `P5-H2`: the shell's permission map omits every pharmacy
+  permission, so the nav cannot know the user is a pharmacist. Same shape as Phase 4's `P4-M4` ward
+  board — a permission-correct surface with no link — but here it is the role's **entire module**.
+- **`P5-M2` — Dates render in US format in the viewer's timezone.** The dispensing history shows
+  `9/6/26, 6:49 PM`; the DB holds `2026-09-07 01:49 UTC`, which is `03:49` in the tenant's
+  `Europe/Zurich`. The displayed value is `America/Los_Angeles` — the **browser's** zone, not the
+  practice's — in `M/D/YY` with AM/PM. Cause: `resources/js/pages/Pharmacy/Dispensing.vue:35`
+  `new Intl.DateTimeFormat(locale.value, { dateStyle:'short', timeStyle:'short' }).format(new Date(iso))`
+  — the browser-locale mechanism Phase 2 identified. Same on Inventory and eMAR.
+  **Cross-phase pattern 2, fifth phase.**
+- **`P5-M3` — The pricing screen shows money with no currency at all.** Verbatim: *"MED-AMOX-500 ·
+  Current: 1.20"*, *"MED-ENOX-40 · Current: 25.00"*, *"MED-PARA-500 · Current: 0.80"*. No `CHF`, no
+  Swiss group separator, no `formatSwissMoney`. Phase 3's `P3-M1` found eleven of twelve billing
+  surfaces hand-rolling a formatter; this is a step further — a money screen with no currency unit
+  whatsoever.
+- **`P5-M4` — Nothing anywhere lists uncharged dispenses.** `DispensingController.php:80` states the
+  loss is *"reconcilable later"*, but no report, query, screen or console command selects dispenses
+  lacking a `dispense_charges` row. The claim in the comment is unbacked, and it is what makes
+  `P5-C2` permanent rather than merely delayed.
+- **`P5-M5` — No batch or expiry tracking exists in the model.** `medication_stocks` has no batch, lot
+  or expiry column and `dispenses` has no batch reference, so "from which batch" and "is it expired"
+  cannot be asked, let alone answered. For a dispensing pharmacy this is a recall-traceability gap.
+  Recorded as an absence the operator can see, not a false claim.
+- **`P5-M6` — No navigation below 768 px.** At 390×844 on the dispensing screen both nav links measure
+  0×0 and there is **no menu button**; no horizontal overflow, and the Dispense control itself stays
+  usable. **Cross-phase pattern 3, fifth phase.**
+- **`P5-M7` — An allergy cannot be recorded anywhere in the product.**
+  `ClinicalListService::recordAllergy()` exists, is tenant- and permission-guarded, dispatches
+  `ClinicalRecordChanged`, and has **no HTTP route**: the route table contains no allergy write, and
+  the clinical chart's `actions` payload carries `can_write_notes`, `can_sign_notes`, `can_order` and
+  four order URLs but **nothing for allergies**. The chart displays allergies it provides no way to
+  create. This is why the fence control for this phase had to be written through the service.
+  **Cross-phase pattern 4.**
+
+### LOW
+
+- **`P5-L1` — `/billing/new-invoice`'s only breadcrumb is a dead end for the role that can reach it.**
+  The page links back to `/billing/invoices`, which returns **403** for `pharmacist` — the same
+  breadcrumb Phase 3 flagged in `P3-H4`, still present.
+- **`P5-L2` — Enoxaparin is in the formulary, priced and prescribed, but has no stock row.** It appears
+  in the receive-stock dropdown and on the pricing screen, and Karin Weber has an active order for it,
+  yet the inventory "On hand" table lists only Amoxicillin and Paracetamol. Dispensing it would hit
+  `DispensingException::noStock`. A seeded-data gap rather than a code defect, recorded because it is
+  the only path by which the `noStock` refusal is reachable.
+
+---
+
+### Guards verified holding
+
+Driven in the browser unless noted:
+
+- **THE MEDICATION-SAFETY SEAM IS EXEMPLARY — where it is shown.** On `/clinical/chart/{patient}`,
+  reachable by the pharmacist, the panel reads verbatim:
+
+  > **RECORDED ALLERGIES** — *Documented by a clinician. These are recorded facts — CareOS surfaces
+  > them, it does not compute drug-allergy conflicts.*
+  > Penicillin · Anaphylaxis requiring adrenaline and hospital admission · **Severe** · Source
+  > `patient_reported` · Not yet confirmed
+  >
+  > **Automated medication-safety checking** — *No automated medication-safety checking is configured.
+  > Recorded allergies are shown above; drug-allergy interaction, cross-reactivity and contraindication
+  > checking is a certified-partner function and is not performed here.*
+  >
+  > *When a licensed partner is connected, its findings appear here as advisory notes for the
+  > prescriber — they are never automatic and never block a prescription.*
+
+  This is precisely the honest statement the gate describes: it names the absent function, attributes
+  it to a certified partner, and promises only advisory, non-blocking behaviour if one is ever
+  connected. **No "no interactions found", no cleared state, no green tick, no grading, no
+  substitution.** `P5-C1` is that this panel is absent from the dispensing screen — not that it is
+  wrong.
+- **D-169 holds, proven with a positive control rather than inferred.** A second **mild** Latex allergy
+  was recorded alongside the **severe** Penicillin one and the two were compared on screen: the
+  severity chips are byte-identical — colour `rgb(201,155,63)`, background `oklab(0.7157 0.0173
+  0.1197 / 0.2)`, weight 600 — and both cards share the same border and background. An anaphylactic
+  allergy renders exactly like a mild rash. Severity is recorded text, never styling.
+- **The dispense is atomic and correctly recorded.** `DispensingService.php:52` wraps the dispense row,
+  the stock decrement and the append-only `StockMovement` in **one `DB::transaction`**, taking the
+  stock row `lockForUpdate` and re-checking `insufficientStock` **inside** the lock. Driven: stock
+  97 → 96, one dispense, one movement, one charge.
+- **The dispense row answers every question asked of it except batch.** `dispensed_by` resolved to
+  `sofia.rieder` (the acting pharmacist), `quantity = 1`, linked to the medication order that
+  authorises it and to the patient, and `dispensed_at = 2026-09-07 01:55:26` against a CLI
+  `now()` of `01:55:45` — **19 seconds apart, correct UTC**, so the QA-FIX.1a spot-check passes.
+- **Refused dispenses leave nothing behind — cross-phase pattern 6 does NOT recur here.** Four
+  refusals were driven and the ledger re-counted after each: insufficient stock (quantity 100 000) →
+  refused; quantity `0` → **422**; quantity `-5` → **422**; a forged non-existent order id → **404**.
+  After all four: `on_hand` 96 (unchanged), dispenses 3, charges 3, movements 5 — **all unchanged**.
+- **Authority is structural.** The dispense route takes a `MedicationOrder` id, so a dispense with no
+  prescription behind it is not expressible; a forged id 404s at model binding, before any
+  authorization or stock logic runs.
+- **`Dispense` and `StockMovement` are strictly append-only** — both throw on `updating` *and*
+  `deleting` (`Dispense.php:54-55`, `StockMovement.php:67-68`).
+- **The technician's route-level RBAC is correct in both directions**: 403 on formulary, pricing and
+  `/billing/new-invoice` (no `formulary.manage`, no `billing.manage`); 200 on inventory and dispensing,
+  which the role template explicitly intends.
+- **CSRF is genuinely enforced on web routes.** Forged POSTs without a token returned **419 CSRF token
+  mismatch** — an incidental but welcome confirmation that QA-FIX.4a narrowed only the `api` group.
+- **D-191 does not recur.** Pharmacy list ordering is meaningful and deterministic:
+  `dispensed_at DESC, id DESC`, `administered_at DESC, id DESC`, `name, code` — every ordering column
+  has an obvious meaning and a stable tiebreak.
+
+### Not testable, and why
+
+- **A dispense from a specific batch, or an expiry check.** The model has no batch or expiry column
+  (`P5-M5`), so there is nothing to drive.
+- **The `noStock` refusal.** Only Enoxaparin lacks stock (`P5-L2`) and it is prescribed to a different
+  patient; the reachable refusals (`insufficientStock`, non-positive quantity, forged id) were all
+  driven instead.
+- **A billing failure that is *not* an authorization failure.** `P5-C2` exercises the swallowed
+  `catch (Throwable)` via the technician's missing `billing.manage`. Producing a genuine billing
+  *hiccup* (an unpriced medication) would require creating an unpriced formulary item **and** a
+  prescription for it — prescribing is a physician act outside this role group — so the second route
+  into the same swallow is recorded from the code path rather than driven.
+- **Performance** — out of scope per the gate, deferred to staging.
+
 ## Cross-phase patterns
 
-Four phases are complete across four unrelated role groups — front-desk, clinical, financial and
-nursing (the last including the product's only offline surface). **A pattern that appears in all four is a
-systemic defect, not a local one.** The per-pattern sections below were written at Phase 3; the
+Five phases are complete across five unrelated role groups — front-desk, clinical, financial,
+nursing (including the product's only offline surface) and pharmacy. **A pattern that appears in all five
+is a systemic defect, not a local one.** The per-pattern sections below were written at Phase 3; the
 **Phase 4 update** near the end of this section states, for each pattern, whether it recurs.
 
 ### 1. Ungated UI in front of a correctly-gated server — **PRESENT IN ALL THREE PHASES**
@@ -2488,6 +2828,61 @@ nothing; `P4-H2` leaves a partial record and tells the device *the opposite of t
 drives `P4-H1`'s permanent queue jam. The mitigating factor here, absent in Phase 3, is that replay
 idempotency stops the retry duplicating the committed note — the correct discipline exists in the
 same file, just not at the batch boundary.
+
+
+### Phase 5 update — five phases of evidence
+
+Phase 5 covered a fifth role group whose defining risk is medication safety. Each standing pattern is
+stated below as present or absent, explicitly.
+
+**1. Ungated UI — PRESENT, fifth phase, and Phase 5 explains *why* it persists.** `P5-H2`: **all four**
+quick actions 403 for **both** pharmacy roles, with `Landing.vue:171,174,177` still ungated while the
+payload carries `"comms.manage": false`, `"dispatch.manage": false`. The new detail is the cause of
+the cause: that permission map has **14 fixed keys and contains no pharmacy permission at all** — no
+`dispense.manage`, no `formulary.manage`. So the shell cannot recognise a pharmacist, which
+simultaneously makes it **over-offer** links they cannot use (`P5-H2`) and **under-offer** the module
+they live in (`P5-M1`). One undersized map produces both halves of the pattern.
+
+**2. Timestamp and locale divergence — PRESENT, fifth phase.** `P5-M2`: dispensing history, inventory
+movements and the eMAR all render `9/6/26, 6:49 PM` — `M/D/YY` with AM/PM, in the **viewer's**
+`America/Los_Angeles`, for a stored `2026-09-07 01:49 UTC` that is `03:49` in the tenant's
+`Europe/Zurich`. `Dispensing.vue:35` hands the instant to `Intl.DateTimeFormat`, the exact
+browser-locale mechanism Phase 2 named. Phase 5 adds a **currency** instance that is worse than Phase
+3's: the pricing screen prints `Current: 1.20` with **no currency unit at all** (`P5-M3`).
+
+**3. No navigation below 768 px — PRESENT, fifth phase.** `P5-M6`: both nav links measure 0×0 at
+390 px with no menu button, this time on the dispensing screen.
+
+**4. A granted capability with no surface — PRESENT, fifth phase, in three distinct forms.**
+`P5-H1`: `PharmacyBillingService::invoicePatient()` performs validate-then-issue correctly and has
+**no route and no production caller**, which is precisely why the pharmacist's `/billing/new-invoice`
+is permanently empty. `P5-M7`: `ClinicalListService::recordAllergy()` is fully built and guarded and
+**no route records an allergy** — the chart displays a list the product provides no way to create.
+`P5-M1`: the whole Pharmacy module is reachable but unlinked. Five phases, five modules.
+
+**5. The fences hold — CONFIRMED IN ALL FIVE PHASES, and Phase 5 is the strongest instance yet.**
+The `MedicationSafetyProvider` seam states in the product's own words that *"drug-allergy interaction,
+cross-reactivity and contraindication checking is a certified-partner function and is not performed
+here"* — the hardest thing in the audit to say honestly, said plainly, with no cleared state and no
+green tick anywhere. D-169 was proven under **positive control** (a mild and a severe allergy
+rendering byte-identically). The dispense triple is atomic under a row lock, `Dispense` and
+`StockMovement` are append-only, and four refusals left the ledger untouched.
+**`P5-C1` is not a fence failure — it is the fence being absent from one screen.**
+
+**6. A refused write leaving a partial record — ABSENT here, but Phase 5 finds its MIRROR IMAGE, and
+that is the more interesting result.** The dispense path is the exact create-then-associate shape the
+gate predicted, and it is **correctly transactional**: four driven refusals left `on_hand`, dispenses,
+charges and movements all unchanged. But `P5-C2` is the same defect class inverted — **a SUCCEEDED
+write leaving an incomplete record**. `chargeForDispense()` sits *outside* the transaction inside
+`catch (Throwable) { }`, so a technician's dispense commits the clinical half and silently drops the
+financial half.
+
+**The pattern therefore generalises beyond refusals.** Phases 3 and 4 asked *"what does a refused
+operation leave behind?"*; Phase 5 shows the question must also be *"what does a **successful**
+operation fail to leave behind?"* — and that the second is harder to see, because there is no error,
+no refusal message and no visible difference at all. `P3-C1` and `P4-H2` at least told the user
+something had gone wrong. `P5-C2` tells them nothing, because from the user's point of view nothing
+did.
 
 ### Still open as a candidate
 
