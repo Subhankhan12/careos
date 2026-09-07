@@ -74,7 +74,8 @@ every later phase's timestamp observation suspect, and past-time booking was liv
 | `P4-C5` | CRITICAL | ✅ **FIXED** | QA-FIX.4d | `6f48c24` |
 | `P4-H3` | HIGH | ✅ **FIXED** | QA-FIX.4e | `e7fc442` |
 | `P5-C1` | CRITICAL | ✅ **FIXED** | QA-FIX.5a | `<pending>` |
-| `P5-C2` | CRITICAL | ⏳ same gate (Part 2) | QA-FIX.5b | — |
+| `P5-C2` | CRITICAL | ✅ **FIXED** | QA-FIX.5b | `<pending>` |
+| `P5-M4` | MEDIUM | ✅ **FIXED** | QA-FIX.5b | `<pending>` |
 | all others | — | 📋 recorded, not fixed | — | — |
 
 *(A commit cannot contain its own hash. Per the repo-wide marker convention, `<pending>` is backfilled
@@ -2495,6 +2496,39 @@ visible difference.
   ordinary use of a role whose whole purpose triggers it. The *clinical* record is intact — the
   dispense, the stock movement and the audit trail are all correct — so this is a financial-data loss,
   not a clinical one, but it is complete and undetectable.
+
+> ✅ **FIXED — QA-FIX.5b, commit `<pending>` (D-207).** The dispense still does not bill — **branch
+> (b)** — but it is no longer **silent**, which is what this finding is about.
+>
+> - **Branch (b), and why.** `ChargeCaptureService::authorize()` requires `billing.manage` on the
+>   **actor** for *every* capture path in the product, and Lab, Radiology, ED and Surgery all expose
+>   charge capture as an explicitly **operator-initiated** act by a billing-permitted human. Making
+>   Pharmacy the one exception would break the engine's own rule rather than fix a bug — and expanding
+>   who may cause a money write is a compliance decision, not an engineering one.
+> - **What (a) would take, recorded so the owner can decide.** `chargeForDispense()` would authorise
+>   the **tenant's** right to bill rather than the actor's (the accrual is deterministic — the engine
+>   snapshots the tariff, no amount is chosen). **Consequence of not doing it:** on the intended
+>   configuration the practice does not bill for medications a technician hands out. That is now
+>   **visible** rather than silent, which is what makes the decision possible to take deliberately.
+> - **The actual defect, wrong under either branch, is fixed.** An authorization failure and a
+>   transient failure were swallowed **identically** by an empty `catch (Throwable) {}`. They are now
+>   separate paths — `pharmacy.dispense.uncharged.not_permitted` (info; a policy outcome, not a fault)
+>   and `pharmacy.dispense.uncharged.billing_failed` (warning, with the exception class) — and **both
+>   are recorded rather than discarded**.
+> - **The property the catch existed for is preserved and asserted.** A genuine billing failure still
+>   does **not** unwind the dispense: the drug has physically left the shelf. A test pins that.
+> - **`P5-M4` is closed too, without a migration or an invented workflow.** "A dispense with no charge"
+>   was already expressible, so `Dispense::query()->uncharged()` needed no schema change. The
+>   dispensing screen marks each unbilled row **"Not billed"** and states the count. It deliberately
+>   does **not** say *why* — an unpriced medication and a not-permitted actor land in the same list —
+>   and claims no reconciliation the product does not perform (D-170): *"This is the state of the
+>   ledger; CareOS does not reconcile them automatically."*
+> - **Eight tests, mutation-checked twice:** restoring the empty catch reddens the
+>   recorded-not-discarded test; neutering the visibility reddens the on-screen test while its positive
+>   control stays green.
+> - **Verified in a real browser** as both roles, counting `dispenses` and `dispense_charges` before and
+>   after each — see the gate report.
+
 
 ---
 

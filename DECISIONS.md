@@ -4341,3 +4341,50 @@ references the old ID.
   the browser verification; the payload test is regression cover, not the guard. Recorded in the test
   file so a later reader does not mistake one for the other. See [[Pharmacy]],
   `docs/qa/ROLE-AUDIT.md` (P5-C1), D-179, D-169, ALLERGY.P1, [[LOG]].
+
+- **D-207 — A technician's dispense still does not bill, but it is no longer silent: branch (b), with
+  the policy question left where it belongs (QA-FIX.5b, closing P5-C2).**
+  Phase 5 drove a dispense as `pharmacy_technician`: stock 96 → 95, `dispenses` 3 → 4,
+  `dispense_charges` **unchanged at 3**, and the success screen **byte-identical** to the pharmacist's.
+  `PharmacyBillingService::chargeForDispense()` opens with
+  `Gate::forUser($actor)->authorize('billing.manage')` — a permission the technician template
+  deliberately does not grant — and `DispensingController` called it inside `catch (Throwable) { }`,
+  so an **authorization** failure was discarded exactly like a transient hiccup. Dispensing is that
+  role's PRIMARY job, and `P5-M4` found **nothing in the product could find the resulting rows**, so
+  the comment's promise that they were "reconcilable later" was unbacked.
+  **THE BRANCH, AND WHY.** The gate offered (a) make the charge path not depend on the dispensing
+  actor's billing permission, or (b) keep the boundary and make the outcome visible. **Chose (b).**
+  Three reasons, in order of weight: **(1)** `ChargeCaptureService::authorize()` requires
+  `billing.manage` on the **actor** for *every* capture path in the product, and every other module —
+  Lab, Radiology, ED, Surgery — exposes charge capture as an explicitly **operator-initiated** act by
+  a billing-permitted human. Making Pharmacy the one exception would break the engine's own rule
+  rather than fix a bug. **(2)** The role templates enumerate permissions deliberately; expanding who
+  may cause a money write is a compliance decision, not an engineering one, and some organisations
+  require pharmacist verification before a technician's dispense bills. **(3)** The finding's defect is
+  the word **silently** — and (b) closes exactly that.
+  **WHAT (a) WOULD TAKE, RECORDED SO THE OWNER CAN DECIDE.** `chargeForDispense()` would authorise the
+  *tenant's* right to bill rather than the actor's — the accrual is deterministic and discretion-free
+  (the engine snapshots the tariff; no amount is chosen) — and the technician's dispense would then
+  bill like the pharmacist's. **Consequence of NOT doing it:** on the intended configuration
+  ("Dispenses + manages stock UNDER a pharmacist") the practice does not bill for medications a
+  technician hands out. That is now **visible** rather than silent, which is what makes the decision
+  possible to take deliberately.
+  **THE PART THAT IS RIGHT UNDER EITHER BRANCH, AND IS THE ACTUAL DEFECT.** Swallowing an
+  authorization failure and a transient failure identically is wrong whichever branch is chosen. They
+  are now separate paths — `pharmacy.dispense.uncharged.not_permitted` (info: a policy outcome, not a
+  fault) and `pharmacy.dispense.uncharged.billing_failed` (warning, with the exception class) — and
+  **both are recorded rather than discarded**. Neither blocks the dispense: the drug has physically
+  left the shelf, and a test asserts explicitly that a genuine billing failure still does not unwind
+  it. That property is why the catch exists and it is preserved.
+  **VISIBILITY WITHOUT A MIGRATION OR AN INVENTED WORKFLOW.** "A dispense with no charge" was already
+  expressible — `Dispense::query()->uncharged()` (`whereDoesntHave('charge')`) — so no schema change
+  was needed. The dispensing screen now marks each unbilled row **"Not billed"** and states the count.
+  It deliberately does **not** say *why* (an unpriced medication and a not-permitted actor land in the
+  same list) and claims **no** reconciliation the product does not perform (D-170): *"…This is the
+  state of the ledger; CareOS does not reconcile them automatically."*
+  **Guarded by** eight tests, mutation-checked twice: restoring the empty `catch (Throwable) {}`
+  reddens the recorded-not-discarded test; neutering the visibility reddens the on-screen test while
+  its positive control stays green. Positive controls assert the pharmacist's dispense still charges,
+  a charged row is marked charged, the dispense triple is still atomic under its row lock, and a
+  transient failure still leaves the dispense standing. See [[Pharmacy]], `docs/qa/ROLE-AUDIT.md`
+  (P5-C2, P5-M4), D-170, [[LOG]].

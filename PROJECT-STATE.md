@@ -86,8 +86,13 @@ allergies and the medication-safety seam now render on all three medication-acti
 **The empty state was the real risk** — "no recorded allergies" must never read as "checked and
 clear" — so the seam renders even with an empty list and the empty line denies being a check. The
 chart is unchanged (`alwaysShowSeam` defaults false). Nothing compares the list against the drug:
-that is the certified-partner judgment. Remaining: 5b, the silently unbilled technician dispense
-(P5-C2).
+that is the certified-partner judgment. Part 2 (`<pending>`, D-207) is done: **branch (b)** — a technician's dispense still produces no
+charge (the permission boundary is deliberate and every other capture path requires `billing.manage`
+on the actor), but it is **no longer silent**: an authorization failure is now distinguished from a
+transient one and BOTH are recorded, and uncharged dispenses are findable via
+`Dispense::query()->uncharged()` and marked "Not billed" on screen (P5-C2 + P5-M4). **Branch (a) —
+billing on the tenant's authority rather than the actor's — remains an open PRODUCT decision;
+D-207 records what it would take and that staying on (b) means technician dispenses are not billed.**
 
 **QA-FIX.4 is fixing the Phase-4 PWA critical cluster in five parts.** Part 1 (`ba7ddec`,
 D-201) is done: **the API is token-only** — `statefulApi()` is removed from `bootstrap/app.php`, so

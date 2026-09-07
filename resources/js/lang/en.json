@@ -301,7 +301,9 @@
             "onHand": "{count} on hand",
             "dispense": "Dispense",
             "historyHeading": "Dispensing history",
-            "noHistory": "No dispenses recorded yet."
+            "noHistory": "No dispenses recorded yet.",
+            "notBilled": "Not billed",
+            "unchargedSummary": "{count} of this patient’s dispensed items carry no billing charge. This is the state of the ledger; CareOS does not reconcile them automatically."
         },
         "pricing": {
             "title": "Medication pricing",

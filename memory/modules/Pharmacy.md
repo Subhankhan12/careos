@@ -365,3 +365,28 @@ render.
 Inertia payload identical, so the empty-case payload test stays **green** — measured, not assumed.
 The guard is the structural template assertion (`always-show-seam` present on all three pages, the
 panel's condition intact) plus the browser verification. There is no `@vue/test-utils` here.
+
+### QA-FIX.5b — a technician's dispense is unbilled but VISIBLE (P5-C2 + P5-M4, D-207, `<pending>`)
+
+**BRANCH (b) WAS CHOSEN: the technician's dispense still produces NO charge.** Do not "fix" this by
+removing the actor check from `chargeForDispense()` without a product decision —
+`ChargeCaptureService::authorize()` requires `billing.manage` on the **actor** for *every* capture path,
+and Lab/Radiology/ED/Surgery all expose capture as an explicitly operator-initiated act. Pharmacy is
+the only module where the charge is an automatic side effect of a clinical act, which is why it
+inherits the dispenser's permission.
+
+**Branch (a) is still available and is a PRODUCT decision:** authorise the *tenant's* right to bill
+instead of the actor's (the accrual is deterministic — the engine snapshots the tariff). **Consequence
+of staying on (b):** the practice does not bill for medications a technician hands out. That is now
+visible, so the choice can be made deliberately.
+
+**WHAT WAS ACTUALLY WRONG UNDER EITHER BRANCH — and is fixed:** the empty `catch (Throwable) {}`
+swallowed an **authorization** failure identically to a transient one. Now two paths, both recorded:
+`pharmacy.dispense.uncharged.not_permitted` (info) and `pharmacy.dispense.uncharged.billing_failed`
+(warning). **Neither blocks the dispense** — the drug has left the shelf, and a test asserts a
+transient failure still leaves the dispense standing. Keep that property if you touch this.
+
+**Uncharged dispenses are findable: `Dispense::query()->uncharged()`** (`whereDoesntHave('charge')`) —
+no migration was needed, the fact was already expressible. The dispensing screen marks rows **"Not
+billed"** and states a count. It deliberately does **not** say WHY (an unpriced med and a
+not-permitted actor land in the same list) and claims no automatic reconciliation (D-170).

@@ -2,12 +2,15 @@
 
 namespace Modules\Pharmacy\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Support\Carbon;
 use Modules\Audit\Concerns\LogsReads;
 use Modules\Pharmacy\Exceptions\DispensingException;
+use Modules\Pharmacy\Services\PharmacyBillingService;
 use Modules\Platform\Concerns\BelongsToTenant;
 
 /**
@@ -74,6 +77,30 @@ class Dispense extends Model
     public function formularyItem(): BelongsTo
     {
         return $this->belongsTo(FormularyItem::class);
+    }
+
+    /**
+     * The billing charge accrued for this dispense, if one was — the link is created by
+     * {@see PharmacyBillingService::chargeForDispense()}.
+     */
+    public function charge(): HasOne
+    {
+        return $this->hasOne(DispenseCharge::class);
+    }
+
+    /**
+     * Dispenses that carry NO billing charge (QA-FIX.5b, P5-C2 / P5-M4).
+     *
+     * Phase 5 found that a `pharmacy_technician` — who deliberately lacks `billing.manage` — produces a
+     * dispense with no charge, and that NOTHING in the product could find those rows afterwards, so the
+     * "reconcilable later" the code promised was unbacked. This scope is what makes them findable.
+     *
+     * It is a FACT, not a verdict: a dispense may legitimately be uncharged (an unpriced medication),
+     * and this scope does not distinguish why. It answers "which dispenses have no charge", nothing more.
+     */
+    public function scopeUncharged(Builder $query): Builder
+    {
+        return $query->whereDoesntHave('charge');
     }
 
     protected function auditPatientId(): ?string

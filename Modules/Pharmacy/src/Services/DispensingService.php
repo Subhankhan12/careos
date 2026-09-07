@@ -91,7 +91,9 @@ class DispensingService
     {
         return Dispense::query()
             ->where('patient_id', $patient->id)
-            ->with('formularyItem')
+            // `charge` is eager-loaded so the history can say whether each dispense was billed
+            // (QA-FIX.5b, P5-C2) without an N+1 per row.
+            ->with(['formularyItem', 'charge'])
             ->orderByDesc('dispensed_at')
             ->orderByDesc('id')
             ->get();

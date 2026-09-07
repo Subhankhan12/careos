@@ -2,9 +2,11 @@
 
 namespace Modules\Pharmacy\Http\Controllers;
 
+use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
 use Inertia\Response;
 use Modules\Patients\Models\Patient;
@@ -57,7 +59,17 @@ class DispensingController
                 'name' => $d->formularyItem->name,
                 'quantity' => $d->quantity,
                 'dispensed_at' => $d->dispensed_at->toIso8601String(),
+                // QA-FIX.5b (P5-C2 / P5-M4): whether this dispense carries a billing charge. A FACT
+                // read from the ledger, not a judgment about why — an unpriced medication and a
+                // not-permitted actor both land here, and the screen says only that it is unbilled.
+                'charged' => $d->charge !== null,
             ])->all(),
+            // The count of this patient's dispenses with no charge, so an unbilled dispense is visible
+            // where it happened instead of being discoverable only by a database query.
+            'uncharged_count' => Dispense::query()
+                ->where('patient_id', $record->id)
+                ->uncharged()
+                ->count(),
             'actions' => [
                 'can_dispense' => Gate::allows('dispense.manage'),
             ],
@@ -82,13 +94,39 @@ class DispensingController
             return back()->withErrors(['dispense' => $e->getMessage()]);
         }
 
-        // PHARMACY.G5: accrue the Billing charge for the dispense through the existing engine (a priced med
-        // becomes a Charge). BEST-EFFORT + decoupled from the concurrency-critical dispense — the dispense
-        // already committed; an unpriced med or a billing hiccup just leaves it uncharged (reconcilable later).
+        // PHARMACY.G5: accrue the Billing charge through the existing engine (a priced med becomes a
+        // Charge). Still BEST-EFFORT and still decoupled from the concurrency-critical dispense: the
+        // dispense has committed, the drug has physically left the shelf, and a billing problem must
+        // never unwind it. That property is deliberate and is asserted by a test.
+        //
+        // WHAT CHANGED (QA-FIX.5b, P5-C2, D-207): this used to be `catch (Throwable) { }` — an EMPTY
+        // catch that swallowed an AUTHORIZATION failure exactly like a transient hiccup. A
+        // `pharmacy_technician` deliberately lacks `billing.manage`, so EVERY dispense by the role whose
+        // primary job is dispensing produced no charge, with nothing recorded and nothing on screen.
+        //
+        // The two failures are now distinguished and BOTH are recorded rather than discarded. Neither
+        // blocks the dispense, and the uncharged dispense itself is findable via
+        // `Dispense::query()->uncharged()`, surfaced on this screen.
         try {
             $billing->chargeForDispense($actor, $dispense);
-        } catch (Throwable) {
-            // best-effort billing; a charge failure must never block the (completed) dispense.
+        } catch (AuthorizationException $e) {
+            // EXPECTED for a role without `billing.manage` — a policy outcome, not a fault. Recorded so
+            // the unbilled dispense has a trace; the permission boundary itself is left intact
+            // deliberately (see D-207 for the branch decision and what changing it would require).
+            Log::info('pharmacy.dispense.uncharged.not_permitted', [
+                'dispense_id' => $dispense->id,
+                'actor_id' => $actor->id,
+                'reason' => 'actor lacks billing.manage',
+            ]);
+        } catch (Throwable $e) {
+            // A genuine transient/unexpected billing failure. Still must not unwind the dispense — but
+            // it is no longer discarded.
+            Log::warning('pharmacy.dispense.uncharged.billing_failed', [
+                'dispense_id' => $dispense->id,
+                'actor_id' => $actor->id,
+                'exception' => $e::class,
+                'message' => $e->getMessage(),
+            ]);
         }
 
         return redirect()->route('pharmacy.patient-dispensing', $record->patient_id)->with('status', 'medication-dispensed');
