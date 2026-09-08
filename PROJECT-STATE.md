@@ -192,7 +192,7 @@ PARTIAL (2 of 3):** re-triage appends ✅, audited with the real actor ✅, attr
 — audit only.**
 
 **QA-FIX.7 is fixing the Phase-7 findings plus the cross-phase nav root cause, in four parts.** Part 1
-(`<pending>`, D-211) is done: **ED triage and admission record the ACTOR, and attribution fields no longer
+(`d3e0f3c`, D-211) is done: **ED triage and admission record the ACTOR, and attribution fields no longer
 default (`P7-C1`, `P7-C2`, and the bed).** `ed_triages` gains `recorded_by` (nullable `users` FK, taken
 from the authenticated user, absent from the validation rules so it cannot be forged) — needed there
 because a **re-triage appends no `ed_visit_event`**, so the actor had nowhere else to live. **The

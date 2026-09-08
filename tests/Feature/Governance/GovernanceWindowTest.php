@@ -196,7 +196,24 @@ test('THE RE-ASSERTION: no fabricated metric, no invented status, no clinical co
         ->and($props['metrics']['byTool'])->not->toBeEmpty()
         ->and($props['windowLedger'])->not->toBeEmpty();
 
-    $squashed = preg_replace('~[^a-z0-9]~', '', strtolower(json_encode($props) ?: '')) ?? '';
+    /*
+     * OPAQUE IDENTIFIERS ARE STRIPPED BEFORE THE SCAN, AND NOTHING ELSE ABOUT IT CHANGES.
+     * ULIDs are Crockford base32 and the alphabet contains M, N and R, so a random id can carry the
+     * three-letter token `mrn`: this payload's `01M1ZA3WMRNQ5WYZBXNPEXQSPX` reddened the clinical-
+     * content scan roughly 1 run in 6, on gates touching neither this test nor its subject. The same
+     * hazard is recorded for `ews` in NoteEditorParityTest.
+     * A 26-character id is not clinical content and never was what this scan reads, so it is removed
+     * rather than the scan being weakened: every token below is still matched as a plain substring of
+     * the squashed blob, so `mrn`, `patient_mrn` and `patientMrn` all still fail. (Matching `mrn` with
+     * a boundary against the unsquashed json — the `ews` remedy — was tried and REJECTED here: after
+     * `strtolower`, `patientMrn` has a word character before `mrn`, so camelCase leaks would have
+     * slipped through, and camelCase is how every Inertia prop on this screen is named.)
+     * The other tokens are safe by construction — Crockford excludes I, L, O and U, so `dizzy`,
+     * `diagnos`, `symptom` and `chesttightness` cannot occur in an id at all.
+     */
+    $raw = strtolower(json_encode($props) ?: '');
+    $withoutIds = preg_replace('~"[0-9a-hjkmnp-tv-z]{26}"~', '""', $raw) ?? $raw;
+    $squashed = preg_replace('~[^a-z0-9]~', '', $withoutIds) ?? '';
     expect(strlen($squashed))->toBeGreaterThan(500);
 
     /*
@@ -230,6 +247,12 @@ test('THE RE-ASSERTION: no fabricated metric, no invented status, no clinical co
     foreach (['chesttightness', 'dizzy', 'symptom', 'diagnos', 'mrn'] as $clinical) {
         expect(str_contains($squashed, $clinical))->toBeFalse("clinical content '{$clinical}' on the governance dashboard");
     }
+
+    // THE STRIP MUST NOT HAVE HOLLOWED THE SCAN OUT (D-174). The ids are gone and everything else
+    // survives, so the assertions above are still reading a populated payload rather than passing on
+    // absence — and an id-shaped string is the ONLY thing removed.
+    expect(strlen($squashed))->toBeGreaterThan((int) (strlen(preg_replace('~[^a-z0-9]~', '', $raw) ?? '') * 0.5))
+        ->and($squashed)->toContain('bystatus');
 
     // D-173 — the scan follows the file, and fails loudly if it moves out from under it.
     $path = base_path('resources/js/pages/Governance/Dashboard.vue');

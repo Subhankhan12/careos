@@ -83,7 +83,7 @@ every later phase's timestamp observation suspect, and past-time booking was liv
 | `P6-L2` | LOW | ✅ **FIXED** | QA-FIX.6a | `9d5c047` |
 | `P6-C2` | CRITICAL | ✅ **FIXED** | QA-FIX.6b | `f8b7a7b` |
 | `P6-C3` | CRITICAL | ✅ **FIXED** | QA-FIX.6c | `1388af3` |
-| `P7-C1` · `P7-C2` | CRITICAL | ✅ **FIXED** | QA-FIX.7a | `<pending>` |
+| `P7-C1` · `P7-C2` | CRITICAL | ✅ **FIXED** | QA-FIX.7a | `d3e0f3c` |
 | all others | — | 📋 recorded, not fixed | — | — |
 
 *(A commit cannot contain its own hash. Per the repo-wide marker convention, `<pending>` is backfilled
@@ -3814,7 +3814,7 @@ time (`12 min`) — a plain duration since arrival, with **no target, no breach 
 - **Why CRITICAL:** a triage is the ED's core safety record and its acuity drives who is seen first. A
   record naming an uninvolved non-clinician as the assessor is a triage-record misrepresentation.
 
-> ✅ **FIXED — QA-FIX.7a, commit `<pending>` (D-211).** QA-FIX.6b's remedy, applied unchanged.
+> ✅ **FIXED — QA-FIX.7a, commit `d3e0f3c` (D-211).** QA-FIX.6b's remedy, applied unchanged.
 > `ed_triages` gains **`recorded_by`** — a `users` FK written from the authenticated actor inside
 > `TriageService::record` and deliberately absent from the controller's validation rules, so it cannot
 > be submitted. `triaged_by` is untouched and still means the nurse whose assessment it is; the two are
@@ -3855,7 +3855,7 @@ time (`12 min`) — a plain duration since arrival, with **no target, no breach 
   **third** instance of one pattern in this module — triaged-by, admitting clinician, and bed all default
   to "first in the list" — so the shape is systemic rather than a slip.
 
-> ✅ **FIXED — QA-FIX.7a, commit `<pending>` (D-211), and it needed NO new column.**
+> ✅ **FIXED — QA-FIX.7a, commit `d3e0f3c` (D-211), and it needed NO new column.**
 > **A CORRECTION TO THIS FINDING, made while fixing it.** The finding treats `P7-C2` as `P7-C1` on a
 > different table and implies the same remedy. It is not. `stay_events.performed_by` **already records
 > the admission actor** — a `users` FK written from `AdmissionService::admit`'s own `$actor`, inside the
