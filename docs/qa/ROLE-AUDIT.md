@@ -90,7 +90,7 @@ every later phase's timestamp observation suspect, and past-time booking was liv
 | pattern 1 (`P1-H1`·`P2-H2`·`P3-M7`·`P4-H5`·`P5-H2`·`P6-H4`·`P7-H4`) — the OVER-OFFER half | HIGH | ✅ **FIXED** | QA-FIX.7d | `c999181` |
 | `P8-C1` | CRITICAL | ✅ **FIXED** | QA-FIX.8a | `8636ea1` |
 | `P8-C2` | CRITICAL | ✅ **FIXED** | QA-FIX.8b | `5a16624` |
-| `P8-H2` · `P7-M5` | HIGH · MEDIUM | ✅ **FIXED** | QA-FIX.8c | `<pending>` |
+| `P8-H2` · `P7-M5` | HIGH · MEDIUM | ✅ **FIXED** | QA-FIX.8c | `946cf87` |
 | all others | — | 📋 recorded, not fixed | — | — |
 
 *(A commit cannot contain its own hash. Per the repo-wide marker convention, `<pending>` is backfilled
@@ -4822,7 +4822,7 @@ which the audit does not do. (`P8-C1` also makes the invoice step unreachable, s
 currently only reachable via the charge step.)
 
 
-> ✅ **FIXED — QA-FIX.8c, commit `<pending>` (D-217), and it closes `P7-M5` with it.** All three billing
+> ✅ **FIXED — QA-FIX.8c, commit `946cf87` (D-217), and it closes `P7-M5` with it.** All three billing
 > services now wrap their capture and its link row in ONE `DB::transaction`, with the owning row locked
 > `FOR UPDATE` (tenant-scoped) and the idempotency read moved INSIDE the lock, so two concurrent captures
 > serialise instead of both reading an empty guard. The link is written BESIDE its charge, never in a

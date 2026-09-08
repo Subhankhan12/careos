@@ -254,7 +254,7 @@ column's absence. Both forms now pre-select nothing; no server gate was weakened
 the bed **free**). The **option-list width is deliberately still open** — filtering by profession would
 encode a staffing-policy claim (the D-170 shape).
 
-Part 3 (`<pending>`, D-217) closes the gate: **charge capture is atomic with its link rows (`P8-H2`), and
+Part 3 (`946cf87`, D-217) closes the gate: **charge capture is atomic with its link rows (`P8-H2`), and
 `P7-M5` is closed with it.** Three billing services had **zero** `DB::transaction` between a
 `captureManual()` and the link row that makes the charge findable — and the link table IS the idempotency
 key, so an orphan was invisible to the guard and a retry re-billed. All three now use QA-FIX.6a's remedy:
