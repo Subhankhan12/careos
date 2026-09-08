@@ -216,7 +216,7 @@ QA-FIX.7d on a role group it was not written against; the under-offer half stays
 shipped on every response and read by nothing. **Nothing is fixed — audit only.**
 
 **QA-FIX.8 is fixing the Phase-8 criticals plus the transaction twins, in three parts.** Part 1
-(`<pending>`, D-215) is done: **both billing screens render the ENGINE total and an invoice can finally be
+(`8636ea1`, D-215) is done: **both billing screens render the ENGINE total and an invoice can finally be
 issued (`P8-C1`).** The `P6-C1` prop/function collision existed twice more — `invoice` was both a prop and
 a top-level `function invoice()`, so `v-if="invoice"` was permanently true (both pages printed "Issued
 invoice · Total: NaN" *under* "No charge captured yet.", and `NaN` even on a genuinely invoiced order)
@@ -229,6 +229,18 @@ lets the module SHOW the figure without NAMING the column: **no fence loosened, 
 engine**, recorded as D-215. The rename was the small half — a pure rename would still have left
 `quantity × unit_price_minor`, a client `.reduce()` and no currency.
 
+Part 2 (`<pending>`, D-216) is done: **a clinical report's author is the ACTOR, never resolved by
+convenience (`P8-C2`).** `ImagingReportController::resolve()` fell back to
+`?? StaffProfile::orderBy('display_name')->firstOrFail()`, so an actor with no linked profile had their
+report authored by whoever sorted first — driven, `miriam.lang`'s report stored as **Beat Suter**. It now
+returns a nullable profile from `StaffProfile::forUser()` and **authoring refuses**, in the words two
+Clinical controllers already use. **The guess corrupted TWO records** — the same profile became the report
+encounter's practitioner. **Signing is deliberately unaffected** (a signature is the acting USER), and the
+legitimate author/signatory split is pinned. **A codebase sweep found this was the ONLY site resolving a
+single person by sort order**; the five others build option lists. **How many historical reports carry a
+substituted author cannot honestly be given as a number** — author ≠ actor is *legitimate* here, so a
+substitution is identifiable only when the author is the alphabetically-first profile AND the actor lacked
+one, which is recorded nowhere; demo data measured **2 notes, 0 substituted**. No row rewritten.
 **QA-FIX.7 is fixing the Phase-7 findings plus the cross-phase nav root cause, in four parts.** Part 1
 (`d3e0f3c`, D-211) is done: **ED triage and admission record the ACTOR, and attribution fields no longer
 default (`P7-C1`, `P7-C2`, and the bed).** `ed_triages` gains `recorded_by` (nullable `users` FK, taken

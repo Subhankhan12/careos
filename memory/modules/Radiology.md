@@ -265,3 +265,25 @@ to issue through the UI.
 
 `RadiologyBillingTest`'s byte fence over `Modules/Radiology/src` is why the reader lives in Billing;
 naming an engine total column here reddens it. See D-215 and [[Lab]] — one defect, two files, one remedy.
+
+## QA-FIX.8b — the report author (P8-C2, D-216)
+
+`ImagingReportController::resolve()` no longer falls back to
+`?? StaffProfile::query()->orderBy('display_name')->firstOrFail()`. It returns a **nullable** profile from
+`StaffProfile::forUser()` (D-195), and **authoring refuses** when the actor cannot be identified —
+`unidentifiedAuthor()`, wording copied from the two Clinical controllers that already refuse this way.
+
+**The guess corrupted TWO records:** the resolved profile also went to `reportEncounter()`, so a
+substituted author became the report **encounter's practitioner** as well.
+
+**SIGNING IS UNAFFECTED BY DESIGN** — a signature is the acting USER (`clinical_notes.signed_by`), needs
+no profile, and still works for an account without one. Only authoring refuses. A test pins both, plus
+the legitimate author/signatory split (author = staff_profiles, signed_by = users).
+
+**This is the finding that rewrote pattern 7:** the module has NO dropdown, so QA-FIX.7a's "remove the
+default" remedy would not have touched it. The real shape is *resolving a person by convenience*.
+A codebase sweep found this was the **only** such site; the other five `orderBy('display_name')` uses
+build option LISTS, which is a different thing.
+
+`Radiology/Report.vue` now renders `RefusalNotice` — this part introduces a refusal there. The other
+eleven Lab/Radiology pages still render none (`P8-H1`, open).

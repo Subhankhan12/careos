@@ -4737,3 +4737,48 @@ references the old ID.
   the Surgery surface is untouched and that both module fences still hold.
   See [[Lab]], [[Radiology]], [[Billing]], `docs/qa/ROLE-AUDIT.md` (P8-C1), D-169, D-174, D-182, D-208,
   [[LOG]].
+
+- **D-216 — A person is never resolved by convenience: if the actor cannot be identified, the write
+  refuses.** (QA-FIX.8b — `P8-C2`.) `ImagingReportController::resolve()` ended in
+  `?? StaffProfile::query()->orderBy('display_name')->firstOrFail()`, so when the acting user had no
+  linked `StaffProfile` the report was authored by **whoever sorted first alphabetically**. Driven in
+  Phase 8: a report written by `miriam.lang` was stored as **Beat Suter**, a coordinator — the same person
+  both Phase-7 criticals landed on, and the third time in this programme.
+  **THIS REWRITES CROSS-PHASE PATTERN 7.** Seven phases called it *"attribution by dropdown default"*, and
+  QA-FIX.7a's remedy was to remove the default and force an explicit choice. **This module has no
+  dropdown.** The substitution happened server-side, invisibly, on a SIGNED clinical report, and 7a's
+  remedy would not have touched it. The pattern's real shape is **resolving a person by convenience when
+  the identity is unknown** — a dropdown default is one instance of it, not the thing itself.
+  **THE PRINCIPLE ALREADY EXISTED AND IS NOW APPLIED.** `StaffProfile::forUser()` returns null rather than
+  guessing (QA-FIX.2a, D-195), and two Clinical controllers already refuse on it in as many words:
+  *"Refuse rather than guess. Authoring a clinical note to somebody who did not write it is precisely the
+  defect being closed, so a caller we cannot identify gets no note."* `resolve()` now returns a NULLABLE
+  profile and authoring refuses with the same wording.
+  **THE GUESS CORRUPTED TWO RECORDS, NOT ONE.** The resolved profile is also passed to
+  `reportEncounter()`, so a substituted author became the report **encounter's practitioner** as well.
+  **SIGNING IS DELIBERATELY UNAFFECTED.** A signature is the acting USER (`clinical_notes.signed_by`), so
+  `sign()` needs no profile and stays reachable for an account without one — blocking it would have been an
+  over-correction, and a test pins that it still works.
+  **THE SHAPE IS UNIQUE IN THE CODEBASE, AND THAT WAS CHECKED.** A sweep for a single person resolved by
+  sort order (`orderBy(...)->first()/firstOrFail()` on a person model) across `app/` and `Modules/` returns
+  **exactly one hit — this one**. The five other `StaffProfile::query()->orderBy('display_name')` sites all
+  build option **lists** (`->get()`) for a dropdown: they present choices, they do not resolve an identity,
+  and they remain the separate still-open list-width question from QA-FIX.7a.
+  **NO HISTORICAL ROW IS REWRITTEN** (D-193 / D-197 / D-202 precedent), and the count cannot be stated as a
+  number honestly. A substituted author is **not** detectable by comparing author to audit actor, because
+  *author ≠ actor is legitimate here* — it is the two-person shape Phase 2 recorded (Lang authored, Berg
+  signed). A substitution is only identifiable when the author happens to be the alphabetically-first
+  profile **and** the actor lacked a linked profile at the time, and the second condition is recorded
+  nowhere. In the demo data: **2 report notes, 0 substituted** (both name Dr. med. Miriam Lang, not the
+  alphabetically-first Beat Suter, and all 12 `note.write` holders are linked, so the fallback cannot have
+  fired). On a real tenant the exposure is higher, because a newly provisioned user has no profile by
+  default — `tenant:add-admin` and role assignment do not create one.
+  **THE REFUSAL IS MADE VISIBLE.** `Radiology/Report.vue` adopts the existing `RefusalNotice.vue`, because
+  this part INTRODUCES a refusal on that page and a refusal nobody can see is the `P6-C3` defect. The other
+  eleven Lab/Radiology pages stay unfixed — `P8-H1` remains open and is not in this gate's scope.
+  **Guarded by** seven tests, mutation-checked two ways (restoring the fallback fails the structural guard
+  AND the refusal test; removing the `store()` refusal fails the refusal test). **The fixture makes the
+  actor ≠ the alphabetically-first profile and asserts it** — that is why `P2-C1`, `P6-C2` and `P7-C1` all
+  survived their own suites: every earlier fixture had a single plausible person, so a substitution was
+  invisible.
+  See [[Radiology]], [[Clinical]], `docs/qa/ROLE-AUDIT.md` (P8-C2), D-179, D-182, D-195, D-211, [[LOG]].

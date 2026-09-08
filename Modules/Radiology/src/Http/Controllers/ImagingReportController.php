@@ -94,6 +94,9 @@ class ImagingReportController
         ]);
 
         [$study, $radiologist] = $this->resolve($request, $radiologyOrder, $studies);
+        if (! $radiologist instanceof StaffProfile) {
+            return $this->unidentifiedAuthor(); // refuse rather than guess (D-216)
+        }
 
         try {
             $reports->saveDraft($actor, $study, $radiologist, $data['findings'] ?? null, $data['impression'] ?? null);
@@ -134,6 +137,9 @@ class ImagingReportController
         ]);
 
         [$study, $radiologist] = $this->resolve($request, $radiologyOrder, $studies);
+        if (! $radiologist instanceof StaffProfile) {
+            return $this->unidentifiedAuthor(); // refuse rather than guess (D-216)
+        }
 
         try {
             $reports->amend($actor, $study, $radiologist, $data['findings'] ?? null, $data['impression'] ?? null, $data['reason']);
@@ -145,10 +151,22 @@ class ImagingReportController
     }
 
     /**
-     * Resolve the study (must be acquired) + the acting radiologist's StaffProfile (the report author). The
-     * radiologist authors their OWN report — resolved from the acting user's linked StaffProfile.
+     * Resolve the study (must be acquired) + the acting radiologist's StaffProfile (the report author).
      *
-     * @return array{0: ImagingStudy, 1: StaffProfile}
+     * A PERSON IS NEVER RESOLVED BY CONVENIENCE (QA-FIX.8b, P8-C2, D-216). This used to end in
+     * `?? StaffProfile::query()->orderBy('display_name')->firstOrFail()` — so when the acting user had no
+     * linked profile, the report was authored by whoever sorted first alphabetically. Driven in Phase 8: a
+     * report written by `miriam.lang` was stored as **Beat Suter**, a coordinator, and the same profile
+     * also became the report ENCOUNTER's practitioner. There is no dropdown in this module, so nothing on
+     * screen could have shown the operator that it had happened.
+     *
+     * The second element is therefore NULLABLE: {@see StaffProfile::forUser()} returns null rather than
+     * guessing (the QA-FIX.2a / D-195 rule), and a caller that needs an author REFUSES — exactly as
+     * `NoteEditorController::amend` and `OpenEncounterFromAppointmentController` already do. `sign()` does
+     * NOT need one (a signature is the acting USER, `clinical_notes.signed_by`), so it stays reachable for
+     * an account without a profile; only authoring refuses.
+     *
+     * @return array{0: ImagingStudy, 1: StaffProfile|null}
      */
     private function resolve(Request $request, string $radiologyOrder, ImagingStudyService $studies): array
     {
@@ -156,10 +174,18 @@ class ImagingReportController
         $study = $studies->forOrder($order);
         abort_if($study === null, 404);
 
-        $actor = $request->user();
-        $radiologist = StaffProfile::query()->where('user_id', $actor?->getKey())->first()
-            ?? StaffProfile::query()->orderBy('display_name')->firstOrFail();
+        return [$study, StaffProfile::forUser($request->user())];
+    }
 
-        return [$study, $radiologist];
+    /**
+     * The refusal a caller gets when the acting user cannot be identified as a clinician. Authoring a
+     * clinical report in somebody else's name is the defect being closed, so a caller we cannot identify
+     * gets no report — the wording follows the two Clinical controllers that already refuse this way.
+     */
+    private function unidentifiedAuthor(): RedirectResponse
+    {
+        return back()->withErrors([
+            'radiology_report' => 'Your user account has no staff profile, so a report cannot record who wrote it.',
+        ]);
     }
 }

@@ -88,7 +88,8 @@ every later phase's timestamp observation suspect, and past-time booking was liv
 | `P7-C3` | CRITICAL | ✅ **FIXED** | QA-FIX.7b | `ec3695e` |
 | `P7-H2` | HIGH | ✅ **FIXED** | QA-FIX.7c | `fd7b350` |
 | pattern 1 (`P1-H1`·`P2-H2`·`P3-M7`·`P4-H5`·`P5-H2`·`P6-H4`·`P7-H4`) — the OVER-OFFER half | HIGH | ✅ **FIXED** | QA-FIX.7d | `c999181` |
-| `P8-C1` | CRITICAL | ✅ **FIXED** | QA-FIX.8a | `<pending>` |
+| `P8-C1` | CRITICAL | ✅ **FIXED** | QA-FIX.8a | `8636ea1` |
+| `P8-C2` | CRITICAL | ✅ **FIXED** | QA-FIX.8b | `<pending>` |
 | all others | — | 📋 recorded, not fixed | — | — |
 
 *(A commit cannot contain its own hash. Per the repo-wide marker convention, `<pending>` is backfilled
@@ -4760,7 +4761,41 @@ outside the five names a `lab.*` or `radiology.*` permission.
   assignment do not create a profile — so a real tenant is more exposed than the demo seed. With
   **zero** staff profiles it instead throws (`firstOrFail`), i.e. a 500 rather than a wrong name.
 
+
+> ✅ **FIXED — QA-FIX.8b, commit `<pending>` (D-216).** `resolve()` now returns a NULLABLE profile from
+> `StaffProfile::forUser()` — the QA-FIX.2a / D-195 helper that returns null rather than guessing — and
+> authoring **refuses** when the actor cannot be identified, in the same words the two Clinical
+> controllers already use: *"Refuse rather than guess."* The `?? orderBy('display_name')->firstOrFail()`
+> is gone.
+> **THIS FINDING REWROTE PATTERN 7, AND THE FIX REFLECTS THAT.** Seven phases called the pattern
+> "attribution by dropdown default"; QA-FIX.7a's remedy was to remove the default. **This module has no
+> dropdown**, so that remedy would not have touched this instance. The real shape is *resolving a person
+> by convenience when the identity is unknown*.
+> **THE GUESS CORRUPTED TWO RECORDS.** The resolved profile also went to `reportEncounter()`, so a
+> substituted author became the report **encounter's practitioner** as well. A test now pins both.
+> **SIGNING IS DELIBERATELY UNAFFECTED** — a signature is the acting USER (`signed_by`), needs no
+> profile, and stays reachable for an account without one; blocking it would have been an
+> over-correction, and a test pins that it still works. The legitimate author/signatory split Phase 2
+> found is pinned too.
+> **THE SHAPE IS UNIQUE IN THE CODEBASE.** A sweep across `app/` and `Modules/` for a SINGLE person
+> resolved by sort order returns **exactly one hit — this one**. The five other
+> `StaffProfile::query()->orderBy('display_name')` sites build option LISTS for dropdowns; they present
+> choices rather than resolving an identity, and remain the separate open list-width question.
+> **NO HISTORICAL ROW IS REWRITTEN, and the count cannot honestly be given as a number.** A substitution
+> is NOT detectable by comparing author to audit actor, because *author ≠ actor is legitimate here* — it
+> is exactly the two-person shape recorded above. It is identifiable only when the author happens to be
+> the alphabetically-first profile AND the actor lacked a profile at the time, and the second condition
+> is recorded nowhere. **In the demo data: 2 report notes, 0 substituted.** On a real tenant the exposure
+> is higher, since a newly provisioned user has no profile by default.
+> **The refusal is VISIBLE:** `Radiology/Report.vue` adopts the existing `RefusalNotice.vue`, because
+> this part introduces a refusal there and a refusal nobody can see is the `P6-C3` defect. `P8-H1` (the
+> other eleven pages) stays open.
+> **Guarded by** seven tests, mutation-checked two ways. The fixture makes the actor ≠ the
+> alphabetically-first profile **and asserts it** — the reason `P2-C1`, `P6-C2` and `P7-C1` all survived
+> their own suites.
+
 ### HIGH
+
 
 #### `P8-H1` — Neither Lab nor Radiology renders any refusal: the `P6-C3` / `P7-H2` defect, third module
 
