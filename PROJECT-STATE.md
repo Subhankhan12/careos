@@ -215,6 +215,20 @@ QA-FIX.7d on a role group it was not written against; the under-offer half stays
 `fmt()` and 2 `money()` helpers, zero imports from the shared libs, and D-192's tenant `timezone` prop is
 shipped on every response and read by nothing. **Nothing is fixed — audit only.**
 
+**QA-FIX.8 is fixing the Phase-8 criticals plus the transaction twins, in three parts.** Part 1
+(`<pending>`, D-215) is done: **both billing screens render the ENGINE total and an invoice can finally be
+issued (`P8-C1`).** The `P6-C1` prop/function collision existed twice more — `invoice` was both a prop and
+a top-level `function invoice()`, so `v-if="invoice"` was permanently true (both pages printed "Issued
+invoice · Total: NaN" *under* "No charge captured yet.", and `NaN` even on a genuinely invoiced order)
+while `v-if="isCharged && !invoice"` was permanently false, so **the issue-invoice button never rendered
+and an outpatient lab or imaging invoice could not be issued at all.** **THE STUDY'S KEY FINDING: THE
+FENCE CAUSED THE DEFECT.** Both modules forbid the engine's total columns byte-for-byte under their own
+`src/`, and the controllers said so — *"the FENCE keeps every money math out of Lab"* — so the arithmetic
+had been pushed into the Vue, the one place it must never be. `ChargeSetReader` (in `Modules/Billing`)
+lets the module SHOW the figure without NAMING the column: **no fence loosened, arithmetic back in the
+engine**, recorded as D-215. The rename was the small half — a pure rename would still have left
+`quantity × unit_price_minor`, a client `.reduce()` and no currency.
+
 **QA-FIX.7 is fixing the Phase-7 findings plus the cross-phase nav root cause, in four parts.** Part 1
 (`d3e0f3c`, D-211) is done: **ED triage and admission record the ACTOR, and attribution fields no longer
 default (`P7-C1`, `P7-C2`, and the bed).** `ed_triages` gains `recorded_by` (nullable `users` FK, taken

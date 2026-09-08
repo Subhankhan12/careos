@@ -4695,3 +4695,45 @@ references the old ID.
   should be made deliberately rather than inside a fix gate. Recorded as open; the pattern-1 instances the
   audit actually measured (the 403s) are all closed by the first half.
   See [[Platform]], `docs/qa/ROLE-AUDIT.md` (P1-H1 … P7-H4), D-107, D-110, D-111, D-176, [[LOG]].
+
+- **D-215 — A fix that a fence pushed into the wrong place is fixed by moving the work, not by loosening
+  the fence.** (QA-FIX.8a — `P8-C1`.) `Lab/Billing.vue` and `Radiology/Billing.vue` carried the `P6-C1`
+  prop/function collision QA-FIX.6a fixed in Surgery — `invoice` was both a prop and a top-level function,
+  the function won in the template, and a function is always truthy. So `v-if="invoice"` was permanently
+  TRUE (both pages printed **"Issued invoice · Total: NaN"** under **"No charge captured yet."**),
+  `money(invoice.total_minor)` read `undefined` and rendered the literal string **`NaN`** even on a
+  genuinely invoiced order, `:href="invoice.url"` resolved to the current page, and
+  `v-if="isCharged && !invoice"` was permanently FALSE — so **the issue-invoice button never rendered and
+  an outpatient lab or imaging invoice could not be issued through the product at all.**
+  **THE RENAME IS THE SMALL HALF.** `invoice()` → `issueInvoice()` un-shadows the prop, but both pages were
+  also deriving their own money — `quantity × unit_price_minor` per line, a client-side `.reduce()` for the
+  sum, and `Intl.NumberFormat` with **no currency**, so a pure rename would have rendered `2,974.00` where
+  the tenant's figure is `EUR 2'974.00`. Every amount now arrives from **`ChargeSetReader`** already summed,
+  already formatted and carrying the currency read from the charges' own tariff catalog.
+  **AND THAT READER HAS TO LIVE IN BILLING — THE FENCE SAYS SO.** Both modules carry a byte-level money
+  fence asserting the engine's total columns appear NOWHERE under `Modules/Lab/src` or
+  `Modules/Radiology/src`. Reading the stored line total in either controller would have **reddened a
+  passing guard**. That fence is exactly why the page-side sum existed in the first place — the controllers'
+  own comments said *"the FENCE keeps every money math out of Lab"* and pushed the arithmetic into the Vue,
+  which is the one place it must never be. `ChargeSetReader::present()` returns the figure already
+  formatted, so the module SHOWS the number without NAMING the column: the fence stays green untouched, and
+  the arithmetic goes back to the engine. **A fence that pushes work somewhere worse is telling you where
+  the work belongs, not that the work is forbidden.**
+  **THE RATE IS SHIPPED FORMATTED, NOT AS A NUMBER.** The table keeps its Rate column, but the page now
+  receives `rate_formatted` rather than `unit_price_minor` — it cannot multiply what it does not have. The
+  dead `tariffs` prop (declared in both pages, used in neither, and carrying a rate) is removed for the
+  same reason.
+  **THE TWO LABELS ARE DIFFERENT BECAUSE THE TWO FIGURES ARE** (the QA-FIX.6a reasoning, unchanged).
+  Pre-invoice: **"Estimated total"**, the net ex-VAT Σ of THIS order's lines. Once issued: **"Invoice
+  total"**, the invoice's own figure — `invoiceOrder()` gathers every validated, uninvoiced charge for the
+  patient across the whole service DAY and the engine adds VAT at issue, so it can legitimately exceed the
+  lines above it. Calling both "Total" would assert the number sums the list it sits under. *Plausible and
+  wrong is worse than NaN.* The table column becomes **"Amount"**, because it is the engine's line total
+  and never was an estimate.
+  **Guarded by** ten tests, mutation-checked three ways — restoring `function invoice(`, restoring a
+  page-side derivation, and setting `total` back to "Total" each redden their own guard, and each mutation
+  was **grep-confirmed present before its test ran** (one filter matched no test and one regex silently
+  failed to apply; both were caught and redone rather than recorded as passes). Positive controls assert
+  the Surgery surface is untouched and that both module fences still hold.
+  See [[Lab]], [[Radiology]], [[Billing]], `docs/qa/ROLE-AUDIT.md` (P8-C1), D-169, D-174, D-182, D-208,
+  [[LOG]].

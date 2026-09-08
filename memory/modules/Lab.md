@@ -237,3 +237,22 @@ exists and is adopted in Surgery + ED only.
 
 **Billing is unreachable for the whole group** (`P8-H5`): every billing route is `billing.manage`;
 all five roles 403. **No nav entry exists for either module** (`P8-H4`).
+
+## QA-FIX.8a — billing display (P8-C1, D-215)
+
+`Lab/Billing.vue`'s `invoice` prop / `function invoice()` collision is **fixed** — the action is
+`issueInvoice()`, so `v-if="invoice"` reads the PROP. The "Issued" block no longer renders on an
+uncharged order, the total is no longer `NaN`, "Open invoice" points at the invoice, and **the
+issue-invoice button renders**, so an outpatient lab invoice can be issued through the UI at all.
+
+**EVERY money figure comes from `Modules\Billing\Services\ChargeSetReader`** — already summed, already
+formatted, currency read from the charges' tariff catalog. The page holds no `unit_price_minor` (the Rate
+column ships `rate_formatted`) and the dead `tariffs` prop is gone: it cannot multiply what it lacks.
+
+**WHY THE READER, AND NOT A DIRECT READ:** `LabBillingTest`'s FENCE scans every file under
+`Modules/Lab/src` byte-for-byte for the engine's total columns. Naming one in the controller reddens it.
+That fence is what pushed the arithmetic into the Vue in the first place (the old controller comment said
+so). D-215: **a fence that pushes work somewhere worse is telling you where the work belongs.**
+
+Labels: pre-invoice "Estimated total" (net ex-VAT Σ of this order's lines), post-issue "Invoice total"
+(`invoiceOrder()` gathers the patient's whole service DAY and VAT is added at issue), column "Amount".

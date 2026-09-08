@@ -88,6 +88,7 @@ every later phase's timestamp observation suspect, and past-time booking was liv
 | `P7-C3` | CRITICAL | ✅ **FIXED** | QA-FIX.7b | `ec3695e` |
 | `P7-H2` | HIGH | ✅ **FIXED** | QA-FIX.7c | `fd7b350` |
 | pattern 1 (`P1-H1`·`P2-H2`·`P3-M7`·`P4-H5`·`P5-H2`·`P6-H4`·`P7-H4`) — the OVER-OFFER half | HIGH | ✅ **FIXED** | QA-FIX.7d | `c999181` |
+| `P8-C1` | CRITICAL | ✅ **FIXED** | QA-FIX.8a | `<pending>` |
 | all others | — | 📋 recorded, not fixed | — | — |
 
 *(A commit cannot contain its own hash. Per the repo-wide marker convention, `<pending>` is backfilled
@@ -4699,6 +4700,32 @@ outside the five names a `lab.*` or `radiology.*` permission.
   billing action that never occurred** (D-179); and a whole revenue capability has no reachable path.
   It is worse than Surgery's was — Surgery showed `NaN` only after charging, whereas these two claim
   "Issued" on an order that has never been touched.
+
+> ✅ **FIXED — QA-FIX.8a, commit `<pending>` (D-215).** The QA-FIX.6a / D-208 remedy, applied to both
+> modules. `invoice()` → `issueInvoice()` un-shadows the prop, so `v-if="invoice"` now reads the PROP:
+> the "Issued" figure appears only when an invoice exists, `invoice.url` is the invoice's own URL, and
+> the issue-invoice button renders on a charged, uninvoiced order — **an outpatient lab or imaging
+> invoice can now be issued through the product, which it could not be before.**
+> **THE RENAME WAS THE SMALL HALF.** Both pages also derived their own money — `quantity ×
+> unit_price_minor` per line, a client-side `.reduce()`, and `Intl.NumberFormat` with **no currency**, so
+> a pure rename would have rendered `2,974.00` where the tenant's figure is `EUR 2'974.00`. Every amount
+> now comes from **`ChargeSetReader`**, already summed and formatted, with the currency read from the
+> charges' own tariff catalog. The Rate column ships `rate_formatted` instead of a number, and the dead
+> `tariffs` prop (declared in both pages, used in neither, carrying a rate) is gone — **the page cannot
+> multiply what it does not have.**
+> **THE FENCE IS WHY THE DEFECT EXISTED, AND IT STAYS GREEN.** Both modules forbid the engine's total
+> columns byte-for-byte under their own `src/`, and the controllers' own comments said the fence *"keeps
+> every money math out of Lab"* — so the arithmetic had been pushed into the Vue, the one place it must
+> never be. `ChargeSetReader` lives in `Modules/Billing`, so the module SHOWS the figure without NAMING
+> the column: no fence was loosened, and the arithmetic went back to the engine.
+> **LABELS, per QA-FIX.6a's reasoning:** pre-invoice **"Estimated total"** (the net ex-VAT Σ of THIS
+> order's lines); once issued **"Invoice total"** (the invoice's own figure — `invoiceOrder()` gathers
+> every validated uninvoiced charge for the patient across the whole service DAY, and VAT is added at
+> issue, so it can legitimately exceed those lines). The table column is now **"Amount"**, because it is
+> the engine's line total and never was an estimate.
+> **Guarded by** ten tests, mutation-checked three ways (restoring `function invoice(`, restoring a
+> page-side derivation, resetting the label), each grep-confirmed applied before its test ran. Positive
+> controls hold Surgery unchanged and both module fences green.
 
 #### `P8-C2` — A radiology report can be attributed to a person who did not write it, chosen alphabetically, with no dropdown anyone could correct
 

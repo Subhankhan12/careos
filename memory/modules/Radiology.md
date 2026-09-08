@@ -254,3 +254,14 @@ and the page says: *"Image storage and viewing (DICOM/PACS) are provided by a ce
 `billing.manage`; radiographer and radiologist both 403. **`P8-H4`** — no nav entry; `/radiology/worklist`
 is URL-only. `RadiologyOrderService::place` **is** transactional, and the modality/body-part placeholder
 honestly previews the catalog fallback (`$modality ??= $orderable->specimen_or_modality`).
+
+## QA-FIX.8a — billing display (P8-C1, D-215)
+
+`Radiology/Billing.vue` carried the identical `invoice` prop / `function invoice()` collision as Lab and
+is fixed identically: `issueInvoice()`, every money figure from `Modules\Billing\Services\ChargeSetReader`
+(summed, formatted, with currency), `rate_formatted` instead of `unit_price_minor`, dead `tariffs` prop
+removed. The issue-invoice button now renders — an outpatient imaging invoice was previously impossible
+to issue through the UI.
+
+`RadiologyBillingTest`'s byte fence over `Modules/Radiology/src` is why the reader lives in Billing;
+naming an engine total column here reddens it. See D-215 and [[Lab]] — one defect, two files, one remedy.

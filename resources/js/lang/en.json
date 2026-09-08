@@ -757,14 +757,15 @@
             "description": "Description",
             "qty": "Qty",
             "rate": "Rate",
-            "estimate": "Estimate",
+            "estimate": "Estimated total",
             "status": "Status",
             "invoice": "Invoice",
             "invoiceBtn": "Invoice (outpatient)",
             "inpatientNote": "For an admitted patient, lab charges join the stay or episode invoice automatically — no order-level invoice.",
             "issued": "Issued invoice",
-            "total": "Total",
-            "openInvoice": "Open invoice"
+            "total": "Invoice total",
+            "openInvoice": "Open invoice",
+            "amount": "Amount"
         }
     },
     "settings": {
@@ -3985,14 +3986,15 @@
             "description": "Description",
             "qty": "Qty",
             "rate": "Rate",
-            "estimate": "Estimate",
+            "estimate": "Estimated total",
             "status": "Status",
             "invoice": "Invoice",
             "invoiceBtn": "Invoice (outpatient)",
             "inpatientNote": "For an admitted patient, imaging charges join the stay or episode invoice automatically — no order-level invoice.",
             "issued": "Issued invoice",
-            "total": "Total",
-            "openInvoice": "Open invoice"
+            "total": "Invoice total",
+            "openInvoice": "Open invoice",
+            "amount": "Amount"
         }
     },
     "perioGrid": {
