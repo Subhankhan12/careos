@@ -34,7 +34,7 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
 
 ## STATUS: BUILD COMPLETE · DEPLOY-READY 🟢 GO · THE BUILDABLE PARITY PROGRAMME IS COMPLETE — ONE TRACK REMAINS: **DEPLOYMENT + PARTNERSHIPS**
 
-### 🔎 A ROLE-BY-ROLE QA AUDIT IS IN PROGRESS — `docs/qa/ROLE-AUDIT.md` (cumulative, 10 phases; 8 done, 143 findings)
+### 🔎 A ROLE-BY-ROLE QA AUDIT IS IN PROGRESS — `docs/qa/ROLE-AUDIT.md` (cumulative, 10 phases; 9 done, 168 findings)
 
 **Phase 1 (reception / front-desk) is DONE** (`06a3f78`): 18 findings — 1 CRITICAL, 3 HIGH, 8 MEDIUM,
 6 LOW — every page **driven in a real browser** via Playwright MCP. Findings are **recorded, not
@@ -241,6 +241,46 @@ single person by sort order**; the five others build option lists. **How many hi
 substituted author cannot honestly be given as a number** — author ≠ actor is *legitimate* here, so a
 substitution is identifiable only when the author is the alphabetically-first profile AND the actor lacked
 one, which is recorded nowhere; demo data measured **2 notes, 0 substituted**. No row rewritten.
+
+**Phase 9 (bed management + medical records) is DONE**: 25 findings — 3 CRITICAL, 6 HIGH, 11 MEDIUM,
+5 LOW; the audit now stands at **168 across nine phases**. Both roles driven separately —
+`bed_manager` in `klinik-bergblick`, and `him_records`, which **has no seeded account in any tenant**,
+provisioned **through the product** by driving `/admin/roles` as `org_admin` and restored afterwards.
+**THE DISCLOSURE FENCE — this phase's assigned question — FAILS IN TWO PLACES AND HOLDS IN ONE.**
+**There is no records-release capability at all** (no model, migration, service, route or page; every
+"disclosure" in PHP is a docblock about an existing read) — that absence is itself the finding. The one
+release the product implements is `shareWithPatient`, to the patient's **own portal**, held by
+`note.write`. **Consent IS enforced, not prompted — proven live in both directions:** the release
+succeeded with consent granted, then, after withdrawing it through the real screen, the identical POST
+returned **403 "Portal access consent is required to share documents."** But **`P9-C2`: a release never
+appears in the patient's access log.** It is audited as `document.shared`, and `PatientAccessReport`
+filters `action = 'read'` — on a screen that tells the patient its **only** gap is operator mode.
+Driven twice, including a release I performed myself. And **`P9-C1`: the AR report CSV takes three
+patients' identifiers and overdue balances out of the system and writes NO audit row at all** — the
+audit table was snapshotted before and after; the export produced nothing. Unrecorded in the ledger,
+and unrecordable in any patient's log. **`P9-C3` IS THE MOST SEVERE INSTANCE OF PATTERN 7 THE AUDIT HAS
+FOUND:** `BedsideChartService` passes `$stay->admitting_clinician_id` as the ward round's practitioner,
+the note's author and the vital's recorder. Driven end to end as `ward_nurse` — Lena Studer started a
+round and the note editor printed **"Version 1 · draft · Dr. med. Martin Keller"** directly above *"You
+author this note"*; all three columns store Keller while the audit rows say `actor=25` (Studer).
+**Unconditional**, unlike `P8-C2`'s fallback, and `StaffProfile::forUser()` returns the right person one
+call away. **BED STATE HONESTY PASSES and is the phase's strongest result:** `bed.status` is written in
+exactly three places, all under a `FOR UPDATE` lock; `free → occupied` is impossible by hand (only the
+concurrency-safe `claim`); nothing auto-frees a bed; ADT is atomic and tested; and the block I drove
+produced one hash-chained `bed.status_changed` row naming the actor. **But `P9-H1`: `bed.manage` can move
+an OCCUPIED bed to `cleaning`, and discharge and transfer then both throw — the patient is wedged with no
+product path back.** The ward board correctly declines to offer the button; the server accepts it anyway,
+which is pattern 1 inverted. Also **`P9-H4`: `document.view` gates nothing** — clinical-document download
+is `patient.view`, held by 25 of 26 role templates; **`P9-H5`: `him_records` is refused the only release
+action and cannot record consent**, and there is no Documents tab anywhere; **`P9-H2`: the ward board
+discloses every inpatient and writes no read row** — the one Hospital read surface that is not logged is
+the one that discloses the most; **`P9-H3`: 11 `withErrors` sites, zero renderers** (the `P6-C3` /
+`P8-H1` defect, third module — driven: the server returned a refusal, the screen showed nothing);
+**`P9-H6`: the nightly bed-day accrual credits an arbitrary org_admin**, bypassing `SystemActorResolver`.
+**Pattern 1's under-offer half is now total** — `grep -rn "/hospital" resources/js` returns **zero
+hits**, so `bed_manager`'s entire remit is one screen it cannot reach by clicking. **Nothing is fixed —
+audit only.**
+
 **QA-FIX.7 is fixing the Phase-7 findings plus the cross-phase nav root cause, in four parts.** Part 1
 (`d3e0f3c`, D-211) is done: **ED triage and admission record the ACTOR, and attribution fields no longer
 default (`P7-C1`, `P7-C2`, and the bed).** `ed_triages` gains `recorded_by` (nullable `users` FK, taken

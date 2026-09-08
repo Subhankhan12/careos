@@ -313,3 +313,65 @@ checks `has()` first. To test tenant binding, change where the TENANT comes from
 force a token whose tenant disagrees with its account's; wrapping the lookup in `system()` proves
 nothing.
 
+
+## QA phase 9 (2026-09-08) — the disclosure fence, audit only
+
+Phase 9's assigned fence was **disclosure**: who may release a record, to whom, is consent enforced, and
+does the release appear in the patient's own access log. Driven as `him_records` (provisioned through
+`/admin/roles`, restored afterwards) with `doctor` and `billing` used only for positive controls.
+
+**THERE IS NO RECORDS-RELEASE CAPABILITY — that absence is the finding.** No model, migration, service,
+controller, route or page has releasing a record as its subject. Every occurrence of "disclosure" in PHP
+is a docblock describing an existing *read*. The only third-party-facing artifact, the Referral,
+deliberately transmits nothing and says so. `audit_events` has no recipient, purpose or legal-basis
+column, so even a correctly audited release could record only *"staff member X touched resource Y"*.
+
+**CONSENT IS ENFORCED, NOT PROMPTED — proven live in both directions.** With `portal.access` granted, a
+`doctor` released a document (200). The consent was then **withdrawn through the real screen** (Patient
+360 → Consents → reason → Withdraw) and the identical POST returned **403 "Portal access consent is
+required to share documents."** — `DocumentService.php:105`. Four hard consent gates exist
+(`shareWithPatient`, `TelehealthService:110`, `ThreadService:408`, `NotificationService:177`); the two
+display-only flags (`RecallWorklistController:131`, `InboxPatientContextReader:195`) are backed by
+`NotificationService` downstream. `EnsurePortalConsent` guards the whole portal route group, so a
+withdrawal fail-closes the portal on the next request. **Observation, not a finding:** withdrawal does not
+retract `shared_with_patient` — the flag goes stale but is unreachable while the middleware holds.
+
+**`P9-C2` (CRITICAL) — A RELEASE NEVER APPEARS IN THE PATIENT'S ACCESS LOG.** `PatientAccessReport::query()`
+filters `action = 'read'`; a release is audited as **`document.shared`** by the `DocumentChanged` listener
+(`AppServiceProvider:789-805`) — patient-scoped, hash-chained, and excluded. Driven twice: against the
+seeded release (22:56:40) and against one I performed myself (23:20:44). Neither the dedicated PC.P5
+screen nor the Patient-360 tab shows it. **The screen states the opposite in its own words** — *"No actor
+type, surface or age of entry is filtered out"* — and names exactly one limitation (operator mode);
+`PatientAccessReport`'s docblock says *"ONE KNOWN GAP, RECORDED RATHER THAN PAPERED OVER"*. The gap is
+wider than documents: every non-`read` action carrying a `patient_id` is structurally invisible
+(`document.uploaded`, `consent.granted`, `consent.withdrawn`, the ADT events).
+
+**`P9-C1` (CRITICAL) — patient identifiers leave in a CSV with no audit row at all.**
+`BillingReportController::export()` (gated `billing.view`) streams `top_overdue:<patient_id>` rows with
+each patient's overdue balance, days overdue, dunning stage and invoice count. The audit table was
+snapshotted before the drive and read after: the export produced **zero** rows. Missing from the ledger,
+and — having no `patient_id` — unable to appear in any patient's access log even if it existed. A Phase-3
+miss, found only because this phase's fence forces the completeness question.
+
+**`P9-H4` — `document.view` gates nothing.** `DocumentDownloadController`'s only gate is
+`Gate::authorize('patient.view')`; a whole-tree grep for `document.view` returns four hits and not one is
+a gate (its catalog definition, two role templates, an operator PHI mapping). **25 of the 26 role
+templates hold `patient.view`** — every role but `billing` — so there is no narrower door for record
+access than "can see patients", and the permission created as the HIM fence controls nothing.
+
+**`P9-H5` — the records role cannot do records work.** `him_records` is refused the only release action
+(403 *"This user cannot manage clinical documents."* — `note.write`) and consent capture (403 —
+`patient.edit`), while it CAN download any clinical document and export a patient's whole access log.
+Authority to release sits with clinical authors; authority to consent with front-desk and clinicians.
+There is also **no Documents tab** — Patient 360 is Demographics / Contacts / Coverages / Consents /
+Access log, and no staff-facing document page exists at all.
+
+**What is honest and worth keeping:** the access log is a **single query** shared by screen, tab and
+export, so the CSV cannot disagree with the screen; viewing and exporting it are themselves audited as
+patient-scoped reads; and `audit.export` is deliberately narrower than `audit.view`, putting
+`him_records` on the read-only side of the one correctly built export fence. Lesser items: the Patient-360
+tab renders raw actor ids where PC.P5 renders names (`P9-L3`); the portal consent screen advertises
+`documents.read`, `messages.write` and `research.share`, none of which any template seeds or any code
+enforces (`P9-L2`, the D-176 shape); `BreakGlassService` — the one component that demands a written reason
+— has **no production consumer**, so no read anywhere records *why* it happened (`P9-L4`). See
+[[Hospital]], [[Audit]], [[Billing]], [[LOG]].

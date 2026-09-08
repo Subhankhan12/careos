@@ -364,3 +364,82 @@ phased roadmap — each mapped before building. See [[D-113]], [[D-114]], [[D-11
   admissions back-dated via `forceFill(admitted_at)` (data, not the clock). PROVEN: `billing:reconcile`=PASS,
   `audit:verify-chains`=OK, `ReconciliationEngine::run` all 6 invariants δ=0. Fence proven at schema level.
 - Run manually (not in `DatabaseSeeder`): `php artisan db:seed --class=DemoHospitalSeeder`. See [[LOG]].
+
+## QA phase 9 (2026-09-08) — audit only, nothing fixed
+
+**25 findings across Bed management + Medical records** (3C/6H/11M/5L; the audit now stands at 168 across
+nine phases). Roles: `bed_manager` (driven in `klinik-bergblick`) and `him_records` (**no seeded account
+in any tenant** — provisioned by driving `/admin/roles` as `org_admin`, restored afterwards).
+
+**BED STATE HONESTY PASSES — the strongest single result in the phase.** `bed.status` is written in
+exactly **three** places, all inside `BedService`, each under a `SELECT … FOR UPDATE` lock that re-reads
+the authoritative status: `setStatus` (a housekeeping act), `claim` (admission/transfer-in), `release`
+(discharge/transfer-out). No factory, seeder, controller or command writes the column directly —
+`DemoHospitalSeeder` drives the real paths. **`free → occupied` is impossible by hand:** `setStatus`
+rejects `occupied` as a target, so occupancy is only reachable through `claim`, which re-asserts `free`
+under the lock. **Nothing auto-frees a bed** — no timer, no scheduled side effect; `cleaning → free` is
+always a recorded human act. Every transition dispatches `BedStatusChanged` → one append-only
+`bed.status_changed` audit row carrying the actor, `from_status`, `to_status`, ward and branch. There is
+**no `bed_events` table and none is needed** — the tenant's hash-chained audit chain is the record.
+Driven: blocking CH-02 produced exactly one row, `actor=28`, hash-chained.
+
+**BUT the status write is not bound to the stay (`P9-H1`, HIGH).** `Bed::TRANSITIONS` allows
+`occupied → cleaning` and `BedService` never consults `Stay`, so a `bed.manage` holder can move an
+OCCUPIED bed to `cleaning` — after which `release()` throws for both discharge and transfer and **the
+patient is wedged with no product path back to `occupied`** (only `claim` writes it, and it needs `free`).
+`WardBoard.vue` maps `occupied: []` so the UI never offers the button; the endpoint validates `status` as
+free-text `string|max:40` with no `in:` rule. **Pattern 1 inverted: the UI is the guard and the server is
+open.** Not driven live — it would strand the demo tenant's only admitted patient irreversibly.
+Consequence `P9-M7`: `stays.current_bed_id` has no unique constraint, so the same chain lets two admitted
+stays share a bed, and the board's `keyBy('current_bed_id')` silently hides one patient.
+
+**`P9-C3` — THE MOST SEVERE PATTERN-7 INSTANCE THE AUDIT HAS FOUND.** `BedsideChartService` resolves
+`StaffProfile::findOrFail($stay->admitting_clinician_id)` and passes it as the ward round's **Encounter
+practitioner** (`:72`), the **note author** (`:77`) and the **vital recorder** (`:96`); `$actor` travels
+alongside and is used only for the gate and the audit row. Driven end to end as `ward_nurse`: Lena Studer
+started a round and the note editor printed **"Version 1 · draft · Dr. med. Martin Keller"** directly
+above the page's own *"You author this note"*; `encounters.practitioner_id`, `clinical_notes.author_id`
+and `vitals.recorded_by` all store Keller while the audit rows say `actor=25` (Studer). **Unconditional**,
+unlike `P8-C2`'s no-profile fallback — Studer has a profile and `StaffProfile::forUser()` returns her
+correctly. `admitting_clinician_id` itself is CLEAN (a chosen domain field, required, no default); the
+defect is re-purposing a clinical-responsibility field as an attribution. Operational cost: the
+one-open-encounter-per-practitioner invariant collapses a stay to one concurrent round, refusing the
+second clinician with a message naming a third person. Server-side twin `P9-H6`:
+`AccrueBedDaysCommand::resolveBillingActor` picks an org_admin with **no `ORDER BY`** and no permission
+check, bypassing `SystemActorResolver::forPermission()` (which every other scheduled command uses), and
+persists that person as `created_by` on every bed-day charge, nightly, across every tenant.
+
+**`P9-H2` — the ward board discloses every inpatient and writes no read row.** `auditRead` appears at
+exactly four Hospital call sites (`AdmissionController:37`, `BedsideChartController:42`,
+`DischargeSummaryController:46`, `HandoverController:32`); `WardBoardController::show` is not one of them,
+while `:76` emits each occupant's full name, ward, bed and admission time. **The four surfaces that show
+one patient are logged; the one that shows every patient is not.**
+
+**`P9-H3` — 11 `withErrors` sites, zero renderers.** No Hospital page reads `page.props.errors`, imports
+`RefusalNotice` or passes `onError`. Driven: clicking *Start ward round* twice returned
+`errors.round = "Patient already has an open encounter with this practitioner."` and the screen showed
+nothing. The `P6-C3` / `P8-H1` defect, third module.
+
+**`P9-M5` — no nav entry at any width and no click path.** `grep -rn "/hospital" resources/js` returns
+**zero hits**. The whole Hospital folder holds two `<Link>`s; nothing links to the chart or the handover;
+the ward board is sent `occupant.show_url`, declares it, and never renders it. `bed_manager` is the first
+role whose *entire* remit is URL-only. `P9-M6`: `ward.manage` has **no HTTP surface at all** (WardService
+create/rename/deactivate are routeless) and only one of `bed.manage`'s three operations is routed.
+
+**Money and time (`P9-M1`–`M4`, `M8`–`M10`):** `Admission.vue` prints raw ISO-8601 on screen
+(`2026-09-01T08:00:00+00:00`) while the discharge summary renders the SAME bed-journey event as
+`Sep 8, 2026, 3:57 PM` — two pages, one stay, two clocks and two formats. `DischargeSummary.vue` formats
+money with a local `fmtAmount` and **no currency at all** (the controller never emits one), and day-shifts
+`issue_date` through `new Date('YYYY-MM-DD')` — the D-091 bug in a page written after the fix. Vitals
+render as bare chips with no timestamp though `recorded_at` is in the payload (D-191). `invoiceStay` is
+four independently committed transactions (orphan draft + duplicate on retry — the D-199 shape QA-FIX.8c
+closed elsewhere); `BedBillingController` catches only `AdmissionException|InvalidArgumentException` so a
+missing bed-day tariff 500s, and Hospital is the only module with **no `seedStarter` surface**;
+`AccrueBedDaysCommand` has no try/catch and restores tenant context outside a `finally`.
+
+**`Stay::TRANSITIONS` / `canTransition` are dead code** (`P9-M11`) — the only module whose declared state
+machine has no consumer; `AdmissionService` asserts inline instead.
+
+**D-211 verified and holding:** the admit form's bed selector is still `bed_id: ''` + `required` + an
+explicit `selectBed` placeholder, and no Hospital page pre-selects a person or resource. See [[Patients]],
+[[Clinical]], [[Platform]], [[LOG]].

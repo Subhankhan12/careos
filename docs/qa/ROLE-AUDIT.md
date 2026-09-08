@@ -31,7 +31,7 @@ missing · `LOW` cosmetic / polish.
 | **6** | **Surgery / OR** (`surgeon`, `anesthetist`, `scrub_nurse`, `surgical_scheduler`; `org_admin` for the billing surface no surgery role can reach) | ✅ **DONE** — 2026-09-07 |
 | **7** | **ED** (`ed_physician`, `triage_nurse`, `ed_charge_nurse`) | ✅ **DONE** — 2026-09-07 |
 | **8** | **Lab + Radiology** (`lab_tech`, `pathologist`, `phlebotomist`, `radiographer`, `radiologist`; `org_admin` for the billing surfaces no lab/radiology role can reach) | ✅ **DONE** — 2026-09-08 |
-| 9 | Bed / records (`bed_manager`, `him_records`) | ⏳ planned |
+| **9** | **Bed management + Medical records** (`bed_manager`, `him_records`; `ward_nurse`, `doctor`, `billing` and `org_admin` driven only for positive controls those two roles cannot reach) | ✅ **DONE** — 2026-09-08 |
 | 10 | Admin / governance (`org_admin`) + patient portal | ⏳ planned |
 
 ## Severity summary (running)
@@ -46,7 +46,8 @@ missing · `LOW` cosmetic / polish.
 | 6 — Surgery / OR | 3 | 5 | 10 | 2 | 20 |
 | 7 — Emergency Department | 3 | 5 | 7 | 2 | 17 |
 | 8 — Lab + Radiology | 2 | 5 | 7 | 3 | 17 |
-| **Total to date** | **18** | **34** | **66** | **25** | **143** |
+| 9 — Bed management + Medical records | 3 | 6 | 11 | 5 | 25 |
+| **Total to date** | **21** | **40** | **77** | **30** | **168** |
 
 *(Counts are as RECORDED at audit time and are not restated when a later gate re-grades a finding.
 `P4-C4` was re-graded **CRITICAL → HIGH** by QA-FIX.4b — the defect was latent rather than active,
@@ -5160,4 +5161,686 @@ will find the same three again unless the helper is made the only path.
   scoped to the ordering clinician, and no seeded lab order was placed by one of the five roles.
 - **PACS/DICOM behaviour is untestable by design** — the seam is a null implementation and the product
   states that image viewing is a certified-partner function.
+- **Performance is out of scope**, deferred to staging per the phase brief.
+
+---
+
+## Phase 9 — Bed management + Medical records
+
+**Date:** 2026-09-08 · **Top commit at audit time:** `1d12612`, CI `completed / success` confirmed via
+`commits/<sha>/check-runs` before driving anything · **Method:** every surface below driven in a real
+browser via Playwright MCP against a freshly re-seeded database, cross-read against the code. **AUDIT
+ONLY — nothing was fixed.**
+
+### Roles covered
+
+The two roles in `RbacProvisioner::ROLE_TEMPLATES` that name a bed/ward or records capability, each
+driven **separately** with its own login:
+
+| Role | Permissions | Account driven |
+|---|---|---|
+| `bed_manager` | `ward.manage`, `bed.manage`, `patient.view`, `reporting.view` | `urs.baumann@klinik-bergblick.test` |
+| `him_records` | `patient.view`, `note.supervise`, `document.view`, `audit.view` | **none seeded** — provisioned by driving `/admin/roles` (below) |
+
+**`him_records` has no account in any of the four demo tenants.** The role *template* is seeded in every
+tenant (`RbacProvisioner:201-206`); no user holds it. It was provisioned **through the product**, not by
+SQL: signed in as `org_admin` (`andrea.lindenhof@praxis-lindenhof.test`), opened `/admin/roles`, selected
+*Health Information / Records* for `nadia.steiner@praxis-lindenhof.test` and clicked **Assign**.
+`UserRoleController::assign` REPLACES a user's assignments, so she held exactly `him_records` and nothing
+else. Verified in the database (`user 9 role=him_records`) and in the ledger (`role.revoked` then
+`role.assigned`, both `actor=2`, 23:15:40) before driving anything as her. **Restored to `Reception`
+through the same screen at the end, and verified.**
+
+**Tenant choice, stated:** `bed_manager` was driven in `klinik-bergblick` — the hospital tenant, the only
+one with wards, beds and stays. `him_records` was driven in `praxis-lindenhof`, because
+`DemoHospitalSeeder` seeds **zero documents and zero consent templates**, so the records fence could not
+be tested in the hospital tenant at all. Three further accounts were driven ONLY to establish positive
+controls the two phase roles cannot reach: `lena.studer@klinik-bergblick.test` (`ward_nurse`, for
+`P9-C3` / `P9-H3`), `matthias.brunner@…` (`doctor`, for `P9-C2`) and `thomas.ammann@…` (`billing`, for
+`P9-C1`). They are not phase-9 roles.
+
+**Excluded:** every other role in the 26 — phases 1–8 covered them, and phase 10 covers `org_admin`,
+`super_admin` and the patient portal. Outside these two, only `org_admin` names a `ward.*`, `bed.*` or
+`document.view` permission (it holds all of them).
+
+### Surfaces driven
+
+| Surface | Route | Driven as | Result |
+|---|---|---|---|
+| Ward board | `GET /hospital/wards` | bed_manager | ⚠️ discloses every inpatient, **no read row** (`P9-H2`) |
+| Bed status write | `POST /hospital/beds/{bed}/status` | bed_manager | ✅ Block driven; audited, hash-chained, actor correct |
+| Admission detail | `GET /hospital/admissions/{stay}` | bed_manager | ⚠️ raw ISO-8601 (`P9-M1`) |
+| Bedside chart | `GET /hospital/admissions/{stay}/chart` | bed_manager, ward_nurse | ❌ `P9-C3`, `P9-M2` |
+| Ward round (start) | `POST …/rounds` | ward_nurse | ❌ `P9-C3` — attributed to the admitting clinician |
+| Observation (record) | `POST …/vitals` | ward_nurse | ❌ `P9-C3` — `recorded_by` is the admitting clinician |
+| Refusal (repeat round) | `POST …/rounds` a second time | ward_nurse | ❌ `P9-H3` — server refuses, screen shows nothing |
+| Handover | `GET …/handover` | bed_manager | ✅ read-logged; no click path to it (`P9-M5`) |
+| Discharge summary | `GET …/discharge-summary` | bed_manager | ⚠️ same event, different clock (`P9-M1`) |
+| ADT writes | `POST …/transfer`, `…/discharge`, `POST /hospital/admissions` | bed_manager | ✅ **403** — correctly refused |
+| Roles & access | `GET /admin/roles`, `POST /admin/roles/assign` | org_admin | ✅ assignment audited in both directions |
+| Patient 360 | `GET /patients/{p}` | him_records | ⚠️ there is no Documents tab at all (`P9-H5`) |
+| Access log (PC.P5) | `GET /patients/{p}/access-log` | him_records | ❌ `P9-C2` — a release does not appear |
+| Access-log export | `GET …/access-log/export` | him_records | ✅ 200, and the export audits itself |
+| Document download | `GET /clinical/documents/{d}` | him_records | ⚠️ 200 via `patient.view`, not `document.view` (`P9-H4`) |
+| Document release | `POST /clinical/documents/{d}/share` | him_records / doctor | ❌ `P9-H5` (403); ✅ performed as doctor |
+| Consent capture / withdraw | `POST /patients/{p}/consents`, `…/withdraw` | him_records / doctor | ❌ 403 for him_records; ✅ both driven as doctor |
+| AR report export | `GET /billing/report/export` | billing | ❌ `P9-C1` — patient identifiers leave with **no audit row** |
+| Governance | `GET /governance` | him_records | ✅ 200 read-only; the export correctly 403s (`audit.export`) |
+| Landing (pattern 1) | `GET /app` | bed_manager, him_records | ✅ over-offer CLOSED; under-offer total (`P9-M5`) |
+
+### Environment
+
+**Redis is UP** (Memurai, `PING → +PONG`), `CACHE_STORE=redis`, `QUEUE_CONNECTION=redis`,
+`SESSION_DRIVER=database`. Four demo tenants re-seeded and verified by query before driving (4 tenants /
+43 users / 35 patients; beds 4 cleaning / 1 occupied / 1 free / 1 blocked; 3 stays, 1 admitted).
+**PERFORMANCE IS OUT OF SCOPE** — deferred to staging.
+
+**What the seed does NOT contain**, stated rather than worked around:
+- **No `him_records` user, in any tenant.** Provisioned through `/admin/roles` and restored — see above.
+- **No documents and no consent templates in `klinik-bergblick`.** `DemoHospitalSeeder` seeds neither, so
+  every records/disclosure drive had to move to `praxis-lindenhof`.
+- **No ward round, note or observation on the admitted stay** — the chart was empty. `P9-C3` and `P9-M2`
+  therefore required state **created by driving the product**: a ward round started and an observation
+  (128 / 76 / 84) recorded through the real forms as `ward_nurse`. Those records remain. They are
+  append-only clinical facts; deleting them would be a worse act than leaving them, and they are correctly
+  attributed in the ledger even though they are misattributed in the chart — which is the finding.
+- **State changed and restored:** Nadia Lüthi's `portal` consent was withdrawn (to prove enforcement) and
+  re-granted through the same screen — the withdrawn record remains, correctly, because consent history is
+  append-only; her document was shared and then unshared back to its seeded state. Bed CH-02 was moved to
+  `blocked` by driving and left there — an honestly recorded act, reversible through the product.
+
+### CRITICAL
+
+#### `P9-C1` — Patient identifiers leave the system in a CSV that writes no audit row at all
+
+- **Role:** `billing` (`billing.view`) · **Route:** `GET /billing/report/export`
+- **Steps:** signed in as `thomas.ammann@praxis-lindenhof.test`, requested the AR report export.
+- **What happened.** The file downloaded (HTTP 200, 1 674 bytes) and contains, verbatim:
+
+  > `top_overdue,grand_total_overdue_minor,74361`
+  > `top_overdue,account_count,3`
+  > `top_overdue:01m21kskmvn0d1185pfjjm3750,total_overdue_minor,31300`
+  > `top_overdue:01m21kskmvn0d1185pfjjm3750,max_days_overdue,26`
+  > `top_overdue:01m21kskmvn0d1185pfjjm3750,max_stage,1`
+
+  Three patients, keyed by patient id, each with their overdue balance, days overdue, dunning stage and
+  invoice count.
+- **The audit table was snapshotted immediately before the drive** (`max(occurred_at) =
+  2026-09-08 23:23:30.573387`, 1 196 rows) **and read immediately after.** Exactly **two** new rows exist:
+  `auth.logout` (actor 3) and `auth.login` (actor 10). **The export wrote nothing.**
+- **Code:** `Modules/Billing/src/Http/Controllers/BillingReportController.php:80-147` —
+  `Gate::authorize('billing.view')`, then `streamDownload`. `grep -ni audit` over the whole file returns
+  **no matches**. Contrast the three exports that do audit themselves:
+  `PatientAccessLogController.php:105`, `GovernanceLedgerExportController.php:68-81`,
+  `AccountingExportService.php:72-80`.
+- **Why CRITICAL and not HIGH.** It is an **unrecorded disclosure**, this phase's own definition. The row
+  is missing from *both* views: absent from the tenant's audit ledger entirely, and — having no
+  `patient_id` — unable to appear in a patient's access log even if it existed. Nothing in the product can
+  answer "who took a copy of our overdue-patient list, and when".
+- **A Phase-3 miss, not a Phase-3 regression.** Phase 3 drove this controller (this document pins
+  `BillingReportController:173` at line 1404) without checking the export's audit posture. It surfaced
+  here only because the phase-9 fence forces the question "does every disclosure reach the patient's log".
+
+#### `P9-C2` — A record release is invisible to the patient it discloses, on the screen built to show exactly that
+
+- **Roles:** `him_records` (reader), `doctor` (releaser) · **Routes:** `POST /clinical/documents/{d}/share`,
+  `GET /patients/{p}/access-log`, `GET /patients/{p}` → *Access log* tab
+- **Steps, end to end in the browser.** (1) As `doctor`, released Nadia Lüthi's referral letter to her
+  patient portal — HTTP 200, `{"shared_with_patient":true,"shared_at":"2026-09-08 23:20:44"}`. (2) Opened
+  her Patient-360 **Access log** tab. (3) Separately, opened the dedicated PC.P5 access log for Erika
+  Baumgartner, whose seeded release is recorded at 22:56:40.
+- **What happened.** Neither surface shows the release. Nadia Lüthi's tab lists only `patient` reads at
+  23:20 by `user3`. Erika Baumgartner's PC.P5 screen reports **"5 recorded accesses by 1 distinct actors"**
+  and lists five rows — `patient_access_log`, `document_download`, `patient_access_log_export`,
+  `patient_access_log`, `patient_360` — every one of them mine. Her document release is not among them.
+- **Why.** `PatientAccessReport::query()` is `… WHERE tenant_id <=> ? AND action = ? AND patient_id = ?`
+  with `'read'` bound (`PatientAccessReport.php:122-124`). A release is dispatched as `DocumentChanged`
+  and audited by `AppServiceProvider.php:789-805` under **`action = 'document.shared'`** — a correctly
+  written, patient-scoped, hash-chained row that the report's action filter excludes. Confirmed in the
+  data: `2026-09-08 22:56:40.097219 | document.shared | pid=01m21kskmvn0d1185pfjjm3750`.
+- **The claim it falsifies is printed on the page.** The screen states: *"Every recorded read of this
+  patient's record, by every kind of actor — staff, the patient themself through the portal, automated
+  agents and system processes. No actor type, surface or age of entry is filtered out unless you narrow it
+  above."* and then names **one** limitation (operator mode). `PatientAccessReport`'s docblock says it more
+  strongly still — *"ONE KNOWN GAP, RECORDED RATHER THAN PAPERED OVER"*. There is a second gap; it is not
+  recorded; and it is the one category a subject-access request is actually about.
+- **Scope.** It is not only `document.shared`. Every non-`read` action carrying a `patient_id` is
+  structurally invisible: `document.uploaded`, `consent.granted`, `consent.withdrawn`, and the ADT events.
+  The word `read` in that query does work the page's own text does not admit to.
+- **Why CRITICAL.** The phase brief's test is verbatim *"is the release itself RECORDED — appearing in the
+  patient's own access log"*. It does not appear. The disclosure IS in the ledger, so this is not data
+  loss — it is a transparency failure on the **nDSG Art. 25 / GDPR Art. 15 artifact**, which the product
+  hands to the patient as complete. A partial log presented as exhaustive is precisely the failure PC.P5
+  exists to prevent, and its own docblock says so.
+
+#### `P9-C3` — Every ward round, note and observation is stored as the ADMITTING CLINICIAN, not the person who did it — even when the actor has a staff profile
+
+- **Role:** `ward_nurse` · **Routes:** `POST /hospital/admissions/{stay}/rounds`, `POST …/vitals`
+- **Steps, in the browser.** Signed in as Lena Studer (`ward_nurse`; holds `note.write` and
+  `encounter.manage`), opened Rolf Schmid's bedside chart, clicked **Start ward round**, then **Record
+  observation** and saved 128 / 76 / 84.
+- **What happened, verbatim from the screen.** The round redirected into the note editor, which shows:
+
+  > **Version 1** · draft · **Dr. med. Martin Keller** · 2026-09-08 23:29:55
+
+  …directly above the page's own honesty statement: *"You author this note. CareOS stores and versions
+  **your** text."* Back on the chart, the round is listed as **Dr. med. Martin Keller**. Martin Keller is
+  the stay's admitting clinician. He did not start the round.
+- **Confirmed in the database and against the ledger.** `encounters.practitioner_id` → *Dr. med. Martin
+  Keller*; `clinical_notes.author_id` → *Dr. med. Martin Keller*; `vitals.recorded_by` → *Dr. med. Martin
+  Keller*. The audit rows for the same two acts are `encounter.opened` and `vital.recorded`, both
+  **`actor=25` (Lena Studer)**. The system knows who acted, and stores someone else in every clinical
+  column.
+- **Code:** `Modules/Hospital/src/Services/BedsideChartService.php:66` —
+  `$clinician = StaffProfile::query()->findOrFail($stay->admitting_clinician_id);` — passed as the
+  Encounter's practitioner (`:72`) and the note's author (`:77`); `:96` passes the same profile into
+  `ClinicalListService::recordVital`'s `$recorder` position. `$actor` travels alongside in all three calls
+  and is used **only** for the gate and the audit row.
+- **Strictly worse than `P8-C2`.** Radiology's fallback fired only when the actor had *no* linked profile.
+  This substitutes **unconditionally**. Lena Studer has a profile, and
+  `StaffProfile::forUser(User::find(25))` returns *Lena Studer* correctly — the right answer is one call
+  away and is never asked for.
+- **`AdmissionController` is not at fault.** `admitting_clinician_id` is a genuine domain field — the
+  clinician responsible for the stay, legitimately not the person typing — required, resolved to a typed
+  model, with no default offered on the form (`AdmissionController.php:88-98`). That is a person
+  **chosen**. The defect is re-purposing a chosen clinical-responsibility field as the **attribution** of
+  acts other people perform.
+- **No affordance could reveal it.** `startRound` posts an empty body (`StayChart.vue:51`) and the vital
+  form carries only clinical values — there is no person field and no dropdown to inspect, the same
+  aggravating condition `ImagingReportController.php:161-162` names for the Radiology instance.
+- **It carries an operational cost too.** Because the practitioner is always the same person,
+  `EncounterService`'s one-open-encounter-per-practitioner invariant collapses a whole stay to one
+  concurrent round: a second clinician is refused with *"Patient already has an open encounter with this
+  practitioner"* — naming a practitioner who is neither of them. Driven; see `P9-H3`.
+- **Mitigation, stated.** Signing is correct: `ClinicalNote::signed_by` records the acting user and the
+  editor exposes `signed_by_is_author`, so a signed round note carries the right signer over the wrong
+  author. Nothing ever corrects the author — `NoteEditorController::update` re-passes the note's existing
+  `author_id` on every save (`:124-128`, `:430-433`).
+
+### HIGH
+
+#### `P9-H1` — A bed manager can move an OCCUPIED bed to `cleaning` and permanently wedge the admitted patient
+
+- **Role:** `bed_manager` (`bed.manage`) · **Route:** `POST /hospital/beds/{bed}/status`
+- **The transition is legal and the service never looks at the stay.** `Bed::TRANSITIONS` includes
+  `STATUS_OCCUPIED => [STATUS_CLEANING]` (`Bed.php:65-70`). `BedService::setStatus` rejects only
+  `occupied` as a **target** (`:80-82`), then defers to `Bed::canTransition` (`:91`). There is no `Stay`
+  lookup anywhere in `BedService`.
+- **The wedge.** Both `AdmissionService::transfer` (`:128`) and `::discharge` (`:169`) call
+  `BedService::release`, which throws `BedStatusTransitionException` unless the bed is still `occupied`
+  (`BedService.php:147-149`). Once the bed is `cleaning`, the stay can be neither discharged nor
+  transferred, and there is **no product path back to `occupied`** — the only writer of that status is
+  `claim`, which requires `free` and belongs to a *different* stay's admission.
+- **The UI is the only guard, and the server has none.** `WardBoard.vue:99-101` maps
+  `occupied: []` — the board deliberately offers no status button on an occupied bed, which is why the
+  drive as `bed_manager` showed only `Mark free` / `Block` on unoccupied beds. But the endpoint validates
+  `status` as `['required','string','max:40']` with **no `in:` rule** (`WardBoardController.php:128-131`),
+  and `bed.manage` is all it checks. This is pattern 1 inverted: everywhere else the UI over-offers what
+  the server refuses; here the UI is the refusal and the server accepts.
+- **It is pinned as correct.** `tests/Feature/Hospital/WardBedManagementTest.php:114` asserts a
+  `bed_manager` performing exactly this call succeeds, so the behaviour would survive a refactor.
+- **NOT DRIVEN LIVE, deliberately, and this is stated rather than worked around.** Executing it would
+  strand the demo tenant's only admitted patient with no product path to recover — an unrecoverable
+  change to the seed made in the name of an audit. The finding is code-established across four cited
+  files, all read first-hand; the browser evidence is the complementary half (the UI's own refusal to
+  offer the button, driven and confirmed).
+
+#### `P9-H2` — The ward board discloses every admitted patient and writes no read row
+
+- **Role:** `bed_manager` · **Route:** `GET /hospital/wards`
+- **What the page discloses.** Driven live: the board renders, per occupied bed, the occupant's full name,
+  the ward, the bed label and the admission time — `IM-ICU-1 · ICU · Occupied · Rolf Schmid · In bed 7d
+  15h`. `WardBoardController.php:76` emits `trim($stay->patient->first_name.' '.$stay->patient->last_name)`
+  for every occupied bed in every active ward.
+- **What it records.** Nothing. `grep -rn auditRead Modules/Hospital/src/` returns exactly four call sites
+  — `AdmissionController.php:37`, `BedsideChartController.php:42`, `DischargeSummaryController.php:46`,
+  `HandoverController.php:32` — and `WardBoardController::show` is not among them. Confirmed against the
+  ledger: my sweep of five hospital routes produced **four** `read` rows (`stays` ×4, plus one
+  `patient`/`patient_360`), all carrying `patient_id`; the ward-board GET in the same sweep produced none.
+- **Why it matters.** Of the five Hospital read surfaces, the four that show ONE patient are logged and the
+  one that shows EVERY patient is not. A staff member can enumerate the whole inpatient census — who is in
+  the building, in which ward, in which bed, since when — and leave no trace in any patient's access log.
+  It is the same completeness hole as `P9-C2` approached from the other side: there the disclosure is
+  recorded but filtered out; here it is never recorded.
+- The patient index (`PatientIndexController`) is also unlogged and returns names + MRNs; that is at least
+  arguable for a search surface. A per-bed occupancy disclosure is not a search.
+
+#### `P9-H3` — Eleven refusal sites, zero renderers: no Hospital page shows a refusal
+
+- **Role:** `ward_nurse` (any) · **Route:** `POST /hospital/admissions/{stay}/rounds`
+- **Driven live.** With a round already open, clicked **Start ward round** a second time. The page did not
+  navigate, the round list did not change, and **nothing at all appeared on screen** — no banner, no
+  inline message, no toast. Network shows the POST returning `302` back to the chart, which then
+  re-rendered.
+- **The server did send a refusal.** Repeating the same POST with the real Inertia headers returns HTTP
+  200, `component: "Hospital/StayChart"`, and:
+
+  > `"errors": { "round": "Patient already has an open encounter with this practitioner." }`
+
+  The message is produced, shared to the page, and silently discarded by the component.
+- **Count:** 11 `->withErrors()` sites across the six Hospital controllers — `AdmissionController.php:100`,
+  `:123`, `:145`; `BedBillingController.php:33`; `BedsideChartController.php:122`, `:150`, `:174`;
+  `DischargeSummaryController.php:129`, `:146`; `HandoverController.php:86`;
+  `WardBoardController.php:138`. On the Vue side, none of the five Hospital pages reads
+  `page.props.errors`, imports `RefusalNotice`, or passes an `onError` handler, and `AppLayout` renders no
+  error surface either.
+- **This is D-170 / `P6-C3` / `P8-H1` again, ninth phase.** `RefusalNotice.vue` exists and its own docblock
+  describes the identical prior finding; ED, Radiology and Surgery pages adopted it. Hospital did not.
+- **Aggravating.** The one message a user would actually hit names the wrong person, because of `P9-C3`:
+  *"…with this practitioner"* refers to the admitting clinician, not to either clinician involved. Showing
+  it unchanged would replace an invisible refusal with a misleading one.
+
+#### `P9-H4` — `document.view` gates nothing; clinical documents are gated by `patient.view`
+
+- **Role:** `him_records` · **Route:** `GET /clinical/documents/{d}`
+- **Driven live:** as `him_records`, downloading Erika Baumgartner's lab report returns **200**, and the
+  download appears in her access log as `document_download` (correctly — that path *is* audited).
+- **But not because of `document.view`.** `DocumentDownloadController` is a 27-line controller whose only
+  gate is `Gate::authorize('patient.view')` (`:14`). A whole-tree grep for `document.view` returns four
+  hits and not one is a gate: its catalog definition (`RbacProvisioner.php:69`), two role templates
+  (`:107` org_admin, `:205` him_records), and an operator-grant PHI mapping
+  (`OperatorAccessService.php:73`).
+- **Consequence.** The permission whose written description is *"View and download patient clinical
+  documents (HIM/records)"* controls nothing. Every `patient.view` holder — **25 of the 26 role
+  templates**, every role but `billing`, including `bed_manager`, `phlebotomist`, `radiographer`,
+  `surgical_scheduler` and `admissions_clerk` — can already download any patient's clinical documents.
+  There is no narrower door for record access than "can see patients", and `him_records` gains nothing at
+  all from the permission that names it.
+- This is pattern 4 (a granted capability with no surface) in its purest form yet: not a capability
+  without a screen, but a **permission without a gate**.
+
+#### `P9-H5` — The records role cannot do records work: it is refused the only release action and cannot record consent
+
+- **Role:** `him_records` · **Routes:** `POST /clinical/documents/{d}/share`, `POST /patients/{p}/consents`
+- **Driven live, both refused.**
+
+  > `share` → **403** `{"message":"This user cannot manage clinical documents."}`
+  > `consents` → **403** `{"message":"This action is unauthorized."}`
+
+- **Why.** Releasing a document requires `note.write` (`DocumentService::authorizeWrite`, `:216-220`);
+  capturing or withdrawing a consent requires `patient.edit` (`PatientConsentController:16`, `:37`).
+  `him_records` holds neither. Every doctor and every nurse holds `note.write`; reception, admissions and
+  the hospitalist hold `patient.edit`.
+- **The inversion.** The role built to handle records requests can **take data out** — download any
+  document, export a patient's whole access log as CSV — but cannot perform the one governed release the
+  product implements, and cannot record the consent that would authorise it. Authority to release sits
+  with clinical authors; authority to consent sits with front-desk and clinicians; the records role has
+  neither.
+- **There is also nowhere to do it from.** The Patient 360 tabs are Demographics / Contacts / Coverages /
+  Consents / Access log — **there is no Documents tab**. `resources/js/pages/` contains no staff-facing
+  document page at all (only `Portal/Documents.vue`, which is the *patient's* view). Upload, download,
+  share, unshare, reclassify and delete are JSON/route-only, reachable by typing a URL.
+
+#### `P9-H6` — The nightly bed-day accrual credits an arbitrary org_admin, bypassing the resolver written to stop exactly this
+
+- **Surface:** `hospital:accrue-bed-days`, scheduled 05:30 daily across every active tenant
+  (`routes/console.php:65-68`)
+- **Code:** `AccrueBedDaysCommand::resolveBillingActor` (`:59-69`) is
+  `RoleAssignment::query()->where('role_id', $roleId)->value('user_id')` — **no `ORDER BY`**, no check
+  that the user genuinely holds `billing.manage`, and no exclusion of a branch-scoped assignment
+  (`role_user.branch_id` is nullable). Its own docblock claims the charges are *"Attributed to the
+  tenant's billing-capable admin"*, which the query does not verify.
+- **It persists.** `ChargeCaptureService` writes `'created_by' => $actor->id` on every bed-day charge and
+  audits the capture under that actor. The person credited with a tenant's inpatient revenue is whichever
+  row the engine happens to return.
+- **The canonical fix already exists and Hospital is the only scheduled command that skips it.**
+  `SystemActorResolver::forPermission()` is documented as deterministic (`orderBy('id')`), verifies the
+  permission is held tenant-wide via `PermissionService`, excludes super-admins, and **returns null so the
+  caller skips the tenant rather than guessing** — the D-195 posture. `DunningRunCommand:54`,
+  `ReconcileCommand:61` and `ReportingSummaryCommand:45` all use it; nothing in `Modules/Hospital` does.
+- This is `P9-C3`'s server-side twin: the same "resolve a person by convenience" shape, unattended,
+  nightly, and cross-tenant.
+
+### MEDIUM
+
+#### `P9-M1` — The admission page prints raw ISO-8601, and two Hospital pages disagree about when the same event happened
+
+- **Driven live as `bed_manager`.** `/hospital/admissions/{stay}` renders, on screen:
+
+  > **ADMITTED** `2026-09-01T08:00:00+00:00`
+  > Bed journey · Admitted to bed `2026-09-08T22:57:28+00:00` · Transferred `2026-09-08T22:57:28+00:00`
+
+  `Admission.vue` interpolates the server string directly (`:117`, `:121`, `:145`) and imports no date
+  helper at all. This is not a timezone nuance — it is a machine string on the inpatient record's primary
+  page.
+- **And the same event reads differently elsewhere.** The discharge-summary page renders that identical
+  bed-journey entry as **`Admitted to bed · Sep 8, 2026, 3:57 PM`** — a different format *and* a different
+  clock (browser zone vs. the raw `+00:00`), on two pages about one stay, in one browser session.
+- **Root cause, standing:** not one of the five Hospital pages passes `timeZone` to any formatter, and a
+  repo-wide grep for `timeZone` across `resources/js` returns zero hits. The tenant's display zone *is*
+  already shared to every page as the `timezone` Inertia prop
+  (`HandleInertiaRequests.php:65-74`) and no page consumes it — **D-192 states this in its own text** as
+  the standing deferred item. Hospital is confirmed inside its blast radius; the ISO-8601 half is new.
+- Three of the four Hospital formatters also omit the year entirely (`Handover.vue:36`,
+  `StayChart.vue:44`, `WardBoard.vue:90` use `{day, month, hour, minute}`), on append-only, long-lived
+  records. Driven: the round I started renders as `Sep 08, 04:29 PM`.
+
+#### `P9-M2` — Observations render as bare chips: no timestamp, no unit, no direction
+
+- **Driven live.** After recording 128 / 76 / 84 as `ward_nurse`, the chart shows:
+
+  > `SYSTOLIC 128` · `DIASTOLIC 76` · `HEART RATE 84`
+
+  and nothing else — no time, no unit, no axis, no hover title.
+- **The data is already in the payload.** `BedsideChartService` orders vitals `orderByDesc('recorded_at')`
+  and emits `recorded_at` per point; `StayChart.vue:17` declares it in the `VitalPoint` type. The template
+  (`:118-124`) renders only `{{ point.value }}`.
+- **D-191:** a reverse-chronological clinical sequence with no written meaning. With more than one reading
+  the viewer cannot tell whether the leftmost value is the newest or the oldest, nor when any of them was
+  taken — on the surface a nurse uses to judge a trend.
+
+#### `P9-M3` — The discharge summary prints an amount with no currency, through a module-local formatter
+
+- `DischargeSummary.vue:77-79` defines `fmtAmount(minor)` as
+  `(minor / 100).toLocaleString(locale.value, {minimumFractionDigits: 2, maximumFractionDigits: 2})` and
+  renders it bare at `:225`. `formatSwissMoney` / `formatSwissAmount` are imported by no Hospital page.
+- `money.ts:7-9` states the Swiss grouping is done by hand *"so the separator is a deterministic straight
+  apostrophe regardless of the runtime's ICU data"*. This page reintroduces exactly the ICU variance the
+  helper was written to remove: the same invoice renders `4'820.00`, `4,820.00` or `4.820,00` depending on
+  the viewer's browser.
+- **Worse than Phase 8's instance:** the figure carries **no currency at all**.
+  `DischargeSummaryController.php:94-100` emits `total_minor` and `issue_date` and never emits `currency`,
+  while `Invoice` carries a `currency` column whose fallback is `'EUR'`. The episode close-out states an
+  amount with no unit. This is pattern 8 (the module-local formatter), ninth phase.
+
+#### `P9-M4` — The date-only day-shift D-091 exists to prevent, in a page written after the fix
+
+- `DischargeSummary.vue:73-75`: `fmtDay(iso)` does `new Date(iso)` on the invoice `issue_date`, and
+  `DischargeSummaryController.php:100` emits that field as `toDateString()` — a bare `YYYY-MM-DD`.
+- `resources/js/lib/date.ts` exists precisely for this; its docblock names the failure
+  (*"`new Date("1954-03-12")` parses as UTC midnight and re-renders in the local zone"*), and
+  `formatDateOnly` is imported by no Hospital page. A behind-UTC viewer sees the stay's invoice dated one
+  day earlier than it was issued — the M-2 / D-091 class, re-created.
+
+#### `P9-M5` — Bed management has no nav entry at any width, and its two clinical surfaces have no click path from anywhere
+
+- **Driven live.** `bed_manager`'s navigation is Dashboard · Patients · Reporting. `him_records`'s is
+  Dashboard · Patients · Admin. Neither can reach the ward board by clicking; both landings offer nothing
+  in the body (`landingBodyLinks: {}` — the QA-FIX.7d gating, working as intended).
+- `grep -rn "/hospital" resources/js` returns **zero hits across the entire frontend**. `primaryNav` and
+  `adminNav` (`AppLayout.vue:35-57`) contain no Hospital item, and `NAV_PERMISSIONS`
+  (`HandleInertiaRequests.php:24-46`) contains none of `ward.manage`, `bed.manage`, `admission.manage`,
+  `document.view` or `note.supervise`.
+- **Inside the module it is no better.** The whole Hospital folder contains two `<Link>`s — Admission →
+  discharge summary, and StayChart → the note editor. Nothing links to `/hospital/admissions/{stay}/chart`
+  or `…/handover`. The ward board is *sent* `occupant.show_url` by its controller
+  (`WardBoardController.php:78`), declares it in its type (`WardBoard.vue:21`) and **never renders it** —
+  the board cannot open the occupant's stay. Confirmed live: the occupied tile shows a name and a length
+  of stay and no link.
+- **The cost is now total, not partial.** This is D-214's under-offer half, ninth phase, and `bed_manager`
+  is the first role whose *entire* remit is URL-only: the ward board is the sole routed surface exercising
+  `bed.manage`, and it is unreachable by navigation.
+
+#### `P9-M6` — Two `ward.manage` capabilities and two `bed.manage` capabilities have no HTTP surface at all
+
+- `WardService::create` / `rename` / `deactivate` are the **only** `ward.manage` gates in the codebase, and
+  `WardService` is consumed by exactly one caller — `WardBoardController::show`, which uses `activeWards()`
+  only. There is no route, controller or command that creates, renames or deactivates a ward.
+- `BedService::create` and `::deactivate` are likewise routeless; the only routed `bed.manage` action is
+  `setStatus`.
+- So of `bed_manager`'s four permissions, one (`ward.manage`) is entirely unreachable, one (`bed.manage`)
+  is reachable for one of its three operations, and the ward/bed estate can only be created by a seeder.
+  Pattern 4, ninth phase, in the "capability with no surface" direction.
+
+#### `P9-M7` — Nothing binds bed occupancy to a stay, and the board silently hides the second patient
+
+- `AdmissionService` guards one active stay per **patient** (`:60-68`, patient row lock), never per bed.
+  `stays.current_bed_id` has a foreign key and **no unique constraint** and no trigger
+  (`2026_07_26_000003_create_stays_table.php:22-48`). `BedService::claim` requires only that the bed is
+  `free`.
+- Reachable through the product by chaining `P9-H1`: occupied → cleaning → free (both legal for
+  `bed.manage`), then admit a second patient into the same bed.
+- The board then hides one of them: `WardBoardController.php:52-56` builds occupancy as
+  `Stay::…->get()->keyBy('current_bed_id')`, and `keyBy` keeps the last row — the other patient disappears
+  from the ward board entirely.
+
+#### `P9-M8` — "Invoice this stay" is four independently committed transactions; a failure at the last step leaves an orphan draft and a retry builds a second
+
+- `BedBillingService::invoiceStay` (`:158-196`) has **no enclosing transaction**. It calls, in order:
+  `accrueBedDays` (which commits per day), `validateForPatientPeriod` (own transaction),
+  `createDraftFromCharges` (own transaction), `issue` (own transaction).
+- `charge.invoice_id` is set only inside `issue`. An `issue` failure rolls back only `issue`: the draft
+  `Invoice` and its lines stay committed while the charges revert to `validated` / `invoice_id NULL`. The
+  re-gather at `:172-179` filters on exactly that state, and `:185` calls `createDraftFromCharges`
+  unconditionally — there is no lookup for an existing draft. A retry produces a second draft over the
+  same charges.
+- This is the D-199 shape (one operation, one transaction) that QA-FIX.8c closed in Lab, Radiology and ED.
+  Hospital is the remaining instance, and it is a money path.
+
+#### `P9-M9` — "Invoice this stay" 500s on any tenant that has not run the demo seeder
+
+- `BedBillingController.php:32` catches only `AdmissionException|InvalidArgumentException`. The reachable
+  failure is `TariffNotFoundForDateException`, which `extends RuntimeException` — outside that catch.
+  Path: controller → `invoiceStay` → `accrueBedDays` → `captureManual` → `ChargeCaptureService` →
+  `TariffResolver:49`.
+- The `BED-DAY-*` tariff items come only from `BedBillingService::seedStarter` (`:81`), which has **no
+  route and no console command** — `HospitalServiceProvider` registers only `AttemptBedClaimCommand` and
+  `AccrueBedDaysCommand`, and the only callers are `DemoHospitalSeeder:324` and tests. Dental, Lab and
+  Nursing all expose their `seedStarter` through a controller; Hospital does not.
+- So a real first customer reaches an unhandled 500 on the module's only money action, with no surface
+  anywhere to author the tariffs that would prevent it.
+
+#### `P9-M10` — The nightly accrual has no error handling and leaks tenant context on failure
+
+- `AccrueBedDaysCommand:42-44` calls `accrueBedDays` bare inside a nested tenant/stay loop; the
+  tenant-context restore sits at `:47-51`, after the loop and **not in a `finally`**. Throwing paths inside
+  include three `findOrFail` calls and the tariff resolution above.
+- One bad stay therefore aborts the entire cross-tenant nightly sweep — every later tenant is skipped
+  silently — and leaves `TenantContext` pinned to the failing tenant. The sibling command in the same
+  directory (`AttemptBedClaimCommand:62-68`) restores the previous tenant in a `finally`.
+
+#### `P9-M11` — `Stay`'s declared state machine is dead code
+
+- `Stay::TRANSITIONS` (`:60-63`) and `Stay::canTransition` (`:132-135`) have **zero call sites**.
+  `AdmissionService` instead asserts `status !== STATUS_ADMITTED` inline at `:114` and `:164`.
+- Every peer module wires its own: `Bed::canTransition` is called at `BedService.php:91`, and
+  `EdVisitService:93`, `SpecimenService:83`, `MedicationOrderService:94`, `ImagingStudyService:101` and
+  `SurgicalCaseService:73` do the same. Hospital's stay is the one declared-but-unenforced machine — a
+  written rule the code does not consult, which is the D-176 shape applied to logic rather than to UI.
+
+### LOW
+
+#### `P9-L1` — No navigation below 768 px, ninth phase — and newly load-bearing
+
+- **Driven live at 390 × 844 on the ward board:** all three nav links (`/app`, `/patients`, `/reporting`)
+  measure **0 × 0**; the only interactive chrome left is Search, Notifications and Sign out. There is no
+  drawer and no hamburger anywhere in the 228-line `AppLayout` (`:113`,
+  `hidden … md:flex`, with no `md:hidden` counterpart).
+- The Hospital pages themselves degrade correctly — mobile-first with `sm:`/`lg:`/`xl:` only, no tables,
+  no `overflow-*`, and no horizontal overflow at 390 px (measured).
+- **Why it matters more here.** The bedside chart and the shift handover are the two surfaces a nurse uses
+  on a phone at the bedside, and they have no nav entry at any width (`P9-M5`) *and* no link from any
+  other page. On a phone there is neither navigation nor a path.
+
+#### `P9-L2` — The portal consent screen advertises three scopes nothing seeds, checks or enforces
+
+- `Portal/Consents.vue:33-39` maps five scope keys to labels: `portal.access`, `comms.email`,
+  `documents.read`, `messages.write` and **`research.share`**.
+- Only two exist anywhere in PHP. A whole-tree grep for `documents.read`, `messages.write` and
+  `research.share` returns **no matches** outside that map — no template seeds them, no
+  `consents->has(...)` call site names them.
+- `research.share` is, on its face, a third-party disclosure consent. The vocabulary promises a control the
+  product has never implemented. It renders only if a template with that scope existed, so it is inert
+  today — the D-176 shape (unbacked presence), recorded rather than treated as a feature.
+
+#### `P9-L3` — One report, two renderings: the Patient-360 tab shows raw actor ids where the PC.P5 screen shows names
+
+- **Driven live, same patient, minutes apart.** The dedicated access log renders
+  `Nadia Steiner · read patient · Staff user · patient_access_log · 11:17 PM`. The Patient-360 *Access log*
+  tab renders `P patient01m21ksnkypkt0a0fvf0dwf0vm · patient · 22:56` and `U user3 · patient · 23:20`.
+- `PatientAccessReport` is deliberately the single query behind both, so the *rows* agree — but only one
+  surface resolves actor ids to names. The 360 tab, which any `patient.view` user can open, is the less
+  legible of the two, and it is the one a clinician actually meets.
+
+#### `P9-L4` — `BreakGlassService` has no production consumer, and the governance dashboard lists an action nothing emits
+
+- `app/Services/BreakGlassService.php` is the one component that demands a written reason before access
+  (`request(User, string $scope, string $reason, int $ttlSeconds)`), and it audits
+  `break_glass.request`. Outside its own file it is referenced only by two docblocks and three tests. No
+  route, no middleware and no Gate consults a grant.
+- `GovernanceDashboardController.php:88` lists `break_glass.granted` among the surfaced security actions —
+  an action nothing currently writes (D-179: an asserted action never taken).
+- **It matters to this phase's fence.** No read anywhere in the product records *why* it happened. The
+  reason-capture discipline exists and is tested; it is simply not wired into any access decision — which
+  is exactly the field an accountable-disclosure log would need.
+
+#### `P9-L5` — A bed's status has no provenance anywhere in the product
+
+- The bed transition I drove is fully recorded: `bed.status_changed`, `actor=28` (Urs Baumann),
+  `{"from_status":"free","to_status":"blocked"}`, hash-chained, timestamped within 15 s of the CLI clock.
+  There is no `bed_events` table and none is needed — the audit chain is the record.
+- **But no surface can reach it.** The board tile payload (`WardBoardController.php:68-83`) carries no
+  last-changed-by and no timestamp. The only `audit.view` screen selects
+  `['id','occurred_at','action','actor_type','resource_type']` (`GovernanceDashboardController.php:279`) —
+  **no `resource_id` and no `actor_id`** — and shows the last 15 tenant events. The patient access log is
+  `action = 'read'` only. And `bed_manager` does not hold `audit.view` at all.
+- So "who blocked bed IM-ISO-1, and when?" — the bed manager's most ordinary question about their own
+  ward — is answerable only by a DBA. The data is honest; the product cannot show that it is.
+
+### The phase's fence — DISCLOSURE, answered question by question
+
+**1. Does a records-release surface exist at all?** **No — and that is the finding.** There is no model,
+migration, service, controller, route or page whose subject is releasing a record. Every occurrence of
+"disclosure" in PHP is a docblock describing an existing *read* as a disclosure. Greps for
+`release of information`, `records request`, `roi_request` and `record_request` return only the nDSG/GDPR
+**subject-access** comments. The `him_records` role's nominal job has no implementation; the concept is
+absent, not partial.
+
+**2. Who may release, and to whom?** The only release the product implements is
+`DocumentService::shareWithPatient` — a document made visible in the **patient's own portal**. Its holder
+is `note.write`: every doctor and every nurse. `him_records` is refused it (`P9-H5`, driven). There is no
+third-party recipient anywhere: `audit_events` has no recipient, purpose or legal-basis column, so even a
+correctly audited release could only ever record *"staff member X touched resource Y"*, never *"a copy of
+the chart went to insurer Z on basis W"*. The schema, not just the UI, would have to grow.
+
+**3. Is consent required, and ENFORCED rather than prompted?** **Enforced — proven live, in both
+directions.** With Nadia Lüthi's `portal` consent granted, the release succeeded (200). I then withdrew
+that consent **through the product** (Patient 360 → Consents → reason → Withdraw; the record flipped to
+`withdrawn`), retried the identical POST, and got:
+
+> **403** `{"message":"Portal access consent is required to share documents."}`
+
+That is `DocumentService.php:105` throwing, not a prompt. It is one of four hard consent gates —
+`shareWithPatient`, `TelehealthService:110`, `ThreadService:408`, `NotificationService:177`. Two further
+call sites are display-only flags (`RecallWorklistController:131`, `InboxPatientContextReader:195`), and
+in both cases the actual send is enforced downstream by `NotificationService`. **Consent is the one part
+of this fence that is genuinely built.**
+
+**Two qualifications, both checked.** (a) Withdrawal does **not** retract an existing release — the
+`shared_with_patient` flag stays `true` (verified: it was still shared after the withdrawal, until I
+unshared it explicitly). That is not exploitable, because `EnsurePortalConsent` guards the entire portal
+route group (`routes/web.php:917`) and fail-closes on `portal.access`, so the patient cannot reach any
+document at all; the stale flag is an inconsistency, not an exposure. Recorded as an observation, not a
+finding. (b) No staff-side read or export checks consent anywhere: the document download, the access-log
+CSV, the governance ZIP and the billing CSV all check permissions only. There is no legal-basis check
+standing between a permitted user and a file.
+
+**4. Is a release RECORDED — does it appear in the patient's access log?** **No.** `P9-C2`, driven twice.
+The row exists in the ledger and is excluded from the patient-facing report by the `action = 'read'`
+filter, on a screen that tells the patient its only gap is operator mode. And the one export that can
+carry patient identifiers out of the building writes **no row at all** (`P9-C1`).
+
+**5. What IS honest here.** Three things, stated because they are the reason the fence holds as well as it
+does. The access log is a **single query** shared by screen, tab and export, so the CSV cannot disagree
+with what was on screen. Viewing and exporting it are themselves audited as patient-scoped reads
+(`:54`, `:105`) and show up in the log next time. And the export fence is drawn correctly:
+`audit.export` is deliberately narrower than `audit.view` and `him_records` sits on the read-only side —
+its only file-producing capability is the per-patient access-log CSV, which audits itself. `P9-C1` is the
+hole in a wall that is otherwise built.
+
+### Bed state honesty — answered
+
+**It passes, and it is the strongest single result in this phase.**
+
+- **Driven live:** blocked bed CH-02 as `bed_manager`. One audit row appeared — `bed.status_changed`,
+  `actor=28` (Urs Baumann), context `{"from_status":"free","to_status":"blocked", …}` — hash-chained,
+  timestamped within 15 s of the CLI clock. Nothing else changed.
+- `bed.status` is written in exactly **three** places, all inside `BedService`, each under a
+  `SELECT … FOR UPDATE` row lock that re-reads the authoritative current status. No factory, seeder,
+  controller or command writes the column directly — `DemoHospitalSeeder:306-309` drives `claim` /
+  `release` / `setStatus` like everyone else.
+- **`free → occupied` is structurally impossible by hand.** `setStatus` rejects `occupied` as a target
+  outright, so occupancy is only reachable through the concurrency-safe `claim()`, which re-asserts `free`
+  under the lock. Occupancy always corresponds to exactly one winning claim.
+- **`cleaning → free` is always a recorded human act.** Nothing auto-frees a bed: no timer, no scheduled
+  command, no side effect. The only scheduled Hospital command accrues bed-days and never touches status.
+- **Admit / transfer / discharge are atomic and tested.** One outer `DB::transaction` per action, the
+  append-only `StayEvent` written inside it, transfer claims the new bed before releasing the old, and
+  `HospitalAdmissionTest:170`/`:191-197` pin that a forced failure leaves no orphan stay, no stuck bed and
+  no phantom audit row.
+- **What it cannot do is explain itself** (`P9-L5`), and its one status write can wedge a patient
+  (`P9-H1`). The record is honest; the product cannot show it, and the guard on who may write it is
+  incomplete.
+
+**QA-FIX.7a's bed default — verified, and it holds.** D-211 (this document, lines 4570-4574) recorded the
+admit form's bed selector as `bed_id: ''` with `required` and an explicit `selectBed` placeholder. Re-read
+in `WardBoard.vue:57`, `:105`, `:191-197`: unchanged, no pre-selection, and `resetForm` returns every
+field to `''`. Phase 8's dropdown-default instance does not recur anywhere in Hospital — a repo-wide grep
+for `[0]?.id` / `props.x[0]` across the five pages returns nothing.
+
+### The standing patterns, ninth phase
+
+**1. Ungated UI — THE OVER-OFFER STAYS CLOSED; THE UNDER-OFFER IS NOW TOTAL.** Second consecutive phase
+with the over-offer closed: both roles' landings render an empty body (`landingBodyLinks: {}`), and
+`bed_manager`'s ADT writes are refused server-side (403 on transfer, discharge, admit, handover, vitals,
+discharge-summary, invoice — all driven). The under-offer half, deliberately not taken by QA-FIX.7d
+(D-214), reaches its limit here: `grep -rn "/hospital" resources/js` returns **zero hits**, so
+`bed_manager` — a role whose entire remit is one screen — has no path to that screen from anywhere in the
+product (`P9-M5`). And `P9-H1` finds the inverse shape for the first time: a screen that correctly refuses
+to offer an action, over a server that accepts it.
+
+**2. Timestamp and locale divergence — PRESENT, ninth phase, and the worst instance yet.** Not a
+divergence but an absence: the admission page prints `2026-09-01T08:00:00+00:00` on screen (`P9-M1`).
+Alongside it, the same bed-journey event renders as `Sep 8, 2026, 3:57 PM` on the discharge summary — two
+pages, one stay, one session, two clocks and two formats. Plus a re-created D-091 date-only day-shift
+(`P9-M4`) in a page written after that fix landed.
+
+**3. No navigation below 768 px — PRESENT, ninth phase** (`P9-L1`): 3 of 3 links at 0 × 0, no drawer.
+Newly load-bearing because the bedside chart and handover are phone surfaces that also have no nav entry
+at any width and no link from any page.
+
+**4. A granted capability with no surface — PRESENT, ninth phase, in its purest form yet.** Three
+distinct shapes at once: a **permission with no gate** (`document.view`, `P9-H4`); **service methods with
+no route** (`ward.manage` entirely, two thirds of `bed.manage`, `P9-M6`); and a **service with no
+consumer** (`UnsignedNotesWorklist`, the sole `note.supervise` check, has no route and no caller — so
+`him_records`'s second distinguishing permission is as inert as its first).
+
+**5. The fences hold — CONFIRMED IN ALL NINE PHASES.** D-169: the ward board's only colour mapping is
+keyed to the four housekeeping states, the fence is stated in the page header and mirrored server-side,
+and the observations I recorded render as identical unstyled chips regardless of value — no bands, no
+flags, no arrows, no early-warning score. D-170: no invented workflow — the referral, the one third-party-
+facing artifact, deliberately transmits nothing and says so. The bed board carries no acuity field at all.
+Nine for nine.
+
+**6. A partial record — PRESENT IN BOTH DIRECTIONS.** *Refused:* `P9-H3`, 11 `withErrors` sites and zero
+readers, driven live — the server produced `"Patient already has an open encounter with this
+practitioner"` and the screen showed nothing. *Succeeded:* `P9-M8`, `invoiceStay` as four independently
+committed transactions leaving an orphan draft and duplicating on retry — the D-199 shape QA-FIX.8c closed
+in three modules and not in this one.
+
+**7. Resolving a person by convenience — PRESENT, ninth phase, and this is the most severe instance the
+audit has found.** `P9-C3`: unconditional substitution of the admitting clinician for the acting user
+across three columns, proven end-to-end in the browser and against the ledger, with the correct answer
+(`StaffProfile::forUser`) one call away and never asked for. `P9-H6` is its unattended twin, nightly and
+cross-tenant. Phase 8 called this pattern "resolving a person by convenience"; Phase 9 shows it is not a
+fallback-only defect — it can be the primary path.
+
+**8. The module-local formatter — PRESENT, second phase** (`P9-M3`): one `fmtAmount`, one `fmtDate`, one
+`fmtDay`, one `fmt`, none of them the shared helper, and the money one drops the currency entirely.
+
+### What was NOT tested, stated rather than implied
+
+- **`P9-H1` was not driven live.** Executing it would strand the demo tenant's only admitted patient with
+  no product path to recover. Code-established across `Bed.php`, `BedService.php`,
+  `WardBoardController.php` and `WardBedManagementTest.php`, all read first-hand; the browser half (the
+  board correctly not offering the button) *was* driven.
+- **`P9-M7` was not driven** for the same reason — it requires `P9-H1` first.
+- **`P9-M8`, `P9-M9`, `P9-M10` are code findings.** `klinik-bergblick`'s admitted stay has no invoice and
+  the demo seeder does seed the bed-day tariffs, so the failure paths are not reachable on seed data
+  without removing them.
+- **`him_records`'s `note.supervise` surface could not be driven** — `UnsignedNotesWorklist` has no route.
+- **`document.view` could not be driven** — it gates nothing to drive.
+- **The AR export's contents are patient ULIDs, not names or MRNs.** Within the tenant a ULID identifies
+  the patient uniquely and joins to the record, which is why `P9-C1` is graded as a disclosure; the file
+  does not itself print a name.
 - **Performance is out of scope**, deferred to staging per the phase brief.
