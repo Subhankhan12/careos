@@ -89,7 +89,8 @@ every later phase's timestamp observation suspect, and past-time booking was liv
 | `P7-H2` | HIGH | ✅ **FIXED** | QA-FIX.7c | `fd7b350` |
 | pattern 1 (`P1-H1`·`P2-H2`·`P3-M7`·`P4-H5`·`P5-H2`·`P6-H4`·`P7-H4`) — the OVER-OFFER half | HIGH | ✅ **FIXED** | QA-FIX.7d | `c999181` |
 | `P8-C1` | CRITICAL | ✅ **FIXED** | QA-FIX.8a | `8636ea1` |
-| `P8-C2` | CRITICAL | ✅ **FIXED** | QA-FIX.8b | `<pending>` |
+| `P8-C2` | CRITICAL | ✅ **FIXED** | QA-FIX.8b | `5a16624` |
+| `P8-H2` · `P7-M5` | HIGH · MEDIUM | ✅ **FIXED** | QA-FIX.8c | `<pending>` |
 | all others | — | 📋 recorded, not fixed | — | — |
 
 *(A commit cannot contain its own hash. Per the repo-wide marker convention, `<pending>` is backfilled
@@ -4702,7 +4703,7 @@ outside the five names a `lab.*` or `radiology.*` permission.
   It is worse than Surgery's was — Surgery showed `NaN` only after charging, whereas these two claim
   "Issued" on an order that has never been touched.
 
-> ✅ **FIXED — QA-FIX.8a, commit `<pending>` (D-215).** The QA-FIX.6a / D-208 remedy, applied to both
+> ✅ **FIXED — QA-FIX.8a, commit `8636ea1` (D-215).** The QA-FIX.6a / D-208 remedy, applied to both
 > modules. `invoice()` → `issueInvoice()` un-shadows the prop, so `v-if="invoice"` now reads the PROP:
 > the "Issued" figure appears only when an invoice exists, `invoice.url` is the invoice's own URL, and
 > the issue-invoice button renders on a charged, uninvoiced order — **an outpatient lab or imaging
@@ -4762,7 +4763,7 @@ outside the five names a `lab.*` or `radiology.*` permission.
   **zero** staff profiles it instead throws (`firstOrFail`), i.e. a 500 rather than a wrong name.
 
 
-> ✅ **FIXED — QA-FIX.8b, commit `<pending>` (D-216).** `resolve()` now returns a NULLABLE profile from
+> ✅ **FIXED — QA-FIX.8b, commit `5a16624` (D-216).** `resolve()` now returns a NULLABLE profile from
 > `StaffProfile::forUser()` — the QA-FIX.2a / D-195 helper that returns null rather than guessing — and
 > authoring **refuses** when the actor cannot be identified, in the same words the two Clinical
 > controllers already use: *"Refuse rather than guess."* The `?? orderBy('display_name')->firstOrFail()`
@@ -4820,6 +4821,26 @@ idiom and the billing path omits it. **Code-established:** the failure needs an 
 which the audit does not do. (`P8-C1` also makes the invoice step unreachable, so the double-bill is
 currently only reachable via the charge step.)
 
+
+> ✅ **FIXED — QA-FIX.8c, commit `<pending>` (D-217), and it closes `P7-M5` with it.** All three billing
+> services now wrap their capture and its link row in ONE `DB::transaction`, with the owning row locked
+> `FOR UPDATE` (tenant-scoped) and the idempotency read moved INSIDE the lock, so two concurrent captures
+> serialise instead of both reading an empty guard. The link is written BESIDE its charge, never in a
+> later pass — the QA-FIX.6a / D-208 remedy copied unchanged.
+> **`EdBillingService` WAS INCLUDED BECAUSE IT WAS THE WORST OF THE THREE.** It captured every charge into
+> a collection first and wrote the links in a **separate later loop**, so one failure orphaned *every*
+> charge rather than one — the exact `P6-M10` shape. Fixing the two milder twins while leaving the worst
+> one open, one file away, would have been indefensible; all three take the identical remedy; and ED
+> billing is currently unreachable by any ED role (`P7-H5`), so the change cannot destabilise a live path.
+> **ONLY ED CAN BE DEMONSTRATED LIVE, AND THAT IS STATED.** Because it captures more than one charge, a
+> mid-capture failure is reachable by pricing the attendance but not the service code — so the orphan, the
+> double-billing retry, and the audit/hash-chain properties are all live tests. Lab and Radiology capture
+> exactly one charge per order, so there is no "partway" to fail at without mocking the link write; their
+> atomicity rests on the structural guard plus the identical remedy. A parallel-hammer concurrency test
+> was considered and **not** added — the suite already carries five and they time out under load.
+> **Guarded by** eight tests, mutation-checked three ways: removing any one service's transaction reddens
+> its guard, and removing ED's fails **four** tests. Each mutation was confirmed by a comment-stripped
+> count, because every one of these files now explains the old defect in prose naming the thing counted.
 #### `P8-H3` — Every actor is recorded correctly and no surface names any of them
 
 The data model is right throughout: `order_results.entered_by`, `specimen_events.performed_by`,

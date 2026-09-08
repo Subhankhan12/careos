@@ -4,6 +4,7 @@ namespace Modules\Lab\Services;
 
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Modules\Billing\Models\Charge;
 use Modules\Billing\Models\Invoice;
@@ -89,25 +90,54 @@ class LabBillingService
         Gate::forUser($actor)->authorize('billing.manage');
         $this->assertSameTenant($labOrder->tenant_id, 'lab_order_id', $labOrder->id);
 
-        // Idempotent: return the existing charge if the lab order is already billed.
-        $existing = LabOrderCharge::query()->where('lab_order_id', $labOrder->id)->first();
-        if ($existing !== null) {
-            return Charge::query()->findOrFail($existing->charge_id);
+        // ONE OPERATION, ONE TRANSACTION (QA-FIX.8c, P8-H2 — the QA-FIX.6a / D-208 remedy). The capture
+        // and the link row are ONE fact: `ChargeCaptureService::capture()` commits in its own transaction,
+        // so without this wrapper a failure between them left a Charge with no link — and because the LINK
+        // table is the idempotency key, the guard below could not see the orphan and a retry captured a
+        // SECOND charge for the same order.
+        return DB::transaction(function () use ($actor, $labOrder): Charge {
+            $this->lockOrder($labOrder);
+
+            // Idempotent: return the existing charge if the lab order is already billed. Read INSIDE the
+            // lock, so two concurrent captures serialise instead of both reading an empty guard.
+            $existing = LabOrderCharge::query()->where('lab_order_id', $labOrder->id)->first();
+            if ($existing !== null) {
+                return Charge::query()->findOrFail($existing->charge_id);
+            }
+
+            $order = Order::query()->with(['orderableItem', 'results'])->findOrFail($labOrder->order_id);
+            $code = $order->orderableItem?->code;
+            if ($code === null || $code === '') {
+                throw LabBillingException::testNotBillable($labOrder->id);
+            }
+
+            $patient = Patient::query()->findOrFail($labOrder->patient_id);
+            $branch = Branch::query()->firstOrFail(); // charges are branch-attributed (the surgery precedent)
+
+            $charge = $this->charges->captureManual($patient, $branch, $this->serviceDate($order), $code, 1, $actor);
+            // The link is written BESIDE its charge, never in a later pass: within this transaction no
+            // charge can exist without the row that makes it findable and makes re-billing impossible.
+            LabOrderCharge::query()->create(['lab_order_id' => $labOrder->id, 'charge_id' => $charge->id]);
+
+            return $charge;
+        });
+    }
+
+    /**
+     * Lock the lab order row for the duration of a capture, so two concurrent captures serialise rather
+     * than both passing the idempotency guard. Tenant-scoped: a row from another tenant is not found, and
+     * that is a cross-tenant reference, not an empty result.
+     */
+    private function lockOrder(LabOrder $labOrder): void
+    {
+        $rows = DB::select(
+            'select id from lab_orders where tenant_id = ? and id = ? for update',
+            [(string) $this->tenantContext->id(), $labOrder->id],
+        );
+
+        if ($rows === []) {
+            throw CrossTenantReferenceException::forAttribute('lab_order_id', (string) $labOrder->id);
         }
-
-        $order = Order::query()->with(['orderableItem', 'results'])->findOrFail($labOrder->order_id);
-        $code = $order->orderableItem?->code;
-        if ($code === null || $code === '') {
-            throw LabBillingException::testNotBillable($labOrder->id);
-        }
-
-        $patient = Patient::query()->findOrFail($labOrder->patient_id);
-        $branch = Branch::query()->firstOrFail(); // charges are branch-attributed (the surgery precedent)
-
-        $charge = $this->charges->captureManual($patient, $branch, $this->serviceDate($order), $code, 1, $actor);
-        LabOrderCharge::query()->create(['lab_order_id' => $labOrder->id, 'charge_id' => $charge->id]);
-
-        return $charge;
     }
 
     /**

@@ -256,3 +256,14 @@ so). D-215: **a fence that pushes work somewhere worse is telling you where the 
 
 Labels: pre-invoice "Estimated total" (net ex-VAT Σ of this order's lines), post-issue "Invoice total"
 (`invoiceOrder()` gathers the patient's whole service DAY and VAT is added at issue), column "Amount".
+
+## QA-FIX.8c — atomic charge capture (P8-H2, D-217)
+
+`LabBillingService::chargeOrder` now wraps the capture AND its link row in ONE `DB::transaction`, with
+the owning order row locked `FOR UPDATE` (tenant-scoped) and the idempotency read INSIDE the lock.
+Previously there was **no transaction at all**: `captureManual()` commits on its own and the LINK table is
+the idempotency key, so an orphaned charge was invisible to the guard and a retry double-billed.
+
+**Only ED of the three can be demonstrated live** (it captures >1 charge, so a mid-capture failure is
+reachable). Lab captures exactly one charge per order, so its atomicity is held by the structural guard
+in `tests/Feature/Lab/ChargeCaptureAtomicityTest.php` plus the identical remedy. Stated, not papered over.

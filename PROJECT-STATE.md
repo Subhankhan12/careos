@@ -229,7 +229,7 @@ lets the module SHOW the figure without NAMING the column: **no fence loosened, 
 engine**, recorded as D-215. The rename was the small half — a pure rename would still have left
 `quantity × unit_price_minor`, a client `.reduce()` and no currency.
 
-Part 2 (`<pending>`, D-216) is done: **a clinical report's author is the ACTOR, never resolved by
+Part 2 (`5a16624`, D-216) is done: **a clinical report's author is the ACTOR, never resolved by
 convenience (`P8-C2`).** `ImagingReportController::resolve()` fell back to
 `?? StaffProfile::orderBy('display_name')->firstOrFail()`, so an actor with no linked profile had their
 report authored by whoever sorted first — driven, `miriam.lang`'s report stored as **Beat Suter**. It now
@@ -254,6 +254,17 @@ column's absence. Both forms now pre-select nothing; no server gate was weakened
 the bed **free**). The **option-list width is deliberately still open** — filtering by profession would
 encode a staffing-policy claim (the D-170 shape).
 
+Part 3 (`<pending>`, D-217) closes the gate: **charge capture is atomic with its link rows (`P8-H2`), and
+`P7-M5` is closed with it.** Three billing services had **zero** `DB::transaction` between a
+`captureManual()` and the link row that makes the charge findable — and the link table IS the idempotency
+key, so an orphan was invisible to the guard and a retry re-billed. All three now use QA-FIX.6a's remedy:
+one transaction, the owning row locked `FOR UPDATE` tenant-scoped, the idempotency read inside the lock,
+and the link written beside its charge. **`EdBillingService` was included because it was the WORST of the
+three** — it captured every charge first and linked them in a separate later loop, so one failure orphaned
+*every* charge (the `P6-M10` shape). Fixing its two milder twins while leaving it open one file away would
+have been indefensible, and ED billing is unreachable by any ED role (`P7-H5`) so the risk was low.
+**Only ED can be demonstrated live** (it captures >1 charge), which is stated rather than papered over;
+Lab and Radiology rest on the structural guard plus the identical remedy.
 Part 2 (`ec3695e`, D-212) is done: **the ED board orders by recorded acuity, not by string (`P7-C3`).**
 `EdTriage::levelPosition()` returns the level's position in **its own scale** and the board sorts on it —
 the level is the nurse's judgment, the order is the scale's published one, and CareOS transcribes rather

@@ -287,3 +287,14 @@ build option LISTS, which is a different thing.
 
 `Radiology/Report.vue` now renders `RefusalNotice` — this part introduces a refusal there. The other
 eleven Lab/Radiology pages still render none (`P8-H1`, open).
+
+## QA-FIX.8c — atomic charge capture (P8-H2, D-217)
+
+`RadiologyBillingService::chargeOrder` now wraps the capture AND its link row in ONE `DB::transaction`, with
+the owning order row locked `FOR UPDATE` (tenant-scoped) and the idempotency read INSIDE the lock.
+Previously there was **no transaction at all**: `captureManual()` commits on its own and the LINK table is
+the idempotency key, so an orphaned charge was invisible to the guard and a retry double-billed.
+
+**Only ED of the three can be demonstrated live** (it captures >1 charge, so a mid-capture failure is
+reachable). Radiology captures exactly one charge per order, so its atomicity is held by the structural guard
+in `tests/Feature/Lab/ChargeCaptureAtomicityTest.php` plus the identical remedy. Stated, not papered over.

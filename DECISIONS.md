@@ -4782,3 +4782,41 @@ references the old ID.
   survived their own suites: every earlier fixture had a single plausible person, so a substitution was
   invisible.
   See [[Radiology]], [[Clinical]], `docs/qa/ROLE-AUDIT.md` (P8-C2), D-179, D-182, D-195, D-211, [[LOG]].
+
+- **D-217 — The capture/link pair is ONE fact in every module that has one, and the third instance closes
+  the family.** (QA-FIX.8c — `P8-H2`, and `P7-M5` with it.) Three billing services had **zero**
+  `DB::transaction` between a `captureManual()` and the link row that makes the charge findable.
+  `ChargeCaptureService::capture()` commits in its own transaction and **the link table IS the idempotency
+  key**, so a failure between them left a Charge the guard could not see — and a retry re-captured what had
+  already succeeded. It is the shape Phase 3 predicted would generalise: `P3-C1` → `P4-H2` → `P6-M10` →
+  `P7-M5` → `P8-H2` twice.
+  **`EdBillingService` IS INCLUDED, AND THE REASON IS THAT IT WAS THE WORST OF THE THREE.** It captured
+  every charge into a collection first and wrote the link rows in a **separate later loop**, so a single
+  failure orphaned *every* charge rather than one — the exact `P6-M10` shape QA-FIX.6a had already fixed in
+  Surgery. Lab and Radiology capture one charge and link it one statement later: a narrower window, the
+  same hole, the same concurrency gap. **Fixing the two milder twins while leaving the worst one recorded
+  and open, one file away, would have been indefensible**, and all three take the identical remedy, so one
+  test file and one set of mutation guards cover them. Risk was low: ED billing is currently unreachable by
+  any ED role (`P7-H5`), so the change cannot destabilise a live path. `P7-M5` is therefore closed here.
+  **THE REMEDY IS QA-FIX.6a's, COPIED:** one `DB::transaction` around the capture AND its link; the link
+  written BESIDE its charge rather than in a later pass (the `BedBillingService::accrueBedDays()` shape);
+  the idempotency read moved INSIDE the lock; and the owning row (`lab_orders` / `radiology_orders` /
+  `ed_visits`) locked `FOR UPDATE`, tenant-scoped, so two concurrent captures serialise instead of both
+  reading an empty guard — a row from another tenant is *not found*, which is a cross-tenant reference and
+  not an empty result.
+  **THE COST QA-FIX.6a STATED IS CARRIED FORWARD UNCHANGED:** nested transactions are savepoints, so
+  `AuditService`'s per-tenant `FOR UPDATE` is now held for the whole capture. That is bounded, and it is
+  the price of the charges and their links being one fact.
+  **ONLY ED CAN BE DEMONSTRATED, AND THAT IS STATED RATHER THAN PAPERED OVER.** Because it captures more
+  than one charge, a mid-capture failure is reachable by pricing the attendance but not the service code
+  (the QA-FIX.6a method) — so the orphan, the double-billing retry and the audit/hash-chain properties are
+  all *live* tests. Lab and Radiology capture exactly one charge per order, so there is no "partway" to
+  fail at without mocking the link write; their atomicity rests on the structural guard and on the
+  identical remedy ED demonstrates. A concurrency (parallel-hammer) test was considered and **not** added:
+  the suite already carries five, and they time out under load.
+  **Guarded by** eight tests, mutation-checked three ways — removing any one service's `DB::transaction`
+  reddens its guard, and removing ED's fails **four** tests including the live orphan and double-bill
+  proofs. Each mutation was confirmed by a **comment-stripped** count (1 → 0 in code), because every one of
+  these files now explains the old defect in prose that mentions the very thing being counted.
+  See [[Lab]], [[Radiology]], [[ED]], [[Billing]], `docs/qa/ROLE-AUDIT.md` (P8-H2, P7-M5), D-199, D-208,
+  [[LOG]].

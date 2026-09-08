@@ -294,3 +294,18 @@ names the reachable refusal per page rather than asserting the five as a block.
 
 **The board refuses in TWO layers.** `dispositioned` → the route's `in:` rule (FIELD key `status`);
 `awaiting_disposition` from `arrived` → the transition guard (DOMAIN key `ed_visit`). Both reach the page.
+
+## QA-FIX.8c — atomic charge capture (P7-M5 CLOSED, D-217)
+
+`EdBillingService::chargeVisit` was **the worst of the three instances**: it captured every charge into a
+collection first and wrote the link rows in a **separate later loop**, so one failure orphaned *every*
+charge — the exact `P6-M10` shape. It is now one `DB::transaction`, the visit row locked `FOR UPDATE`,
+the idempotency read inside the lock, and each link written BESIDE its charge via a `$capture` closure.
+
+**ED is the only one of the three whose atomicity can be demonstrated live**, because it captures more
+than one charge: pricing the attendance but not the service code makes capture #2 throw. That gives real
+tests for the orphan, the double-billing retry, and the audit/hash-chain properties. Removing its
+transaction fails FOUR tests.
+
+Fixed as part of QA-FIX.8c even though `P7-M5` is a Phase-7 finding — the three are one defect in three
+files, and leaving the worst instance open while fixing its milder twins was indefensible.

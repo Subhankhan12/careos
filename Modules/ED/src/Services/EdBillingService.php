@@ -4,6 +4,7 @@ namespace Modules\ED\Services;
 
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Modules\Billing\Models\Charge;
 use Modules\Billing\Models\Invoice;
@@ -98,34 +99,66 @@ class EdBillingService
         Gate::forUser($actor)->authorize('billing.manage');
         $this->assertSameTenant($visit->tenant_id, 'ed_visit_id', $visit->id);
 
-        // Idempotent: return the existing charges if the visit is already billed.
-        $existing = EdVisitCharge::query()->where('ed_visit_id', $visit->id)->pluck('charge_id');
-        if ($existing->isNotEmpty()) {
-            return Charge::query()->whereIn('id', $existing->all())->get();
-        }
+        // ONE OPERATION, ONE TRANSACTION (QA-FIX.8c, closing `P7-M5` — the QA-FIX.6a / D-208 remedy).
+        // THIS WAS THE WORST OF THE THREE INSTANCES: every charge was captured into `$captured` first and
+        // the link rows were written in a SEPARATE LATER LOOP, so a failure between the loops orphaned
+        // EVERY charge rather than one. `ChargeCaptureService::capture()` commits in its own transaction,
+        // and the LINK table is the idempotency key — so the guard below could not see the orphans and a
+        // retry re-billed everything that had already succeeded. It is exactly the `P6-M10` shape.
+        return DB::transaction(function () use ($actor, $visit, $attendance, $serviceCodes): Collection {
+            $this->lockVisit($visit);
 
-        $patient = Patient::query()->findOrFail($visit->patient_id);
-        $branch = Branch::query()->findOrFail($visit->branch_id);
-        $serviceDate = $visit->dispositioned_at ?? $visit->arrived_at;
-
-        /** @var Collection<int, Charge> $captured */
-        $captured = new Collection;
-
-        if ($attendance) {
-            $captured->push($this->charges->captureManual($patient, $branch, $serviceDate, self::ATTENDANCE_CODE, 1, $actor));
-        }
-        foreach ($serviceCodes as $code) {
-            if (trim($code) === '') {
-                continue;
+            // Idempotent: return the existing charges if the visit is already billed. Read INSIDE the
+            // lock, so two concurrent captures serialise instead of both reading an empty guard.
+            $existing = EdVisitCharge::query()->where('ed_visit_id', $visit->id)->pluck('charge_id');
+            if ($existing->isNotEmpty()) {
+                return Charge::query()->whereIn('id', $existing->all())->get();
             }
-            $captured->push($this->charges->captureManual($patient, $branch, $serviceDate, $code, 1, $actor));
-        }
 
-        foreach ($captured as $charge) {
-            EdVisitCharge::query()->create(['ed_visit_id' => $visit->id, 'charge_id' => $charge->id]);
-        }
+            $patient = Patient::query()->findOrFail($visit->patient_id);
+            $branch = Branch::query()->findOrFail($visit->branch_id);
+            $serviceDate = $visit->dispositioned_at ?? $visit->arrived_at;
 
-        return $captured;
+            /** @var Collection<int, Charge> $captured */
+            $captured = new Collection;
+
+            // The link is written BESIDE its charge, never in a later pass: within this transaction no
+            // charge can exist without the row that makes it findable and makes re-billing impossible.
+            $capture = function (string $code) use ($patient, $branch, $serviceDate, $actor, $visit, $captured): void {
+                $charge = $this->charges->captureManual($patient, $branch, $serviceDate, $code, 1, $actor);
+                EdVisitCharge::query()->create(['ed_visit_id' => $visit->id, 'charge_id' => $charge->id]);
+                $captured->push($charge);
+            };
+
+            if ($attendance) {
+                $capture(self::ATTENDANCE_CODE);
+            }
+            foreach ($serviceCodes as $code) {
+                if (trim($code) === '') {
+                    continue;
+                }
+                $capture($code);
+            }
+
+            return $captured;
+        });
+    }
+
+    /**
+     * Lock the ED visit row for the duration of a capture, so two concurrent captures serialise rather
+     * than both passing the idempotency guard. Tenant-scoped: a row from another tenant is not found, and
+     * that is a cross-tenant reference, not an empty result.
+     */
+    private function lockVisit(EdVisit $visit): void
+    {
+        $rows = DB::select(
+            'select id from ed_visits where tenant_id = ? and id = ? for update',
+            [(string) $this->tenantContext->id(), $visit->id],
+        );
+
+        if ($rows === []) {
+            throw CrossTenantReferenceException::forAttribute('ed_visit_id', (string) $visit->id);
+        }
     }
 
     /**
