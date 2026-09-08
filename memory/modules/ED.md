@@ -279,3 +279,18 @@ an arbitrary non-clinical tiebreak.
 
 Untriaged visits now sort **last**. The old `'~'` sentinel sorted them first — `~` precedes digits and
 letters in ICU collation — contradicting the line's own comment.
+
+## QA-FIX.7c — refusals are visible (P7-H2, D-213)
+
+All five ED pages import and render `@/Components/RefusalNotice.vue` — the component QA-FIX.6c built.
+**An adoption: no ED-specific error component, mechanism or copy exists, and a test reddens if one appears.**
+
+ED refusals come in BOTH shapes, which is why the whole-bag read matters: `validate()` keys by FIELD
+(`triaged_by`, `bed_id`, `practitioner_id`, `status`); controllers key by DOMAIN (`triage`, `ed_visit`,
+`disposition`, `encounter`, `vital`, `order`, `ed_billing`). 10 `withErrors` sites across five controllers.
+
+**Every ED page qualifies under D-176** — unlike Surgery's `Checklist.vue`, which was excluded. The guard
+names the reachable refusal per page rather than asserting the five as a block.
+
+**The board refuses in TWO layers.** `dispositioned` → the route's `in:` rule (FIELD key `status`);
+`awaiting_disposition` from `arrived` → the transition guard (DOMAIN key `ed_visit`). Both reach the page.

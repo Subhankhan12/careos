@@ -4625,3 +4625,36 @@ references the old ID.
   the old bug. Both now strip comments / target the code expression — a fence tripped by its own rationale
   is a fence that gets deleted.
   See [[ED]], `docs/qa/ROLE-AUDIT.md` (P7-C3), D-169, D-170, D-174, D-182, D-191, [[LOG]].
+
+- **D-213 — A refusal fix in a second module is an ADOPTION of the first module's component, not a second
+  design.** (QA-FIX.7c — `P7-H2`.) ED had the `P6-C3` defect exactly: **ten `->withErrors([...])` sites
+  across five controllers, plus every `validate()` rule, and ZERO ED pages reading `errors`** — measured in
+  Phase 7 and re-measured at the start of this part, both times zero. A refused action and a successful one
+  were identical to the user: the page reloaded, nothing was recorded, no message appeared, and the POST
+  returned 302, which is success-shaped.
+  **NOTHING NEW WAS BUILT.** `RefusalNotice.vue` (D-210) already existed and already had the property this
+  module needs most — it reads the WHOLE error bag. ED's refusals arrive in both shapes: `validate()` keys
+  by FIELD (`triaged_by`, `bed_id`, `practitioner_id`, `status`) while the controllers key by DOMAIN
+  (`triage`, `ed_visit`, `disposition`, `encounter`, `vital`, `order`, `ed_billing`). A component naming
+  keys would have missed half of them — which is precisely how a module can look handled while most of its
+  refusals stay invisible. Five imports and five tags; no new component, no new mechanism, no new copy
+  (D-170), and a test asserts ED rolled none of its own.
+  **ALL FIVE PAGES TAKE IT, AND THAT DIFFERS FROM SURGERY ON PURPOSE.** QA-FIX.6c excluded
+  `Checklist.vue` because its only control was a checkbox bound to a real template item, so no rule it
+  validated could fail from a live control — an error region there would have been an affordance for a
+  refusal that cannot occur (D-176). Every ED page has one that can. The guard therefore names the
+  reachable refusal per page rather than asserting the five as a block, so the D-176 question is answered
+  individually and stays answerable when a page changes.
+  **THE ED BOARD REFUSES IN TWO LAYERS, AND FINDING THAT COST A RED TEST.** `dispositioned` is excluded by
+  the route's `in:` rule and never reaches the service (a FIELD-keyed `status` refusal), while
+  `awaiting_disposition` passes validation and is then refused by the transition guard itself (the
+  DOMAIN-keyed `ed_visit` refusal Phase 7 counted). My first test named the domain key while posting the
+  status that trips the outer rule. Both layers are now driven separately, and both reach the page through
+  the one notice — which is the whole argument for reading the bag rather than named keys.
+  **NO GUARD WAS SOFTENED TO MAKE A REFUSAL VISIBLE.** Every driven refusal still refuses and still leaves
+  nothing behind — no triage row, no `Stay`, no status change — and a positive control asserts a SUCCESSFUL
+  triage flashes no error at all, so the suite cannot be satisfied by a page that always shows something.
+  **Guarded by** eight tests, mutation-checked two ways: deleting `<RefusalNotice />` from any page reddens
+  the structural guard, and giving one ED page its own `page.props.errors` block reddens the
+  adoption-not-design guard.
+  See [[ED]], [[Surgery]], `docs/qa/ROLE-AUDIT.md` (P7-H2), D-170, D-176, D-182, D-210, [[LOG]].

@@ -84,7 +84,8 @@ every later phase's timestamp observation suspect, and past-time booking was liv
 | `P6-C2` | CRITICAL | ✅ **FIXED** | QA-FIX.6b | `f8b7a7b` |
 | `P6-C3` | CRITICAL | ✅ **FIXED** | QA-FIX.6c | `1388af3` |
 | `P7-C1` · `P7-C2` | CRITICAL | ✅ **FIXED** | QA-FIX.7a | `d3e0f3c` |
-| `P7-C3` | CRITICAL | ✅ **FIXED** | QA-FIX.7b | `<pending>` |
+| `P7-C3` | CRITICAL | ✅ **FIXED** | QA-FIX.7b | `ec3695e` |
+| `P7-H2` | HIGH | ✅ **FIXED** | QA-FIX.7c | `<pending>` |
 | all others | — | 📋 recorded, not fixed | — | — |
 
 *(A commit cannot contain its own hash. Per the repo-wide marker convention, `<pending>` is backfilled
@@ -3906,7 +3907,7 @@ time (`12 min`) — a plain duration since arrival, with **no target, no breach 
   claim, under a control labelled "Recorded acuity", and on a supported scale it presents the least urgent
   patient first. It is the exact inverse of the guarantee the D-169 result above establishes so carefully.
 
-> ✅ **FIXED — QA-FIX.7b, commit `<pending>` (D-212).** The board orders by the level's position in
+> ✅ **FIXED — QA-FIX.7b, commit `ec3695e` (D-212).** The board orders by the level's position in
 > **its own scale**, read off `EdTriage::LEVELS` by the new `EdTriage::levelPosition()` and sent on the
 > board payload. The level is the nurse's judgment and the order is the scale's published one — CareOS
 > transcribes, and contributes neither. `localeCompare` on the level string is gone.
@@ -3951,6 +3952,29 @@ The ED controllers carry **10** `->withErrors([...])` sites, and **zero** of the
 history still showed the previous entry. A refusal and a success are indistinguishable, exactly as in
 Surgery before QA-FIX.6c. QA-FIX.6c fixed `resources/js/pages/Surgery/*` only; `RefusalNotice.vue` exists
 and is not used here.
+
+> ✅ **FIXED — QA-FIX.7c, commit `<pending>` (D-213). AN ADOPTION, NOT A DESIGN.** All five ED pages now
+> import and render the EXISTING `RefusalNotice.vue` — five imports, five tags, no new component, no new
+> mechanism and no new copy (D-170). A test asserts ED rolled none of its own: any ED page reading
+> `page.props.errors` directly reddens it.
+> **THE WHOLE-BAG PROPERTY IS WHY THE EXISTING COMPONENT FITS.** ED's refusals arrive in both shapes —
+> `validate()` keys by FIELD (`triaged_by`, `bed_id`, `practitioner_id`, `status`), the controllers key by
+> DOMAIN (`triage`, `ed_visit`, `disposition`, `encounter`, `vital`, `order`, `ed_billing`). A component
+> naming keys would have missed half of them, which is how a module can look handled while most of its
+> refusals stay invisible.
+> **ALL FIVE PAGES TAKE IT, UNLIKE SURGERY, AND THE DIFFERENCE IS DELIBERATE.** QA-FIX.6c excluded
+> `Checklist.vue` under D-176 because no rule it validated could fail from a live control. Every ED page
+> has a refusal a user can reach, so the guard **names the reachable refusal per page** rather than
+> asserting the five as a block.
+> **THE BOARD REFUSES IN TWO LAYERS — found here, not in the finding.** `dispositioned` is excluded by the
+> route's `in:` rule and never reaches the service (FIELD-keyed `status`); `awaiting_disposition` passes
+> validation and is then refused by the transition guard (DOMAIN-keyed `ed_visit`, the layer this finding's
+> count refers to). Both are driven separately and both reach the page through the one notice.
+> **NO GUARD WAS SOFTENED.** Every driven refusal still refuses and still leaves nothing behind — no triage
+> row, no `Stay`, no status change. A positive control asserts a SUCCESSFUL triage flashes no error at all,
+> so the suite cannot be satisfied by a page that always shows something.
+> **Guarded by** eight tests, mutation-checked two ways (deleting a `<RefusalNotice />`; giving one ED page
+> its own errors block).
 
 #### `P7-H3` — The ED physician cannot prescribe anything, and the ED record has no medication surface at all
 

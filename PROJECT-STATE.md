@@ -204,7 +204,7 @@ column's absence. Both forms now pre-select nothing; no server gate was weakened
 the bed **free**). The **option-list width is deliberately still open** — filtering by profession would
 encode a staffing-policy claim (the D-170 shape).
 
-Part 2 (`<pending>`, D-212) is done: **the ED board orders by recorded acuity, not by string (`P7-C3`).**
+Part 2 (`ec3695e`, D-212) is done: **the ED board orders by recorded acuity, not by string (`P7-C3`).**
 `EdTriage::levelPosition()` returns the level's position in **its own scale** and the board sorts on it —
 the level is the nurse's judgment, the order is the scale's published one, and CareOS transcribes rather
 than computes. **`LEVELS`'s order is now load-bearing and says so (D-191 applied):** its docblock called it
@@ -213,6 +213,13 @@ alphabetising MANCHESTER would silently re-invert the display. **No cross-scale 
 built and its absence is pinned** (D-170) — mixed boards group by scale. **A third defect on the same
 line, not in the finding:** the `'~'` sentinel sorted untriaged visits FIRST, not last as its comment
 claimed, so an acuity-sorted board led with patients who had no acuity at all.
+
+Part 3 (`<pending>`, D-213) is done: **the ED surfaces render their refusals (`P7-H2`)** — an **adoption,
+not a design**. All five ED pages import and render the EXISTING `RefusalNotice.vue`; no new component,
+mechanism or copy, and a test reddens if any ED page rolls its own. Re-measured first and Phase 7's number
+held: **zero of five pages read `errors`** against 10 `withErrors` sites. **All five qualify under D-176**
+(unlike Surgery's excluded `Checklist.vue`), so the guard names the reachable refusal per page. **The board
+refuses in two layers** — the route's `in:` rule and the transition guard — and both now reach the page.
 
 **QA-FIX.6 PART 4 STOPPED DELIBERATELY — the theatre booking gap is a FEATURE, not wiring.** The gate
 required this determination before any code, and it is a feature on four verified counts: (1)

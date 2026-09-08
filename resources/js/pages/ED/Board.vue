@@ -3,6 +3,7 @@ import { Head, Link, router } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import AppLayout from '@/Layouts/AppLayout.vue';
+import RefusalNotice from '@/Components/RefusalNotice.vue';
 
 // The ED tracking board (ED.G3) — the live cockpit of active ED visits + their flow state. PRESENTATIONAL
 // over the G1 EdVisit flow + the G2 triage domain (P0D.GU): it renders service data and dispatches the
@@ -114,6 +115,9 @@ function advance(tile: VisitTile, status: string): void {
     <AppLayout>
         <Head :title="t('ed.board.title')" />
         <div class="mx-auto max-w-6xl space-y-6 p-6">
+            <!-- The server's own refusal, shown where it happened (QA-FIX.7c, P7-H2). -->
+            <RefusalNotice />
+
             <div class="euca-tile-dark p-6">
                 <p class="text-xs font-semibold uppercase tracking-[0.14em] text-euca-200">{{ t('ed.board.eyebrow') }}</p>
                 <h1 class="mt-1 text-2xl font-semibold tracking-tight text-euca-50">{{ t('ed.board.title') }}</h1>

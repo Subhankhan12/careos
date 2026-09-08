@@ -3,6 +3,7 @@ import { Head, Link, router } from '@inertiajs/vue3';
 import { reactive, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import AppLayout from '@/Layouts/AppLayout.vue';
+import RefusalNotice from '@/Components/RefusalNotice.vue';
 
 // ED disposition + the ED→ADT handoff (ED.G5) — PRESENTATIONAL. The clinician records the DECISION (admit /
 // discharge / transfer); ADMIT reuses the existing admission flow to create an inpatient Stay. The system
@@ -52,6 +53,9 @@ function submit(): void {
     <AppLayout>
         <Head :title="t('ed.disposition.title')" />
         <div class="mx-auto max-w-3xl space-y-6 p-6">
+            <!-- The server's own refusal, shown where it happened (QA-FIX.7c, P7-H2). -->
+            <RefusalNotice />
+
             <div class="euca-tile-dark p-6">
                 <p class="text-xs font-semibold uppercase tracking-[0.14em] text-euca-200">{{ t('ed.disposition.eyebrow') }}</p>
                 <h1 class="mt-1 text-2xl font-semibold tracking-tight text-euca-50">{{ visit.patient }}</h1>

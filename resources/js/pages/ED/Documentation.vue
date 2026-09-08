@@ -3,6 +3,7 @@ import { Head, Link, router } from '@inertiajs/vue3';
 import { computed, reactive, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import AppLayout from '@/Layouts/AppLayout.vue';
+import RefusalNotice from '@/Components/RefusalNotice.vue';
 
 // ED clinical documentation (ED.G4) — the visit's clinical record: its treatment encounters (reused Clinical
 // Encounters + the sign-and-lock note editor), the RAW vitals recorded during the visit, and its orders.
@@ -65,6 +66,9 @@ function submitOrder(): void {
     <AppLayout>
         <Head :title="t('ed.record.title')" />
         <div class="mx-auto max-w-4xl space-y-6 p-6">
+            <!-- The server's own refusal, shown where it happened (QA-FIX.7c, P7-H2). -->
+            <RefusalNotice />
+
             <div class="euca-tile-dark p-6">
                 <p class="text-xs font-semibold uppercase tracking-[0.14em] text-euca-200">{{ t('ed.record.eyebrow') }}</p>
                 <h1 class="mt-1 text-2xl font-semibold tracking-tight text-euca-50">{{ visit.patient }}</h1>
