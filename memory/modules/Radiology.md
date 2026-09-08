@@ -220,3 +220,37 @@ PACS partner fills the `ImagingConnectivity` seam). Also DEFERRED: the optional 
 `DocumentService` — a limited manual export, not a diagnostic viewer). After Phase 4, every hospital vertical is
 built; standing certified-partner seams: drug-safety, HL7/analyzer, PACS/DICOM, anaesthesia device-data.
 See `docs/HOSPITAL-PHASE4-RADIOLOGY-MAP.md`.
+
+## QA phase 8 (2026-09-08) — audit only, nothing fixed
+
+**`P8-C2` — THE MODULE'S WORST DEFECT, and it rewrites cross-phase pattern 7.**
+`ImagingReportController::resolve()` (`:153-170`):
+
+```php
+$radiologist = StaffProfile::query()->where('user_id', $actor?->getKey())->first()
+    ?? StaffProfile::query()->orderBy('display_name')->firstOrFail();
+```
+
+The docblock states the intent correctly ("the radiologist authors their OWN report"); the `??`
+**silently substitutes the alphabetically first staff profile in the tenant**. Driven: a report written
+by `miriam.lang` stored `author_id → Beat Suter (coordinator)` — the same person the Phase-7 ED
+criticals landed on. It fires whenever a `note.write` + `radiology.study` holder has **no linked
+StaffProfile**, which is the default for a newly provisioned user; with zero profiles it 500s instead.
+**Pattern 7 is not about dropdowns** — this module has none, and fails the same way server-side.
+
+**THE REPORT LIFECYCLE IS OTHERWISE STRONG.** Two-step human act (Save draft → **Sign & file**), and
+signing routes it to the ordering clinician's worklist. **Amendable with history** — driven: amending a
+signed report created v2 (Draft) with its reason while **v1 (Signed) stayed byte-identical**
+(`created_at == updated_at`, `supersedes_id` chained). `clinical_notes.signed_by` is a `users` FK
+holding the ACTOR; `author_id` is the `staff_profiles` clinician — a real two-person split.
+**But no surface names either of them** (`P8-H3`): the version block shows only "Version 1 · Signed · <time>".
+
+**THE IMAGING FENCE IS HONEST.** No image, no canvas, no viewer; `NullImagingConnectivity` is the seam,
+and the page says: *"Image storage and viewing (DICOM/PACS) are provided by a certified imaging partner
+… This is the study record (metadata) — not a diagnostic viewer."* No CAD, no generated finding (D-172).
+
+**`P8-C1`** — `Radiology/Billing.vue:18` prop `invoice` vs `:41` `function invoice()`; identical to Lab.
+**`P8-H2`** — `RadiologyBillingService` has zero `DB::transaction`. **`P8-H5`** — billing is
+`billing.manage`; radiographer and radiologist both 403. **`P8-H4`** — no nav entry; `/radiology/worklist`
+is URL-only. `RadiologyOrderService::place` **is** transactional, and the modality/body-part placeholder
+honestly previews the catalog fallback (`$modality ??= $orderable->specimen_or_modality`).

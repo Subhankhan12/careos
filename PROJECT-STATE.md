@@ -34,7 +34,7 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
 
 ## STATUS: BUILD COMPLETE · DEPLOY-READY 🟢 GO · THE BUILDABLE PARITY PROGRAMME IS COMPLETE — ONE TRACK REMAINS: **DEPLOYMENT + PARTNERSHIPS**
 
-### 🔎 A ROLE-BY-ROLE QA AUDIT IS IN PROGRESS — `docs/qa/ROLE-AUDIT.md` (cumulative, 10 phases)
+### 🔎 A ROLE-BY-ROLE QA AUDIT IS IN PROGRESS — `docs/qa/ROLE-AUDIT.md` (cumulative, 10 phases; 8 done, 143 findings)
 
 **Phase 1 (reception / front-desk) is DONE** (`06a3f78`): 18 findings — 1 CRITICAL, 3 HIGH, 8 MEDIUM,
 6 LOW — every page **driven in a real browser** via Playwright MCP. Findings are **recorded, not
@@ -190,6 +190,30 @@ from the seeder, so a patient cannot be brought into the ED at all. **P7-H2:** E
 physician cannot prescribe and the ED record has no medication section at all. **Phase-6 inheritance is
 PARTIAL (2 of 3):** re-triage appends ✅, audited with the real actor ✅, attribution ❌. **Nothing is fixed
 — audit only.**
+
+**Phase 8 (lab + radiology) is DONE**: 17 findings — 2 CRITICAL, 5 HIGH, 7 MEDIUM, 3 LOW; the audit now
+stands at **143 across eight phases**. All five roles driven separately (`lab_tech`, `pathologist`,
+`phlebotomist`, `radiographer`, `radiologist`). **THE RESULT-RELEASE FENCE HOLDS AND IS THE CLEANEST
+RESULT YET:** nothing computes an abnormal flag, range verdict, critical alert, delta or CAD; ranges are
+tenant-authored reference data shown beside the value; **D-169 passes BYTE-FOR-BYTE** on a Kalium 6.8
+against `3.5–5.1` (the seed had no abnormal value, so one was created by driving); results are
+append-only (model guards + DB triggers) and a radiology report is amendable-with-history — driven, v2
+created while v1 stayed byte-identical. **A lab result has NO release step** — entering publishes it —
+which is coherent but cannot express tech-enters → pathologist-verifies. **`P8-C2` REWRITES PATTERN 7:**
+`ImagingReportController::resolve()` falls back to `?? StaffProfile::orderBy('display_name')->first()`,
+so a report written by `miriam.lang` stored **`author_id → Beat Suter`** — the same person as both
+Phase-7 criticals, but **server-side with no dropdown anyone could correct**. Not one attribution
+dropdown exists in either module, so the pattern is about resolving a person by convenience, not about
+dropdowns. **`P8-C1`: both billing collisions confirmed and WORSE than Surgery's** — "No charge captured
+yet." and "Issued invoice / Total: NaN" on the same screen, NaN even on a genuinely invoiced order, and
+the issue-invoice button never renders, so outpatient lab/imaging invoicing is impossible through the UI.
+**`P8-H2`:** both billing services have **zero** `DB::transaction` (the `P7-M5` twin). **`P8-H1`:** 18
+`withErrors`, zero pages reading the bag. **PATTERN 1 IS HALF-CLOSED AND PHASE 8 PROVES IT** — `/app`
+rendered ZERO body links for `radiographer` where phases 2–7 each measured four 403s, confirming
+QA-FIX.7d on a role group it was not written against; the under-offer half stays open by decision
+(`P8-H4`: 34 routes, both daily worklists, URL-only). **New pattern 8: the module-local formatter** — 8
+`fmt()` and 2 `money()` helpers, zero imports from the shared libs, and D-192's tenant `timezone` prop is
+shipped on every response and read by nothing. **Nothing is fixed — audit only.**
 
 **QA-FIX.7 is fixing the Phase-7 findings plus the cross-phase nav root cause, in four parts.** Part 1
 (`d3e0f3c`, D-211) is done: **ED triage and admission record the ACTOR, and attribution fields no longer

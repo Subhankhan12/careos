@@ -205,3 +205,35 @@ reviews, the office bills. **THE ONE DELIBERATE GAP — LAB.G7 (NOT built):** th
 CERTIFIED-PARTNER seam (`LabConnectivity`, manual today; a certified partner appends `OrderResult`
 `source=imported`, never interpreted — the P0P.G11 discipline). A homemade HL7 client is out of scope. Radiology
 (Phase 4) remains — also partner-gated (PACS/DICOM). See `docs/HOSPITAL-PHASE3-LAB-MAP.md`.
+
+## QA phase 8 (2026-09-08) — audit only, nothing fixed
+
+**17 findings across Lab + Radiology** (2C/5H/7M/3L). Roles: `lab_tech`, `pathologist`, `phlebotomist`
+(holds `lab.result` — it belongs to this group), `radiographer`, `radiologist`.
+
+**THE RESULT-RELEASE FENCE HOLDS, with one structural note.** A lab result has **no release step** —
+entering it publishes it (`ordered → resulted` in one transaction), and there is no
+preliminary/verified state or `released_by` column. The **actor** is recorded everywhere
+(`order_results.entered_by`, `specimen_events.performed_by` are `users` FKs from the session, never the
+request). Results are **append-only**: model `appendOnly()` guards + `SIGNAL '45000'` triggers on
+`lab_results`, `order_results`, `imaging_study_events`.
+
+**NOTHING computes an interpretation.** No abnormal/high/low flag, no range verdict, no critical alert,
+no delta. `lab_tests.reference_range` is tenant-authored reference data shown BESIDE the value.
+**D-169 passes byte-for-byte** — a Kalium 6.8 against `3.5–5.1` renders identically to an in-range 4.2.
+
+**`P8-C1` — `Lab/Billing.vue` prop/function collision, UNFIXED.** Prop `invoice` (`:18`) vs
+`function invoice()` (`:42`). The "Issued invoice / Total: NaN" card renders on EVERY order including
+never-charged ones, and `v-if="isCharged && !invoice"` is permanently false so **the issue-invoice
+button never renders** — outpatient lab invoicing is impossible through the UI. Same in
+`Radiology/Billing.vue:18,41`. The Surgery fix (rename to `issueInvoice`, QA-FIX.6a/D-208) applies.
+
+**`P8-H2` — `LabBillingService` and `RadiologyBillingService` have ZERO `DB::transaction`.** Exactly the
+`EdBillingService`/`P7-M5` shape: idempotency read → `captureManual` → link `create`, unprotected. An
+orphan charge is invisible to the guard (which reads the link table), so a retry double-bills.
+
+**`P8-H1`** — 18 `withErrors` sites, **no** Lab/Radiology page reads the error bag. `RefusalNotice.vue`
+exists and is adopted in Surgery + ED only.
+
+**Billing is unreachable for the whole group** (`P8-H5`): every billing route is `billing.manage`;
+all five roles 403. **No nav entry exists for either module** (`P8-H4`).

@@ -30,7 +30,7 @@ missing · `LOW` cosmetic / polish.
 | **5** | **Pharmacy** (`pharmacist`, `pharmacy_technician`) | ✅ **DONE** — 2026-09-07 |
 | **6** | **Surgery / OR** (`surgeon`, `anesthetist`, `scrub_nurse`, `surgical_scheduler`; `org_admin` for the billing surface no surgery role can reach) | ✅ **DONE** — 2026-09-07 |
 | **7** | **ED** (`ed_physician`, `triage_nurse`, `ed_charge_nurse`) | ✅ **DONE** — 2026-09-07 |
-| 8 | Lab + Radiology (`lab_tech`, `pathologist`, `radiographer`, `radiologist`) | ⏳ planned |
+| **8** | **Lab + Radiology** (`lab_tech`, `pathologist`, `phlebotomist`, `radiographer`, `radiologist`; `org_admin` for the billing surfaces no lab/radiology role can reach) | ✅ **DONE** — 2026-09-08 |
 | 9 | Bed / records (`bed_manager`, `him_records`) | ⏳ planned |
 | 10 | Admin / governance (`org_admin`) + patient portal | ⏳ planned |
 
@@ -45,7 +45,8 @@ missing · `LOW` cosmetic / polish.
 | 5 — Pharmacy | 2 | 3 | 7 | 2 | 14 |
 | 6 — Surgery / OR | 3 | 5 | 10 | 2 | 20 |
 | 7 — Emergency Department | 3 | 5 | 7 | 2 | 17 |
-| **Total to date** | **16** | **29** | **59** | **22** | **126** |
+| 8 — Lab + Radiology | 2 | 5 | 7 | 3 | 17 |
+| **Total to date** | **18** | **34** | **66** | **25** | **143** |
 
 *(Counts are as RECORDED at audit time and are not restated when a later gate re-grades a finding.
 `P4-C4` was re-graded **CRITICAL → HIGH** by QA-FIX.4b — the defect was latent rather than active,
@@ -4590,3 +4591,490 @@ in `P6-C2` are the same fact seen twice. That makes this two instances in two mo
 demonstrated failure mode, rather than a stylistic inconsistency, and it cost an audit probe: the
 first attempt to test attribution resolved a `char(26)` staff id against `users` and returned a
 plausible but entirely wrong name, which was caught and redone.
+
+---
+
+## Phase 8 — Lab + Radiology
+
+**Date:** 2026-09-08 · **Top commit at audit time:** `c86207a` (the QA-FIX.7d hash backfill), CI
+`completed / success` confirmed via `commits/<sha>/check-runs` before driving anything · **Method:**
+every surface below driven in a real browser via Playwright MCP against a freshly re-seeded database,
+cross-read against the code.
+
+### Roles covered
+
+All **five** roles in `RbacProvisioner::ROLE_TEMPLATES` (26 total) whose permissions name a Lab or
+Radiology capability, each driven **separately** with its own login:
+
+| Role | Permissions | Account driven |
+|---|---|---|
+| `lab_tech` | `patient.view`, `order.manage`, `lab.result` | `elena.costa@klinik-bergblick.test` |
+| `pathologist` | `patient.view`, `encounter.manage`, `note.write`, `note.sign`, `order.manage`, `lab.catalog`, `lab.result` | `georg.huber@…` |
+| `phlebotomist` | `patient.view`, `lab.result` | `sara.roth@…` |
+| `radiographer` | `patient.view`, `order.manage`, `radiology.study` | `fabio.ricci@…` |
+| `radiologist` | `patient.view`, `encounter.manage`, `note.write`, `note.sign`, `order.manage`, `radiology.catalog`, `radiology.study` | `miriam.lang@…` |
+
+**`phlebotomist` IS included** — it holds `lab.result` and owns specimen collection, so it belongs to
+this group rather than to nursing. **`org_admin`** (`anke.berg@…`) was driven ADDITIONALLY, and only
+because it is the sole way to reach the two billing surfaces (see `P8-H5`); it is not a phase-8 role.
+
+**Excluded:** every other role in the 26. `ed_physician`/`triage_nurse`/`ed_charge_nurse` (phase 7),
+`surgeon`/`anesthetist`/`scrub_nurse`/`surgical_scheduler` (phase 6), `pharmacist`/`pharmacy_technician`
+(phase 5), the four nursing roles (phase 4), `billing` (phase 3), `doctor`/`dentist` (phase 2),
+`reception` (phase 1), and `bed_manager`/`him_records`/`org_admin`/`super_admin` (phases 9–10). No role
+outside the five names a `lab.*` or `radiology.*` permission.
+
+### Surfaces driven
+
+| Surface | Route | Driven as | Result |
+|---|---|---|---|
+| Lab test catalog | `GET /lab/catalog` | pathologist (only holder) | ✅ tenant-authored menu, ranges as reference data |
+| Lab orders (place) | `GET/POST /lab/patients/{p}/orders` | lab_tech, radiographer | ✅ no attribution selector |
+| Specimens | `GET /lab/orders/{o}/specimens` | lab_tech | ✅ collect → receive driven; accession generated |
+| Specimen transition | `POST /lab/specimens/{s}/transition` | lab_tech | ✅ `in_lab` recorded with the actor |
+| Result entry | `GET /lab/orders/{o}/results`, `POST /lab/specimens/{s}/results` | lab_tech | ✅ **abnormal value created by driving** |
+| Result review | `GET /lab/results/review` | all five | ⚠️ empty for four of them (`P8-M5`) |
+| Lab billing | `GET /lab/orders/{o}/billing` | org_admin (all five 403) | ❌ `P8-C1`, `P8-H5` |
+| Radiology catalog | `GET /radiology/catalog` | radiologist (only holder) | ✅ |
+| Radiology orders (place) | `GET/POST /radiology/patients/{p}/orders` | radiographer | ✅ order placed by driving |
+| Modality worklist | `GET /radiology/worklist` | radiographer, radiologist | ✅ **state created by placing an order** |
+| Study + acquire | `GET /radiology/orders/{o}/study`, `POST …/study/acquire` | radiographer | ✅ acquired by driving; no viewer, and it says so |
+| Report author / sign / amend | `GET/POST /radiology/orders/{o}/report`, `…/sign`, `…/amend` | radiologist | ❌ `P8-C2`; ✅ amend → v2 driven |
+| Radiology billing | `GET /radiology/orders/{o}/billing` | org_admin (all five 403) | ❌ `P8-C1`, `P8-H5` |
+| Landing (pattern 1) | `GET /app` | radiographer | ✅ over-offer CLOSED by QA-FIX.7d |
+
+### Environment
+
+**Redis is UP** (Memurai, `PING → +PONG`), `CACHE_STORE=redis`, `QUEUE_CONNECTION=redis`,
+`SESSION_DRIVER=database`. Four demo tenants re-seeded and verified by query before driving
+(4 tenants / 43 users / 35 patients). **PERFORMANCE IS OUT OF SCOPE** — deferred to staging.
+
+**What the seed does NOT contain**, stated rather than worked around:
+- **No abnormal lab value.** Both numeric results are in range (Kalium `4.2` against `3.5–5.1`; CRP
+  `3.1` against `< 5`). The D-169 positive control therefore required an abnormal value, which was
+  **created by driving the product** — specimen received, Kalium `6.8` entered through the real form.
+- **No imaging order awaiting acquisition** — all three seeded orders already had studies. The
+  worklist state was **created by driving**: a CT Abdomen order placed through the ordering form.
+- **No user lacking a linked `StaffProfile`.** All 20 profiles carry a `user_id` and all 12
+  `note.write` holders are linked, so `P8-C2`'s fallback cannot fire on seed data. See that finding
+  for exactly how the state was created and restored.
+- **No un-invoiced radiology order with charges**, so `P8-C1` was driven in both the never-charged and
+  the fully-invoiced state to show the defect is state-independent.
+
+### CRITICAL
+
+#### `P8-C1` — Both billing pages announce an invoice that does not exist, show its total as `NaN`, and hide the only control that could issue one
+
+- **Roles:** none of the five can reach these pages at all (`P8-H5`); driven as `org_admin` ·
+  **Routes:** `GET /lab/orders/{o}/billing`, `GET /radiology/orders/{o}/billing`
+- **Steps:** open either billing page on **any** order — charged or not, invoiced or not.
+- **What happened, verbatim from the rendered page.** On a lab order that has never been charged, the
+  page renders `Charges` → **"No charge captured yet."** and then, immediately below:
+
+  > **Issued invoice**
+  > **Total: NaN**
+  > **Open invoice**
+
+  Radiology is byte-for-byte the same on its never-charged order (`RAD-CT-ABD — CT Abdomen`). On a
+  **genuinely invoiced** lab order (`LAB-CBC`, invoice `01m1zvmwpv…`), the charge row renders
+  correctly — `LAB-CBC · Blutbild · 1 · 25.00 · 25.00 · invoiced` — and the block below **still** reads
+  `Total: NaN`. **The invoice block is wrong in every state**: it never shows a real total and its
+  "Open invoice" link resolves to `/lab/orders/{o}/billing`, the page you are already on.
+- **Cause — a prop/function name collision, the `P6-C1` shape that QA-FIX.6a fixed in Surgery.**
+  `Lab/Billing.vue:18` declares the prop `invoice: { id; url; total_minor } | null`, and `:42-44`
+  declares `function invoice(): void`. In Vue `<script setup>` the setup-const wins, so every template
+  reference to `invoice` is **the function**, which is always truthy:
+  - `:105` `v-if="invoice"` → always true → the "Issued invoice" card **always renders**;
+  - `:107` `money(invoice.total_minor)` → `undefined / 100` → `Intl.NumberFormat.format(NaN)` → the
+    literal string **`NaN`** (no throw, so the `:27` fallback never runs and would also yield `NaN`);
+  - `:108` `:href="invoice.url"` → `undefined` → the self-link;
+  - `:98` `v-if="isCharged && !invoice"` → `!function` is permanently `false` → **the issue-invoice
+    button never renders**, and neither does the inpatient explanatory note at `:102`.
+  `Radiology/Billing.vue` is identical at `:18`, `:41-43`, `:104`, `:106`, `:107`, `:97`, `:101`.
+- **The consequence beyond the display.** `POST /lab/orders/{o}/billing/invoice` and its radiology twin
+  exist and are routable, but **nothing renders that can call them** — so issuing an outpatient lab or
+  imaging invoice is impossible through the product. The client-side `estimateMinor` computed
+  (`Lab:33`) is also dead, since its only render site sits inside the permanently-false block.
+- **Why CRITICAL:** wrong financial data on a billing screen in two modules; the page **asserts a
+  billing action that never occurred** (D-179); and a whole revenue capability has no reachable path.
+  It is worse than Surgery's was — Surgery showed `NaN` only after charging, whereas these two claim
+  "Issued" on an order that has never been touched.
+
+#### `P8-C2` — A radiology report can be attributed to a person who did not write it, chosen alphabetically, with no dropdown anyone could correct
+
+- **Role:** `radiologist` · **Route:** `POST /radiology/orders/{o}/report`
+- **Cause.** `ImagingReportController::resolve()` (`:153-170`):
+
+  ```php
+  $radiologist = StaffProfile::query()->where('user_id', $actor?->getKey())->first()
+      ?? StaffProfile::query()->orderBy('display_name')->firstOrFail();
+  ```
+
+  The docblock states the intent exactly — *"The radiologist authors their OWN report — resolved from
+  the acting user's linked StaffProfile."* The first clause implements it. **The `??` fallback silently
+  substitutes the alphabetically first staff profile in the tenant.**
+- **Steps + what happened (driven).** With the seed, all 20 staff profiles carry a `user_id` and all
+  12 `note.write` holders are linked, so the fallback cannot fire. The state was therefore created:
+  `staff_profiles.user_id` for `Dr. med. Miriam Lang` was set to `NULL` — **the only reachable way, as
+  no product surface unlinks a profile** — then a report was authored **through the real form** while
+  signed in as `miriam.lang` (radiologist, `note.write`). The stored note reads:
+
+  > `author_id → Beat Suter (profession = coordinator)`
+
+  **The link was restored immediately afterwards and verified** (0 unlinked profiles remain).
+- **Why CRITICAL, and why it is the most severe form of pattern 7 the audit has found.** `P7-C1` and
+  `P7-C2` required an operator to leave a dropdown untouched — the wrong name was at least *on screen*.
+  Here there is **no dropdown at all**: the substitution happens server-side, invisibly, and the
+  surface then names nobody (`P8-H3`), so the misattribution is unobservable from the product. It
+  lands on a **signed clinical report**. And it selects **Beat Suter, the `surgical_scheduler`/
+  coordinator — the same person, by the same alphabetical mechanism, as both Phase-7 criticals.**
+- **When it fires in practice:** whenever a user holding `note.write` + `radiology.study` has no linked
+  `StaffProfile`. That is the default state of a newly provisioned user — `tenant:add-admin` and role
+  assignment do not create a profile — so a real tenant is more exposed than the demo seed. With
+  **zero** staff profiles it instead throws (`firstOrFail`), i.e. a 500 rather than a wrong name.
+
+### HIGH
+
+#### `P8-H1` — Neither Lab nor Radiology renders any refusal: the `P6-C3` / `P7-H2` defect, third module
+
+**18 `->withErrors([...])` sites across 10 controllers** (Lab: billing 3, catalog 1, orders 1, results 1,
+specimens 2; Radiology: report 3, study 2, billing 3, catalog 1, orders 1) — and
+`grep -rln "RefusalNotice|page.props.errors" resources/js/pages/Lab resources/js/pages/Radiology`
+returns **nothing**. A refused action and a successful one are indistinguishable: the page reloads,
+nothing is recorded, no message appears. QA-FIX.7c adopted `RefusalNotice.vue` for `pages/ED/*` only;
+QA-FIX.6c did `pages/Surgery/*`. The component exists and is used by 11 pages in two other modules.
+**Code-established** as to the count; the *shape* was driven in Phase 7 and is unchanged here.
+
+#### `P8-H2` — Lab and Radiology billing capture a charge and link it outside any transaction, so a retry can double-bill
+
+`grep -c "DB::transaction"` returns **0** for both `LabBillingService.php` and
+`RadiologyBillingService.php`. `LabBillingService::chargeOrder` is the exact `EdBillingService` shape
+recorded as `P7-M5`: idempotency read of the link table (`:93-96`) → `captureManual` (`:107`) →
+`LabOrderCharge::create` (`:108`), **with nothing wrapping the last two**. If the link write fails, the
+`Charge` exists and the link does not; the idempotency guard reads the *link* table, so it does not see
+the orphan, and the next attempt **captures a second charge for the same order**. Radiology is
+identical. Contrast `RadiologyOrderService::place` (`:67`), which *is* wrapped — so the module knows the
+idiom and the billing path omits it. **Code-established:** the failure needs an induced write error,
+which the audit does not do. (`P8-C1` also makes the invoice step unreachable, so the double-bill is
+currently only reachable via the charge step.)
+
+#### `P8-H3` — Every actor is recorded correctly and no surface names any of them
+
+The data model is right throughout: `order_results.entered_by`, `specimen_events.performed_by`,
+`imaging_study_events.performed_by` and `clinical_notes.signed_by` are all `users` FKs holding the
+**authenticated actor**, and `clinical_notes.author_id` is the `staff_profiles` clinician — the
+two-person shape QA-FIX.2a/D-195 asks for. **Driven and verified:** my specimen receive recorded
+`elena.costa`, my acquire recorded `fabio.ricci`. **And not one of them is displayed.** The report
+version block renders `Version 1 · Signed · Sep 07, 11:35 PM` and the study history renders
+`Ordered · … / Acquired · …` — a text scan of the whole report page for `Dr.|med.|Lang|Berg` returns
+**nothing**. This is `P7-C2`'s mirror image: there the surface was missing while the actor was
+recorded, and the same is true here across both modules.
+
+#### `P8-H4` — Lab and Radiology have no entry anywhere in the shell: 34 routes reachable only by typing a URL
+
+`AppLayout.vue:35-46` (10 primary items) and `:51-57` (5 admin items) contain no `/lab` or `/radiology`
+href, and `NAV_PERMISSIONS` (`HandleInertiaRequests.php:24-46`, now 15 keys) contains none of
+`lab.catalog`, `lab.result`, `radiology.catalog`, `radiology.study` — so even an added nav item would
+be hidden by `canSee` at `AppLayout.vue:59`. **Driven as `radiographer`: the nav renders exactly
+Dashboard / Patients / Orders.** No page outside `pages/Lab` and `pages/Radiology` links to either
+module. The two worklists staff are meant to work from daily — `/lab/results/review` and
+`/radiology/worklist` — are URL-only. **This is pattern 1's UNDER-OFFER half, which QA-FIX.7d
+deliberately did not take** (D-214: six top-level entries would re-create the density defect D-111
+fixed); this phase is the first evidence of what it costs a role group in practice. The single
+navigational thread is *outbound* — `Radiology/Report.vue:96` links to `/clinical/orders/review`.
+
+#### `P8-H5` — Both billing surfaces are gated on a permission no role in this group holds
+
+`LabBillingController:34,85,105,122` and `RadiologyBillingController:34,84,104,121` all authorize
+`billing.manage`. **Driven: all five roles receive 403** on both billing routes. This is the `P7-H5`
+shape exactly (five ED billing routes on a permission no ED role held) and the `P6` surgery-billing
+shape before it — a third module whose billing exists but is unreachable by anyone who works in it.
+Combined with `P8-C1`, the lab/imaging billing path is unreachable twice over: by permission for the
+group, and by a dead control for everyone else.
+
+### MEDIUM
+
+#### `P8-M1` — Timestamps render in the viewer's zone and US format; the tenant's zone is shipped and read by nothing
+
+**Driven:** a lab result written at `2026-09-08 06:44:12` UTC (verified **62 seconds** from CLI `now()`,
+so **storage is correct**) rendered as **`Sep 07, 11:44 PM`** — the viewer's `America/Los_Angeles`, a day
+and nine hours out. The branch zone is `Europe/Zurich`, where it should read `08.09.2026 08:44`. Eight
+page-local `fmt()` helpers exist across eight pages; **none passes a `timeZone` option**, and six omit
+the **year** entirely (`{day, month:'short', hour, minute}`), so a prior-year record is indistinguishable
+from this year's in the specimen, study and report histories. Two pages (`Lab/Orders.vue:37`,
+`Radiology/Orders.vue:38`) use bare `toLocaleString()`, giving a *second* format for the same instant
+inside one module. Compounding it: `HandleInertiaRequests.php:74` ships the tenant `timezone` prop and
+claims *"the client converts for display using this zone"* — **no Vue page consumes it**. Pattern 2,
+**eighth consecutive phase**; display-only, storage sound.
+
+#### `P8-M2` — Both billing pages do money arithmetic in the view layer while claiming they do not
+
+`Lab/Billing.vue:92` renders `money(c.quantity * c.unit_price_minor)` and `:33` sums
+`charges.reduce((sum, c) => sum + c.quantity * c.unit_price_minor, 0)`; `money()` divides by 100
+(`:26`, fallback `:29`). Radiology is identical at `:91`, `:32`. Even the authoritative issued-invoice
+total is re-formatted client-side (`:107` / `:106`) from a raw `total_minor` integer. **Both files carry
+a header comment at `:8` stating "NO money math here — the engine owns pricing/line-totals."** This is
+the D-208 shape QA-FIX.6a removed from Surgery, still live in two modules — so Phase 3's "zero
+page-side sums" holds only for `resources/js/pages/Billing/`, exactly as this phase's brief anticipated.
+
+#### `P8-M3` — No currency is shipped to either billing page, so every figure is a bare number
+
+`LabBillingController:73` and `RadiologyBillingController:72` emit `['id','url','total_minor']` only;
+neither `ChargeRow` type carries a currency, and `money()` uses `Intl.NumberFormat` with no
+`style:'currency'`. **Driven:** the charge table reads `25.00` with no unit anywhere on the page. A CHF
+tenant and a EUR tenant render identical unlabelled amounts. `Invoice` does carry `currency`
+(`Invoice.php:31,74`), so the datum exists and is simply not sent.
+
+#### `P8-M4` — A lab result is published by the act of entering it: there is no release or verification step
+
+Recording a result advances the clinical order to `resulted` in the same transaction — **driven:** the
+order moved `ordered → resulted` the moment the value was saved. There is no preliminary/held/verified
+state, no release route among the 16 Lab routes, and no `released_by`/`verified_by` column;
+`order_results` carries `result_value`, `entered_by`, `entered_at`, `source` and nothing else. The
+entering user **is** recorded (the actor), and `/lab/results/review` is the *ordering clinician's*
+acknowledgement queue, not a release gate. Recorded as a **finding about the model, not a defect in it**:
+for a single-operator lab this is coherent and honest, but a tech-enters → pathologist-verifies →
+released workflow cannot be expressed, and nothing on screen tells a clinician whether the value they
+are reading has been checked by a second person.
+
+#### `P8-M5` — `/lab/results/review` is reachable by four roles and permanently empty for three of them
+
+**Driven:** as `lab_tech` the page renders *"No results awaiting your review"* immediately after that
+same tech recorded a result. The queue is scoped to the **ordering clinician**, so `lab_tech`,
+`radiographer` and `radiologist` reach a page (200) that can never show them anything, while
+`phlebotomist` is correctly refused (403). An always-empty destination for three of five roles is the
+D-176 shape — an affordance for something that cannot happen — and the empty state does not say *"this
+queue is for the clinician who ordered the test"*, so it reads as "nothing outstanding".
+
+#### `P8-M6` — Six data tables have no narrow-viewport behaviour, diverging from the rest of the app
+
+`grep -rn overflow` over `pages/Lab` and `pages/Radiology` returns **nothing**: all six tables
+(`Lab/Orders:85`, `Lab/Catalog:70`, `Lab/Billing:75`, `Radiology/Orders:90`, `Radiology/Catalog:73`,
+`Radiology/Billing:74`) are bare `<table class="w-full">` with no wrapper — including the six-column
+billing table. Fourteen tables elsewhere (Billing ×12, Scheduling ×2) **do** use `overflow-x-auto`, so
+this is a divergence from an established convention rather than a missing decision.
+`Radiology/Orders.vue:65` additionally pins `grid-cols-3` at every width. The two modules carry six
+responsive utility classes in total, all in the catalog forms.
+
+#### `P8-M7` — The `stat` priority is coloured on three pages and not on the fourth
+
+`Lab/Orders.vue:100`, `Radiology/Orders.vue:107` and `Radiology/Worklist.vue:85` bind
+`o.priority === 'stat' ? 'text-danger' : 'text-ink'`; `Lab/Review.vue:94` renders the same field with a
+static class. **This stays inside the fence** — it colours a flag the clinician *set*, never a derived
+value (D-169 governs computed judgments, not recorded ones) — and is recorded as a visual
+inconsistency, with the reasoning stated so a later pass does not "fix" it by tinting a result value.
+
+### LOW
+
+#### `P8-L1` — No navigation below 768 px
+
+**Driven at 390×844 on the radiology study page: 0 of 3 nav links have a non-zero width and there is no
+menu button.** `AppLayout.vue:113` is `hidden … md:flex` and the 228-line file contains no hamburger or
+drawer. Content itself does not overflow (`scrollWidth === clientWidth === 390`), so this is purely
+navigation. Pattern 3, **eighth consecutive phase** — and it compounds `P8-H4`: on a phone a URL-only
+module has no fallback entry point at all.
+
+#### `P8-L2` — The amendment reason is collected through a native `prompt()` dialog
+
+**Driven:** clicking *Amend (new version)* raises the browser's own `prompt("Reason for the
+amendment:")`. The reason is captured and displayed correctly, but a native dialog cannot be styled,
+translated, validated, or made accessible, and it is the only such dialog encountered in eight phases.
+
+#### `P8-L3` — The lab result form has no client-side `required`, and the exam select pre-selects the first catalog entry
+
+The result-value input carries no `required` attribute, so an empty submit reaches the server (the
+refusal is then invisible — `P8-H1`). Separately, `Radiology/Orders.vue:32` initialises
+`radiology_exam_id: props.exams[0]?.id ?? ''`, so an order placed without touching the select is a
+**CT Abdomen** — the first entry alphabetically. This is **not** pattern 7 (an exam is not a person),
+but it is the same first-in-list shape QA-FIX.7a judged worth removing for the ED bed, and a CT carries
+a radiation dose. Recorded at LOW because the exam is the form's visible subject, unlike a bed or a
+name buried in a field nobody looks at.
+
+### Guards verified holding
+
+#### THE RESULT-RELEASE FENCE — this phase's assigned question, answered in four parts
+
+A lab result and a radiology report become clinically actionable the moment they are visible, so this
+is the phase's hardest boundary. Each part was driven.
+
+**1. Is a result released by a human act, or by a side effect?** **By the act of entering it** — there
+is no separate release step (`P8-M4`). Recording a value advances the order to `resulted` in the same
+transaction; there is no preliminary/verified state and no release route. A radiology report is
+different and stronger: it has an **explicit two-step human act** — *Save draft* then *Sign & file
+report* — and only signing routes it to the ordering clinician's worklist. **Driven both.**
+
+**2. Is the releaser recorded — the ACTOR, or a picked person?** **The actor, from the session, in
+every case.** `order_results.entered_by`, `specimen_events.performed_by`,
+`imaging_study_events.performed_by` and `clinical_notes.signed_by` are all `users` FKs written from the
+authenticated user; **not one is request-sourced**, and no Lab or Radiology form contains a person
+selector at all. Driven: my specimen receive recorded `elena.costa`, my acquire recorded `fabio.ricci`.
+**The one exception is `P8-C2`** — the report *author* (as distinct from its signatory) can fall back to
+an alphabetical pick — and it is filed as this phase's second CRITICAL.
+
+**3. Is a released result immutable, amendable-with-history, or silently editable?** **Immutable, belt
+and suspenders.** `LabResult` has model `updating`/`deleting` guards throwing `appendOnly()` (`:51-52`),
+and the database carries `SIGNAL '45000'` triggers on `lab_results`, `order_results` **and**
+`imaging_study_events` (6 of the 92 triggers). A radiology report is **amendable with history**:
+**driven** — amending a signed report created **Version 2 (Draft)** carrying the amendment reason, while
+**Version 1 (Signed) survived byte-identical** (`created_at == updated_at`, verified in the database,
+`supersedes_id` chaining v2 → v1). Nothing is silently editable.
+
+**4. Does anything COMPUTE an interpretation?** **No — and the product says so, repeatedly and
+correctly.** No abnormal/high/low flag, no reference-range verdict, no critical-value alert, no delta
+against a prior result, no AI imaging finding. Reference ranges are stored on the tenant-authored test
+catalog (`lab_tests.reference_range`, e.g. `3.5–5.1 mmol/L`) and rendered **beside** the value as
+reference data. The result screen states it in the product's own words:
+
+> *"The reference range is reference data shown beside the value — the clinician reads value against
+> range. The system never computes an abnormal, high, low or critical flag."*
+
+The imaging seam is equally honest — `Radiology/Study.vue` renders no image, no canvas and no viewer,
+and says: *"Image storage and viewing (DICOM/PACS) are provided by a certified imaging partner and are
+not available here. This is the study record (metadata) — not a diagnostic viewer."* The connectivity
+seam is a null implementation (`NullImagingConnectivity`). **D-172 holds.**
+
+#### `D-169` ON RESULT VALUES — the positive control, byte-for-byte
+
+A value outside its reference range is the most tempting thing in the product to tint red. The seed
+contained no abnormal value, so one was **created by driving**: Kalium **`6.8`** entered through the
+real form against a recorded range of `3.5–5.1` (clearly high), compared with the existing in-range
+**`4.2`** on the same test. The two rendered entries are **identical markup apart from the digits**:
+
+| | `6.8` (high) | `4.2` (normal) |
+|---|---|---|
+| container | `rounded-lg border border-euca-100 p-4` | *identical* |
+| value span | `text-lg font-semibold text-ink` | *identical* |
+| computed colour | `rgb(42, 51, 42)` | *identical* |
+| font weight / size | `600` / `18px` | *identical* |
+| border | `rgb(237, 243, 234) 0.8px` | *identical* |
+| range span | `text-xs text-ink-subtle`, `rgb(108, 119, 108)` | *identical* |
+
+Across all 12 Lab/Radiology pages there are **seven** dynamic class bindings and **zero** style
+bindings; not one reads a result value or a range. **D-169 passes.**
+
+#### The author / signatory split (Phase 2's observation, re-verified)
+
+Phase 2 recorded that seeded radiology reports are authored by Dr. Lang and signed by Dr. Berg. **The
+data confirms a genuine two-person shape in two different id spaces:** `clinical_notes.author_id` →
+`staff_profiles` (`Dr. med. Miriam Lang`), `clinical_notes.signed_by` → `users`
+(`anke.berg@klinik-bergblick.test`). Neither stands in for the other, and the signatory is the actor.
+**But the requirement was that both be named DISTINCTLY in the browser, and they are not named at
+all** — see `P8-H3`. So: the model is right, the surface is silent, and `P8-C2` shows the author half
+can additionally be wrong.
+
+#### Other guards confirmed holding
+
+- **Pattern 7 is ABSENT from every Lab and Radiology FORM** — no attribution dropdown exists anywhere
+  in either module, and no attribution field is accepted from the request. The one instance
+  (`P8-C2`) is server-side. This is a genuinely better result than Phases 6 and 7.
+- **Ordering is by a recorded flag, never a computed urgency.** Both worklists use a fixed
+  `{stat:0, urgent:1, routine:2}` presentation order over the flag the clinician set, with the
+  alternative sort being the timestamp — and each carries a comment saying so. **No `localeCompare` on
+  a clinical level** (the `P7-C3` defect) exists here.
+- **Order placement is transactional** (`RadiologyOrderService::place:67`), and the modality/body-part
+  placeholder honestly previews what the server will store (`$modality ??= $orderable->…`) — checked
+  because it looked like a placeholder being saved as a value, and it is not.
+- **Cross-tenant is fail-closed** on every surface driven; every read is `patient.view`-gated and
+  patient-scoped read-logged.
+- **Specimen accessioning is a real fact** — `ACC-000004` generated on collection, with the transition
+  trail `collected → in_lab → resulted`, each event carrying its actor.
+
+### RBAC — all five roles on identical routes, driven
+
+Every cell below is a real HTTP status from a real authenticated browser session.
+
+| Route | `lab_tech` | `pathologist` | `phlebotomist` | `radiographer` | `radiologist` |
+|---|---|---|---|---|---|
+| `GET /lab/catalog` | 403 | **200** | 403 | 403 | 403 |
+| `GET /lab/patients/{p}/orders` | 200 | 200 | 200 | 200 | 200 |
+| `GET /lab/orders/{o}/specimens` | 200 | 200 | 200 | 200 | 200 |
+| `GET /lab/orders/{o}/results` | 200 | 200 | 200 | 200 | 200 |
+| `GET /lab/results/review` | 200 | 200 | **403** | 200 | 200 |
+| `GET /lab/orders/{o}/billing` | 403 | 403 | 403 | 403 | 403 |
+| `GET /radiology/catalog` | 403 | 403 | 403 | 403 | **200** |
+| `GET /radiology/patients/{p}/orders` | 200 | 200 | 200 | 200 | 200 |
+| `GET /radiology/worklist` | 403 | 403 | 403 | **200** | **200** |
+| `GET /radiology/orders/{o}/study` | 200 | 200 | 200 | 200 | 200 |
+| `GET /radiology/orders/{o}/report` | 200 | 200 | 200 | 200 | 200 |
+| `GET /radiology/orders/{o}/billing` | 403 | 403 | 403 | 403 | 403 |
+
+**Asymmetries worth naming.** The catalogs are correctly narrow — only `pathologist` may author the lab
+menu, only `radiologist` the imaging menu — but that means **`lab_tech` cannot see the reference ranges
+it results against**, and `radiographer` cannot see the exam catalog it acquires from. Both worklists
+are correctly gated. **`/lab/results/review` is the one inconsistency**: `phlebotomist` is refused while
+three roles that can never have content are admitted (`P8-M5`). And **every role can read a radiology
+report and a lab result for any patient** — broad, but a deliberate consequence of `patient.view` being
+the clinical-record gate, and every such read is audit-logged.
+
+*Forging the forbidden:* the billing routes were requested directly by URL as all five roles and refused
+every time (403, not a redirect and not a partial render); no Lab/Radiology surface leaked a payload to
+a role the Gate refuses.
+
+### Cross-phase patterns — EIGHT phases of evidence
+
+**1. Ungated UI — THE OVER-OFFER IS CLOSED; THE UNDER-OFFER IS NOT.** For the first time in eight
+phases this pattern does **not** produce a 403. Driven as `radiographer`, `/app` renders **zero** body
+links and therefore zero dead ends, where Phases 2–7 each measured four. **QA-FIX.7d (D-214) closed
+it**, and this phase is its independent confirmation on a role group the fix was not written against.
+**The under-offer half remains open by decision** and this phase is the first to measure its cost:
+`P8-H4` — 34 routes, two daily worklists, and both modules unreachable by clicking anything.
+
+**2. Timestamp and locale divergence — PRESENT, eighth phase**, and the worst instance yet: `P8-M1`,
+a result rendered `Sep 07, 11:44 PM` for a row stored `06:44 UTC` in a `Europe/Zurich` branch — a **day
+and nine hours** out. Storage remains correct in every phase. New this phase: six formatters omit the
+**year**, two use a different format from the other six *inside the same module*, and the tenant
+timezone prop that D-192 added is shipped on every response and **read by nothing**.
+
+**3. No navigation below 768 px — PRESENT, eighth phase** (`P8-L1`): 0 of 3 nav links visible, no menu
+button. Newly load-bearing here because these two modules have no nav entry at any width.
+
+**4. A granted capability with no surface — PRESENT, eighth phase, in both directions at once.**
+`P8-H5`: both billing surfaces gated on `billing.manage`, which none of the five roles holds — the
+`P7-H5` / Phase-6 shape, third module. `P8-C1`: and for the one role that *can* reach them, the
+issue-invoice control never renders, so the capability has no path for anybody.
+
+**5. The fences hold — CONFIRMED IN ALL EIGHT PHASES, and Lab/Radiology is the cleanest result yet.**
+The product refuses to interpret a result at exactly the point where interpreting would be most useful
+and most dangerous: no abnormal flag, no range verdict, no critical alert, no delta, no CAD, no viewer.
+D-169 passes **byte-for-byte** on a value 33% above its range. Reference ranges are displayed as
+reference data and never as a judgment, and the screens say so in their own words. **No fence has
+eroded in eight phases.**
+
+**6. A partial record — PRESENT IN BOTH DIRECTIONS.** Refused: `P8-H1`, 18 `withErrors` sites and zero
+pages reading the bag — the `P6-C3` defect in its third module. Succeeded-but-wrong: `P8-C2`, a report
+that saves cleanly and records the wrong author; and `P8-H2`, a charge that can be captured with its
+link missing, leaving an orphan the idempotency guard cannot see.
+
+**7. Attribution by dropdown default — ABSENT AS A DROPDOWN, PRESENT IN A WORSE FORM.** This is the
+phase's most important pattern result. **Not one attribution dropdown exists in either module**, and no
+attribution field is request-sourced — a genuinely better starting position than Phases 6 and 7. But
+`P8-C2` shows the same failure arriving **server-side**: a silent `?? StaffProfile::orderBy('display_name')->first()`
+fallback that attributes a signed radiology report to the alphabetically first staff member. Driven, it
+selected **Beat Suter** — the same person the Phase-7 criticals landed on. The pattern is therefore not
+about dropdowns at all: it is about **resolving a person by convenience when the real one is unknown**,
+and removing the dropdown does not remove it.
+
+**8. A NEW PATTERN THIS PHASE: the module-local formatter.** Eight `fmt()` helpers, two `money()`
+helpers and zero imports from `@/lib/date` or `@/lib/money` across 12 pages. Each module re-implements
+presentation locally, so a decision recorded once — Swiss money grouping (D-091's neighbour), the
+tenant timezone (D-192), the shared date helper — reaches only the module that was open at the time.
+`P8-M1`, `P8-M2` and `P8-M3` are three faces of this one cause, and it predicts that phases 9 and 10
+will find the same three again unless the helper is made the only path.
+
+### Anything untestable, and why
+
+- **`P8-H2`'s double-bill** could not be driven: it needs an induced failure between the charge capture
+  and the link write. **Code-established** (`grep -c "DB::transaction"` = 0 in both services), the
+  `P6-M10` / `P7-M5` precedent.
+- **`P8-H1`'s count** is code-established (18 sites / 0 readers); the *behaviour* was driven in Phase 7
+  and the component adoption is unchanged here.
+- **`P8-C2` required a created state.** No product surface unlinks a `StaffProfile`, and every seeded
+  `note.write` holder is linked, so the fallback cannot fire on seed data. `staff_profiles.user_id` was
+  set to `NULL` for one user, the report authored **through the real form**, and the link **restored and
+  verified** immediately (0 unlinked profiles remain). The *finding* is browser-established; only the
+  *precondition* was arranged.
+- **The lab worklist could not be driven with content for three roles** — `/lab/results/review` is
+  scoped to the ordering clinician, and no seeded lab order was placed by one of the five roles.
+- **PACS/DICOM behaviour is untestable by design** — the seam is a null implementation and the product
+  states that image viewing is a certified-partner function.
+- **Performance is out of scope**, deferred to staging per the phase brief.
