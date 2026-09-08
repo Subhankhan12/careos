@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Gate;
 use Inertia\Inertia;
 use Inertia\Response;
 use Modules\ED\Exceptions\EdVisitException;
+use Modules\ED\Models\EdTriage;
 use Modules\ED\Models\EdVisit;
 use Modules\ED\Services\EdVisitService;
 use Modules\Platform\Exceptions\CrossTenantReferenceException;
@@ -59,6 +60,11 @@ class EdBoardController
                 'scale' => $visit->latestTriage->acuity_scale,
                 'level' => $visit->latestTriage->acuity_level,
                 'by' => $visit->latestTriage->triagedBy?->display_name,
+                // Where this level sits in ITS OWN scale's published order (QA-FIX.7b, P7-C3). Not a score
+                // and not a ranking: the level is the nurse's, the order is the scale's, and it is
+                // comparable only against other levels on the SAME scale. Sent so the board can order by
+                // the recorded fact instead of by how the level string happens to sort.
+                'position' => EdTriage::levelPosition($visit->latestTriage->acuity_scale, $visit->latestTriage->acuity_level),
             ],
             // The legal next flow states — a FIXED map (record-not-judge), never a "next patient" suggestion.
             'available_transitions' => EdVisit::TRANSITIONS[$visit->status] ?? [],

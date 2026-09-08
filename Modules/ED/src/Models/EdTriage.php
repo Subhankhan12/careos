@@ -68,8 +68,21 @@ class EdTriage extends Model
     public const SCALES = [self::SCALE_ESI, self::SCALE_MANCHESTER, self::SCALE_CTAS];
 
     /**
-     * The valid ASSIGNABLE levels per scale — a closed set for data-entry validation ONLY. The nurse picks the
+     * The valid ASSIGNABLE levels per scale — a closed set for data-entry validation. The nurse picks the
      * level; the system never derives it. ESI/CTAS are 1–5; Manchester is the standard colour set.
+     *
+     * THE ORDER OF EACH LIST IS LOAD-BEARING AND IS PART OF THIS CONSTANT'S MEANING (QA-FIX.7b, D-212).
+     * Each scale is written in ITS OWN PUBLISHED ORDER, MOST URGENT FIRST, and {@see levelPosition()} reads
+     * that order so a screen can display recorded triages in the order their own scale declares. This is a
+     * TRANSCRIPTION of each scale's published ordering, not a CareOS judgment: ESI 1 precedes ESI 5 and
+     * Manchester red precedes Manchester blue because those scales say so, and the product adds nothing.
+     * DO NOT reorder, alphabetise or sort these lists — a test pins the declared order precisely because
+     * an innocent-looking tidy-up would silently invert a clinical display (D-191: an ordering whose
+     * meaning is only conventional is not a fence).
+     *
+     * THERE IS DELIBERATELY NO ORDERING **ACROSS** SCALES. Positions are comparable only within one scale;
+     * saying ESI 2 ranks with Manchester orange is a clinical equivalence claim CareOS has no basis to
+     * make (D-170), so no equivalence table exists here or anywhere else.
      *
      * @var array<string, list<string>>
      */
@@ -112,6 +125,26 @@ class EdTriage extends Model
     public static function isValidAssignment(string $scale, string $level): bool
     {
         return in_array($level, self::LEVELS[$scale] ?? [], true);
+    }
+
+    /**
+     * The level's position WITHIN ITS OWN SCALE (1-based; 1 is the position that scale prints first), or
+     * null when the scale or level is unknown. QA-FIX.7b (P7-C3, D-212).
+     *
+     * This READS the order {@see LEVELS} declares — it does not compute, score or rank anything. The value
+     * being positioned is the one the NURSE assigned, and the ordering is the one the SCALE publishes; the
+     * product contributes neither. It exists so a board can display recorded triages the way their scale
+     * reads instead of the way their level strings happen to sort: `localeCompare` put Manchester `blue`
+     * (least urgent) above `red` (most urgent), because alphabetically it does.
+     *
+     * Only meaningful WITHIN a scale. Two positions from different scales are NOT comparable, and nothing
+     * in this module maps one scale onto another (D-170).
+     */
+    public static function levelPosition(string $scale, string $level): ?int
+    {
+        $index = array_search($level, self::LEVELS[$scale] ?? [], true);
+
+        return $index === false ? null : $index + 1;
     }
 
     protected static function booted(): void

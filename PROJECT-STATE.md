@@ -204,6 +204,16 @@ column's absence. Both forms now pre-select nothing; no server gate was weakened
 the bed **free**). The **option-list width is deliberately still open** — filtering by profession would
 encode a staffing-policy claim (the D-170 shape).
 
+Part 2 (`<pending>`, D-212) is done: **the ED board orders by recorded acuity, not by string (`P7-C3`).**
+`EdTriage::levelPosition()` returns the level's position in **its own scale** and the board sorts on it —
+the level is the nurse's judgment, the order is the scale's published one, and CareOS transcribes rather
+than computes. **`LEVELS`'s order is now load-bearing and says so (D-191 applied):** its docblock called it
+validation-only, so the sequence had no stated meaning, and a test pins all three lists because
+alphabetising MANCHESTER would silently re-invert the display. **No cross-scale equivalence table was
+built and its absence is pinned** (D-170) — mixed boards group by scale. **A third defect on the same
+line, not in the finding:** the `'~'` sentinel sorted untriaged visits FIRST, not last as its comment
+claimed, so an acuity-sorted board led with patients who had no acuity at all.
+
 **QA-FIX.6 PART 4 STOPPED DELIBERATELY — the theatre booking gap is a FEATURE, not wiring.** The gate
 required this determination before any code, and it is a feature on four verified counts: (1)
 `TheatreSchedulingService` has NO controller and NO route (the only "theatre" route sets a tariff PRICE);

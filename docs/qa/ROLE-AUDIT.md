@@ -84,6 +84,7 @@ every later phase's timestamp observation suspect, and past-time booking was liv
 | `P6-C2` | CRITICAL | ✅ **FIXED** | QA-FIX.6b | `f8b7a7b` |
 | `P6-C3` | CRITICAL | ✅ **FIXED** | QA-FIX.6c | `1388af3` |
 | `P7-C1` · `P7-C2` | CRITICAL | ✅ **FIXED** | QA-FIX.7a | `d3e0f3c` |
+| `P7-C3` | CRITICAL | ✅ **FIXED** | QA-FIX.7b | `<pending>` |
 | all others | — | 📋 recorded, not fixed | — | — |
 
 *(A commit cannot contain its own hash. Per the repo-wide marker convention, `<pending>` is backfilled
@@ -3904,6 +3905,29 @@ time (`12 min`) — a plain duration since arrival, with **no target, no breach 
 - **Why CRITICAL:** this is not a styling nicety — it is the one place the board makes a clinical ordering
   claim, under a control labelled "Recorded acuity", and on a supported scale it presents the least urgent
   patient first. It is the exact inverse of the guarantee the D-169 result above establishes so carefully.
+
+> ✅ **FIXED — QA-FIX.7b, commit `<pending>` (D-212).** The board orders by the level's position in
+> **its own scale**, read off `EdTriage::LEVELS` by the new `EdTriage::levelPosition()` and sent on the
+> board payload. The level is the nurse's judgment and the order is the scale's published one — CareOS
+> transcribes, and contributes neither. `localeCompare` on the level string is gone.
+> **THE FINDING'S SECOND CONSEQUENCE IS FIXED THE ONLY WAY IT HONESTLY CAN BE.** Mixed scales are not
+> interleaved: visits are **grouped by scale**, ordered within each group, with the group order being the
+> scale's NAME — an arbitrary, stable, non-clinical tiebreak, chosen precisely because it asserts nothing.
+> No ESI↔Manchester equivalence table was built and a test pins its absence, because mapping ESI 2 onto
+> Manchester orange is a clinical claim this product has no basis to make (D-170).
+> **A THIRD DEFECT ON THE SAME LINE, NOT IN THE FINDING, FOUND WHILE FIXING IT.** The `'~'` sentinel for
+> untriaged visits sorted them **FIRST**, not last as the line's own comment claimed — `~` orders before
+> digits and letters in ICU collation. So an acuity-sorted board led with the patients who had no recorded
+> acuity at all. Untriaged now sort last, and a test asserts it.
+> **`LEVELS`'s ORDER IS NOW LOAD-BEARING AND SAYS SO (D-191 applied).** Its docblock previously called it
+> a closed set "for data-entry validation ONLY" — nothing stated the sequence meant anything, so indexing
+> it for display would have been the undocumented ordering D-191 warns about. All three lists are pinned
+> by a test, because **alphabetising the Manchester list is an innocent tidy-up that would silently
+> re-invert this very display**.
+> **Guarded by** nine tests, mutation-checked three ways (alphabetising Manchester, restoring the
+> `localeCompare`, dropping `position` from the payload). A positive control asserts the board still
+> **defaults to arrival order**, so acuity ordering stays something staff ask for rather than the board's
+> standing judgment.
 
 ---
 

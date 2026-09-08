@@ -4586,3 +4586,42 @@ references the old ID.
   because adding a column is exactly when a judgment column could slip in.
   See [[ED]], [[Hospital]], `docs/qa/ROLE-AUDIT.md` (P7-C1, P7-C2), D-169, D-182, D-195, D-199, D-209,
   [[LOG]].
+
+- **D-212 — Ordering a recorded clinical value means reading the order its own scale publishes, and that
+  order becomes part of the constant's stated meaning.** (QA-FIX.7b — `P7-C3`.) The ED board's "Recorded
+  acuity" sort was `localeCompare` on the level string. ESI and CTAS survived by luck — `'1'…'5'` sort the
+  way they read — but **Manchester is `red · orange · yellow · green · blue`, which sorts alphabetically to
+  `blue · green · orange · red · yellow`**. Driven in Phase 7: under a control labelled "Recorded acuity",
+  the board put MANCHESTER blue (least urgent) above MANCHESTER red (most urgent). The same line's `'~'`
+  sentinel for untriaged visits sorted them **first**, not last as its comment claimed, because `~` orders
+  before digits and letters in ICU collation.
+  **THIS IS THE AUDIT'S FIRST CASE OF AN HONEST FENCE SITTING ON TOP OF A WRONG COMPUTATION.** Phase 7
+  confirmed byte-for-byte that CareOS does not compute, suggest, prefill or tint an acuity — and then the
+  one screen whose job is to say who is seen first got the *ordering of the recorded judgment* wrong. The
+  judgment was never computed; its presentation was, and it inverted.
+  **THE ORDER COMES FROM THE SCALE, NOT FROM CAREOS.** `EdTriage::levelPosition()` returns the level's
+  1-based position in `EdTriage::LEVELS[$scale]` — the level is the nurse's, the order is the scale's
+  published one, transcribed. It is not a score, not a rank, and says nothing about the patient. The server
+  sends it on the board payload so the client orders a recorded fact rather than deriving one.
+  **THE ORDER OF `LEVELS` IS NOW LOAD-BEARING AND SAYS SO** — D-191's rule applied to this constant. Its
+  docblock previously described it as a closed set "for data-entry validation ONLY", so nothing stated that
+  the sequence meant anything; indexing into it for display would have been exactly the undocumented
+  ordering D-191 warns about. The docblock now states that each scale is written in its own published
+  order, most urgent first, and forbids reordering — and a test pins all three lists, because
+  **alphabetising the Manchester list is an innocent-looking tidy-up that would silently re-invert a
+  clinical display**, which is precisely the failure this decision exists to prevent.
+  **NO CROSS-SCALE EQUIVALENCE TABLE WAS BUILT, and its absence is pinned** (D-170). Positions are
+  comparable only within one scale; saying ESI 2 ranks with Manchester orange is a clinical claim the
+  product has no basis to make. Mixed boards therefore **group by scale** and order within each group, with
+  the group order being the scale's NAME — an arbitrary, stable, non-clinical tiebreak chosen because it
+  asserts nothing. A department using one scale (the normal case) is unaffected.
+  **Guarded by** nine tests, mutation-checked three ways: alphabetising the Manchester list, restoring the
+  `localeCompare`, and dropping `position` from the payload each redden their own guard. Positive controls
+  assert the board still **defaults to arrival order** (so acuity ordering stays something staff ask for,
+  never the board's standing judgment) and that no computed-judgment column or homemade acuity computation
+  appeared alongside the new field.
+  **A METHOD NOTE, recorded because it cost two red tests:** the D-170 scan first reddened on the very
+  docblock explaining why no equivalence table exists, and the sentinel guard on its own comment quoting
+  the old bug. Both now strip comments / target the code expression — a fence tripped by its own rationale
+  is a fence that gets deleted.
+  See [[ED]], `docs/qa/ROLE-AUDIT.md` (P7-C3), D-169, D-170, D-174, D-182, D-191, [[LOG]].

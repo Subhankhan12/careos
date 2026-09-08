@@ -262,3 +262,20 @@ Narrowing it by profession would encode a staffing-policy claim (the D-170 shape
 filter its own list either, so the choice was made explicit rather than the list narrowed.
 `EdDocumentationController:103` builds the same unfiltered list for note authorship — a fourth instance
 of the shape, never a Phase-7 finding, not touched here.
+
+## QA-FIX.7b — the board's acuity order (P7-C3, D-212)
+
+`EdTriage::levelPosition($scale, $level)` returns the level's **1-based position in its own scale**, read
+off `LEVELS`. The board payload carries it as `acuity.position` and `Board.vue` sorts on it.
+
+**`EdTriage::LEVELS`'s ORDER IS LOAD-BEARING — do not reorder or alphabetise it.** Each scale is written
+in its own published order, most urgent first; the docblock says so and a test pins all three lists.
+Before this, the docblock called it validation-only, so the sequence had no stated meaning — D-191's
+exact hazard. Alphabetising MANCHESTER would silently re-invert the board.
+
+**No cross-scale equivalence exists and a test pins its absence** (D-170). Positions compare only within
+one scale, so mixed boards group by scale and order within each group; the group order is the scale NAME,
+an arbitrary non-clinical tiebreak.
+
+Untriaged visits now sort **last**. The old `'~'` sentinel sorted them first — `~` precedes digits and
+letters in ICU collation — contradicting the line's own comment.

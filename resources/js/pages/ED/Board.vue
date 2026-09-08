@@ -16,7 +16,7 @@ import AppLayout from '@/Layouts/AppLayout.vue';
 // The flow COLOUR is the operational state, never a clinical severity.
 const { t } = useI18n();
 
-type Acuity = { scale: string; level: string; by: string | null };
+type Acuity = { scale: string; level: string; by: string | null; position: number | null };
 type VisitTile = {
     id: string;
     patient: string;
@@ -44,12 +44,44 @@ const props = defineProps<{
 // field — it is NOT a computed priority ranking (no score is derived; the acuity shown is the nurse's value).
 const sortBy = ref<'arrival' | 'acuity'>('arrival');
 
+/*
+ * Order by the RECORDED acuity, using the position the level holds in ITS OWN scale (QA-FIX.7b, P7-C3).
+ *
+ * THIS USED TO BE `localeCompare` ON THE LEVEL STRING, and it inverted Manchester. That scale's levels are
+ * red · orange · yellow · green · blue, which sort alphabetically to blue · green · orange · red · yellow —
+ * so under a control labelled "Recorded acuity" the board put the LEAST urgent patient first. Driven in
+ * Phase 7: MANCHESTER blue rendered above MANCHESTER red. ESI and CTAS only escaped because '1'…'5' happen
+ * to sort the way they read.
+ *
+ * `position` comes from the server (EdTriage::levelPosition) and is the index of the nurse's recorded level
+ * in the list its scale publishes. Nothing here computes a priority: the level is the nurse's judgment and
+ * the order is the scale's, so this remains ordering-by-a-recorded-field.
+ *
+ * SCALES ARE GROUPED, NEVER INTERLEAVED. Positions mean something only within one scale — claiming ESI 2
+ * ranks with Manchester orange is a clinical equivalence CareOS has no basis to assert (D-170) — so visits
+ * are grouped by scale name and ordered within each group. The group order is the scale's NAME: an
+ * arbitrary, stable, non-clinical tiebreak, chosen precisely because it asserts nothing. A board using one
+ * scale (the normal case) is unaffected.
+ *
+ * UNTRIAGED SORT LAST, which the old sentinel did not achieve: it compared the string '~', and in ICU
+ * collation '~' orders BEFORE digits and letters, so not-yet-triaged patients led an acuity-sorted board.
+ */
+function acuityKey(v: VisitTile): [number, string, number, string] {
+    if (!v.acuity || v.acuity.position === null) return [1, '', 0, v.arrived_at]; // untriaged → last
+    return [0, v.acuity.scale, v.acuity.position, v.arrived_at];
+}
+
 const sortedVisits = computed<VisitTile[]>(() => {
     const list = [...props.visits];
     if (sortBy.value === 'acuity') {
-        // Order by the RECORDED acuity value (a fact the nurse assigned); untriaged visits sort last. This is
-        // ordering-by-a-recorded-field, not a computed judgment.
-        return list.sort((a, b) => (a.acuity?.level ?? '~').localeCompare(b.acuity?.level ?? '~'));
+        return list.sort((a, b) => {
+            const ka = acuityKey(a);
+            const kb = acuityKey(b);
+            if (ka[0] !== kb[0]) return ka[0] - kb[0]; // triaged before untriaged
+            if (ka[1] !== kb[1]) return ka[1].localeCompare(kb[1]); // group by scale — not a ranking
+            if (ka[2] !== kb[2]) return ka[2] - kb[2]; // the scale's own declared order
+            return ka[3].localeCompare(kb[3]); // equal acuity → longest waiting first (a fact)
+        });
     }
     return list.sort((a, b) => a.arrived_at.localeCompare(b.arrived_at));
 });
