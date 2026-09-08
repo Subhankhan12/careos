@@ -85,7 +85,8 @@ every later phase's timestamp observation suspect, and past-time booking was liv
 | `P6-C3` | CRITICAL | ✅ **FIXED** | QA-FIX.6c | `1388af3` |
 | `P7-C1` · `P7-C2` | CRITICAL | ✅ **FIXED** | QA-FIX.7a | `d3e0f3c` |
 | `P7-C3` | CRITICAL | ✅ **FIXED** | QA-FIX.7b | `ec3695e` |
-| `P7-H2` | HIGH | ✅ **FIXED** | QA-FIX.7c | `<pending>` |
+| `P7-H2` | HIGH | ✅ **FIXED** | QA-FIX.7c | `fd7b350` |
+| pattern 1 (`P1-H1`·`P2-H2`·`P3-M7`·`P4-H5`·`P5-H2`·`P6-H4`·`P7-H4`) — the OVER-OFFER half | HIGH | ✅ **FIXED** | QA-FIX.7d | `<pending>` |
 | all others | — | 📋 recorded, not fixed | — | — |
 
 *(A commit cannot contain its own hash. Per the repo-wide marker convention, `<pending>` is backfilled
@@ -3953,7 +3954,7 @@ history still showed the previous entry. A refusal and a success are indistingui
 Surgery before QA-FIX.6c. QA-FIX.6c fixed `resources/js/pages/Surgery/*` only; `RefusalNotice.vue` exists
 and is not used here.
 
-> ✅ **FIXED — QA-FIX.7c, commit `<pending>` (D-213). AN ADOPTION, NOT A DESIGN.** All five ED pages now
+> ✅ **FIXED — QA-FIX.7c, commit `fd7b350` (D-213). AN ADOPTION, NOT A DESIGN.** All five ED pages now
 > import and render the EXISTING `RefusalNotice.vue` — five imports, five tags, no new component, no new
 > mechanism and no new copy (D-170). A test asserts ED rolled none of its own: any ED page reading
 > `page.props.errors` directly reddens it.
@@ -4478,6 +4479,33 @@ re-driven **five phases later and unchanged**. The cause has been named three ti
 the pharmacy and surgery keys. Seven phases, seven role groups, one undersized map: it simultaneously
 **over-offers** links the role cannot use and **under-offers** the module the role lives in, so the ED
 tracking board — the group's primary surface — is reachable only by typing a URL.
+
+> ⚠️ **CORRECTION TO THIS DIAGNOSIS, made during QA-FIX.7d and recorded rather than quietly amended.**
+> The sentence above blames `NAV_PERMISSIONS`'s size for BOTH halves. That is wrong for the over-offer,
+> which is the half every phase actually measured. The map had nothing to do with it: `Landing.vue`
+> carried **eight `<Link>`s and gated NONE of them**, so `/app` offered the same four destinations to
+> everyone regardless of the map's contents. Phase 3 had already got this right and it was not carried
+> forward — `P3-M7`: *"The nav is correct (Dashboard + Billing only); the page body is not."* Adding
+> `ed.manage` to the map would not have removed a single one of the 403s any phase drove.
+> The map's size is real, but it belongs **only** to the under-offer half.
+>
+> ✅ **THE OVER-OFFER IS FIXED — QA-FIX.7d, commit `<pending>` (D-214).** `Landing.vue` now reads
+> `auth.user.permissions` (the prop `AppLayout` has gated on since FIX.4) and hides what the role cannot
+> open; a panel whose every action is hidden does not render (D-176). `NAV_PERMISSIONS` gained exactly one
+> key, `patient.edit`, by the D-107 / D-110 route. The guard is the PROPERTY, not the template: for six
+> roles × four destinations the flag must agree with the server (false ⇒ 403, true ⇒ not 403) — the
+> assertion seven phases were making by hand. The server Gate is untouched; a positive control asserts the
+> ED physician still gets 403 on all four by URL.
+>
+> ⛔ **THE UNDER-OFFER IS DELIBERATELY NOT TAKEN — QA-FIX.7d stopped here and reported.** Six built
+> modules (ED, Surgery, Pharmacy, Lab, Radiology, Hospital) still have no shell entry. The remedy is
+> precedented and small (D-107 and D-110 both added a key plus a role-gated nav item), **but doing it six
+> times collides with D-111**, which exists because org_admin's *15 flat top-nav items* were a live
+> finding flagged by all three audits; it capped day-to-day items at 10 and records that POLISH.1's "+2"
+> worsened the problem. Six more top-level entries would re-create the exact defect D-111 fixed. The
+> narrower option — grouped menus in the D-111 shape — requires deciding grouping, labels and which
+> modules are day-to-day, which is information architecture rather than wiring. **Still open, by
+> decision.**
 
 **2. Timestamp and locale divergence — PRESENT, seventh phase.** `P7-M3`: the triage history renders
 `9/7/2026, 4:05:01 PM` — `M/D/YYYY`, 12-hour, in the **viewer's** `America/Los_Angeles` — for a row stored

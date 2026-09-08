@@ -36,6 +36,34 @@ const todayLabel = computed(() => {
     }
 });
 
+/*
+ * WHAT THIS ROLE CAN ACTUALLY OPEN (QA-FIX.7d, pattern 1, phases 1–7).
+ *
+ * Every one of this page's eight links was ungated, so `/app` offered the same four destinations to
+ * everyone and a role without the permission got a 403. Driven in SEVEN consecutive phases and unchanged
+ * throughout: `P1-H1` (reception, "Register patient"), `P2-H2` and `P7-H4` (ed_physician, all four),
+ * `P3-M7` (billing, all four), `P4-H5` (all four nursing roles), `P5-H2` (both pharmacy roles), `P6-H4`.
+ *
+ * THE NAV WAS NEVER THE DEFECT — `P3-M7` says so outright: "The nav is correct (Dashboard + Billing only);
+ * the page body is not." `AppLayout` has gated its links on this exact prop since FIX.4. This page simply
+ * never read it. So the fix is to read the mechanism that already exists, in the way it is already used
+ * (`AppLayout.vue:59`), and nothing else is introduced.
+ *
+ * The server Gate stays authoritative, unchanged: hiding a link neither grants nor blocks access, and a
+ * hidden route still 403s if typed. This only stops the product from ADVERTISING what it will refuse.
+ */
+const permissions = computed<Record<string, boolean>>(
+    () => (page.props.auth as { user: { permissions?: Record<string, boolean> } | null }).user?.permissions ?? {},
+);
+const can = (permission: string): boolean => permissions.value[permission] === true;
+
+// A panel whose every action is hidden is an affordance for something that cannot happen (D-176), so the
+// panels go with their links rather than standing empty.
+const canRegister = computed(() => can('patient.edit'));
+const canDayBoard = computed(() => can('appointment.manage'));
+const showQuickActions = computed(() => canRegister.value || can('dispatch.manage') || can('comms.manage'));
+const showBodySection = computed(() => canDayBoard.value || showQuickActions.value);
+
 const completed = computed(() => props.operational?.by_status?.completed ?? 0);
 const hasAppointments = computed(() => (props.operational?.appointments ?? 0) > 0);
 
@@ -61,11 +89,11 @@ function money(minor: number, currency: string): string {
                 <h1 class="mt-3 max-w-xl text-4xl font-semibold leading-[1.08] tracking-tight text-ink sm:text-5xl">
                     {{ t('shell.app.welcome') }}
                 </h1>
-                <div class="mt-6 flex flex-wrap gap-3">
-                    <Link href="/patients/register" class="btn-glow inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold">
+                <div v-if="canRegister || canDayBoard" class="mt-6 flex flex-wrap gap-3">
+                    <Link v-if="canRegister" href="/patients/register" class="btn-glow inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold">
                         {{ t('shell.app.registerPatient') }}
                     </Link>
-                    <Link href="/scheduling/day-board" class="inline-flex items-center gap-2 rounded-xl border border-line bg-surface/70 px-4 py-2.5 text-sm font-semibold text-ink transition hover:bg-surface-2">
+                    <Link v-if="canDayBoard" href="/scheduling/day-board" class="inline-flex items-center gap-2 rounded-xl border border-line bg-surface/70 px-4 py-2.5 text-sm font-semibold text-ink transition hover:bg-surface-2">
                         {{ t('shell.app.openDayBoard') }}
                     </Link>
                 </div>
@@ -131,8 +159,11 @@ function money(minor: number, currency: string): string {
         </section>
 
         <!-- Two-column body: today's schedule (real count) + quick links. -->
-        <section class="mt-6 grid gap-5 lg:grid-cols-[1.6fr_1fr]">
-            <div class="glass-card p-6">
+        <section v-if="showBodySection" class="mt-6 grid gap-5" :class="canDayBoard && showQuickActions ? 'lg:grid-cols-[1.6fr_1fr]' : 'lg:grid-cols-1'">
+            <!-- The whole schedule panel is the day board: its heading, its count and both its calls to
+                 action lead nowhere else, so a role that cannot open the board is not shown a panel whose
+                 empty state tells it to go there (D-176). -->
+            <div v-if="canDayBoard" class="glass-card p-6">
                 <div class="flex items-center justify-between">
                     <h2 class="text-lg font-semibold tracking-tight text-ink">{{ t('shell.app.scheduleTitle') }}</h2>
                     <Link href="/scheduling/day-board" class="text-sm font-medium text-euca-700 transition hover:text-euca-800">
@@ -166,15 +197,18 @@ function money(minor: number, currency: string): string {
                 </div>
             </div>
 
-            <div class="glass-card overflow-hidden p-2">
+            <!-- Quick actions: each link gated on the permission its route already requires, and the panel
+                 itself hidden when a role has none of them — a "Quick actions" heading over nothing is the
+                 same dead affordance (D-176). -->
+            <div v-if="showQuickActions" class="glass-card overflow-hidden p-2">
                 <p class="px-4 pb-1 pt-3 text-xs font-semibold uppercase tracking-wide text-ink-subtle">{{ t('shell.app.quickActions') }}</p>
-                <Link href="/patients/register" class="flex items-center justify-between rounded-xl px-4 py-3 text-sm font-medium text-ink transition hover:bg-euca-50">
+                <Link v-if="canRegister" href="/patients/register" class="flex items-center justify-between rounded-xl px-4 py-3 text-sm font-medium text-ink transition hover:bg-euca-50">
                     {{ t('shell.app.registerPatient') }}<span class="text-ink-subtle">›</span>
                 </Link>
-                <Link href="/nursing/dispatch" class="flex items-center justify-between rounded-xl px-4 py-3 text-sm font-medium text-ink transition hover:bg-euca-50">
+                <Link v-if="can('dispatch.manage')" href="/nursing/dispatch" class="flex items-center justify-between rounded-xl px-4 py-3 text-sm font-medium text-ink transition hover:bg-euca-50">
                     {{ t('shell.app.nursingDispatch') }}<span class="text-ink-subtle">›</span>
                 </Link>
-                <Link href="/comms/inbox" class="flex items-center justify-between rounded-xl px-4 py-3 text-sm font-medium text-ink transition hover:bg-euca-50">
+                <Link v-if="can('comms.manage')" href="/comms/inbox" class="flex items-center justify-between rounded-xl px-4 py-3 text-sm font-medium text-ink transition hover:bg-euca-50">
                     {{ t('shell.app.unifiedInbox') }}<span class="text-ink-subtle">›</span>
                 </Link>
             </div>

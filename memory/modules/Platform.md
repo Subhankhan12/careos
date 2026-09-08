@@ -516,3 +516,22 @@ Locked by `tests/Feature/Platform/ProvisioningCommandsTest.php` (9), which also 
 - ABAC condition evaluation (`abac_conditions`) not yet implemented (Phase B, needs patients/audit).
 - Multi-tenant same-email membership deferred (see DEFERRED.md).
 - Redis/Horizon, silo tenancy tier, SSO/SAML deferred.
+
+## QA-FIX.7d — pattern 1's root cause was the PAGE BODY (D-214)
+
+Seven phases recorded "ungated UI" and three of them blamed `HandleInertiaRequests::NAV_PERMISSIONS`.
+**Wrong for the half that was measured.** `resources/js/pages/App/Landing.vue` had EIGHT `<Link>`s and
+gated none; the nav map was correct throughout (`P3-M7` said so in Phase 3). Landing now reads
+`auth.user.permissions` — the same prop `AppLayout.vue:59` has gated on since FIX.4.
+
+`NAV_PERMISSIONS` gained ONE key, `patient.edit` (`/patients/register` is `patient.edit`-gated). The list
+stays **nav-relevant on purpose** — never share the whole permission set. Adding a key for a newly gated
+destination is the sanctioned operation: D-107 (Dental), D-110 (POLISH.1), now D-214.
+
+**`NavAndErrorPageTest` asserts the EXACT key set**, so any new key needs a tracking update there
+(the D-110 / W10 precedent) — not a correction.
+
+**STILL OPEN by decision:** ED, Surgery, Pharmacy, Lab, Radiology, Hospital have no shell nav entry.
+Precedent says add key + role-gated item, but six top-level entries would re-create the density defect
+**D-111** fixed (org_admin's 15 flat items → capped at 10 + an Admin menu). Grouped menus are the right
+shape and are an IA decision, not wiring.

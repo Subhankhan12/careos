@@ -61,6 +61,14 @@ test('the shell shares nav permissions so a role only sees links it can use', fu
                 'order.manage' => false,
                 'competency.manage' => false,
                 'data.import' => false,
+
+                // QA-FIX.7d tracking update (the D-110 / W10 precedent, NOT a correction): NAV_PERMISSIONS
+
+                // gained this key so the LANDING body can gate "Register patient". reception lacks it, which
+
+                // is P1-H1 exactly — the app advertised a registration this role cannot perform.
+
+                'patient.edit' => false,
             ]));
 
     // org_admin holds every nav permission.
@@ -83,6 +91,8 @@ test('the shell shares nav permissions so a role only sees links it can use', fu
                 'order.manage' => true,
                 'competency.manage' => true,
                 'data.import' => true,
+
+                'patient.edit' => true,
             ]));
 });
 

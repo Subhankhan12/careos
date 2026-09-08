@@ -4658,3 +4658,40 @@ references the old ID.
   the structural guard, and giving one ED page its own `page.props.errors` block reddens the
   adoption-not-design guard.
   See [[ED]], [[Surgery]], `docs/qa/ROLE-AUDIT.md` (P7-H2), D-170, D-176, D-182, D-210, [[LOG]].
+
+- **D-214 — Pattern 1's root cause was the PAGE BODY, not the nav map; and the six unreachable modules are a
+  SEPARATE, DELIBERATELY UNTAKEN decision.** (QA-FIX.7d — `P1-H1`, `P2-H2`, `P3-M7`, `P4-H5`, `P5-H2`,
+  `P6-H4`, `P7-H4`.)
+  **THE FIX.** `resources/js/pages/App/Landing.vue` carried **eight `<Link>`s and gated none of them**, so
+  `/app` offered the same four destinations to every role: `/patients/register` (`patient.edit`),
+  `/scheduling/day-board` (`appointment.manage`), `/nursing/dispatch` (`dispatch.manage`) and
+  `/comms/inbox` (`comms.manage`). Seven consecutive phases drove it and measured 403s; it never moved.
+  The page now reads `auth.user.permissions` — the prop `AppLayout` has gated on since FIX.4 — and hides
+  what the role cannot open. `NAV_PERMISSIONS` gained exactly one key, `patient.edit`, by the D-107 /
+  D-110 route: one key for one gated destination, never the whole permission set.
+  **THE NAV MAP WAS NEVER THE DEFECT, and the audit already said so.** `P3-M7`: *"The nav is correct
+  (Dashboard + Billing only); the page body is not."* Seven phases of a finding named "ungated UI" were
+  read as a nav problem; the nav had been correct the whole time.
+  **A PANEL WHOSE EVERY ACTION IS HIDDEN DOES NOT RENDER** (D-176). The schedule panel is the day board —
+  heading, count and both calls to action lead nowhere else — so a role that cannot open the board is not
+  shown a panel whose empty state tells it to go there; likewise a "Quick actions" heading over nothing.
+  **THE GUARD IS THE PROPERTY, NOT THE TEMPLATE.** For each of six roles and each of the four
+  destinations, the flag the page gates on must AGREE WITH THE SERVER: false ⇒ 403, true ⇒ not 403. That
+  is precisely what seven phases measured by hand, and dropping the new key reddens all six role cases.
+  The server Gate is untouched and stays authoritative — a positive control asserts the ED physician, who
+  now sees none of the four, is still refused all four by URL.
+  **THE SECOND HALF IS NOT TAKEN, AND THAT IS THE DECISION.** Phase 7 also observed that the shell has NO
+  entry for six built modules — ED, Surgery, Pharmacy, Lab, Radiology, Hospital — so a module's primary
+  surface is reachable only by typing a URL. The remedy is precedented and would be small: D-107 (Dental)
+  and D-110 (POLISH.1) both added a key to `NAV_PERMISSIONS` plus a role-gated `AppLayout` item. **It is
+  not taken here because doing it six times over collides with a standing recorded constraint.** D-111
+  (POLISH.2) exists because org_admin's **15 flat top-nav items** were a live finding flagged by all three
+  audits — it capped day-to-day items at 10 and collapsed 5 admin items into a menu, and it records that
+  POLISH.1's "+2" had *worsened* the problem. Adding six more top-level entries would re-create the exact
+  defect D-111 was written to fix.
+  **The narrower option, stated rather than silently taken:** the six belong under grouped menus in the
+  D-111 shape. That requires deciding the grouping, the labels, and which are day-to-day versus
+  collapsed — an information-architecture decision with real product content, not wiring, and one that
+  should be made deliberately rather than inside a fix gate. Recorded as open; the pattern-1 instances the
+  audit actually measured (the 403s) are all closed by the first half.
+  See [[Platform]], `docs/qa/ROLE-AUDIT.md` (P1-H1 … P7-H4), D-107, D-110, D-111, D-176, [[LOG]].

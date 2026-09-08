@@ -38,6 +38,11 @@ class HandleInertiaRequests extends Middleware
         'order.manage',
         'competency.manage',
         'data.import',
+        // QA-FIX.7d — the LANDING page body gates on this too, not only the top-nav. `/patients/register`
+        // is `patient.edit`-gated, and `/app` offered it to every role for seven phases (P1-H1 → P7-H4).
+        // Added by the D-107 / D-110 route: one key for one gated destination, never the whole permission
+        // set — this list stays nav-relevant on purpose.
+        'patient.edit',
     ];
 
     public function version(Request $request): ?string

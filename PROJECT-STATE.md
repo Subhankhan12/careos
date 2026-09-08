@@ -214,12 +214,26 @@ built and its absence is pinned** (D-170) — mixed boards group by scale. **A t
 line, not in the finding:** the `'~'` sentinel sorted untriaged visits FIRST, not last as its comment
 claimed, so an acuity-sorted board led with patients who had no acuity at all.
 
-Part 3 (`<pending>`, D-213) is done: **the ED surfaces render their refusals (`P7-H2`)** — an **adoption,
+Part 3 (`fd7b350`, D-213) is done: **the ED surfaces render their refusals (`P7-H2`)** — an **adoption,
 not a design**. All five ED pages import and render the EXISTING `RefusalNotice.vue`; no new component,
 mechanism or copy, and a test reddens if any ED page rolls its own. Re-measured first and Phase 7's number
 held: **zero of five pages read `errors`** against 10 `withErrors` sites. **All five qualify under D-176**
 (unlike Surgery's excluded `Checklist.vue`), so the guard names the reachable refusal per page. **The board
 refuses in two layers** — the route's `in:` rule and the transition guard — and both now reach the page.
+
+Part 4 (`<pending>`, D-214) closes the gate: **`/app` offers only what the role can open (pattern 1, phases
+1–7)** — and it **overturned seven phases of my own diagnosis**. Phase 7 blamed `NAV_PERMISSIONS`'s fixed
+14-key list; that is wrong for the over-offer half, which is the half every phase measured. `Landing.vue`
+carried **eight `<Link>`s and gated none of them**, so adding module keys to the map would not have removed
+a single 403. Phase 3 had it right and it was not carried forward (`P3-M7`: *"The nav is correct…; the page
+body is not."*). The page now reads `auth.user.permissions` — the prop `AppLayout` has used since FIX.4 —
+and the map gained exactly one key, `patient.edit`, by the D-107/D-110 route. The guard is the PROPERTY:
+six roles × four destinations, the flag must agree with the server.
+**⛔ THE UNDER-OFFER IS DELIBERATELY NOT TAKEN — the gate's STOP condition, applied.** ED, Surgery,
+Pharmacy, Lab, Radiology and Hospital still have **no shell entry**. The remedy is precedented (D-107,
+D-110) but six top-level entries would re-create the density defect **D-111** exists to fix (org_admin's 15
+flat items, capped at 10). The narrower option — grouped menus in the D-111 shape — is information
+architecture, not wiring. **Recorded as OPEN, by decision.**
 
 **QA-FIX.6 PART 4 STOPPED DELIBERATELY — the theatre booking gap is a FEATURE, not wiring.** The gate
 required this determination before any code, and it is a feature on four verified counts: (1)
