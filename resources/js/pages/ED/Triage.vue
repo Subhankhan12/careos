@@ -15,6 +15,7 @@ type Triage = {
     acuity_scale: string;
     acuity_level: string;
     triaged_by: string | null;
+    recorded_by: string | null;
     triaged_at: string;
 };
 type Vital = { recorded_at: string; systolic: number | null; diastolic: number | null; heart_rate: number | null; temperature_c: string | null; spo2: number | null };
@@ -36,8 +37,12 @@ const props = defineProps<{
     actions: { can_record: boolean; store_url: string };
 }>();
 
+// NO PRE-SELECTED NURSE (QA-FIX.7a, P7-C1). This used to default to `nurses[0]` — the alphabetically first
+// of every staff profile in the tenant — so a triage recorded by someone who never touched the field named an
+// uninvolved colleague as the assessing nurse. Who assessed the patient is not something a form may answer on
+// the operator's behalf; the select is `required`, matching the server rule that was always there.
 const form = reactive({
-    triaged_by: props.options.nurses[0]?.id ?? '',
+    triaged_by: '',
     presenting_complaint: props.visit.chief_complaint,
     acuity_scale: props.options.scales[0] ?? 'ESI',
     acuity_level: '',
@@ -85,7 +90,8 @@ function submit(): void {
                 <form class="mt-4 space-y-4" @submit.prevent="submit">
                     <div>
                         <label class="text-xs uppercase tracking-wide text-ink-subtle">{{ t('ed.triage.nurse') }}</label>
-                        <select v-model="form.triaged_by" class="mt-1 w-full rounded-lg border border-euca-200 bg-white px-3 py-2 text-sm">
+                        <select v-model="form.triaged_by" required class="mt-1 w-full rounded-lg border border-euca-200 bg-white px-3 py-2 text-sm">
+                            <option value="" disabled>{{ t('ed.triage.selectNurse') }}</option>
                             <option v-for="n in options.nurses" :key="n.id" :value="n.id">{{ n.name }}</option>
                         </select>
                     </div>
@@ -102,7 +108,7 @@ function submit(): void {
                         </div>
                         <div>
                             <label class="text-xs uppercase tracking-wide text-ink-subtle">{{ t('ed.triage.assignedLevel') }}</label>
-                            <select v-model="form.acuity_level" class="mt-1 w-full rounded-lg border border-euca-200 bg-white px-3 py-2 text-sm">
+                            <select v-model="form.acuity_level" required class="mt-1 w-full rounded-lg border border-euca-200 bg-white px-3 py-2 text-sm">
                                 <option value="" disabled>{{ t('ed.triage.selectLevel') }}</option>
                                 <option v-for="l in levelsForScale" :key="l" :value="l">{{ l }}</option>
                             </select>
@@ -135,7 +141,12 @@ function submit(): void {
                             <span class="text-xs text-ink-subtle">{{ fmt(tri.triaged_at) }}</span>
                         </div>
                         <p class="mt-1 text-sm text-ink">{{ tri.presenting_complaint }}</p>
-                        <p v-if="tri.triaged_by" class="mt-1 text-xs text-ink-muted">{{ t('ed.triage.by', { nurse: tri.triaged_by }) }}</p>
+                        <!-- BOTH people: the nurse whose assessment it is, and the actor who entered it. -->
+                        <p v-if="tri.triaged_by || tri.recorded_by" class="mt-1 text-xs text-ink-muted">
+                            <template v-if="tri.triaged_by">{{ t('ed.triage.by', { nurse: tri.triaged_by }) }}</template>
+                            <template v-if="tri.triaged_by && tri.recorded_by"> · </template>
+                            <template v-if="tri.recorded_by">{{ t('ed.triage.recordedBy', { name: tri.recorded_by }) }}</template>
+                        </p>
                     </li>
                 </ul>
             </div>

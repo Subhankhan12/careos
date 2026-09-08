@@ -2,6 +2,7 @@
 
 namespace Modules\ED\Http\Controllers;
 
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
@@ -21,6 +22,10 @@ use Modules\Platform\Models\User;
  * ED triage (ED.G2) — PRESENTATIONAL over {@see TriageService}. Records the presenting complaint, RAW vitals,
  * and the nurse-ASSIGNED acuity for an {@see EdVisit}, and shows the append-only triage history. String-id
  * (FIX.1). Viewing is `patient.view` (read-logged); recording is `triage.record` (the triage nurse).
+ *
+ * ATTRIBUTION (QA-FIX.7a, P7-C1): the request names the NURSE whose assessment it is (`triaged_by`); the
+ * ACTOR who entered it is taken from the authenticated user inside {@see TriageService} and is deliberately
+ * absent from the validation rules below, so it cannot be forged. The history names both.
  *
  * ELECTRIC FENCE: the acuity the nurse SELECTS is recorded verbatim (a fact, the ASA precedent) — nothing here
  * computes/ranks it. The "suggestion" area is wired to the {@see TriageAcuityProvider}
@@ -48,14 +53,7 @@ class EdTriageController
                 'status' => $record->status,
                 'arrived_at' => $record->arrived_at->toIso8601String(),
             ],
-            'triages' => $triage->forVisit($record)->map(fn (EdTriage $t): array => [
-                'id' => $t->id,
-                'presenting_complaint' => $t->presenting_complaint,
-                'acuity_scale' => $t->acuity_scale,
-                'acuity_level' => $t->acuity_level,          // the ASSIGNED value (a recorded fact)
-                'triaged_by' => $t->triagedBy?->display_name, // provenance
-                'triaged_at' => $t->triaged_at->toIso8601String(),
-            ])->all(),
+            'triages' => $this->triageHistory($triage->forVisit($record)),
             'vitals' => $triage->vitalsForVisit($record)->map(fn (Vital $v): array => [
                 'recorded_at' => $v->recorded_at->toIso8601String(),
                 'systolic' => $v->systolic,
@@ -125,5 +123,36 @@ class EdTriageController
         }
 
         return redirect()->route('ed.visits.triage.show', $record->id)->with('status', 'ed-triage-recorded');
+    }
+
+    /**
+     * The visit's triage history with BOTH people named (QA-FIX.7a, P7-C1).
+     *
+     * `triaged_by` is the nurse whose assessment it is; `recorded_by` is the actor who entered it. They are
+     * resolved separately and never substituted for one another — that substitution IS the finding. A
+     * recorder with no staff profile is shown by the account that acted (the email) rather than guessed at
+     * from a nearby name (the D-195 "refuse, do not guess" rule, the QA-FIX.6b shape).
+     *
+     * @param  Collection<int, EdTriage>  $triages
+     * @return list<array<string, string|null>>
+     */
+    private function triageHistory(Collection $triages): array
+    {
+        // One query for every recorder's profile rather than one per row.
+        $recorderNames = StaffProfile::query()
+            ->whereIn('user_id', $triages->pluck('recorded_by')->filter()->unique()->all())
+            ->pluck('display_name', 'user_id');
+
+        return $triages->map(fn (EdTriage $t): array => [
+            'id' => $t->id,
+            'presenting_complaint' => $t->presenting_complaint,
+            'acuity_scale' => $t->acuity_scale,
+            'acuity_level' => $t->acuity_level,          // the ASSIGNED value (a recorded fact)
+            'triaged_by' => $t->triagedBy?->display_name, // the nurse whose assessment it is
+            'recorded_by' => $t->recorded_by === null    // the actor who entered it — null on pre-D-211 rows
+                ? null
+                : ($recorderNames[$t->recorded_by] ?? $t->recordedBy?->email),
+            'triaged_at' => $t->triaged_at->toIso8601String(),
+        ])->all();
     }
 }

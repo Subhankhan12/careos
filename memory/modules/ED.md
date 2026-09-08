@@ -236,3 +236,29 @@ anywhere in the module; stored times correct UTC.
 **CODE-ESTABLISHED, NOT DRIVEN (P7-H5 makes them unreachable):** `EdBillingService` has the P6-M10
 shape — idempotency read `:101`, captures `:113-121`, link loop `:123-125`, **no transaction**
 (`P7-M5`); `ED/Billing.vue:39` derives money client-side (`P7-M6`).
+
+## QA-FIX.7a — attribution (P7-C1, P7-C2, D-211)
+
+`ed_triages` now has **`recorded_by`** (nullable `users` FK) beside `triaged_by` (`staff_profiles`).
+Two people, two columns, neither substitutes for the other: `triaged_by` is the nurse whose assessment
+it is (an ED scribe legitimately enters a colleague's triage); `recorded_by` is the actor, written from
+the authenticated user in `TriageService::record` and **deliberately absent from
+`EdTriageController::store`'s validation rules**, so it cannot be forged.
+
+**Why a column here and NOT on `stays`:** a triage transitions the visit only when it is still
+`arrived`, so a **re-triage appends no `ed_visit_event`** — there was nowhere else the actor could live.
+An admission is the opposite case: `stay_events.performed_by` already records the actor from
+`AdmissionService::admit`'s own `$actor`, so **no `stays.recorded_by` was added** (D-199), and a test
+pins its absence. `P7-C2` was never a missing actor — it was a missing surface.
+
+Both forms now pre-select **nothing** (`Triage.vue` `triaged_by: ''`; `Disposition.vue`
+`bed_id: '', clinician_id: ''`) with non-selectable prompts and the HTML `required` attribute mirroring
+the server rules, which were `required` before this gate and are unchanged.
+
+**STILL OPEN, deliberately:** the option lists are still
+`StaffProfile::query()->orderBy('display_name')->limit(200)` — unfiltered by profession, unfiltered by
+`status`, and silently capped at 200. That width is what made a `surgical_scheduler` selectable.
+Narrowing it by profession would encode a staffing-policy claim (the D-170 shape) and QA-FIX.6b did not
+filter its own list either, so the choice was made explicit rather than the list narrowed.
+`EdDocumentationController:103` builds the same unfiltered list for note authorship — a fourth instance
+of the shape, never a Phase-7 finding, not touched here.

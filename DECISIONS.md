@@ -4539,3 +4539,50 @@ references the old ID.
   `SurgicalInventoryController` entirely. It also said "the server refuses correctly", which is untrue
   of the two 500s above. Both corrections are written into the finding.
   See [[Surgery]], `docs/qa/ROLE-AUDIT.md` (P6-C3), D-152, D-170, D-176, D-182, [[LOG]].
+
+- **D-211 — An attribution is never a form default, and the actor is never request-sourced; but the
+  actor gets a NEW COLUMN only where one does not already exist.** (QA-FIX.7a — `P7-C1`, `P7-C2`, and
+  the bed default.) Phase 7 found the same shape three times in one module: `ed_triages.triaged_by`,
+  `stays.admitting_clinician_id` and `stays.current_bed_id` all pre-selected the alphabetically first
+  entry of an unfiltered staff/bed list. Driven, both writes **succeeded** and recorded `Beat Suter` — a
+  `surgical_scheduler` who was not present and is not a clinician — as, respectively, the assessing
+  triage nurse and the admitting clinician. Nothing failed, nothing was refused, and no error existed to
+  find. This is D-195's substitution, produced **by default** rather than by a mistaken pick, which is
+  what makes it a class rather than an instance.
+  **THE REMEDY IS D-209's, UNCHANGED, ON THE TRIAGE HALF.** `ed_triages` gains `recorded_by` — a `users`
+  FK taken from the authenticated actor in `TriageService::record` and deliberately absent from the
+  controller's validation rules, so a submitted `recorded_by` is ignored entirely (a test forges one).
+  `triaged_by` keeps its meaning: the nurse whose assessment it is, because an ED scribe or charge nurse
+  legitimately enters a colleague's triage. Both are shown, resolved separately, and neither substitutes
+  for the other.
+  **A COLUMN WAS NEEDED THERE PRECISELY BECAUSE OF THE RE-TRIAGE.** `ed_visit_events.performed_by`
+  already records an actor for a flow transition, but a triage transitions the visit only on the FIRST
+  triage; a re-triage — the case this table is append-only in order to support — appends no event, so for
+  every re-triage there would be no actor anywhere on the clinical record.
+  **AND NO COLUMN WAS ADDED FOR THE ADMISSION, deliberately, correcting the finding.** `P7-C2` reads as
+  `P7-C1` on another table; it is not. `stay_events.performed_by` **already** records the admission
+  actor, written from `AdmissionService::admit`'s own `$actor` inside the same transaction as the `Stay`.
+  Phase 7 observed this ("both steps audited with the real actor") without drawing the consequence: the
+  actor was never missing from the admission, it was missing from every ED **surface**. A
+  `stays.recorded_by` would be a second independently-writable home for one fact — what D-199 exists to
+  prevent — so the fix is to READ the actor that was always being written. A test pins the column's
+  absence so a later "consistency" pass does not add one.
+  **THE BED IS FIXED FOR A DIFFERENT REASON, and the distinction matters.** A bed is not a person, so
+  this is not attribution and not D-195. Admitting **claims** the bed (free → occupied, a real ward and a
+  real place the patient goes), and "the alphabetically first free bed across every ward" is not a
+  clinical reason to pick one. `bed_id` was already `required` server-side; the change is that the client
+  stops supplying an answer nobody gave.
+  **NO SERVER GATE WAS WEAKENED TO MAKE THE DEFAULTS REMOVABLE** — `triaged_by`, `bed_id` and
+  `clinician_id` were all `required` before this gate and still are. Two positive controls assert the
+  refusals survive, and that a refused admit leaves the bed **free**. The three selects gained the HTML
+  `required` attribute, which mirrors the server rule rather than adding one.
+  **HISTORICAL ROWS ARE NOT REWRITTEN** (following D-193 / D-197 / D-202): `recorded_by` is nullable, and
+  rows written before it existed genuinely have no recorded actor. Inventing one would be a fabricated
+  attribution — the defect, not the fix. Those actors survive in the audit ledger, which is where `P7-C1`
+  recovered them.
+  **Guarded by** twelve tests, mutation-checked three ways: dropping `'recorded_by' => $actor->id`,
+  restoring `props.options.nurses[0]?.id`, and blanking the admission actor on the disposition payload
+  each redden their own guard. A final positive control re-asserts the acuity fence at column level,
+  because adding a column is exactly when a judgment column could slip in.
+  See [[ED]], [[Hospital]], `docs/qa/ROLE-AUDIT.md` (P7-C1, P7-C2), D-169, D-182, D-195, D-199, D-209,
+  [[LOG]].

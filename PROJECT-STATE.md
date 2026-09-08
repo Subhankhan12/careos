@@ -191,6 +191,19 @@ physician cannot prescribe and the ED record has no medication section at all. *
 PARTIAL (2 of 3):** re-triage appends ✅, audited with the real actor ✅, attribution ❌. **Nothing is fixed
 — audit only.**
 
+**QA-FIX.7 is fixing the Phase-7 findings plus the cross-phase nav root cause, in four parts.** Part 1
+(`<pending>`, D-211) is done: **ED triage and admission record the ACTOR, and attribution fields no longer
+default (`P7-C1`, `P7-C2`, and the bed).** `ed_triages` gains `recorded_by` (nullable `users` FK, taken
+from the authenticated user, absent from the validation rules so it cannot be forged) — needed there
+because a **re-triage appends no `ed_visit_event`**, so the actor had nowhere else to live. **The
+admission needed NO new column, correcting the finding:** `stay_events.performed_by` already recorded
+that actor from `AdmissionService::admit`'s own `$actor`; a `stays.recorded_by` would be a second home
+for one fact (D-199), so `P7-C2` was a missing **surface**, not a missing actor, and a test pins the
+column's absence. Both forms now pre-select nothing; no server gate was weakened (all three fields were
+`required` before and still are, with positive controls proving it, including that a refused admit leaves
+the bed **free**). The **option-list width is deliberately still open** — filtering by profession would
+encode a staffing-policy claim (the D-170 shape).
+
 **QA-FIX.6 PART 4 STOPPED DELIBERATELY — the theatre booking gap is a FEATURE, not wiring.** The gate
 required this determination before any code, and it is a feature on four verified counts: (1)
 `TheatreSchedulingService` has NO controller and NO route (the only "theatre" route sets a tariff PRICE);

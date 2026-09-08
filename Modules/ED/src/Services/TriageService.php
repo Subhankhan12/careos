@@ -81,6 +81,10 @@ class TriageService
                 'patient_id' => $visit->patient_id,
                 'ed_visit_id' => $visit->id,
                 'triaged_by' => $nurse->id,
+                // The ACTOR, from the authenticated user this service was handed — never from the request
+                // (QA-FIX.7a, P7-C1). `triaged_by` is the nurse whose assessment it is; the two are distinct
+                // people and neither stands in for the other.
+                'recorded_by' => $actor->id,
                 'triaged_at' => Carbon::now(),
                 'presenting_complaint' => $presentingComplaint,
                 'acuity_scale' => $acuityScale,

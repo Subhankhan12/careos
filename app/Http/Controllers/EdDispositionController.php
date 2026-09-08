@@ -14,6 +14,7 @@ use Modules\Hospital\Exceptions\AdmissionException;
 use Modules\Hospital\Exceptions\BedNotAvailableException;
 use Modules\Hospital\Models\Bed;
 use Modules\Hospital\Models\Stay;
+use Modules\Hospital\Models\StayEvent;
 use Modules\Hospital\Models\Ward;
 use Modules\People\Models\StaffProfile;
 use Modules\Platform\Exceptions\CrossTenantReferenceException;
@@ -28,6 +29,11 @@ use Modules\Platform\Models\User;
  * Read = `ed.manage` (ED staff); the disposition write = `ed.manage`, and ADMIT additionally requires
  * `admission.manage` (enforced in the service + AdmissionService). ELECTRIC FENCE: the disposition is the
  * clinician's recorded DECISION — nothing is computed/suggested; nothing auto-decides.
+ *
+ * ATTRIBUTION (QA-FIX.7a, P7-C2): the request names the admitting CLINICIAN and the target BED; both are
+ * explicit choices with no pre-selected default, because a default is an answer nobody gave. The ACTOR is
+ * never request-sourced — see {@see admissionActorName()} for where it already lives and why no column was
+ * added for it.
  */
 class EdDispositionController extends Controller
 {
@@ -68,6 +74,9 @@ class EdDispositionController extends Controller
                 'bed' => $stay->currentBed?->label,
                 'admitted_at' => $stay->admitted_at->toIso8601String(),
                 'admission_type' => $stay->admission_type,
+                // BOTH people, never one standing in for the other (QA-FIX.7a, P7-C2).
+                'admitting_clinician' => $stay->admittingClinician?->display_name,
+                'recorded_by' => $this->admissionActorName($stay),
             ],
             'actions' => [
                 'can_admit' => $canAdmit,
@@ -125,5 +134,36 @@ class EdDispositionController extends Controller
         }
 
         return redirect()->route('ed.visits.disposition.show', $record->id)->with('status', 'ed-dispositioned');
+    }
+
+    /**
+     * The ACTOR who performed the admission (QA-FIX.7a, P7-C2) — the person at the keyboard, as distinct from
+     * `stays.admitting_clinician_id`, the clinician the operator NAMED.
+     *
+     * NO NEW COLUMN WAS ADDED FOR THIS, deliberately. `stay_events.performed_by` already records the actor:
+     * `AdmissionService::admit` appends the `admitted` event from its `$actor` inside the same transaction as
+     * the Stay, and it is a `users` FK that is never request-sourced. Adding `stays.recorded_by` would make a
+     * second, independently-writable home for one fact — the failure mode D-199 exists to prevent — so the
+     * fix here is to READ the actor that was always being written and to SHOW it, since Phase 7's defect was
+     * that no ED surface named either person.
+     *
+     * The nurse/clinician distinction is real for an emergency admission: an ED charge nurse routinely admits
+     * on the physician's decision, so the two columns can legitimately differ and neither may be inferred
+     * from the other (D-195). A recorder with no staff profile is shown by the account that acted.
+     */
+    private function admissionActorName(Stay $stay): ?string
+    {
+        $event = StayEvent::query()
+            ->where('stay_id', $stay->id)
+            ->where('event_type', StayEvent::TYPE_ADMITTED)
+            ->orderBy('occurred_at')
+            ->first();
+
+        if ($event === null) {
+            return null;
+        }
+
+        return StaffProfile::query()->where('user_id', $event->performed_by)->value('display_name')
+            ?? User::query()->whereKey($event->performed_by)->value('email');
     }
 }

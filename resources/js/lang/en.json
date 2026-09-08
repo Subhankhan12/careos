@@ -534,7 +534,9 @@
             "recordedAt": "Recorded",
             "bp": "BP",
             "hr": "HR",
-            "temp": "Temp"
+            "temp": "Temp",
+            "selectNurse": "Select the triage nurse",
+            "recordedBy": "recorded by {name}"
         },
         "board": {
             "title": "ED tracking board",
@@ -611,7 +613,11 @@
             "admitHint": "Admitting creates an inpatient stay via the existing admission flow (emergency admission).",
             "note": "Note (optional)",
             "save": "Record disposition",
-            "notReady": "This visit is not yet awaiting disposition."
+            "notReady": "This visit is not yet awaiting disposition.",
+            "selectBed": "Select a bed",
+            "selectClinician": "Select the admitting clinician",
+            "admittedBy": "Admitting clinician: {name}",
+            "recordedBy": "recorded by {name}"
         },
         "billing": {
             "title": "ED billing",

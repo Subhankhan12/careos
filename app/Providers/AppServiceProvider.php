@@ -501,7 +501,7 @@ class AppServiceProvider extends ServiceProvider
             'patient_id' => $m->patient_id,
             'resource_type' => 'ed_triage',
             'resource_id' => $m->id,
-            'context' => ['ed_visit_id' => $m->ed_visit_id, 'acuity_scale' => $m->acuity_scale, 'acuity_level' => $m->acuity_level, 'triaged_by' => $m->triaged_by],
+            'context' => ['ed_visit_id' => $m->ed_visit_id, 'acuity_scale' => $m->acuity_scale, 'acuity_level' => $m->acuity_level, 'triaged_by' => $m->triaged_by, 'recorded_by' => $m->recorded_by],
         ]));
 
         // Laboratory / LIS (LAB.G1 — Phase 3) — tenant-level (a catalog item, not patient-scoped) — so Lab

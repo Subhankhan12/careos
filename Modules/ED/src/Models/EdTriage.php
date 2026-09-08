@@ -11,6 +11,7 @@ use Modules\ED\Contracts\TriageAcuityProvider;
 use Modules\ED\Exceptions\EdVisitException;
 use Modules\People\Models\StaffProfile;
 use Modules\Platform\Concerns\BelongsToTenant;
+use Modules\Platform\Models\User;
 
 /**
  * A TRIAGE record for an {@see EdVisit} (ED.G2) — the triage nurse's arrival assessment: the presenting
@@ -18,6 +19,14 @@ use Modules\Platform\Concerns\BelongsToTenant;
  * re-triage is a NEW row; the history preserved) — model `updating`/`deleting` guards (belt) + `SIGNAL '45000'`
  * DB triggers (suspenders). Raw vitals at triage are the EXISTING Clinical `Vital` (recorded separately, RAW —
  * no bands/flags/scores). Patient-scoped read-logged ({@see LogsReads}).
+ *
+ * TWO PEOPLE, TWO COLUMNS, and they must never stand in for each other (QA-FIX.7a, P7-C1, the QA-FIX.2a /
+ * QA-FIX.6b / D-195 rule): {@see $triaged_by} is the NURSE whose assessment this is — a `staff_profiles` id
+ * the operator selects, because an ED scribe or charge nurse legitimately enters a colleague's triage.
+ * {@see $recorded_by} is the ACTOR who entered it — a `users` id taken from the authenticated user and NEVER
+ * submitted by the client. Before it existed, a triage could name an uninvolved colleague with no record at
+ * all of who typed it, and Phase 7 drove exactly that. It is nullable ONLY for rows written before the column
+ * existed (D-211); those are not rewritten.
  *
  * ELECTRIC FENCE (the vertical's crux — docs/HOSPITAL-PHASE6-ED-MAP.md §3): `acuity_level` is a value the NURSE
  * **ASSIGNS** applying a protocol with their own judgment — a RECORDED FACT, exactly like
@@ -32,6 +41,7 @@ use Modules\Platform\Concerns\BelongsToTenant;
  * @property string $patient_id
  * @property string $ed_visit_id
  * @property string $triaged_by
+ * @property int|null $recorded_by
  * @property Carbon $triaged_at
  * @property string $presenting_complaint
  * @property string $acuity_scale
@@ -40,6 +50,7 @@ use Modules\Platform\Concerns\BelongsToTenant;
  * @property Carbon|null $updated_at
  * @property-read EdVisit|null $edVisit
  * @property-read StaffProfile|null $triagedBy
+ * @property-read User|null $recordedBy
  */
 class EdTriage extends Model
 {
@@ -76,6 +87,7 @@ class EdTriage extends Model
         'patient_id',
         'ed_visit_id',
         'triaged_by',
+        'recorded_by',
         'triaged_at',
         'presenting_complaint',
         'acuity_scale',
@@ -89,6 +101,7 @@ class EdTriage extends Model
     {
         return [
             'triaged_at' => 'datetime',
+            'recorded_by' => 'integer',
         ];
     }
 
@@ -122,9 +135,16 @@ class EdTriage extends Model
         return $this->belongsTo(EdVisit::class);
     }
 
+    /** The NURSE whose assessment this is (selected) — clinical provenance. */
     public function triagedBy(): BelongsTo
     {
         return $this->belongsTo(StaffProfile::class, 'triaged_by');
+    }
+
+    /** The ACTOR who entered it (authenticated, never submitted) — QA-FIX.7a, P7-C1. */
+    public function recordedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'recorded_by');
     }
 
     protected function auditPatientId(): ?string

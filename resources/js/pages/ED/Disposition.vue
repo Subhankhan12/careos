@@ -13,7 +13,7 @@ const props = defineProps<{
     visit: { id: string; patient: string; status: string; chief_complaint: string; disposition: string | null; dispositioned_at: string | null };
     can_dispose: boolean;
     dispositions: string[];
-    stay: { id: string; ward: string | null; bed: string | null; admitted_at: string; admission_type: string } | null;
+    stay: { id: string; ward: string | null; bed: string | null; admitted_at: string; admission_type: string; admitting_clinician: string | null; recorded_by: string | null } | null;
     actions: {
         can_admit: boolean;
         can_bill: boolean;
@@ -25,8 +25,14 @@ const props = defineProps<{
     };
 }>();
 
+// NOTHING PRE-SELECTED (QA-FIX.7a, P7-C2). Both fields used to default to the alphabetically first entry, so
+// an admit submitted without touching them named an uninvolved colleague as the admitting clinician and put
+// the patient in a bed nobody chose. The clinician is a person, and an attribution is never a default; the
+// bed is not a person, but admitting CLAIMS it (free → occupied, a real ward and a real place the patient
+// goes), and "first alphabetically" is not a clinical reason to pick one. Both selects are `required`,
+// matching the server rules that were always there for an admit.
 const choice = ref<'admit' | 'discharge' | 'transfer'>('discharge');
-const form = reactive({ note: '', bed_id: props.actions.beds[0]?.id ?? '', clinician_id: props.actions.clinicians[0]?.id ?? '' });
+const form = reactive({ note: '', bed_id: '', clinician_id: '' });
 
 function fmt(iso: string | null): string {
     if (!iso) return '—';
@@ -64,6 +70,11 @@ function submit(): void {
                 <div v-if="stay" class="mt-3 rounded-lg border border-euca-100 p-3 text-sm">
                     <p class="font-semibold text-ink">{{ t('ed.disposition.admittedTo') }}</p>
                     <p class="text-ink-subtle">{{ stay.ward ?? '—' }} · {{ stay.bed ?? '—' }} · {{ t('ed.disposition.emergencyAdmission') }} · {{ fmt(stay.admitted_at) }}</p>
+                    <!-- BOTH people: the clinician named as admitting, and the actor who performed it. -->
+                    <p class="mt-1 text-xs text-ink-muted">
+                        {{ t('ed.disposition.admittedBy', { name: stay.admitting_clinician ?? '—' }) }}
+                        · {{ t('ed.disposition.recordedBy', { name: stay.recorded_by ?? '—' }) }}
+                    </p>
                 </div>
             </div>
 
@@ -89,14 +100,16 @@ function submit(): void {
                     <template v-if="choice === 'admit'">
                         <div>
                             <label class="text-xs uppercase tracking-wide text-ink-subtle">{{ t('ed.disposition.bed') }}</label>
-                            <select v-model="form.bed_id" class="mt-1 w-full rounded-lg border border-euca-200 bg-white px-3 py-2 text-sm">
+                            <select v-model="form.bed_id" required class="mt-1 w-full rounded-lg border border-euca-200 bg-white px-3 py-2 text-sm">
+                                <option value="" disabled>{{ t('ed.disposition.selectBed') }}</option>
                                 <option v-for="b in actions.beds" :key="b.id" :value="b.id">{{ b.label }}</option>
                             </select>
                             <p v-if="!actions.beds.length" class="mt-1 text-xs text-danger">{{ t('ed.disposition.noBeds') }}</p>
                         </div>
                         <div>
                             <label class="text-xs uppercase tracking-wide text-ink-subtle">{{ t('ed.disposition.clinician') }}</label>
-                            <select v-model="form.clinician_id" class="mt-1 w-full rounded-lg border border-euca-200 bg-white px-3 py-2 text-sm">
+                            <select v-model="form.clinician_id" required class="mt-1 w-full rounded-lg border border-euca-200 bg-white px-3 py-2 text-sm">
+                                <option value="" disabled>{{ t('ed.disposition.selectClinician') }}</option>
                                 <option v-for="c in actions.clinicians" :key="c.id" :value="c.id">{{ c.name }}</option>
                             </select>
                         </div>

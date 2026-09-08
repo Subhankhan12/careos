@@ -83,6 +83,7 @@ every later phase's timestamp observation suspect, and past-time booking was liv
 | `P6-L2` | LOW | ✅ **FIXED** | QA-FIX.6a | `9d5c047` |
 | `P6-C2` | CRITICAL | ✅ **FIXED** | QA-FIX.6b | `f8b7a7b` |
 | `P6-C3` | CRITICAL | ✅ **FIXED** | QA-FIX.6c | `1388af3` |
+| `P7-C1` · `P7-C2` | CRITICAL | ✅ **FIXED** | QA-FIX.7a | `<pending>` |
 | all others | — | 📋 recorded, not fixed | — | — |
 
 *(A commit cannot contain its own hash. Per the repo-wide marker convention, `<pending>` is backfilled
@@ -3813,6 +3814,29 @@ time (`12 min`) — a plain duration since arrival, with **no target, no breach 
 - **Why CRITICAL:** a triage is the ED's core safety record and its acuity drives who is seen first. A
   record naming an uninvolved non-clinician as the assessor is a triage-record misrepresentation.
 
+> ✅ **FIXED — QA-FIX.7a, commit `<pending>` (D-211).** QA-FIX.6b's remedy, applied unchanged.
+> `ed_triages` gains **`recorded_by`** — a `users` FK written from the authenticated actor inside
+> `TriageService::record` and deliberately absent from the controller's validation rules, so it cannot
+> be submitted. `triaged_by` is untouched and still means the nurse whose assessment it is; the two are
+> resolved separately on the triage screen and neither substitutes for the other (D-195).
+> **`Triage.vue:40`'s default is gone** — `triaged_by: ''` with a non-selectable "Select the triage
+> nurse" prompt and `required`, matching the server rule that was always there. The audit context now
+> carries both people.
+> **WHY A COLUMN HERE AND NOT AN EVENT ROW.** `ed_visit_events.performed_by` already records an actor,
+> but a triage only transitions the visit on the FIRST triage — a **re-triage**, the case this table is
+> append-only to support, appends no event at all, so for every re-triage there would be no actor
+> anywhere on the clinical record. A test drives exactly that and asserts only one `triaged` event
+> exists for two triage rows.
+> **The column is NULLABLE and no historical row is rewritten** (D-211, following D-193/D-197/D-202):
+> rows written before it existed genuinely have no recorded actor, and inventing one would be a
+> fabricated attribution — the defect, not the fix. Those actors remain in the audit ledger, which is
+> where this finding recovered them.
+> **Guarded by** six tests, mutation-checked: removing `'recorded_by' => $actor->id` reddens the actor
+> test; restoring `props.options.nurses[0]?.id` reddens the structural guard. A positive control asserts
+> the server still **refuses** a triage naming no nurse, so the default was not removed by loosening a
+> rule. A second positive control re-asserts the fence at column level, because a new column is exactly
+> when a judgment column could slip in.
+
 #### `P7-C2` — The same defaulted attribution on an INPATIENT ADMISSION: the admitting clinician is whoever sorts first
 
 - **Role:** `ed_physician` · **Route:** `POST /ed/visits/{visit}/disposition` (the ED→inpatient handoff)
@@ -3830,6 +3854,29 @@ time (`12 min`) — a plain duration since arrival, with **no target, no breach 
   stay**, outside the ED entirely, where later readers have no reason to suspect it. It is also a
   **third** instance of one pattern in this module — triaged-by, admitting clinician, and bed all default
   to "first in the list" — so the shape is systemic rather than a slip.
+
+> ✅ **FIXED — QA-FIX.7a, commit `<pending>` (D-211), and it needed NO new column.**
+> **A CORRECTION TO THIS FINDING, made while fixing it.** The finding treats `P7-C2` as `P7-C1` on a
+> different table and implies the same remedy. It is not. `stay_events.performed_by` **already records
+> the admission actor** — a `users` FK written from `AdmissionService::admit`'s own `$actor`, inside the
+> same transaction as the `Stay`, never request-sourced. Phase 7 in fact observed this ("both steps
+> audited with the real actor") without drawing the consequence: the actor was never missing from the
+> admission, it was missing from every ED **surface**. Adding `stays.recorded_by` would have created a
+> second, independently-writable home for one fact — what D-199 exists to prevent — so it was not added,
+> and a test pins its absence so a later "consistency with `ed_triages`" pass does not add one.
+> **What was actually wrong, and is fixed:** `Disposition.vue:29`'s two defaults are gone
+> (`bed_id: '', clinician_id: ''`, non-selectable prompts, `required`), and the disposition screen now
+> names **both** people for an admitted visit — the clinician named as admitting, and the actor who
+> performed it, read back from the `admitted` stay event.
+> **THE BED, decided separately, because a bed is not a person.** It is not an attribution and it is not
+> D-195. It is fixed for a different reason: admitting **claims** the bed (free → occupied, a real ward
+> and a real place the patient goes), and the default answered "which bed" with "the alphabetically
+> first free one across every ward", which is not a reason. `bed_id` was already `required` server-side;
+> the change is that the client stops supplying an answer nobody gave. A positive control asserts an
+> empty admit is still refused **and that the bed is not claimed**.
+> **The nurse/clinician distinction stays real.** An ED charge nurse routinely admits on the physician's
+> decision, so the two columns can legitimately differ — which is precisely why neither may be inferred
+> from the other.
 
 #### `P7-C3` — The ED board's "Recorded acuity" sort INVERTS clinical priority on the Manchester scale
 
