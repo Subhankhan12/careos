@@ -86,7 +86,7 @@ every later phase's timestamp observation suspect, and past-time booking was liv
 | `P7-C1` · `P7-C2` | CRITICAL | ✅ **FIXED** | QA-FIX.7a | `d3e0f3c` |
 | `P7-C3` | CRITICAL | ✅ **FIXED** | QA-FIX.7b | `ec3695e` |
 | `P7-H2` | HIGH | ✅ **FIXED** | QA-FIX.7c | `fd7b350` |
-| pattern 1 (`P1-H1`·`P2-H2`·`P3-M7`·`P4-H5`·`P5-H2`·`P6-H4`·`P7-H4`) — the OVER-OFFER half | HIGH | ✅ **FIXED** | QA-FIX.7d | `<pending>` |
+| pattern 1 (`P1-H1`·`P2-H2`·`P3-M7`·`P4-H5`·`P5-H2`·`P6-H4`·`P7-H4`) — the OVER-OFFER half | HIGH | ✅ **FIXED** | QA-FIX.7d | `c999181` |
 | all others | — | 📋 recorded, not fixed | — | — |
 
 *(A commit cannot contain its own hash. Per the repo-wide marker convention, `<pending>` is backfilled
@@ -4489,7 +4489,7 @@ tracking board — the group's primary surface — is reachable only by typing a
 > `ed.manage` to the map would not have removed a single one of the 403s any phase drove.
 > The map's size is real, but it belongs **only** to the under-offer half.
 >
-> ✅ **THE OVER-OFFER IS FIXED — QA-FIX.7d, commit `<pending>` (D-214).** `Landing.vue` now reads
+> ✅ **THE OVER-OFFER IS FIXED — QA-FIX.7d, commit `c999181` (D-214).** `Landing.vue` now reads
 > `auth.user.permissions` (the prop `AppLayout` has gated on since FIX.4) and hides what the role cannot
 > open; a panel whose every action is hidden does not render (D-176). `NAV_PERMISSIONS` gained exactly one
 > key, `patient.edit`, by the D-107 / D-110 route. The guard is the PROPERTY, not the template: for six

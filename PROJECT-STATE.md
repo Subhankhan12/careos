@@ -221,7 +221,7 @@ held: **zero of five pages read `errors`** against 10 `withErrors` sites. **All 
 (unlike Surgery's excluded `Checklist.vue`), so the guard names the reachable refusal per page. **The board
 refuses in two layers** — the route's `in:` rule and the transition guard — and both now reach the page.
 
-Part 4 (`<pending>`, D-214) closes the gate: **`/app` offers only what the role can open (pattern 1, phases
+Part 4 (`c999181`, D-214) closes the gate: **`/app` offers only what the role can open (pattern 1, phases
 1–7)** — and it **overturned seven phases of my own diagnosis**. Phase 7 blamed `NAV_PERMISSIONS`'s fixed
 14-key list; that is wrong for the over-offer half, which is the half every phase measured. `Landing.vue`
 carried **eight `<Link>`s and gated none of them**, so adding module keys to the map would not have removed
