@@ -102,7 +102,7 @@ every later phase's timestamp observation suspect, and past-time booking was liv
 | `P10-C1` | CRITICAL | ✅ **FIXED** | QA-FIX.9b | `4e610b0` |
 | `P9-C3` | CRITICAL | ✅ **FIXED** | QA-FIX.9c | `db57327` |
 | `P9-C1` | CRITICAL | ✅ **FIXED** | QA-FIX.10a | `8eaa1a4` |
-| `P9-C2` | CRITICAL | ✅ **FIXED** | QA-FIX.10b | `<pending>` |
+| `P9-C2` | CRITICAL | ✅ **FIXED** | QA-FIX.10b | `90f82d0` |
 | all others | — | 📋 recorded, not fixed | — | — |
 
 *(A commit cannot contain its own hash. Per the repo-wide marker convention, `<pending>` is backfilled
@@ -5334,7 +5334,7 @@ controls the two phase roles cannot reach: `lena.studer@klinik-bergblick.test` (
 
 #### `P9-C2` — A record release is invisible to the patient it discloses, on the screen built to show exactly that
 
-> ✅ **FIXED — QA-FIX.10b, commit `<pending>` (D-222).** The report is now complete over **disclosures**,
+> ✅ **FIXED — QA-FIX.10b, commit `90f82d0` (D-222).** The report is now complete over **disclosures**,
 > not over reads, and the page says so.
 > **THE SET IS NAMED ONCE:** `PatientAccessReport::DISCLOSURE_ACTIONS = ['read', 'document.shared',
 > 'document.unshared']`, and all three of the class's queries — the row list and both counters the screen

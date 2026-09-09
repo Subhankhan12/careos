@@ -374,7 +374,7 @@ controller FILE and wrongly called `DentalImageController::download` unaudited �
 `DentalImagingService::fileContents()`. **A file-level grep answers "does this file audit", not "does this
 REQUEST audit".** **`P9-C2` is NOT closed by this** and is Part 2.
 
-**QA-FIX.10 Part 2 (`<pending>`, D-222) is done: the patient's access log is complete over DISCLOSURES
+**QA-FIX.10 Part 2 (`90f82d0`, D-222) is done: the patient's access log is complete over DISCLOSURES
 rather than reads, and the page states what it leaves out (`P9-C2`).** `PatientAccessReport` bound the
 literal `'read'`, so a document released to a patient's portal — a correct, patient-scoped, hash-chained
 `document.shared` row — was filtered out of the artifact built to disclose it, while the screen claimed to
