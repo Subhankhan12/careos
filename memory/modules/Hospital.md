@@ -443,3 +443,41 @@ machine has no consumer; `AdmissionService` asserts inline instead.
 **D-211 verified and holding:** the admit form's bed selector is still `bed_id: ''` + `required` + an
 explicit `selectBed` placeholder, and no Hospital page pre-selects a person or resource. See [[Patients]],
 [[Clinical]], [[Platform]], [[LOG]].
+
+## QA-FIX.9c (2026-09-09) — `P9-C3`: a ward round records its WRITER, not the admitting clinician
+
+**THE STUDY, AND WHY THE ANSWER IS NOT QA-FIX.2a's.** `BedsideChartService` resolved
+`StaffProfile::findOrFail($stay->admitting_clinician_id)` once and passed it three ways: Encounter
+**practitioner**, note **author**, vital **recorder**. D-195 settled the outpatient case by keeping the
+ENCOUNTER on its booked clinician and moving only the note. **That rule does not transfer: a ward round
+has no booking, so there is no booked clinician to keep.** All three change. Three pieces of evidence
+agree — the chart already presents the practitioner as the doer beside the round's timestamp; the
+admitting clinician is already recorded on the stay, so copying it onto each round adds nothing and
+asserts something false; and Clinical's one-open-encounter-**per-practitioner** invariant collapsed a
+whole stay to ONE concurrent round because the practitioner was always the same person (an operational
+cost, now covered by a test that two clinicians can round on the same stay).
+
+**WHAT LEGITIMATELY DOES NOT CHANGE:** `stays.admitting_clinician_id` — a different fact (responsibility
+for the ADMISSION), chosen on the admit form, asserted unchanged by its own test. Nothing is lost.
+
+**IT WAS UNCONDITIONAL** — worse than `P8-C2`, whose fallback fired only when the actor had no profile.
+Here the actor HAS one and `StaffProfile::forUser()` returns it correctly, one call away, never asked.
+
+**REFUSE, DO NOT GUESS (D-195, D-216):** no staff profile → the round throws `InvalidArgumentException`,
+the observation `AdmissionException::unidentifiedRecorder()`; both land in catch blocks the controller
+**already had**, so no new exception type and no new controller branch.
+
+**HISTORICAL ROWS: COUNTABLE, COUNT IS ZERO.** Unlike `P8-C2`, the substitution was unconditional, so every
+affected row is reachable by joining `ward_rounds.encounter_id` to `encounters`, `clinical_notes` and
+`vitals`. Across the four demo tenants: **0 rounds, 0 notes, 0 vitals** — no seeder creates a ward round.
+No row rewritten (D-197 posture); the query is in D-220 for a real deployment.
+
+**`P9-H6` IS NOT CLOSED BY THIS** — same pattern, different cause: an unattended command has no session
+actor, and its remedy is `SystemActorResolver::forPermission()`. Still open.
+
+**Guarded by** 8 tests whose fixture makes **actor ≠ admitting clinician on purpose** — the property whose
+absence let `P2-C1`, `P6-C2`, `P7-C1` and `P9-C3` survive their own suites — including the RENDERED chart
+name and both refusals. Mutation-checked two ways (round substitution → 5 red; vital substitution → 2 red),
+each grep-confirmed with a comment-stripped count. **`BedsideChartTest`'s fixture was CORRECTED** (its
+acting user had no staff profile at all, part of why this could hide there); no behaviour assertion
+changed. See D-220, [[Clinical]], [[LOG]].

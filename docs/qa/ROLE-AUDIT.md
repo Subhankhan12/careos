@@ -99,7 +99,8 @@ every later phase's timestamp observation suspect, and past-time booking was liv
 | `P8-C2` | CRITICAL | ✅ **FIXED** | QA-FIX.8b | `5a16624` |
 | `P8-H2` · `P7-M5` | HIGH · MEDIUM | ✅ **FIXED** | QA-FIX.8c | `946cf87` |
 | `P10-C3` | CRITICAL | ✅ **FIXED** | QA-FIX.9a | `817a875` |
-| `P10-C1` | CRITICAL | ✅ **FIXED** | QA-FIX.9b | `<pending>` |
+| `P10-C1` | CRITICAL | ✅ **FIXED** | QA-FIX.9b | `4e610b0` |
+| `P9-C3` | CRITICAL | ✅ **FIXED** | QA-FIX.9c | `<pending>` |
 | all others | — | 📋 recorded, not fixed | — | — |
 
 *(A commit cannot contain its own hash. Per the repo-wide marker convention, `<pending>` is backfilled
@@ -5323,6 +5324,34 @@ controls the two phase roles cannot reach: `lena.studer@klinik-bergblick.test` (
 
 #### `P9-C3` — Every ward round, note and observation is stored as the ADMITTING CLINICIAN, not the person who did it — even when the actor has a staff profile
 
+> ✅ **FIXED — QA-FIX.9c, commit `<pending>` (D-220).** All THREE attributions now record the person who
+> performed the round: the Encounter's practitioner, the note's author and the vital's recorder, each
+> resolved from `StaffProfile::forUser($actor)`.
+> **THE STUDY'S CONCLUSION, WHICH IS NOT THE SAME AS QA-FIX.2a's.** D-195 kept an outpatient ENCOUNTER on
+> its booked clinician — *"whose visit is this"* — and changed only the note. **That rule does not transfer
+> here, because a ward round has no booking and therefore no booked clinician.** Three pieces of evidence
+> agree: the chart already presents the practitioner as the doer beside the round's timestamp; the
+> admitting clinician is already recorded where responsibility belongs, on the stay; and Clinical's
+> one-open-encounter-**per-practitioner** invariant collapsed the whole stay to one concurrent round
+> precisely because the practitioner was always the same person — so the substitution had an operational
+> cost too. A test now asserts two different clinicians can round on the same stay.
+> **WHAT LEGITIMATELY DOES NOT CHANGE:** `stays.admitting_clinician_id`, asserted unchanged by its own
+> test. Nothing is lost, because that fact never left the stay — the admission page still names it, and
+> the note editor already names author and signatory distinctly (QA-FIX.2a). No new UI was invented.
+> **REFUSE, DO NOT GUESS (D-195, D-216):** an actor with no staff profile is refused — the round throws
+> `InvalidArgumentException`, the observation `AdmissionException::unidentifiedRecorder()` — both landing
+> in catch blocks the controller already had.
+> **HISTORICAL ROWS: COUNTABLE, AND THE COUNT IS ZERO.** Unlike `P8-C2`, the substitution was
+> unconditional, so every affected row is reachable by joining `ward_rounds.encounter_id` to `encounters`,
+> `clinical_notes` and `vitals`. Measured across the four demo tenants: **0 rounds, 0 notes, 0 vitals** —
+> no seeder creates a ward round, and the rows Phase 9 created by driving were removed by the re-seed. No
+> row is rewritten (the D-197 posture); the query is recorded in D-220 for a real deployment.
+> **`P9-H6` IS NOT CLOSED BY THIS.** It is the same PATTERN — a person resolved by convenience — with a
+> different cause: an unattended command has no session actor to ask about, and its remedy is
+> `SystemActorResolver::forPermission()`. It stays open.
+> **RE-DRIVEN VIA PLAYWRIGHT MCP, the finding's exact steps** — see the verification recorded with the
+> commit: a ward round started by the nurse, and the note editor's byline read.
+
 - **Role:** `ward_nurse` · **Routes:** `POST /hospital/admissions/{stay}/rounds`, `POST …/vitals`
 - **Steps, in the browser.** Signed in as Lena Studer (`ward_nurse`; holds `note.write` and
   `encounter.manage`), opened Rolf Schmid's bedside chart, clicked **Start ward round**, then **Record
@@ -5941,7 +5970,7 @@ Server clock `2026-09-09 01:13 UTC`, tenant display zone `Europe/Zurich`, audit 
 
 #### `P10-C1` — The default seeder creates a platform super-admin with a published password, and nothing stops it running in production
 
-> ✅ **FIXED — QA-FIX.9b, commit `<pending>` (D-219).** The refusal now lives on the seeders rather than in
+> ✅ **FIXED — QA-FIX.9b, commit `4e610b0` (D-219).** The refusal now lives on the seeders rather than in
 > the wiring. `Database\Seeders\Concerns\RefusesOutsideDevelopment` is used by all four demo seeders, each
 > calling `assertDisposableEnvironment()` as the FIRST statement of `run()`, so it holds however the seeder
 > is reached — `--class=`, a call from `DatabaseSeeder`, a nested `$this->call()`, tinker or a job — and

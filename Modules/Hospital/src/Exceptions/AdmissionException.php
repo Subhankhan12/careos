@@ -45,6 +45,12 @@ class AdmissionException extends RuntimeException
         return new self("Stay {$stayId} has no ward round yet — start a ward round before charting.");
     }
 
+    /** QA-FIX.9c (D-220): an observation records who took it, so an unidentifiable actor refuses. */
+    public static function unidentifiedRecorder(): self
+    {
+        return new self('Your user account has no staff profile, so an observation cannot record who took it.');
+    }
+
     public static function nothingToInvoice(string $stayId): self
     {
         return new self("Stay {$stayId} has no accrued charges to invoice.");

@@ -310,7 +310,7 @@ refusal or a second Send used to be a 500. **Guarded by** 7 tests, mutation-chec
 confirmed applied by a comment-stripped count (a raw grep for `comms.manage` in the controller returns 5;
 the code count is 2). **Pint caught a lie:** `composer check` exited 0 while Pint had FAILED.
 
-Part 2 (`<pending>`, D-219) is done: **demo seeders refuse to run in production by their own guard, and the
+Part 2 (`4e610b0`, D-219) is done: **demo seeders refuse to run in production by their own guard, and the
 skeleton platform super-admin is confined to a disposable database (`P10-C1`).** **THE STUDY'S KEY FINDING
 IS WHY DEPLOY.PROV COULD NOT SEE THIS:** its test asserts `DatabaseSeeder.php` contains no `Demo` and that
 `db:seed --force` leaves `Tenant::count() === 0` — **both true the whole time**, because a platform
@@ -326,6 +326,26 @@ stated rather than faked:** under `production` the demo seeder is refused with 0
 --force` yields catalogs with 0 super-admins; under `local` both behave exactly as before. **Guarded by** 6
 tests, mutation-checked three ways — and the first mutation silently failed to apply while the suite stayed
 green, caught only by the comment-stripped grep-confirm.
+
+Part 3 (`<pending>`, D-220) closes the gate: **a ward round, its note and its observations record their
+WRITER, not the admitting clinician (`P9-C3`).** **THE STUDY'S ANSWER IS NOT QA-FIX.2a's:** D-195 kept an
+outpatient ENCOUNTER on its booked clinician and moved only the note, but **a ward round has no booking and
+therefore no booked clinician**, so all THREE attributions change — Encounter practitioner, note author,
+vital recorder. Three pieces of evidence agree: the chart already presents the practitioner as the doer;
+the admitting clinician is already recorded on the stay; and Clinical's one-open-encounter-**per-
+practitioner** invariant collapsed a whole stay to ONE concurrent round because the practitioner was always
+the same person — now covered by a test that two clinicians can round on the same stay. **What legitimately
+does NOT change is `stays.admitting_clinician_id`**, asserted unchanged. **It was UNCONDITIONAL** — worse
+than `P8-C2`, whose fallback fired only when the actor had no profile. **Refuse, do not guess:** no staff
+profile → the round and the observation refuse, both into catch blocks the controller already had.
+**Historical rows are COUNTABLE (unlike `P8-C2`) and the count is ZERO** — 0 rounds / 0 notes / 0 vitals
+across the four demo tenants, since no seeder creates a ward round; no row is rewritten and the query is
+recorded for a real deployment. **`P9-H6` is NOT closed by this** — same pattern, different cause (an
+unattended command has no session actor; its remedy is `SystemActorResolver`). **Guarded by** 8 tests whose
+fixture makes actor ≠ admitting clinician on purpose — the property whose absence let `P2-C1`, `P6-C2`,
+`P7-C1` and `P9-C3` all survive their own suites — mutation-checked two ways (5 red, then 2 red).
+**One CORRECTION flagged:** `BedsideChartTest`'s fixture gave its acting user no staff profile at all;
+corrected without changing any behaviour assertion.
 
 
 **PHASE 10 ADDENDUM (same day) — `P10-C3` (CRITICAL): the agent approve gate has a SECOND, UNGATED door.**

@@ -4,6 +4,7 @@ namespace Modules\Hospital\Services;
 
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
+use InvalidArgumentException;
 use Modules\Clinical\Models\ClinicalNote;
 use Modules\Clinical\Models\Encounter;
 use Modules\Clinical\Models\NoteTemplate;
@@ -63,21 +64,53 @@ class BedsideChartService
         // Required FKs — resolve as typed models (tenant-scoped) for the reused Clinical services.
         $patient = Patient::query()->findOrFail($stay->patient_id);
         $branch = Branch::query()->findOrFail($stay->branch_id);
-        $clinician = StaffProfile::query()->findOrFail($stay->admitting_clinician_id);
+        $rounder = $this->rounder($actor);
         $template = NoteTemplate::query()->where('active', true)->orderBy('name')->first();
 
-        return DB::transaction(function () use ($actor, $stay, $patient, $branch, $clinician, $reason, $template): array {
+        return DB::transaction(function () use ($actor, $stay, $patient, $branch, $rounder, $reason, $template): array {
             // A ward round is a reused Encounter (type 'other' — no inpatient type is added to Clinical);
             // EncounterService enforces encounter.manage + the one-open-per-practitioner invariant.
-            $encounter = $this->encounters->open($patient, $clinician, $branch, null, Encounter::TYPE_OTHER, $actor, $reason);
+            $encounter = $this->encounters->open($patient, $rounder, $branch, null, Encounter::TYPE_OTHER, $actor, $reason);
 
             $round = WardRound::query()->create(['stay_id' => $stay->id, 'encounter_id' => $encounter->id]);
 
             // The existing sign-and-lock note (draft) — edited/signed/amended in the existing editor.
-            $note = $this->notes->saveDraft($encounter, $clinician, [], $actor, null, $template);
+            $note = $this->notes->saveDraft($encounter, $rounder, [], $actor, null, $template);
 
             return ['round' => $round, 'note' => $note];
         });
+    }
+
+    /**
+     * WHO IS DOING THIS — the acting user's own staff profile, never the stay's admitting clinician.
+     *
+     * QA-FIX.9c (`P9-C3`, D-220). This service used to resolve
+     * `StaffProfile::findOrFail($stay->admitting_clinician_id)` once and pass it as the round's
+     * practitioner, the note's author AND the vital's recorder. Driven in Phase 9: a ward nurse started a
+     * round and the editor printed the ADMITTING CLINICIAN's name above the words "You author this note",
+     * while the audit row named the nurse. It was UNCONDITIONAL — the actor had a profile and it was
+     * simply not asked for.
+     *
+     * D-195 drew the line this applies: *"whose visit is this"* is the encounter and legitimately keeps
+     * the booked clinician; *"who wrote this down"* is the note and is the authenticated user. **A ward
+     * round has no booked clinician** — there is no appointment behind it — so all three answers are the
+     * person conducting the round. Who is responsible for the ADMISSION is a different fact and still
+     * lives where it was chosen, on `stays.admitting_clinician_id`, shown on the admission page.
+     *
+     * REFUSE, DO NOT GUESS (D-195, D-216): `StaffProfile::forUser()` returns null rather than falling
+     * back to an arbitrary profile, and a caller that cannot identify the actor refuses to write.
+     */
+    private function rounder(User $actor): StaffProfile
+    {
+        $profile = StaffProfile::forUser($actor);
+
+        if (! $profile instanceof StaffProfile) {
+            throw new InvalidArgumentException(
+                'Your user account has no staff profile, so a ward round cannot record who performed it.'
+            );
+        }
+
+        return $profile;
     }
 
     /**
@@ -91,9 +124,18 @@ class BedsideChartService
     {
         $encounter = $this->latestRoundEncounter($stay);
 
+        // `recorded_by` is WHO OBSERVED THIS, so it is the actor — see rounder(). The refusal is an
+        // AdmissionException here because that is what this method's caller already catches; no new
+        // exception type is introduced for it.
+        $recorder = StaffProfile::forUser($actor);
+
+        if (! $recorder instanceof StaffProfile) {
+            throw AdmissionException::unidentifiedRecorder();
+        }
+
         return $this->clinicalLists->recordVital(
             Patient::query()->findOrFail($stay->patient_id),
-            StaffProfile::query()->findOrFail($stay->admitting_clinician_id),
+            $recorder,
             $actor,
             $data,
             $encounter,

@@ -69,6 +69,16 @@ function bcFixture(string $slug = 'charthosp'): array
         'first_name' => 'Hana', 'last_name' => 'Hospitalist', 'display_name' => 'Dr Hana Hospitalist',
         'profession' => 'doctor', 'primary_branch_id' => $branch->id,
     ]);
+    // QA-FIX.9c (D-220) — FIXTURE CORRECTION, not a changed assertion. The acting user had no staff
+    // profile of their own, which is not a realistic clinician and is why `P9-C3` could hide here: with
+    // nobody to attribute a round TO, the substitution of the admitting clinician looked like the only
+    // option. A round now records its ACTOR, so the actor needs an identity — and `$clinician` stays a
+    // DIFFERENT person, which is what keeps these tests honest about the distinction.
+    StaffProfile::query()->create([
+        'user_id' => $user->id,
+        'first_name' => 'Rita', 'last_name' => 'Rounder', 'display_name' => 'Dr Rita Rounder',
+        'profession' => 'doctor', 'primary_branch_id' => $branch->id,
+    ]);
     $patient = app(PatientService::class)->create(['first_name' => 'Ivy', 'last_name' => 'Inpatient', 'date_of_birth' => '1975-03-03', 'sex' => 'female']);
     $stay = app(AdmissionService::class)->admit($user, $patient, $bed, $clinician, Stay::TYPE_ELECTIVE);
     $orderableItem = OrderableItem::query()->create(['category' => 'lab', 'code' => 'CBC', 'name' => 'Complete Blood Count', 'specimen_or_modality' => 'blood', 'active' => true]);

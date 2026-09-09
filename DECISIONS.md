@@ -4931,3 +4931,59 @@ references the old ID.
   comment-stripped count before its run** — and the first attempt at one of them did NOT apply while the
   suite stayed green, which is precisely the false confirmation the rule exists to catch.
   See [[Platform]], `docs/qa/ROLE-AUDIT.md` (`P10-C1`), D-170, D-174, D-182, [[LOG]].
+
+- **D-220 — A ward round has no booked clinician, so all three of its attributions are the person who
+  performed it; the stay keeps the admitting clinician (QA-FIX.9c, closing `P9-C3`).**
+  `BedsideChartService` resolved `StaffProfile::findOrFail($stay->admitting_clinician_id)` once and passed
+  it three ways: as the round's **Encounter practitioner**, the **note's author**, and the **vital's
+  recorder**. Driven in Phase 9: Lena Studer started a round and the editor printed
+  **"Version 1 · draft · Dr. med. Martin Keller"** directly above the words *"You author this note"* — a
+  screen contradicting itself on one view — while the audit rows named `actor=25` (Studer).
+  **IT WAS UNCONDITIONAL, WHICH IS WHAT MAKES IT WORSE THAN `P8-C2`.** Radiology's fallback fired only when
+  the actor had no linked profile. Here Studer HAS a profile and `StaffProfile::forUser()` returns it
+  correctly — the right answer was one call away and was never asked for.
+  **THE STUDY: WHICH OF THE THREE LEGITIMATELY STAYS.** D-195 settled the outpatient case — *"whose visit
+  is this"* is the ENCOUNTER and legitimately keeps the booked clinician, so QA-FIX.2a deliberately left it
+  alone; *"who wrote this down"* is the NOTE and is the authenticated user. **That rule does not transfer to
+  a ward round, because a ward round has no booking and therefore no booked clinician.** There is no
+  appointment behind it; the only person with a claim to be the round's practitioner is the person
+  conducting it. So **all three change**, and three pieces of evidence agree: the chart already PRESENTS the
+  practitioner as the doer, beside the round's own timestamp; the admitting clinician is already recorded
+  where responsibility belongs (`stays.admitting_clinician_id`, chosen on the admit form and confirmed
+  legitimate in Phase 9); and Clinical's one-open-encounter-**per-practitioner** invariant collapsed the
+  whole stay to one concurrent round precisely because the practitioner was always the same person — the
+  substitution had an operational cost, not only an attribution cost.
+  **WHAT LEGITIMATELY DOES NOT CHANGE:** `stays.admitting_clinician_id` itself. It is a different fact —
+  who is responsible for the ADMISSION — and it is asserted unchanged by a test. Nothing is lost by
+  removing it from the three round records, because it never left the stay.
+  **THE SCREEN NAMES BOTH, WHERE EACH BELONGS, WITH NO NEW UI INVENTED (D-170).** The chart names the
+  rounder (resolved from `encounter->practitioner_id`, so the rendered value follows the data and a test
+  asserts the RENDERED name, not just the column — the QA-FIX.5a lesson). The admission page names the
+  admitting clinician. The note editor already names author and signatory distinctly, which QA-FIX.2a wired.
+  **REFUSE, DO NOT GUESS (D-195, D-216).** An actor with no staff profile now refuses — the round throws
+  `InvalidArgumentException` and the observation `AdmissionException::unidentifiedRecorder()`, both landing
+  in catch blocks the controller ALREADY had, so no new exception type and no new controller branch.
+  **HISTORICAL ROWS: COUNTABLE, AND THE COUNT IS ZERO.** Unlike `P8-C2` — where a substitution was only
+  identifiable when the author happened to be the alphabetically-first profile — this one was
+  unconditional, so **every** affected row is reachable by joining `ward_rounds.encounter_id` to
+  `encounters`, `clinical_notes` and `vitals`. Measured across the four demo tenants: **0 ward rounds, 0
+  notes, 0 vitals** — no seeder creates a ward round, and the only rows ever written through this path were
+  the ones Phase 9 created by driving, removed by the re-seed. The query is recorded here so a real
+  deployment can run it. **No row is rewritten** (the D-197 posture).
+  **`P9-H6` IS NOT FIXED BY THIS AND DOES NOT SHARE ITS CAUSE.** `AccrueBedDaysCommand::resolveBillingActor`
+  picks an org_admin with an unordered `value('user_id')`. Same PATTERN — a person resolved by convenience —
+  but a different cause: an unattended command has no session actor at all, so there is nothing to ask
+  `forUser()` about. Its remedy is `SystemActorResolver::forPermission()`, which every other scheduled
+  command already uses. It stays open.
+  **ONE EXISTING TEST FILE WAS CORRECTED, AND IT IS FLAGGED AS SUCH.** `BedsideChartTest`'s fixture gave the
+  acting user **no staff profile** — an unrealistic clinician, and part of why `P9-C3` could hide there:
+  with nobody to attribute a round to, substituting the admitting clinician looked like the only option.
+  The fixture now gives the actor their own profile and keeps the admitting clinician a DIFFERENT person.
+  No assertion about behaviour was changed; all seven of its tests pass unmodified.
+  **Guarded by** eight tests in `tests/Feature/Hospital/WardRoundAttributionTest.php`, whose fixture makes
+  actor ≠ admitting clinician on purpose — the property whose absence let `P2-C1`, `P6-C2`, `P7-C1` and
+  `P9-C3` all survive their own suites. Mutation-checked two ways, each grep-confirmed applied with a
+  comment-stripped count (this file's docblocks now name `admitting_clinician_id` twice in prose and zero
+  times in code): restoring the round's substitution reddens **five** tests including the rendered-name and
+  concurrent-rounds ones; restoring the vital's reddens the observation pair.
+  See [[Hospital]], [[Clinical]], `docs/qa/ROLE-AUDIT.md` (`P9-C3`), D-195, D-197, D-216, [[LOG]].
