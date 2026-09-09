@@ -566,3 +566,16 @@ ED triage and inpatient admission, D-211) because the day board was never measur
 **The honest copy on the waitlist panel is worth keeping:** *"An outstanding offer holds the patient's place
 in the queue — not the slot. Nothing stops this time being booked while they think about it, and if that
 happens their acceptance is refused like any other clash."* See [[AiCore]], [[Patients]], [[LOG]].
+
+**A REFUSED WAITLIST FILL LEAVES NOTHING BEHIND (QA-FIX.10c, `P10-C2`, D-223).** `WaitlistService::offer()`
+flips the entry to `offered` with a bare `->save()` **outside any transaction**, and `accept()` opens its
+own. Composing the two without a transaction around them strands the patient when the booking is refused:
+the entry reads `offered` against a slot belonging to someone else, with a `waitlist.offered` audit row for
+an offer that never stood and no `waitlist_offers` row at all.
+
+**If you ever call `offer()` and `accept()` in sequence, wrap them** — `FillFromWaitlistTool::execute` is
+the only place that does, and it now does. The human path (`WaitlistOfferController`) and the retry command
+both go through `WaitlistOfferService`, which creates a real `waitlist_offers` row and already wraps its
+own accept, so they were never affected.
+
+**A stranded entry is findable:** `status = 'offered'` with no open/accepted row in `waitlist_offers`.

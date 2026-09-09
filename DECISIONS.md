@@ -5090,3 +5090,58 @@ references the old ID.
   there is one definition of a recordable disclosure, not two. D-221 decided that an export is a `read`
   row, which is why the export needs no entry in this set. See [[Patients]], [[Clinical]],
   `docs/qa/ROLE-AUDIT.md` (`P9-C2`), D-221, D-174, D-182, [[LOG]].
+
+- **D-223 — A refused waitlist fill leaves NOTHING behind, and a tool that booked nothing refuses instead
+  of returning (QA-FIX.10c, closing `P10-C2`).**
+  Driven in Phase 10: a seeded `scheduler.fill_from_waitlist` proposal named a slot, that slot was booked
+  first through the day board for a different patient, and Approve was clicked. **The good half worked** —
+  the tool re-executed against live state and the booking was refused (`BookingConflictException`), with no
+  second appointment created. **The defect was what the refusal left behind:**
+  `waitlist_entries.status = offered` pointing at a slot belonging to someone else, a `waitlist.offered`
+  audit row for an offer that never stood, and **zero rows in `waitlist_offers`** — the entry said it was
+  offered and nothing recorded an offer. Bruno Nussbaumer was then neither waiting nor booked, invisible to
+  the candidate search, with no product path back.
+  **THE GATE ASKED WHETHER THE HONEST FIX IS A FEATURE. IT IS NOT, AND THE ANSWER IS WORTH RECORDING.**
+  A *recovery* path for an already-stranded entry would be a feature — a new workflow, a new screen, a new
+  state transition. This fix instead removes the ability to strand anyone: the half-commit cannot occur, so
+  nothing needs recovering. Both halves are corrections to existing behaviour, and neither adds a
+  capability the product did not have.
+  **HALF ONE — ONE OPERATION, ONE TRANSACTION (D-199), AND THE SIXTH INSTANCE OF THIS PATTERN.**
+  `WaitlistService::offer()` flipped the entry to `offered` with a bare `->save()` and dispatched its event
+  outside any transaction; `accept()` then opened its OWN transaction, booked, and threw. A rollback cannot
+  reach a commit that already happened. `FillFromWaitlistTool::execute` composed the two with nothing
+  around them. Wrapping the pair makes `accept()`'s transaction a savepoint inside it, so a conflict now
+  unwinds the status flip, its event's audit row and the booking attempt together. **The refusal itself is
+  unchanged** — the exception still propagates; only the residue changes. This is the sixth
+  create-then-associate-outside-a-transaction the programme has found, after `P3-C1`, `P4-H2`, `P6-M10`,
+  `P7-M5` and `P8-H2`, and it is fixed the same way D-199 fixed the first: at the composition point.
+  **WHY THE COMPOSITION POINT AND NOT A NEW SERVICE METHOD.** `FillFromWaitlistTool` is the ONLY caller of
+  `WaitlistService::offer` + `accept` in sequence — enumerated comment-stripped; the human path
+  (`WaitlistOfferController`) and the retry command both go through `WaitlistOfferService`, which creates a
+  real `waitlist_offers` row and already wraps its own accept in a transaction. Adding a service method for
+  one caller would have been a new public API where a transaction was the actual missing thing.
+  **HALF TWO — NOTHING TO BOOK IS A REFUSAL, NOT A RESULT (D-179).** `execute()` returned
+  `['booked' => false, 'reason' => 'no_matching_waitlist_entry']`, and **a tool that returns is a tool that
+  succeeded**: the queue marked the action `executed`, stamped `approved_at` and `executed_at`, and the
+  Resolved tab rendered **"Approved"** with nothing anywhere saying no appointment exists. It now throws an
+  `AiCoreException`, which leaves the action PENDING for a human to retry or reject and lands in the catch
+  `AiApprovalQueueController:326` already had — **no new exception type and no new controller branch**, the
+  QA-FIX.9a shape.
+  **WHAT IS DELIBERATELY NOT FIXED HERE, AND IS NAMED IN THE TEST RATHER THAN LEFT TO BE NOTICED.** A
+  refused approval still appends exactly ONE row: `ai_interaction.approved`, written by
+  `ApprovalQueue::approve()` BEFORE it calls the tool and therefore outside this transaction. That is
+  **`P10-H1`**, a separate HIGH, still open. The test asserts the appended set is *exactly*
+  `['ai_interaction.approved']` — by NAME, not by count — so the expected residue is documented and the
+  offer flip cannot creep back. Also still open and untouched: **`P10-H2`** (a `BookingConflictException`
+  is not an `AiCoreException`, so the reviewer still gets a 500) and **`P10-M1`** (the queue page renders
+  no error bag, so even caught refusals are invisible). **The reviewer's experience of a conflict is
+  therefore still poor; what changed is that it no longer damages the patient's record.**
+  **HISTORICAL ROWS ARE COUNTABLE** — entries in `offered` with no matching `waitlist_offers` row are
+  exactly the stranded ones. Measured across the four demo tenants at fix time: **zero**. The query is
+  recorded here so a real deployment can run it. **No row is rewritten** (the D-197 posture).
+  **Guarded by** four tests in `tests/Feature/AiCore/WaitlistFillAtomicityTest.php`, whose fixture takes
+  the slot for a DIFFERENT patient first — a fixture that books cleanly proves nothing here, because the
+  half-commit only exists on the refusal path. Mutation-checked two ways, each grep-confirmed applied on
+  comment-stripped source, and the two halves are pinned INDEPENDENTLY: removing the transaction reddens
+  the two atomicity tests only; restoring the `booked => false` return reddens the false-success test only.
+  See [[Scheduling]], [[AiCore]], `docs/qa/ROLE-AUDIT.md` (`P10-C2`), D-199, D-179, D-197, [[LOG]].

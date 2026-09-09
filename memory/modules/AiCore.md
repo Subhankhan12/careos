@@ -643,3 +643,15 @@ reproduction; a gate removed from `AiApprovalQueueController` → structural tes
 files), each confirmed applied by a **comment-stripped** count. `P10-M7` (approve executes `input_payload`,
 never the `proposed_output` the reviewer read) is untouched and stays open. See D-218, [[AiCore]],
 [[Comms]], [[LOG]].
+
+**A TOOL THAT BOOKED NOTHING MUST THROW, NOT RETURN (QA-FIX.10c, `P10-C2`, D-179, D-223).**
+`ApprovalQueue` treats a RETURNED array as success: it marks the action `executed`, stamps `approved_at`
+and `executed_at`, and the Resolved tab renders **"Approved"**. `FillFromWaitlistTool` returned
+`['booked' => false, …]` when no candidate remained, so an action that did nothing was recorded as done.
+**Throw an `AiCoreException`** — it leaves the action `pending` for a human and lands in the catch
+`AiApprovalQueueController:326` already has, so no new exception type is needed.
+
+**Still open around this path, and worth knowing before you debug it:** `P10-H1` — `approve()` writes the
+`ai_interaction.approved` row BEFORE calling the tool and never compensates, so a refused approval still
+leaves one stale `approved` row; `P10-H2` — a domain refusal that is not an `AiCoreException` (e.g.
+`BookingConflictException`) escapes as a 500; `P10-M1` — the queue page renders no error bag.

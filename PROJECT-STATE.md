@@ -34,7 +34,7 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
 
 ## STATUS: BUILD COMPLETE · DEPLOY-READY 🟢 GO · THE BUILDABLE PARITY PROGRAMME IS COMPLETE — ONE TRACK REMAINS: **DEPLOYMENT + PARTNERSHIPS**
 
-### ✅ THE ROLE-BY-ROLE QA AUDIT IS COMPLETE — `docs/qa/ROLE-AUDIT.md` (10 of 10 phases; **186 findings — 40 fixed, 146 open** as of QA-FIX.10b, plus the programme-closing summary)
+### ✅ THE ROLE-BY-ROLE QA AUDIT IS COMPLETE — `docs/qa/ROLE-AUDIT.md` (10 of 10 phases; **186 findings — 41 fixed, 145 open** as of QA-FIX.10c; **every CRITICAL is fixed — 0 open, highest open severity is HIGH at 34**)
 
 **Phase 1 (reception / front-desk) is DONE** (`06a3f78`): 18 findings — 1 CRITICAL, 3 HIGH, 8 MEDIUM,
 6 LOW — every page **driven in a real browser** via Playwright MCP. Findings are **recorded, not
@@ -399,6 +399,30 @@ message tree. **Two assertions in the pre-existing `PatientAccessLogTest` were C
 `action = ?` and a positional CSV column; both properties survive and are re-pinned, the second now
 resolving its column BY NAME.
 
+**QA-FIX.10 Part 3 (`<pending>`, D-223) is done, and it CLOSES THE LAST OPEN CRITICAL: a refused waitlist
+fill leaves nothing behind, and a tool that booked nothing refuses instead of reporting success
+(`P10-C2`).** **All 24 CRITICALs recorded across the programme's ten phases are now fixed; the highest open
+severity is HIGH, of which 34 remain.** Driven in Phase 10: a proposal named a slot, the slot was booked
+first for a different patient, Approve was clicked. **The good half worked** — the tool re-executed against
+live state and refused the booking, creating no second appointment. **The residue was the defect:** the
+entry read `offered` against someone else's slot, with a `waitlist.offered` audit row for an offer that
+never stood and ZERO `waitlist_offers` rows, leaving the patient neither waiting nor booked and invisible
+to the candidate search. **THE HONEST FIX IS A FIX, NOT A FEATURE** — a recovery path for an
+already-stranded entry would be a feature; this removes the ability to strand anyone, so nothing needs
+recovering. **Half one: one operation, one transaction (D-199)** — the SIXTH create-then-associate instance
+the programme found, fixed at the composition point because `FillFromWaitlistTool` is the only caller of
+`offer` + `accept` in sequence (the human path uses `WaitlistOfferService`, which was never affected).
+**Half two: nothing to book is a refusal (D-179)** — the tool returned `booked => false` and a tool that
+RETURNS is a tool that succeeded, so the action became `executed` and rendered "Approved"; it now throws an
+`AiCoreException` and the action stays `pending`. **What is deliberately NOT fixed is named in the test:**
+a refused approval still appends exactly one `ai_interaction.approved` row (`P10-H1`), the reviewer still
+sees a 500 (`P10-H2`, confirmed still 500 in the browser), and the queue still renders no error bag
+(`P10-M1`). **The reviewer's experience of a conflict is still poor; what changed is that it no longer
+damages the patient's record.** **Historical stranded entries are countable and the count is ZERO** across
+all four demo tenants. **Playwright re-drove Phase 10's exact steps:** after the refused approve the entry
+is still `waiting`, `offered_starts_at`/`offered_branch_id` are NULL, `waitlist.offered` is 0,
+`waitlist_offers` is 0, appointments unchanged at 13, the action still `pending`, and the chain verifies.
+
 
 **PHASE 10 ADDENDUM (same day) — `P10-C3` (CRITICAL): the agent approve gate has a SECOND, UNGATED door.**
 Found after the phase was committed, by a second adversarial pass over the same scope, and **verified
@@ -414,7 +438,7 @@ corrects my own `P10-M6`** — the re-authorisation guard is not unreachable; on
 gate. Also `P10-M7`: approve executes `input_payload` and never reads the `proposed_output` the reviewer
 read. **The programme closed at 185 findings — 35 fixed, 150 open, SIX open CRITICALs**; QA-FIX.9 and 10a have
 since fixed four of those and the 10a enumeration added one (`QF10a-H1`), so it now stands at **186 findings —
-40 fixed, 146 open, ONE open CRITICAL (`P10-C2`) and 34 open HIGH.** `P10-C3` enters
+41 fixed, 145 open, ZERO open CRITICALs and 34 open HIGH.** `P10-C3` enters
 the open list at position 2, and two of the top four are one line each. The fences statement is unchanged:
 the tool still re-authorised, re-grounded and refused medical advice — what this breaks is who may press the
 button. **Method rule added:** *when a service method is the gate, enumerate its callers before concluding

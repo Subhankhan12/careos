@@ -103,6 +103,7 @@ every later phase's timestamp observation suspect, and past-time booking was liv
 | `P9-C3` | CRITICAL | ✅ **FIXED** | QA-FIX.9c | `db57327` |
 | `P9-C1` | CRITICAL | ✅ **FIXED** | QA-FIX.10a | `8eaa1a4` |
 | `P9-C2` | CRITICAL | ✅ **FIXED** | QA-FIX.10b | `90f82d0` |
+| `P10-C2` | CRITICAL | ✅ **FIXED** | QA-FIX.10c | `<pending>` |
 | all others | — | 📋 recorded, not fixed | — | — |
 
 *(A commit cannot contain its own hash. Per the repo-wide marker convention, `<pending>` is backfilled
@@ -6114,6 +6115,49 @@ Server clock `2026-09-09 01:13 UTC`, tenant display zone `Europe/Zurich`, audit 
 
 #### `P10-C2` — A refused agent approval half-commits, strands the patient, and the retry is then recorded as "Approved" although it booked nothing
 
+> ✅ **FIXED — QA-FIX.10c, commit `<pending>` (D-223).** A refused fill now leaves **nothing** behind, and
+> a tool that booked nothing **refuses instead of returning**.
+> **THE GATE ASKED WHETHER THE HONEST FIX IS A FEATURE. IT IS NOT.** A *recovery* path for an
+> already-stranded entry would be — a new workflow, a new screen, a new state transition. This removes the
+> ability to strand anyone, so nothing needs recovering. Both halves correct existing behaviour and neither
+> adds a capability the product did not have.
+> **HALF ONE — ONE OPERATION, ONE TRANSACTION (D-199).** `offer()` flipped the entry to `offered` with a
+> bare `->save()` and dispatched its event outside any transaction; `accept()` opened its OWN transaction,
+> booked, and threw. A rollback cannot reach a commit that already happened. `FillFromWaitlistTool::execute`
+> composed the two with nothing around them; the pair is now wrapped, so `accept()`'s transaction becomes a
+> savepoint and a conflict unwinds the status flip, its `waitlist.offered` audit row and the booking attempt
+> together. **The refusal itself is unchanged** — the exception still propagates; only the residue changes.
+> **This was the SIXTH create-then-associate-outside-a-transaction the programme found, and it is fixed the
+> same way D-199 fixed the first: at the composition point.** `FillFromWaitlistTool` is the ONLY caller of
+> `WaitlistService::offer` + `accept` in sequence (enumerated comment-stripped); the human path and the
+> retry command both go through `WaitlistOfferService`, which writes a real `waitlist_offers` row and
+> already wraps its accept. A new service method for one caller would have been a new public API where a
+> transaction was the missing thing.
+> **HALF TWO — NOTHING TO BOOK IS A REFUSAL, NOT A RESULT (D-179).** `execute()` returned
+> `['booked' => false, 'reason' => 'no_matching_waitlist_entry']`, and **a tool that returns is a tool that
+> succeeded**: the action became `executed`, both timestamps were stamped, and the Resolved tab rendered
+> **"Approved"**. It now throws an `AiCoreException`, leaving the action PENDING for a human to retry or
+> reject, landing in the catch `AiApprovalQueueController:326` already had — no new exception type, no new
+> controller branch.
+> **WHAT IS DELIBERATELY NOT FIXED, NAMED IN THE TEST RATHER THAN LEFT TO BE NOTICED.** A refused approval
+> still appends exactly ONE row — `ai_interaction.approved`, written by `ApprovalQueue::approve()` BEFORE it
+> calls the tool and therefore outside this transaction. That is **`P10-H1`**, still open. The test asserts
+> the appended set is exactly `['ai_interaction.approved']` **by name, not by count**, so the expected
+> residue is documented and the offer flip cannot creep back. Also still open and untouched: **`P10-H2`**
+> (`BookingConflictException` is not an `AiCoreException`, so the reviewer still sees a 500) and
+> **`P10-M1`** (the queue renders no error bag). **The reviewer's experience of a conflict is therefore
+> still poor; what changed is that it no longer damages the patient's record.**
+> **HISTORICAL ROWS ARE COUNTABLE** — an entry in `offered` with no matching `waitlist_offers` row is
+> exactly a stranded one. Measured across the four demo tenants at fix time: **zero**. The query is recorded
+> in D-223 so a real deployment can run it; **no row is rewritten** (D-197).
+> **Guarded by** four tests in `tests/Feature/AiCore/WaitlistFillAtomicityTest.php`, whose fixture takes the
+> slot for a DIFFERENT patient first — a fixture that books cleanly proves nothing here, because the
+> half-commit exists only on the refusal path. One test drives the consequence rather than the column: after
+> a refusal the patient is still a candidate, the slot is freed, and approving again books them — which is
+> what *"no product path back"* meant. **Mutation-checked two ways, each grep-confirmed applied on
+> comment-stripped source, and the two halves are pinned INDEPENDENTLY:** removing the transaction reddens
+> the two atomicity tests only; restoring the `booked => false` return reddens the false-success test only.
+
 - **Role:** `org_admin` · **Route:** `POST /governance/approvals/{id}/approve`
 - **Steps, end to end in the browser.** (1) The seeded proposal `scheduler.fill_from_waitlist` targets
   2026-09-09 09:00–09:30 for two named resources, with one waiting waitlist entry (Bruno Nussbaumer).
@@ -6562,8 +6606,8 @@ order it should be taken, and what the audit learned about auditing.
 | 10 | Admin / governance + Patient portal | 3 | 5 | 7 | 2 | 17 |
 | QA-FIX.10a | export enumeration (`QF10a-H1`) | 0 | 1 | 0 | 0 | 1 |
 | **TOTAL RECORDED** | | **24** | **46** | **84** | **32** | **186** |
-| **FIXED** | by the QA-FIX gates, 1a–10b | **23** | **12** | **4** | **1** | **40** |
-| **OPEN** | | **1** | **34** | **80** | **31** | **146** |
+| **FIXED** | by the QA-FIX gates, 1a–10c | **24** | **12** | **4** | **1** | **41** |
+| **OPEN** | | **0** | **34** | **80** | **31** | **145** |
 
 *(Phase 10 includes `P10-C3` and `P10-M7`, added the same day by the addendum at the end of this document.
 `P10-C3` enters the open list at position 2, and it corrects `P10-M6`.)*
@@ -6577,15 +6621,19 @@ fix gate rather than by a phase. The gate-count phrase is now a range rather tha
 "20" did not match the 23 gate parts its own list enumerates, and a number that cannot be derived from
 the list beneath it is worse than none.
 
-**Every CRITICAL from phases 1–8 has been fixed, and so have all three of Phase 10's.** **ONE open CRITICAL
-remains: `P10-C2`** — the last part of the gate in progress. **34 HIGH are open.**
+**EVERY CRITICAL RECORDED BY THIS PROGRAMME IS NOW FIXED — all 24 of them, across all ten phases.**
+QA-FIX.10c closed the last one (`P10-C2`). **The highest open severity is now HIGH, and 34 of them are
+open.** Nothing about the fences changed to achieve this: no finding was re-graded, withdrawn or merged to
+reach zero, and the four HIGHs that sit closest to these CRITICALs — `P10-H1` (a stale `approved` ledger
+row), `P10-H2` (a domain refusal escaping as a 500), `P10-M1` (no error bag on the queue) and `QF10a-H1`
+(an unaudited attachment download) — are open and named, several of them by the very tests written here.
 
 Fixed by gate: `P1-C1` (QA-FIX.1a) · `P1-H3` (1b) · `P2-C1` (2a) · `P2-H1` (2b) · `P3-C1` (3a) · `P3-H1`
 (3b) · `P4-C1` (4a) · `P4-C4` (4b, re-graded CRITICAL→HIGH) · `P4-C2`·`P4-C3` (4c) · `P4-C5` (4d) ·
 `P4-H3` (4e) · `P5-C1` (5a) · `P5-C2`·`P5-M4` (5b) · `P6-C1`·`P6-M10`·`P6-L2` (6a) · `P6-C2` (6b) ·
 `P6-C3` (6c) · `P7-C1`·`P7-C2` (7a) · `P7-C3` (7b) · `P7-H2` (7c) · pattern 1's over-offer half —
 `P1-H1`·`P2-H2`·`P3-M7`·`P4-H5`·`P5-H2`·`P6-H4`·`P7-H4` (7d) · `P8-C1` (8a) · `P8-C2` (8b) ·
-`P8-H2`·`P7-M5` (8c) · `P10-C3` (9a) · `P10-C1` (9b) · `P9-C3` (9c) · `P9-C1` (10a) · `P9-C2` (10b).
+`P8-H2`·`P7-M5` (8c) · `P10-C3` (9a) · `P10-C1` (9b) · `P9-C3` (9c) · `P9-C1` (10a) · `P9-C2` (10b) · `P10-C2` (10c).
 
 ## 2. The eight cross-phase patterns — final status
 
@@ -6690,7 +6738,7 @@ numbering that follows is the original ordering and is left as written rather th
 | 2 | `P10-C3` | ✅ FIXED (9a) | `POST /comms/inbox/send-draft` has no `ai.manage` gate and no clinical exclusion — any clinician can approve-and-execute a clinical agent action by posting its id | **First day any clinician has an action id**; driven as a doctor who is 403 on the queue in the same session |
 | 2 | `P9-C1` | ✅ FIXED (10a) | The AR report CSV takes patient identifiers out with **no audit row at all** | First time anyone exports the finance report |
 | 3 | `P9-C3` | ✅ FIXED (9c) | Every ward round, note and observation is stored as the admitting clinician, not the person who did it | First inpatient chart entry |
-| 4 | `P10-C2` + `P10-H1` + `P10-H2` | CRITICAL + HIGH | A stale agent approval half-commits, strands a waitlisted patient, 500s, and is then recorded as "Approved" although it did nothing | First time a reviewer approves a draft the world has moved past |
+| 4 | `P10-C2` ✅ FIXED (10c) + `P10-H1` + `P10-H2` | CRITICAL + HIGH | A stale agent approval half-commits, strands a waitlisted patient, 500s, and is then recorded as "Approved" although it did nothing | First time a reviewer approves a draft the world has moved past |
 | 5 | `P1-H2` | HIGH | Patient registration fails silently unless four unmarked fields are filled | First patient registered |
 | 6 | `P10-H4` | HIGH | Quick-book pre-selects the first patient — a hurried booking books the wrong person | First hurried booking |
 | 7 | `P9-H1` | HIGH | A bed manager moving an occupied bed to `cleaning` wedges the patient with no way back | First time housekeeping tidies an occupied bed |
