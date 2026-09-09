@@ -103,7 +103,7 @@ every later phase's timestamp observation suspect, and past-time booking was liv
 | `P9-C3` | CRITICAL | ✅ **FIXED** | QA-FIX.9c | `db57327` |
 | `P9-C1` | CRITICAL | ✅ **FIXED** | QA-FIX.10a | `8eaa1a4` |
 | `P9-C2` | CRITICAL | ✅ **FIXED** | QA-FIX.10b | `90f82d0` |
-| `P10-C2` | CRITICAL | ✅ **FIXED** | QA-FIX.10c | `<pending>` |
+| `P10-C2` | CRITICAL | ✅ **FIXED** | QA-FIX.10c | `a9d1756` |
 | all others | — | 📋 recorded, not fixed | — | — |
 
 *(A commit cannot contain its own hash. Per the repo-wide marker convention, `<pending>` is backfilled
@@ -6115,7 +6115,7 @@ Server clock `2026-09-09 01:13 UTC`, tenant display zone `Europe/Zurich`, audit 
 
 #### `P10-C2` — A refused agent approval half-commits, strands the patient, and the retry is then recorded as "Approved" although it booked nothing
 
-> ✅ **FIXED — QA-FIX.10c, commit `<pending>` (D-223).** A refused fill now leaves **nothing** behind, and
+> ✅ **FIXED — QA-FIX.10c, commit `a9d1756` (D-223).** A refused fill now leaves **nothing** behind, and
 > a tool that booked nothing **refuses instead of returning**.
 > **THE GATE ASKED WHETHER THE HONEST FIX IS A FEATURE. IT IS NOT.** A *recovery* path for an
 > already-stranded entry would be — a new workflow, a new screen, a new state transition. This removes the

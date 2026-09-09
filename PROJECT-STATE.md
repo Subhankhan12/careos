@@ -399,7 +399,7 @@ message tree. **Two assertions in the pre-existing `PatientAccessLogTest` were C
 `action = ?` and a positional CSV column; both properties survive and are re-pinned, the second now
 resolving its column BY NAME.
 
-**QA-FIX.10 Part 3 (`<pending>`, D-223) is done, and it CLOSES THE LAST OPEN CRITICAL: a refused waitlist
+**QA-FIX.10 Part 3 (`a9d1756`, D-223) is done, and it CLOSES THE LAST OPEN CRITICAL: a refused waitlist
 fill leaves nothing behind, and a tool that booked nothing refuses instead of reporting success
 (`P10-C2`).** **All 24 CRITICALs recorded across the programme's ten phases are now fixed; the highest open
 severity is HIGH, of which 34 remain.** Driven in Phase 10: a proposal named a slot, the slot was booked
