@@ -101,6 +101,7 @@ every later phase's timestamp observation suspect, and past-time booking was liv
 | `P10-C3` | CRITICAL | ✅ **FIXED** | QA-FIX.9a | `817a875` |
 | `P10-C1` | CRITICAL | ✅ **FIXED** | QA-FIX.9b | `4e610b0` |
 | `P9-C3` | CRITICAL | ✅ **FIXED** | QA-FIX.9c | `db57327` |
+| `P9-C1` | CRITICAL | ✅ **FIXED** | QA-FIX.10a | `<pending>` |
 | all others | — | 📋 recorded, not fixed | — | — |
 
 *(A commit cannot contain its own hash. Per the repo-wide marker convention, `<pending>` is backfilled
@@ -5262,6 +5263,46 @@ controls the two phase roles cannot reach: `lena.studer@klinik-bergblick.test` (
 
 #### `P9-C1` — Patient identifiers leave the system in a CSV that writes no audit row at all
 
+> ✅ **FIXED — QA-FIX.10a, commit `<pending>` (D-221).** The export now records itself, in **two shapes,
+> because two different facts are being recorded and the product already had a shape for each.**
+> **(1) THE FILE LEFT THE BUILDING.** One `billing.report_exported` row, no patient — the same shape
+> `GovernanceLedgerExportController` writes for its own ZIP. It belongs to the tenant's ledger, it is about
+> the export rather than about any one person, and it is written even when the report names nobody.
+> **(2) THIS PATIENT'S DATA WAS DISCLOSED.** One `action = 'read'` row per named patient, carrying their
+> `patient_id`, `resource_type = 'billing_ar_report'` and `surface = 'billing_ar_report_export'`.
+> **THE SECOND SHAPE IS NOT AN INVENTION — IT IS THE ONE THE PRODUCT ALREADY USES FOR EVERY DOWNLOAD.**
+> `billing_invoice_download`, `portal_invoice_download`, `document_download`, `dental_image_download` and
+> PC.P5's own `patient_access_log_export` are all `read` rows with an export surface, and five Dental
+> services already hand-write `record(['action' => 'read', …])` where no `LogsReads` model is at hand.
+> **This was corrected mid-gate.** The first version of this fix gave the per-patient rows a bespoke
+> `billing.report_exported` action. That row is well-formed, appears in the ledger, and is **invisible to
+> `PatientAccessReport`**, whose query is `action = 'read' AND patient_id = ?` — so the fix would have
+> closed half of the finding while reading as complete, and would have made this the only export in the
+> codebase to invent its own action. The suite now pins the difference: the mutation that restores the
+> bespoke action leaves *"records the actor, the window and the row count"* GREEN and turns
+> *"reaches the access log"* RED — a ledger-only fix looks correct from the ledger.
+> **WHY ONE ROW PER PATIENT AND NOT ONE ROW LISTING THEM.** `PatientAccessReport` reaches a log by
+> `patient_id = ?`; a single row naming three patients in its context is invisible to all three, so a file
+> naming three people would still appear in nobody's log. The list is capped at ten accounts
+> (`topOverdueAccounts($actor, $to, 10)`), so this is at most **eleven** appends — bounded, which matters
+> because `AuditService::record()` takes a per-tenant `FOR UPDATE` lock per row.
+> **RECORDED BEFORE THE STREAM, NOT INSIDE IT.** `streamDownload`'s callback runs while the response is
+> being sent, so a client that disconnects mid-download would skip an audit written there. Recording first
+> means the row asserts the file was produced and handed over — not that every byte arrived. It is also the
+> order PC.P5's subject-access export already uses.
+> **NOTHING ABOUT THE FILE CHANGED**, asserted by a positive control (D-174): the engine figures, the
+> section keys and every `top_overdue:<patient_id>` line are byte-for-byte what they were.
+> **Guarded by** seven tests in `tests/Feature/Billing/ArExportAuditTest.php`, whose fixture uses **three**
+> patients on purpose (D-189) — a one-patient fixture cannot tell one-row-per-patient from
+> one-row-carrying-one-id — plus a fourth patient with no overdue invoice as the scoping control. The last
+> test asserts through the **real `PatientAccessReport`**, not the raw table, so it fails for any recorded
+> shape the patient's own screen cannot see. Mutation-checked two ways, each grep-confirmed applied on
+> comment-stripped source: removing the call (the pre-fix state) reddens **five**; the bespoke-action
+> variant reddens **four**, including the access-log test.
+> **THIS DOES NOT CLOSE `P9-C2`,** which is the other half of the same question and is fixed separately —
+> `document.shared` is still filtered out of the patient's log. See the QA-FIX.10a addendum below for the
+> export enumeration this fix required, and for the one unaudited export it found.
+
 - **Role:** `billing` (`billing.view`) · **Route:** `GET /billing/report/export`
 - **Steps:** signed in as `thomas.ammann@praxis-lindenhof.test`, requested the AR report export.
 - **What happened.** The file downloaded (HTTP 200, 1 674 bytes) and contains, verbatim:
@@ -6469,22 +6510,32 @@ order it should be taken, and what the audit learned about auditing.
 | 8 | Lab + Radiology | 2 | 5 | 7 | 3 | 17 |
 | 9 | Bed management + Medical records | 3 | 6 | 11 | 5 | 25 |
 | 10 | Admin / governance + Patient portal | 3 | 5 | 7 | 2 | 17 |
-| **TOTAL RECORDED** | | **24** | **45** | **84** | **32** | **185** |
-| **FIXED** | by 20 QA-FIX gates | **18** | **12** | **4** | **1** | **35** |
-| **OPEN** | | **6** | **33** | **80** | **31** | **150** |
+| QA-FIX.10a | export enumeration (`QF10a-H1`) | 0 | 1 | 0 | 0 | 1 |
+| **TOTAL RECORDED** | | **24** | **46** | **84** | **32** | **186** |
+| **FIXED** | by the QA-FIX gates, 1a–10a | **22** | **12** | **4** | **1** | **39** |
+| **OPEN** | | **2** | **34** | **80** | **31** | **147** |
 
 *(Phase 10 includes `P10-C3` and `P10-M7`, added the same day by the addendum at the end of this document.
 `P10-C3` enters the open list at position 2, and it corrects `P10-M6`.)*
 
-**Every CRITICAL from phases 1–8 has been fixed.** The five open CRITICALs are the three from Phase 9 and
-the two from Phase 10 — the two phases that have not yet had a fix gate.
+**COUNTS BROUGHT CURRENT AT QA-FIX.10a.** The three rows above were written when the programme closed
+and were stale by four fixes: QA-FIX.9a (`P10-C3`), 9b (`P10-C1`), 9c (`P9-C3`) and 10a (`P9-C1`) had
+each been banner-marked on its own finding and entered in the fix-status table at the top of this
+document, but the closing table was not re-totalled. It is re-totalled here, and `QF10a-H1` — the one
+unaudited export the QA-FIX.10a enumeration found — is added as its own row, since it was recorded by a
+fix gate rather than by a phase. The gate-count phrase is now a range rather than a number: the earlier
+"20" did not match the 23 gate parts its own list enumerates, and a number that cannot be derived from
+the list beneath it is worse than none.
+
+**Every CRITICAL from phases 1–8 has been fixed, and so have all three of Phase 10's.** **Two open
+CRITICALs remain: `P9-C2` and `P10-C2`** — both assigned to the gate in progress. **34 HIGH are open.**
 
 Fixed by gate: `P1-C1` (QA-FIX.1a) · `P1-H3` (1b) · `P2-C1` (2a) · `P2-H1` (2b) · `P3-C1` (3a) · `P3-H1`
 (3b) · `P4-C1` (4a) · `P4-C4` (4b, re-graded CRITICAL→HIGH) · `P4-C2`·`P4-C3` (4c) · `P4-C5` (4d) ·
 `P4-H3` (4e) · `P5-C1` (5a) · `P5-C2`·`P5-M4` (5b) · `P6-C1`·`P6-M10`·`P6-L2` (6a) · `P6-C2` (6b) ·
 `P6-C3` (6c) · `P7-C1`·`P7-C2` (7a) · `P7-C3` (7b) · `P7-H2` (7c) · pattern 1's over-offer half —
 `P1-H1`·`P2-H2`·`P3-M7`·`P4-H5`·`P5-H2`·`P6-H4`·`P7-H4` (7d) · `P8-C1` (8a) · `P8-C2` (8b) ·
-`P8-H2`·`P7-M5` (8c).
+`P8-H2`·`P7-M5` (8c) · `P10-C3` (9a) · `P10-C1` (9b) · `P9-C3` (9c) · `P9-C1` (10a).
 
 ## 2. The eight cross-phase patterns — final status
 
@@ -6585,10 +6636,10 @@ numbering that follows is the original ordering and is left as written rather th
 
 | # | ID | Severity | What happens | When they hit it |
 |---|---|---|---|---|
-| 1 | `P10-C1` | CRITICAL | `db:seed` creates a platform super-admin `test@example.com` / `password`, no environment guard anywhere | **At deploy, before anyone logs in** |
-| 2 | `P10-C3` | CRITICAL | `POST /comms/inbox/send-draft` has no `ai.manage` gate and no clinical exclusion — any clinician can approve-and-execute a clinical agent action by posting its id | **First day any clinician has an action id**; driven as a doctor who is 403 on the queue in the same session |
-| 2 | `P9-C1` | CRITICAL | The AR report CSV takes patient identifiers out with **no audit row at all** | First time anyone exports the finance report |
-| 3 | `P9-C3` | CRITICAL | Every ward round, note and observation is stored as the admitting clinician, not the person who did it | First inpatient chart entry |
+| 1 | `P10-C1` | ✅ FIXED (9b) | `db:seed` creates a platform super-admin `test@example.com` / `password`, no environment guard anywhere | **At deploy, before anyone logs in** |
+| 2 | `P10-C3` | ✅ FIXED (9a) | `POST /comms/inbox/send-draft` has no `ai.manage` gate and no clinical exclusion — any clinician can approve-and-execute a clinical agent action by posting its id | **First day any clinician has an action id**; driven as a doctor who is 403 on the queue in the same session |
+| 2 | `P9-C1` | ✅ FIXED (10a) | The AR report CSV takes patient identifiers out with **no audit row at all** | First time anyone exports the finance report |
+| 3 | `P9-C3` | ✅ FIXED (9c) | Every ward round, note and observation is stored as the admitting clinician, not the person who did it | First inpatient chart entry |
 | 4 | `P10-C2` + `P10-H1` + `P10-H2` | CRITICAL + HIGH | A stale agent approval half-commits, strands a waitlisted patient, 500s, and is then recorded as "Approved" although it did nothing | First time a reviewer approves a draft the world has moved past |
 | 5 | `P1-H2` | HIGH | Patient registration fails silently unless four unmarked fields are filled | First patient registered |
 | 6 | `P10-H4` | HIGH | Quick-book pre-selects the first patient — a hurried booking books the wrong person | First hurried booking |
@@ -6609,7 +6660,14 @@ numbering that follows is the original ordering and is left as written rather th
 | 21 | `P6-H1`, `P7-H5`, `P8-H5`, `P5-H1`, `P6-H5` | HIGH | Roles 403 on the surfaces their permissions name; billing unreachable for the groups that generate the charges | First week, per role |
 | 22 | `P8-H3`, `P8-H4`, `P2-H3`, `P4-H4` | HIGH | Actors recorded and never named on screen; modules with no nav entry; clocks | Continuously |
 
-**The four that should be taken first, and why:** `P10-C1` because it is a security defect that exists
+**STATUS AT QA-FIX.10a: all four of the "take these first" rows are now fixed**, as are all three of
+Phase 10's CRITICALs. What remains at the top of this list is row 4 (`P10-C2`) and row 9 (`P9-C2`) —
+the two open CRITICALs — plus `QF10a-H1`, recorded by the QA-FIX.10a export enumeration and not yet
+placed in this ordering because it was found after the programme closed; on this list's own criterion
+(*when do they hit it*) it belongs beside row 11, since it is a recording gap that is continuous from
+day one rather than an event anyone will notice.
+
+**The four that should be taken first, and why (as written at close — all four are now done):** `P10-C1` because it is a security defect that exists
 before the product is used and is closed by one environment check; **`P10-C3` because it is an
 authorisation hole, reachable by every clinician in the tenant, that defeats both controls the agent
 governance rests on — and it is closed by one `Gate::authorize` line**; `P9-C1` because an unaudited export
@@ -6843,3 +6901,78 @@ gate, enumerate its callers before concluding the gate holds.** It is the same d
 applies to permissions (D-182: a refusal must be reachable) and to services
 (`enumerate-consumers-before-scoping-a-test-run`), applied to an authorisation boundary. Verifying a gate at
 one call site proves that call site, not the gate.
+
+## QA-FIX.10a — ADDENDUM: the export enumeration, and the one export it found unaudited
+
+`P9-C1`'s fix required a question the finding did not itself answer: **is the AR report the only export
+that discloses patient data without recording it?** Fixing one unaudited export while another stands would
+have closed a finding without closing the hole it is an instance of. The table below is the answer, and it
+is recorded here rather than folded into the fix because one of its rows is a **new finding**, which this
+gate deliberately does not fix (a fix gate closes the findings it was given).
+
+### The export-audit table
+
+Every controller in `app/` and `Modules/*/src/` that streams bytes to a client — found by grepping for
+`streamDownload`, `Storage::…->download`, and `Content-Disposition` — with the audit path each one takes.
+**Where a controller delegates, the table follows it one level into the service**, which is the correction
+described below.
+
+| Route / controller | What leaves | Audited? |
+| --- | --- | --- |
+| `BillingReportController::export` | AR report CSV naming up to 10 patients | **NO → fixed here (`P9-C1`)** |
+| `InvoiceController::download` | invoice PDF | yes — `auditRead('billing_invoice_download')` |
+| `PortalInvoiceController::download` | invoice PDF (portal) | yes — `auditRead('portal_invoice_download')` |
+| `DocumentDownloadController` | clinical document | yes — `auditRead('document_download')` |
+| `PortalDocumentController::download` | clinical document (portal) | yes — `auditRead('portal_document_download')` |
+| `DentalImageController::download` | raw dental image bytes | yes — **in the service**: `DentalImagingService::fileContents()` → `$document->auditRead('dental_image_download')` |
+| `NurseVisitAttachmentController` | home-visit photo or signature | **NO → `QF10a-H1`, recorded not fixed** |
+| `GovernanceLedgerExportController` | AI governance ledger ZIP | yes — `record('governance.ledger_exported')`, aggregate, no `patient_id` |
+| `PatientAccessLogController::export` | subject-access CSV | yes — `auditRead('patient_access_log_export')` (it audits its own export) |
+
+### A correction to this gate's own first enumeration
+
+The first pass of this table recorded **two** unaudited exports and named `DentalImageController::download`
+as one of them. **That was wrong, and the error is worth recording because it is a method error, not a
+typo.** The pass grepped `-i audit` over each *controller file*. `DentalImageController` contains no such
+string — but it calls `$imaging->fileContents($actor, $record)`, and
+`DentalImagingService.php:164` writes `$document->auditRead(['surface' => 'dental_image_download', …])`.
+The controller's own docblock says so in plain words: *"Gated on patient.view and read-logged inside the
+service."*
+
+**The rule this adds:** a file-level grep answers "does this file audit", which is not the question. The
+question is "does this REQUEST audit", and the answer can live one call deep. It is the same shape as the
+lesson `P10-C3` produced — *verifying a gate at one call site proves that call site, not the gate* — turned
+around: **verifying an absence in one file proves that file, not the request.** An enumeration that decides
+a negative must follow the calls before it reports one.
+
+### HIGH (QA-FIX.10a addendum)
+
+#### `QF10a-H1` — The nurse day-pack streams a home-visit photo or signature with no audit row of any kind
+
+- **Route:** `GET /api/nurse/attachments/{attachment}/download` (`routes/api.php:33`) ·
+  **Controller:** `Modules/Nursing/src/Http/Controllers/NurseVisitAttachmentController::__invoke`
+- **What leaves.** `VisitAttachment` is a `photo` or a `signature` captured at a patient's home visit
+  (`VisitAttachment.php:29-36`). The model carries `patient_id` as a first-class column
+  (`VisitAttachment.php:18`, non-nullable and tenant-asserted at `:81-91`) — so unlike `P9-C1`, the patient
+  link is *already sitting in the record being streamed*.
+- **What is recorded.** Nothing. The controller's 45 lines contain no `auditRead`, no `AuditService`, and
+  no service call that could carry one: it checks the token ability, checks the resource is one of the
+  caller's own practitioner resources, and hands the bytes to `Storage::disk('local')->download(...)`.
+  Verified comment-stripped over the whole file and over its one collaborator.
+- **The guard is real, and it is not the point.** Access is genuinely narrowed — a Sanctum
+  `nurse:day-pack` ability plus a check that the visit's resource belongs to an ACTIVE staff profile of the
+  caller. This is not an authorisation finding. It is the `P9-C1`/`P9-H2` finding: a disclosure that
+  happens correctly and is never written down.
+- **Why HIGH and not CRITICAL.** It matches `P9-H2` (the ward board discloses every admitted patient and
+  writes no read row) rather than `P9-C1`. Three reasons it sits below the CRITICAL line: the surface
+  discloses **one** attachment belonging to **one** visit, not a multi-patient file; reaching it requires a
+  personal API token with a specific ability, not a session any billing user already holds; and the caller
+  is restricted to their own assigned visits. What it shares with both is the property this phase's fence
+  tests for — **the patient cannot learn it happened.**
+- **Not fixed here, deliberately.** The gate's instruction was to record another unaudited export as a new
+  finding with its own id rather than widen the part. The remedy is one line of the shape the other eight
+  rows in the table already use, and the `patient_id` needed for it is on the model — but it is a different
+  route, a different module and a different guard, and this gate was given `P9-C1`.
+- **Note for whoever fixes it:** the day-pack's *list* surface already audits
+  (`'surface' => 'nurse_day_pack'`), so the finding is specifically that the **download** was not given the
+  same treatment as the read that precedes it.

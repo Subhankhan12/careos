@@ -660,3 +660,19 @@ an issued invoice's own total through the SAME formatter as the lines.
 
 **Reach for it whenever a non-Billing surface must SHOW money.** The rule it encodes: a page never
 derives a money figure it displays — the engine owns it, formats it, and the page prints it.
+
+**THE AR REPORT EXPORT IS AUDITED, AND IT WRITES TWO SHAPES (QA-FIX.10a, `P9-C1`, D-221).**
+`BillingReportController::export` streams a CSV naming up to ten overdue patients with their balances, days
+overdue and dunning stage. It used to write **nothing** — `grep -i audit` over the whole file returned
+zero. It now records, **before** `streamDownload` (a client that disconnects mid-download must not skip the
+row):
+
+- **one `billing.report_exported` row, no patient** — the file left the building; the shape
+  `GovernanceLedgerExportController` already uses for its own ZIP, written even when the report names nobody;
+- **one `action = 'read'` row per named patient** — `resource_type = 'billing_ar_report'`,
+  `surface = 'billing_ar_report_export'`, carrying their `patient_id`.
+
+**Copy this pattern for any new Billing export that names patients, and do NOT invent an action.** Every
+audited download in the product is a `read` row with an export surface, and `PatientAccessReport` reaches a
+patient's log by `action = 'read' AND patient_id = ?` — a bespoke action produces a well-formed,
+hash-chained row that no patient can ever see. That mistake was made and caught inside this gate.

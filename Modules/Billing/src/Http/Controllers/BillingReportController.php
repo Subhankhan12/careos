@@ -7,6 +7,7 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Gate;
 use Inertia\Inertia;
 use Inertia\Response;
+use Modules\Audit\Services\AuditService;
 use Modules\Patients\Models\Patient;
 use Modules\Platform\Models\User;
 use Modules\Platform\Services\SettingsService;
@@ -33,6 +34,14 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
  */
 class BillingReportController
 {
+    /** The tenant-ledger row's action — the file itself leaving, the shape `governance.ledger_exported` uses. */
+    private const EXPORT_ACTION = 'billing.report_exported';
+
+    private const EXPORT_RESOURCE = 'billing_ar_report';
+
+    /** Named the way every other audited download in the product names itself: a surface on a read row. */
+    private const EXPORT_SURFACE = 'billing_ar_report_export';
+
     /** The period keys the switcher offers, in presentation order. */
     private const PERIODS = ['week', 'month', 'quarter', 'ytd'];
 
@@ -77,7 +86,7 @@ class BillingReportController
      * CSV export of the SAME engine figures the grid displays — engine-computed data,
      * not a page-side recomputation. (PDF is deliberately not faked; CSV only for now.)
      */
-    public function export(Request $request, MetricsService $metrics): StreamedResponse
+    public function export(Request $request, MetricsService $metrics, AuditService $audit): StreamedResponse
     {
         Gate::authorize('billing.view');
         $actor = $request->user();
@@ -135,6 +144,9 @@ class BillingReportController
             $rows[] = [$key, 'invoice_count', $account['invoice_count']];
         }
 
+        // QA-FIX.10a (`P9-C1`, D-221) — RECORDED BEFORE IT IS HANDED OVER, and recorded per patient.
+        $this->recordExport($audit, $actor, $period, $r['period'], $overdue, count($rows));
+
         $filename = 'billing-ar-report-'.$period.'-'.$r['period']['from'].'_'.$r['period']['to'].'.csv';
 
         return response()->streamDownload(function () use ($rows): void {
@@ -144,6 +156,78 @@ class BillingReportController
             }
             fclose($out);
         }, $filename, ['Content-Type' => 'text/csv; charset=UTF-8']);
+    }
+
+    /**
+     * QA-FIX.10a (`P9-C1`, D-221) — the AR report leaves the building naming patients, so it is recorded.
+     *
+     * Driven in Phase 9: the audit table was snapshotted before and after a download and showed **zero**
+     * new rows. The file carries `top_overdue:<patient_id>` lines with each account's overdue balance,
+     * days overdue and dunning stage, so patient identifiers left the system with no trace in the ledger
+     * and — having no `patient_id` — nothing that could ever reach a patient's own access log.
+     *
+     * TWO KINDS OF ROW, BECAUSE TWO DIFFERENT FACTS ARE BEING RECORDED, AND THE PRODUCT ALREADY HAS A
+     * SHAPE FOR EACH. Nothing here is a new taxonomy:
+     *
+     *  - **The file left the building.** One row, no patient, action `billing.report_exported` — the same
+     *    shape `GovernanceLedgerExportController` writes for its own ZIP. It belongs to the tenant's
+     *    ledger: it is about the export, not about any one person, and it is written even when the report
+     *    names nobody.
+     *  - **This patient's data was disclosed.** One `action = 'read'` row per named patient, carrying
+     *    their `patient_id` and an export surface. That is how EVERY audited download in the product
+     *    already records itself — `billing_invoice_download`, `portal_invoice_download`,
+     *    `document_download`, `dental_image_download`, `patient_access_log_export` — and how the five
+     *    hand-rolled Dental read sites record a disclosure that has no `LogsReads` model behind it.
+     *    A bespoke action here would have been the only export in the codebase that invented one, and it
+     *    would have been unreachable by `PatientAccessReport`, which is the whole point of writing it.
+     *
+     * WHY ONE ROW PER PATIENT AND NOT ONE ROW LISTING THEM. `PatientAccessReport` reaches a patient's log
+     * by `patient_id = ?`. A single row naming three patients in its context is invisible to that query,
+     * so a file naming three people would still appear in nobody's log. One row per named patient is not
+     * a stylistic choice — it is the only shape the existing query can see. The list is capped at ten
+     * accounts (`MetricsService::topOverdueAccounts()`), so this is at most eleven appends: bounded, which
+     * matters because `AuditService::record()` takes a per-tenant `FOR UPDATE` lock for each row.
+     *
+     * WHY BEFORE THE STREAM, NOT INSIDE IT. `streamDownload`'s callback runs while the response is being
+     * sent, so a client that disconnects mid-download would skip an audit written there. Recording first
+     * means the row says the export was produced and handed over — not that every byte arrived — which is
+     * the safe direction for a disclosure record. It is also the order PC.P5's own subject-access export
+     * uses (`PatientAccessLogController::export()` calls `auditRead()` before it builds the CSV), so both
+     * exports answer the question the same way.
+     *
+     * @param  array{from: string, to: string}  $window
+     * @param  array{accounts: list<array<string, mixed>>, account_count: int, grand_total_overdue_minor: int}  $overdue
+     */
+    private function recordExport(AuditService $audit, User $actor, string $period, array $window, array $overdue, int $rowCount): void
+    {
+        $context = [
+            'surface' => self::EXPORT_SURFACE,
+            'period' => $period,
+            'from' => $window['from'],
+            'to' => $window['to'],
+            'row_count' => $rowCount,
+            'patients_named' => count($overdue['accounts']),
+        ];
+
+        $audit->record([
+            'actor_type' => 'user',
+            'actor_id' => (string) $actor->getKey(),
+            'action' => self::EXPORT_ACTION,
+            'resource_type' => self::EXPORT_RESOURCE,
+            'context' => $context,
+        ]);
+
+        foreach ($overdue['accounts'] as $account) {
+            $audit->record([
+                'actor_type' => 'user',
+                'actor_id' => (string) $actor->getKey(),
+                'action' => 'read',
+                'resource_type' => self::EXPORT_RESOURCE,
+                'resource_id' => (string) $account['patient_id'],
+                'patient_id' => (string) $account['patient_id'],
+                'context' => $context,
+            ]);
+        }
     }
 
     private function resolvePeriodKey(Request $request): string

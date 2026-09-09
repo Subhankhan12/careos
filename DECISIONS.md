@@ -4987,3 +4987,52 @@ references the old ID.
   times in code): restoring the round's substitution reddens **five** tests including the rendered-name and
   concurrent-rounds ones; restoring the vital's reddens the observation pair.
   See [[Hospital]], [[Clinical]], `docs/qa/ROLE-AUDIT.md` (`P9-C3`), D-195, D-197, D-216, [[LOG]].
+
+- **D-221 — An export that names patients writes TWO shapes, both of which the product already had: one
+  ledger row for the file, and one `read` row per named patient. Do not invent an action (QA-FIX.10a,
+  closing `P9-C1`).**
+  `BillingReportController::export` streamed a CSV carrying up to ten patients' ids, overdue balances, days
+  overdue and dunning stage, and wrote **no audit row at all** — `grep -i audit` over the whole 238-line
+  file returned nothing. Driven in Phase 9 by snapshotting `audit_events` before and after a download: the
+  only two new rows were `auth.logout` and `auth.login`. The disclosure was missing from **both** views —
+  absent from the tenant's ledger, and, having no `patient_id`, unreachable by any patient's access log.
+  **THE TWO SHAPES, AND WHY THEY ARE TWO.** Two different facts were unrecorded, and the codebase already
+  had a shape for each. *The file left the building* is one `billing.report_exported` row with no patient —
+  the shape `GovernanceLedgerExportController` writes for its own ZIP; it is about the export, not any one
+  person, and it is written even when the report names nobody. *This patient's data was disclosed* is one
+  `action = 'read'` row per named patient carrying their `patient_id`, `resource_type = 'billing_ar_report'`
+  and `surface = 'billing_ar_report_export'`.
+  **THE SECOND SHAPE IS THE CONVENTION, NOT A CHOICE.** Every audited download in the product is a `read`
+  row with an export surface: `billing_invoice_download`, `portal_invoice_download`, `document_download`,
+  `dental_image_download`, and PC.P5's own `patient_access_log_export`. Five Dental services already
+  hand-write `record(['action' => 'read', …])` where no `LogsReads` model is at hand, so a service-level
+  read row is established, not novel. `recordRead()` itself is called only by the `LogsReads` trait.
+  **THE FIRST VERSION OF THIS FIX WAS WRONG, AND THE WAY IT WAS WRONG IS THE LESSON.** It gave the
+  per-patient rows a bespoke `billing.report_exported` action. Those rows are well-formed, hash-chained,
+  patient-scoped and **invisible** — `PatientAccessReport`'s query is `action = 'read' AND patient_id = ?`,
+  so they would have reached the ledger and nobody's access log. The fix would have closed half the finding
+  while reading as complete. **A new action string is a new thing to be forgotten by every reader that
+  already exists.** The suite pins the difference: restoring the bespoke action leaves *"records the actor,
+  the window and the row count"* GREEN and turns *"reaches the access log"* RED — a ledger-only fix looks
+  correct from the ledger, which is exactly why the test asserts through the real `PatientAccessReport`
+  rather than the raw table.
+  **ONE ROW PER PATIENT, NOT ONE ROW LISTING THEM.** The report reaches a log by `patient_id = ?`; a single
+  row naming three patients in its context is invisible to all three. The list is capped at ten accounts,
+  so this is at most eleven appends — bounded, which matters because `AuditService::record()` takes a
+  per-tenant `FOR UPDATE` lock per row.
+  **RECORDED BEFORE THE STREAM.** `streamDownload`'s callback runs while the response is being sent, so a
+  client that disconnects mid-download would skip an audit written inside it. Recording first means the row
+  asserts the file was produced and handed over, not that every byte arrived — the safe direction for a
+  disclosure record, and the order PC.P5's subject-access export already uses.
+  **THE FILE DID NOT CHANGE**, asserted by a positive control (D-174): this fix alters the RECORD, never
+  the FILE.
+  **THE ENUMERATION IT REQUIRED, AND ITS OWN CORRECTION.** All nine byte-streaming controllers were
+  tabulated. The first pass grepped `-i audit` per controller FILE and wrongly reported
+  `DentalImageController::download` as unaudited; it audits one call deep, in
+  `DentalImagingService::fileContents()`. **A file-level grep answers "does this file audit", which is not
+  the question — "does this REQUEST audit" is, and the answer can live one call away.** One genuine gap
+  remains and is RECORDED, NOT FIXED (`QF10a-H1`): `NurseVisitAttachmentController` streams a home-visit
+  photo or signature with no audit row, though the model carries `patient_id` already.
+  **`P9-C2` IS NOT CLOSED BY THIS.** `document.shared` is still filtered out of the patient's log; that is
+  the other half of the same question and is fixed separately. See [[Billing]], [[Patients]],
+  `docs/qa/ROLE-AUDIT.md` (`P9-C1`, `QF10a-H1`), D-174, D-189, [[LOG]].

@@ -34,7 +34,7 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
 
 ## STATUS: BUILD COMPLETE · DEPLOY-READY 🟢 GO · THE BUILDABLE PARITY PROGRAMME IS COMPLETE — ONE TRACK REMAINS: **DEPLOYMENT + PARTNERSHIPS**
 
-### ✅ THE ROLE-BY-ROLE QA AUDIT IS COMPLETE — `docs/qa/ROLE-AUDIT.md` (10 of 10 phases; **185 findings — 35 fixed, 150 open**, plus the programme-closing summary)
+### ✅ THE ROLE-BY-ROLE QA AUDIT IS COMPLETE — `docs/qa/ROLE-AUDIT.md` (10 of 10 phases; **186 findings — 39 fixed, 147 open** as of QA-FIX.10a, plus the programme-closing summary)
 
 **Phase 1 (reception / front-desk) is DONE** (`06a3f78`): 18 findings — 1 CRITICAL, 3 HIGH, 8 MEDIUM,
 6 LOW — every page **driven in a real browser** via Playwright MCP. Findings are **recorded, not
@@ -347,6 +347,33 @@ fixture makes actor ≠ admitting clinician on purpose — the property whose ab
 **One CORRECTION flagged:** `BedsideChartTest`'s fixture gave its acting user no staff profile at all;
 corrected without changing any behaviour assertion.
 
+**QA-FIX.10 is closing the LAST open CRITICALs, in three parts.** Part 1 (`<pending>`, D-221) is done:
+**the AR report export is audited, and it reaches the patients it names (`P9-C1`).**
+`BillingReportController::export` streamed a CSV carrying up to ten patients' ids, overdue balances, days
+overdue and dunning stage and wrote **no audit row at all** — missing from the tenant's ledger, and, having
+no `patient_id`, unreachable by any patient's access log. It now writes **two shapes, both of which the
+product already had**: one `billing.report_exported` row with no patient (the file left the building — the
+shape `GovernanceLedgerExportController` uses) and one **`action = 'read'`** row per named patient carrying
+their `patient_id` and `surface = 'billing_ar_report_export'`. **THE SECOND SHAPE IS THE CONVENTION, NOT A
+CHOICE:** every audited download in the product is a `read` row with an export surface
+(`billing_invoice_download`, `portal_invoice_download`, `document_download`, `dental_image_download`,
+`patient_access_log_export`), and five Dental services already hand-write `record(['action' => 'read', …])`
+where no `LogsReads` model is at hand. **THE FIRST VERSION OF THIS FIX WAS WRONG AND THE WAY IT WAS WRONG
+IS THE LESSON:** it gave the per-patient rows a bespoke action, producing well-formed, hash-chained,
+patient-scoped rows that `PatientAccessReport` (`action = 'read' AND patient_id = ?`) **cannot see** — half
+the finding closed, reading as complete. The suite now pins it: restoring the bespoke action leaves *"records
+the actor, the window and the row count"* green and turns *"reaches the access log"* red. **One row per
+patient, not one listing them**, because the report matches on the COLUMN; capped at ten accounts, so ≤11
+appends against a per-tenant `FOR UPDATE` lock. **Recorded before the stream**, so a client that disconnects
+mid-download cannot skip it — the order PC.P5's own subject-access export already uses. **The file did not
+change** (positive control, D-174). **THE EXPORT ENUMERATION THE FIX REQUIRED FOUND ONE MORE GAP, RECORDED
+NOT FIXED:** all nine byte-streaming controllers were tabulated; `NurseVisitAttachmentController` streams a
+home-visit photo or signature with no audit row though the model already carries `patient_id` — logged as
+**`QF10a-H1` (HIGH)**. **The enumeration also corrected itself:** its first pass grepped `-i audit` per
+controller FILE and wrongly called `DentalImageController::download` unaudited — it audits one call deep, in
+`DentalImagingService::fileContents()`. **A file-level grep answers "does this file audit", not "does this
+REQUEST audit".** **`P9-C2` is NOT closed by this** and is Part 2.
+
 
 **PHASE 10 ADDENDUM (same day) — `P10-C3` (CRITICAL): the agent approve gate has a SECOND, UNGATED door.**
 Found after the phase was committed, by a second adversarial pass over the same scope, and **verified
@@ -360,7 +387,9 @@ once: the `ai.manage` monopoly fences the queue SCREEN not the approve CAPABILIT
 `P2-M1`), and the clinical/financial exclusion `bulkApprove` enforces has no counterpart on this route. **It
 corrects my own `P10-M6`** — the re-authorisation guard is not unreachable; on this path it is the ONLY
 gate. Also `P10-M7`: approve executes `input_payload` and never reads the `proposed_output` the reviewer
-read. **The programme now closes at 185 findings — 35 fixed, 150 open, SIX open CRITICALs.** `P10-C3` enters
+read. **The programme closed at 185 findings — 35 fixed, 150 open, SIX open CRITICALs**; QA-FIX.9 and 10a have
+since fixed four of those and the 10a enumeration added one (`QF10a-H1`), so it now stands at **186 findings —
+39 fixed, 147 open, TWO open CRITICALs (`P9-C2`, `P10-C2`) and 34 open HIGH.** `P10-C3` enters
 the open list at position 2, and two of the top four are one line each. The fences statement is unchanged:
 the tool still re-authorised, re-grounded and refused medical advice — what this breaks is who may press the
 button. **Method rule added:** *when a service method is the gate, enumerate its callers before concluding

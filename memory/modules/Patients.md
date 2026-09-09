@@ -424,3 +424,16 @@ browser has no staff session — but a shared practice terminal is a real place 
 **PORTAL RESPONSIVE — THE FIRST PASS IN TEN PHASES.** At 390 px all eight portal nav links render at 36 px
 height with real widths, the invoices table sits in an `overflow-x: auto` wrapper, and the document does not
 scroll horizontally. The staff shell still fails the same check. See [[Scheduling]], [[Platform]], [[LOG]].
+
+**WHAT REACHES A PATIENT'S ACCESS LOG IS `action = 'read' AND patient_id = ?` — NOTHING ELSE (D-221).**
+`PatientAccessReport` has exactly one query and all three of its methods bind the literal `'read'`. Two
+consequences worth knowing before writing any audit row that represents a disclosure:
+
+- **A new action string is invisible here.** A well-formed, hash-chained, patient-scoped row with any other
+  action reaches the tenant ledger and nobody's access log. QA-FIX.10a's first attempt did exactly that and
+  the mutation test caught it: the ledger assertions stayed green while *"reaches the access log"* went red.
+- **A row that names several patients in its `context` reaches none of them.** The query matches on the
+  `patient_id` COLUMN, so a multi-patient disclosure needs one row per patient.
+
+`P9-C2` is the other half of this: `document.shared` is a correctly written release that the `'read'`
+filter excludes, so a record release is invisible on the screen built to show it. Still open at D-221.
