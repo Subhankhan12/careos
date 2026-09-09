@@ -347,7 +347,7 @@ fixture makes actor ≠ admitting clinician on purpose — the property whose ab
 **One CORRECTION flagged:** `BedsideChartTest`'s fixture gave its acting user no staff profile at all;
 corrected without changing any behaviour assertion.
 
-**QA-FIX.10 is closing the LAST open CRITICALs, in three parts.** Part 1 (`<pending>`, D-221) is done:
+**QA-FIX.10 is closing the LAST open CRITICALs, in three parts.** Part 1 (`8eaa1a4`, D-221) is done:
 **the AR report export is audited, and it reaches the patients it names (`P9-C1`).**
 `BillingReportController::export` streamed a CSV carrying up to ten patients' ids, overdue balances, days
 overdue and dunning stage and wrote **no audit row at all** — missing from the tenant's ledger, and, having

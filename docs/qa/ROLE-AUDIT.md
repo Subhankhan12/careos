@@ -101,7 +101,7 @@ every later phase's timestamp observation suspect, and past-time booking was liv
 | `P10-C3` | CRITICAL | ✅ **FIXED** | QA-FIX.9a | `817a875` |
 | `P10-C1` | CRITICAL | ✅ **FIXED** | QA-FIX.9b | `4e610b0` |
 | `P9-C3` | CRITICAL | ✅ **FIXED** | QA-FIX.9c | `db57327` |
-| `P9-C1` | CRITICAL | ✅ **FIXED** | QA-FIX.10a | `<pending>` |
+| `P9-C1` | CRITICAL | ✅ **FIXED** | QA-FIX.10a | `8eaa1a4` |
 | all others | — | 📋 recorded, not fixed | — | — |
 
 *(A commit cannot contain its own hash. Per the repo-wide marker convention, `<pending>` is backfilled
@@ -5263,7 +5263,7 @@ controls the two phase roles cannot reach: `lena.studer@klinik-bergblick.test` (
 
 #### `P9-C1` — Patient identifiers leave the system in a CSV that writes no audit row at all
 
-> ✅ **FIXED — QA-FIX.10a, commit `<pending>` (D-221).** The export now records itself, in **two shapes,
+> ✅ **FIXED — QA-FIX.10a, commit `8eaa1a4` (D-221).** The export now records itself, in **two shapes,
 > because two different facts are being recorded and the product already had a shape for each.**
 > **(1) THE FILE LEFT THE BUILDING.** One `billing.report_exported` row, no patient — the same shape
 > `GovernanceLedgerExportController` writes for its own ZIP. It belongs to the tenant's ledger, it is about
