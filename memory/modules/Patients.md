@@ -435,5 +435,19 @@ consequences worth knowing before writing any audit row that represents a disclo
 - **A row that names several patients in its `context` reaches none of them.** The query matches on the
   `patient_id` COLUMN, so a multi-patient disclosure needs one row per patient.
 
-`P9-C2` is the other half of this: `document.shared` is a correctly written release that the `'read'`
-filter excludes, so a record release is invisible on the screen built to show it. Still open at D-221.
+**`P9-C2` WAS THE OTHER HALF, AND IT IS NOW FIXED (QA-FIX.10b, D-222).** The set is
+`PatientAccessReport::DISCLOSURE_ACTIONS = ['read', 'document.shared', 'document.unshared']`, named ONCE
+and used by all three queries in the class. **Read that constant before writing any audit row you expect a
+patient to see** — and prefer a `read` row with an export surface (D-221) over adding to the set.
+
+**THE BOUNDARY, AND WHY IT IS NOT "EVERYTHING WITH A PATIENT_ID".** A row belongs when it records this
+patient's record being made VISIBLE OR AVAILABLE to someone. 982 rows in the live ledger carry a patient id
+and only 26 are disclosures; the rest are activity ON the record — `charge.captured` (163),
+`charge.validated` (151), `planned_visit.materialized` (89). Twelve activity actions are asserted ABSENT by
+test, including two borderline cases rejected with reasons: `referral.sent` (CareOS transmits nothing, so
+listing it would assert a disclosure the product did not make) and `notification.sent`.
+
+**THERE IS DELIBERATELY NO AUTOMATIC CLASSIFIER.** A scan over action literals was built and rejected: ~15
+action strings are assembled by interpolation (`'admission.'.$status`), so it would look exhaustive without
+being so — the shape of the finding itself. The guard is a two-directional test plus a contract test that
+reads the PHP constant and fails if a member has no phrase in `en.json`.

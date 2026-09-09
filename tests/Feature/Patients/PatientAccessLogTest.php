@@ -163,8 +163,18 @@ test('the report applies NO actor-type filter by default — completeness is str
     // Exactly three statements touch the ledger: the rows, the actor-type counts, the distinct
     // count. A fourth would be a second source that can drift from the one the export uses.
     expect(substr_count($source, 'from audit_events'))->toBe(3);
-    // ...and every one of them is scoped to this tenant, this action and this patient.
-    expect(substr_count($source, 'tenant_id <=> ? and action = ? and patient_id = ?'))->toBe(3);
+    /*
+     * ...and every one of them is scoped to this tenant, this DISCLOSURE SET and this patient.
+     *
+     * CORRECTED BY QA-FIX.10b (`P9-C2`), and the property is unchanged. This assertion used to read
+     * `action = ?`, which pinned the defect as tightly as it pinned the structure: a single bound
+     * action was exactly what hid `document.shared` from the log. What it is FOR — all three
+     * statements scoped identically, from one source, so the export cannot disagree with the screen
+     * — survives intact and is now pinned against the widened form.
+     */
+    expect(substr_count($source, "tenant_id <=> ? and action in ('.self::actionplaceholders().') and patient_id = ?"))->toBe(3);
+    // The placeholder list is built from the ONE constant, so all three are the same set by construction.
+    expect(PatientAccessReport::DISCLOSURE_ACTIONS)->toContain('read')->toContain('document.shared');
     // ...and the row-returning path is not filtered by actor type unless the caller asked.
     expect($source)->toContain('$actortypes !== []');
 
@@ -192,7 +202,13 @@ test('the export contains EXACTLY the rows the screen shows, from the same query
 
     $lines = array_values(array_filter(explode("\n", trim($csv))));
     $header = array_shift($lines);
-    expect($header)->toBe('occurred_at,actor_type,actor_id,actor_name,resource_type,resource_id,surface');
+    /*
+     * CORRECTED BY QA-FIX.10b: `action` is a column now. Until then every row in this file was a
+     * read, so the kind of disclosure was implicit; with a release beside a read, a file without the
+     * action would flatten the two into one indistinguishable list. The assertion still pins the
+     * exact header — it FOLLOWS its subject rather than being relaxed to fit (D-173).
+     */
+    expect($header)->toBe('occurred_at,action,actor_type,actor_id,actor_name,resource_type,resource_id,surface');
 
     /*
      * The export ran AFTER the screen and audits itself, so it legitimately holds exactly one
@@ -207,8 +223,16 @@ test('the export contains EXACTLY the rows the screen shows, from the same query
             ->toBeTrue('a row shown on screen is missing from the export: '.$row['occurred_at']);
     }
 
-    // Every actor type survives into the file — the export is no narrower than the screen.
-    $exportedTypes = array_unique(array_map(fn (string $line): string => str_getcsv($line)[1], $lines));
+    /*
+     * Every actor type survives into the file — the export is no narrower than the screen.
+     *
+     * CORRECTED BY QA-FIX.10b: this read column [1] positionally, which was `actor_type` until the
+     * `action` column was inserted ahead of it. It now resolves the column BY NAME from the header
+     * this test already pins, so inserting another column shifts nothing and a renamed column fails
+     * loudly instead of silently comparing the wrong field.
+     */
+    $columns = array_flip(str_getcsv($header));
+    $exportedTypes = array_unique(array_map(fn (string $line): string => str_getcsv($line)[$columns['actor_type']], $lines));
     foreach (['user', 'patient', 'service', 'operator'] as $expected) {
         expect(in_array($expected, $exportedTypes, true))->toBeTrue("the export drops '{$expected}' reads");
     }

@@ -50,7 +50,7 @@ const props = defineProps<{
     // Optional chart-sourced allergies — not part of the Patients/Show payload today;
     // the banner renders only when the prop lands (same pattern as the landing KPIs).
     allergies?: Array<{ id: string; substance: string; reaction: string | null; severity: string; status: string }>;
-    accessLog: Array<{ actor_type: string; actor_id: string | null; occurred_at: string; resource_type: string }>;
+    accessLog: Array<{ action: string; actor_type: string; actor_id: string | null; occurred_at: string; resource_type: string }>;
     /**
      * SERVER-COMPUTED counts of real rows (PC.P3). Not array lengths: the moment one of these
      * lists is capped or gated, a page-side length starts under-reporting the record silently
@@ -336,7 +336,7 @@ function withdrawConsent(url: string): void {
                                     <span class="font-medium text-ink">{{ entry.actor_type }}</span>
                                     <span class="text-ink-muted"> {{ entry.actor_id || '—' }}</span>
                                 </span>
-                                <span class="rounded-md bg-euca-50 px-2 py-0.5 font-mono text-xs text-euca-800">{{ entry.resource_type }}</span>
+                                <span class="rounded-md bg-euca-50 px-2 py-0.5 font-mono text-xs text-euca-800">{{ entry.action }} {{ entry.resource_type }}</span>
                                 <span class="shrink-0 text-xs text-ink-subtle">{{ timePart(entry.occurred_at) }}</span>
                             </div>
                         </div>

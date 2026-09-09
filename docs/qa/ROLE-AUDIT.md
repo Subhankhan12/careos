@@ -102,6 +102,7 @@ every later phase's timestamp observation suspect, and past-time booking was liv
 | `P10-C1` | CRITICAL | ✅ **FIXED** | QA-FIX.9b | `4e610b0` |
 | `P9-C3` | CRITICAL | ✅ **FIXED** | QA-FIX.9c | `db57327` |
 | `P9-C1` | CRITICAL | ✅ **FIXED** | QA-FIX.10a | `8eaa1a4` |
+| `P9-C2` | CRITICAL | ✅ **FIXED** | QA-FIX.10b | `<pending>` |
 | all others | — | 📋 recorded, not fixed | — | — |
 
 *(A commit cannot contain its own hash. Per the repo-wide marker convention, `<pending>` is backfilled
@@ -5333,6 +5334,55 @@ controls the two phase roles cannot reach: `lena.studer@klinik-bergblick.test` (
 
 #### `P9-C2` — A record release is invisible to the patient it discloses, on the screen built to show exactly that
 
+> ✅ **FIXED — QA-FIX.10b, commit `<pending>` (D-222).** The report is now complete over **disclosures**,
+> not over reads, and the page says so.
+> **THE SET IS NAMED ONCE:** `PatientAccessReport::DISCLOSURE_ACTIONS = ['read', 'document.shared',
+> 'document.unshared']`, and all three of the class's queries — the row list and both counters the screen
+> prints as its headline — are built from it. A counter left on the old filter would have contradicted the
+> list beneath it, so a test compares all three.
+> **THE BOUNDARY WAS MEASURED, NOT ASSERTED.** 982 rows in the live ledger carry a `patient_id` and only
+> 26 are disclosures. Returning "everything with a patient_id" — the obvious reading of this finding's
+> *Scope* paragraph — would have returned `charge.captured` (163), `charge.validated` (151),
+> `planned_visit.materialized` (89) and `visit.check_in`/`check_out` (94), turning a subject-access
+> artifact into an activity feed. **A row belongs when it records this patient's record being made visible
+> or available to someone**: a read, a release, or the withdrawal of a release. `document.unshared` is
+> included as the release's pair, because a log that shows a release and never its withdrawal asserts an
+> availability that has ended.
+> **THE EXCLUSIONS THIS FINDING NAMED ARE DELIBERATE AND ARE PINNED ABSENT.** `document.uploaded`,
+> `consent.granted`/`withdrawn` and the ADT events are activity ON the record, not disclosure OF it. Two
+> borderline cases were examined and rejected WITH REASONS: `referral.sent`, because **CareOS transmits
+> nothing** — listing it would assert a disclosure the product did not make — and `notification.sent`, a
+> message about care rather than a release. Twelve such actions are asserted ABSENT by a test, so a future
+> widening is a decision someone makes rather than a side effect.
+> **NO DISCLOSURE REGISTER WAS BUILT.** No legal basis, recipient or purpose model — that is a feature.
+> This makes existing disclosures visible; it does not add a records-release capability.
+> **AN AUTOMATIC CLASSIFIER WAS BUILT IN OUTLINE AND REJECTED, WHICH IS THE HONEST ANSWER.** A scan
+> asserting every action literal is classified finds 99 literals — but ~15 action strings are assembled by
+> interpolation (`'admission.'.$status`), so several "literals" are bare prefixes and the scan is
+> incomplete. **It would have looked exhaustive without being so — the exact shape of this finding.** The
+> guard is instead a two-directional test plus a cross-language contract test that reads
+> `DISCLOSURE_ACTIONS` out of the PHP source and fails if a member has no phrase in `en.json`.
+> **THE SURFACE WAS THE OTHER HALF, AND IT WOULD HAVE PRINTED A FALSEHOOD.** `AccessLog.vue` rendered
+> every row as `t('patients.accessLog.readAction')` — **the word "read" hardcoded** — harmless only while
+> the server could return nothing else. A release reaching that page would have been **labelled a read**:
+> the wrong fact on the one screen whose job is that fact, and a quieter failure than the missing row. The
+> rule now lives in `resources/js/lib/disclosure.ts` (pure, therefore unit-testable — this repo has no
+> component-render harness), `action` is SELECTED and carried through `rows()`, the subject-access CSV
+> gains an `action` column, and the **Patient-360 tab — the other surface this finding drove — shows it
+> too**. The fallback prints the raw action, never the read phrasing.
+> **THE PAGE NOW STATES WHAT IT LEAVES OUT.** The claim this finding says the screen falsifies is
+> rewritten to describe the three classes; a new paragraph states that activity on the record is not
+> listed, and why, including the `referral.sent` reasoning. The eyebrow reads *"Record access · disclosure
+> audit"*. The operator-mode limitation stands beside it — the page now names two limitations, both true.
+> **Guarded by** 8 tests in `tests/Feature/Patients/PatientAccessLogDisclosureTest.php` — including one
+> that releases a real document through `DocumentService` and asks the report, because `P9-C2` was a
+> mismatch between what the RELEASE PATH writes and what the REPORT reads, and a fixture writing both
+> halves itself cannot detect that — plus 8 in `resources/js/lib/disclosure.test.ts`.
+> **Mutation-checked three ways, each grep-confirmed applied:** collapsing the set back to `['read']` (the
+> pre-fix state) reddens **six**, leaving green only the two that should be — reads still shown, exclusions
+> still held; restoring the read-phrasing fallback reddens the label test; deleting the release phrase from
+> `en.json` reddens **two**, including the contract test that exists for exactly that drift.
+
 - **Roles:** `him_records` (reader), `doctor` (releaser) · **Routes:** `POST /clinical/documents/{d}/share`,
   `GET /patients/{p}/access-log`, `GET /patients/{p}` → *Access log* tab
 - **Steps, end to end in the browser.** (1) As `doctor`, released Nadia Lüthi's referral letter to her
@@ -6512,8 +6562,8 @@ order it should be taken, and what the audit learned about auditing.
 | 10 | Admin / governance + Patient portal | 3 | 5 | 7 | 2 | 17 |
 | QA-FIX.10a | export enumeration (`QF10a-H1`) | 0 | 1 | 0 | 0 | 1 |
 | **TOTAL RECORDED** | | **24** | **46** | **84** | **32** | **186** |
-| **FIXED** | by the QA-FIX gates, 1a–10a | **22** | **12** | **4** | **1** | **39** |
-| **OPEN** | | **2** | **34** | **80** | **31** | **147** |
+| **FIXED** | by the QA-FIX gates, 1a–10b | **23** | **12** | **4** | **1** | **40** |
+| **OPEN** | | **1** | **34** | **80** | **31** | **146** |
 
 *(Phase 10 includes `P10-C3` and `P10-M7`, added the same day by the addendum at the end of this document.
 `P10-C3` enters the open list at position 2, and it corrects `P10-M6`.)*
@@ -6527,15 +6577,15 @@ fix gate rather than by a phase. The gate-count phrase is now a range rather tha
 "20" did not match the 23 gate parts its own list enumerates, and a number that cannot be derived from
 the list beneath it is worse than none.
 
-**Every CRITICAL from phases 1–8 has been fixed, and so have all three of Phase 10's.** **Two open
-CRITICALs remain: `P9-C2` and `P10-C2`** — both assigned to the gate in progress. **34 HIGH are open.**
+**Every CRITICAL from phases 1–8 has been fixed, and so have all three of Phase 10's.** **ONE open CRITICAL
+remains: `P10-C2`** — the last part of the gate in progress. **34 HIGH are open.**
 
 Fixed by gate: `P1-C1` (QA-FIX.1a) · `P1-H3` (1b) · `P2-C1` (2a) · `P2-H1` (2b) · `P3-C1` (3a) · `P3-H1`
 (3b) · `P4-C1` (4a) · `P4-C4` (4b, re-graded CRITICAL→HIGH) · `P4-C2`·`P4-C3` (4c) · `P4-C5` (4d) ·
 `P4-H3` (4e) · `P5-C1` (5a) · `P5-C2`·`P5-M4` (5b) · `P6-C1`·`P6-M10`·`P6-L2` (6a) · `P6-C2` (6b) ·
 `P6-C3` (6c) · `P7-C1`·`P7-C2` (7a) · `P7-C3` (7b) · `P7-H2` (7c) · pattern 1's over-offer half —
 `P1-H1`·`P2-H2`·`P3-M7`·`P4-H5`·`P5-H2`·`P6-H4`·`P7-H4` (7d) · `P8-C1` (8a) · `P8-C2` (8b) ·
-`P8-H2`·`P7-M5` (8c) · `P10-C3` (9a) · `P10-C1` (9b) · `P9-C3` (9c) · `P9-C1` (10a).
+`P8-H2`·`P7-M5` (8c) · `P10-C3` (9a) · `P10-C1` (9b) · `P9-C3` (9c) · `P9-C1` (10a) · `P9-C2` (10b).
 
 ## 2. The eight cross-phase patterns — final status
 
@@ -6645,7 +6695,7 @@ numbering that follows is the original ordering and is left as written rather th
 | 6 | `P10-H4` | HIGH | Quick-book pre-selects the first patient — a hurried booking books the wrong person | First hurried booking |
 | 7 | `P9-H1` | HIGH | A bed manager moving an occupied bed to `cleaning` wedges the patient with no way back | First time housekeeping tidies an occupied bed |
 | 8 | `P10-H3` | HIGH | Waitlist auto-fill cannot offer a cancelled slot — the only kind it exists for | First cancellation |
-| 9 | `P9-C2` + `P10-H5` | CRITICAL + HIGH | A release never appears in the patient's access log; two portal surfaces write no read row | First subject-access request |
+| 9 | `P9-C2` ✅ FIXED (10b) + `P10-H5` | CRITICAL + HIGH | A release never appears in the patient's access log; two portal surfaces write no read row | First subject-access request |
 | 10 | `P4-H1`, `P4-H2` | HIGH | Nurse PWA sync 500s on reachable inputs and jams; a crashed batch commits part of itself | First field round with a flaky connection |
 | 11 | `P8-H1`, `P9-H3`, `P10-M1` | HIGH ×2 + MEDIUM | Refusals are invisible across Lab, Radiology, Hospital, Admin and Governance | Continuously, from day one |
 | 12 | `P6-H2` | HIGH | The theatre double-booking guard is correct, tested and unreachable; the path the product uses has no overlap check | First two cases scheduled into one theatre |

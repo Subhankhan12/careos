@@ -34,7 +34,7 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
 
 ## STATUS: BUILD COMPLETE · DEPLOY-READY 🟢 GO · THE BUILDABLE PARITY PROGRAMME IS COMPLETE — ONE TRACK REMAINS: **DEPLOYMENT + PARTNERSHIPS**
 
-### ✅ THE ROLE-BY-ROLE QA AUDIT IS COMPLETE — `docs/qa/ROLE-AUDIT.md` (10 of 10 phases; **186 findings — 39 fixed, 147 open** as of QA-FIX.10a, plus the programme-closing summary)
+### ✅ THE ROLE-BY-ROLE QA AUDIT IS COMPLETE — `docs/qa/ROLE-AUDIT.md` (10 of 10 phases; **186 findings — 40 fixed, 146 open** as of QA-FIX.10b, plus the programme-closing summary)
 
 **Phase 1 (reception / front-desk) is DONE** (`06a3f78`): 18 findings — 1 CRITICAL, 3 HIGH, 8 MEDIUM,
 6 LOW — every page **driven in a real browser** via Playwright MCP. Findings are **recorded, not
@@ -374,6 +374,31 @@ controller FILE and wrongly called `DentalImageController::download` unaudited �
 `DentalImagingService::fileContents()`. **A file-level grep answers "does this file audit", not "does this
 REQUEST audit".** **`P9-C2` is NOT closed by this** and is Part 2.
 
+**QA-FIX.10 Part 2 (`<pending>`, D-222) is done: the patient's access log is complete over DISCLOSURES
+rather than reads, and the page states what it leaves out (`P9-C2`).** `PatientAccessReport` bound the
+literal `'read'`, so a document released to a patient's portal — a correct, patient-scoped, hash-chained
+`document.shared` row — was filtered out of the artifact built to disclose it, while the screen claimed to
+show everything and named ONE limitation. **The set is now named once**
+(`DISCLOSURE_ACTIONS = ['read', 'document.shared', 'document.unshared']`) and all three of the class's
+queries are built from it. **The boundary was MEASURED:** 982 ledger rows carry a patient id and only 26 are
+disclosures, so "everything with a patient_id" would have returned `charge.captured` (163) and
+`charge.validated` (151) and turned a subject-access artifact into an activity feed. **Twelve activity
+actions are pinned ABSENT**, including two borderline cases rejected with reasons — `referral.sent` (CareOS
+transmits nothing, so listing it would assert a disclosure the product did not make) and
+`notification.sent`. **No disclosure register was built** — the gate's constraint held, and the honest fix
+did not require crossing it. **An automatic classifier was built in outline and REJECTED:** ~15 action
+strings are assembled by interpolation (`'admission.'.$status`), so a literal scan would look exhaustive
+without being so — the shape of the finding itself. **The surface was the other half:** `AccessLog.vue`
+hardcoded the word "read", so a release reaching the page would have been LABELLED A READ; the rule now
+lives in `resources/js/lib/disclosure.ts`, the `action` is carried to both surfaces and into the CSV, and
+the fallback prints the raw action, never the read phrasing. **PLAYWRIGHT CAUGHT WHAT UNIT TESTS COULD
+NOT:** vue-i18n resolves message keys as DOTTED PATHS, so `actions.document.shared` never matched a flat
+entry — 8 green unit tests and a browser rendering the raw action, because my fake translator did a flat
+lookup and was **easier to satisfy than the real thing**. Keys are flattened and the stub now walks the real
+message tree. **Two assertions in the pre-existing `PatientAccessLogTest` were CORRECTED** — they pinned
+`action = ?` and a positional CSV column; both properties survive and are re-pinned, the second now
+resolving its column BY NAME.
+
 
 **PHASE 10 ADDENDUM (same day) — `P10-C3` (CRITICAL): the agent approve gate has a SECOND, UNGATED door.**
 Found after the phase was committed, by a second adversarial pass over the same scope, and **verified
@@ -389,7 +414,7 @@ corrects my own `P10-M6`** — the re-authorisation guard is not unreachable; on
 gate. Also `P10-M7`: approve executes `input_payload` and never reads the `proposed_output` the reviewer
 read. **The programme closed at 185 findings — 35 fixed, 150 open, SIX open CRITICALs**; QA-FIX.9 and 10a have
 since fixed four of those and the 10a enumeration added one (`QF10a-H1`), so it now stands at **186 findings —
-39 fixed, 147 open, TWO open CRITICALs (`P9-C2`, `P10-C2`) and 34 open HIGH.** `P10-C3` enters
+40 fixed, 146 open, ONE open CRITICAL (`P10-C2`) and 34 open HIGH.** `P10-C3` enters
 the open list at position 2, and two of the top four are one line each. The fences statement is unchanged:
 the tool still re-authorised, re-grounded and refused medical advice — what this breaks is who may press the
 button. **Method rule added:** *when a service method is the gate, enumerate its callers before concluding

@@ -20,11 +20,19 @@ use Modules\Platform\Models\User;
  * It lives in the APP LAYER because it composes Patients with the Audit ledger, the same reason
  * `PatientShowController` and `AppointmentDetailController` do (D-017).
  *
- * WHAT THIS SCREEN OWES THE PATIENT IS COMPLETENESS. It reports every `action = 'read'` audit row
- * carrying this patient's id, with NO actor-type whitelist, no surface whitelist and no recency
- * cut-off applied by default — a transparency surface that quietly drops a category of reader is a
- * false assurance, which is worse than no screen at all. Screen and export share ONE query
- * (`PatientAccessReport`), so the exported file cannot disagree with what was on screen.
+ * WHAT THIS SCREEN OWES THE PATIENT IS COMPLETENESS OVER DISCLOSURES. It reports every audit row
+ * carrying this patient's id whose action is in `PatientAccessReport::DISCLOSURE_ACTIONS` — a read,
+ * a release to the portal, or the withdrawal of one — with NO actor-type whitelist, no surface
+ * whitelist and no recency cut-off applied by default. A transparency surface that quietly drops a
+ * category of reader is a false assurance, which is worse than no screen at all. Screen and export
+ * share ONE query (`PatientAccessReport`), so the exported file cannot disagree with what was on
+ * screen.
+ *
+ * IT USED TO SAY `action = 'read'` AND THAT WAS THE DEFECT (`P9-C2`, QA-FIX.10b). A document
+ * released to a patient's portal wrote a correct, patient-scoped, hash-chained `document.shared`
+ * row that this screen's own filter excluded — so the one category a subject-access request is
+ * actually about was missing from the artifact built to satisfy it, while the page's copy claimed
+ * to show everything. The boundary is now defined in one place and STATED on the page.
  *
  * IT MAKES NO JUDGMENT ABOUT ACCESS. There is no "suspicious" flag, no anomaly score, no
  * frequency analysis and no tinting by actor type: a read is a fact, and deciding which reads look
@@ -108,11 +116,19 @@ class PatientAccessLogController extends Controller
         $rows = $report->forPatientNewestFirst($record, $from, $to, $this->actorTypes($request));
 
         $handle = fopen('php://temp', 'r+');
-        fputcsv($handle, ['occurred_at', 'actor_type', 'actor_id', 'actor_name', 'resource_type', 'resource_id', 'surface']);
+
+        /*
+         * `action` is a COLUMN, added by QA-FIX.10b. Until then every row this report returned was a
+         * read, so the kind of disclosure was implicit and the header did not need to say it. Now
+         * that a release appears beside a read, a file that omitted the action would flatten the two
+         * into one indistinguishable list — the same erasure on paper that `P9-C2` was on screen.
+         */
+        fputcsv($handle, ['occurred_at', 'action', 'actor_type', 'actor_id', 'actor_name', 'resource_type', 'resource_id', 'surface']);
 
         foreach ($this->rows($rows) as $row) {
             fputcsv($handle, [
                 $row['occurred_at'],
+                $row['action'],
                 $row['actor_type'],
                 $row['actor_id'] ?? '',
                 $row['actor_name'],
@@ -166,6 +182,12 @@ class PatientAccessLogController extends Controller
 
             return [
                 'occurred_at' => (string) $row->occurred_at,
+                /*
+                 * The RECORDED action, carried through so the surface can name the KIND of
+                 * disclosure. `PatientAccessReport::DISCLOSURE_ACTIONS` is the only thing that
+                 * decides which kinds arrive here; this method neither widens nor narrows it.
+                 */
+                'action' => (string) $row->action,
                 // The RECORDED actor type, printed as recorded: user, patient, operator, service.
                 'actor_type' => (string) $row->actor_type,
                 'actor_id' => $row->actor_id !== null ? (string) $row->actor_id : null,

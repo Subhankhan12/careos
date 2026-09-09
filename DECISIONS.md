@@ -5036,3 +5036,57 @@ references the old ID.
   **`P9-C2` IS NOT CLOSED BY THIS.** `document.shared` is still filtered out of the patient's log; that is
   the other half of the same question and is fixed separately. See [[Billing]], [[Patients]],
   `docs/qa/ROLE-AUDIT.md` (`P9-C1`, `QF10a-H1`), D-174, D-189, [[LOG]].
+
+- **D-222 — The patient's access log is complete over DISCLOSURES, not over reads; the set is named once,
+  the exclusions are stated on the page, and the surface prints the recorded action instead of the word
+  "read" (QA-FIX.10b, closing `P9-C2`).**
+  `PatientAccessReport` had one query and it bound the literal `'read'`. A document released to a patient's
+  portal writes `document.shared` — a correct, patient-scoped, hash-chained row — so the release was
+  filtered out of the artifact built to disclose it. Driven in Phase 9: a doctor released Nadia Lüthi's
+  referral letter (HTTP 200, `shared_with_patient: true`) and neither the Patient-360 access tab nor the
+  dedicated PC.P5 screen showed it, while the screen's own copy claimed *"Every recorded read … No actor
+  type, surface or age of entry is filtered out"* and named exactly one limitation.
+  **THE BOUNDARY, MEASURED RATHER THAN ASSERTED.** 982 rows in the live ledger carry a `patient_id` and
+  only 26 are disclosures. "Everything with a patient_id" would have returned `charge.captured` (163),
+  `charge.validated` (151), `planned_visit.materialized` (89) and `visit.check_in`/`check_out` (94) — an
+  activity feed that buries the handful of rows a subject-access request is about. **A row belongs when it
+  records this patient's record being made visible or available to someone.** Three classes:
+  `read` (someone looked at it or took a copy — and every audited download in the product is one of these
+  with an export surface, D-221), `document.shared` (released to the portal), `document.unshared` (that
+  release withdrawn — its pair, because a log showing a release and never its withdrawal asserts an
+  availability that has ended).
+  **THE EXCLUSIONS ARE DECISIONS, AND TWO BORDERLINE CASES WERE EXAMINED AND REJECTED WITH REASONS.**
+  `referral.sent` is out because **CareOS transmits nothing** — listing it would assert a disclosure the
+  product did not make; `notification.sent` is out because it is a message about care, not a release of the
+  record. Both are pinned ABSENT by a test, so the exclusion is a decision rather than an omission.
+  **NO LEGAL-BASIS / RECIPIENT / PURPOSE MODEL WAS INVENTED.** That is a disclosure register — a feature,
+  not a fix. This gate made existing disclosures visible; it did not build a records-release capability.
+  **THERE IS DELIBERATELY NO AUTOMATIC CLASSIFIER, AND THAT IS THE HONEST ANSWER RATHER THAN THE
+  COMFORTABLE ONE.** The obvious guard — scan the codebase for every action literal and assert each is
+  classified — was built in outline and **rejected**: roughly fifteen action strings are assembled by
+  interpolation (`'admission.'.$status`, `'appointment.'.$x`), so the scan finds 99 literals of which
+  several are bare prefixes. It would have looked exhaustive without being so, which is the exact shape of
+  the finding it was meant to prevent. What guards the set instead is a test that pins BOTH directions —
+  the three classes appear, twelve named activity actions are asserted absent — plus a cross-language
+  contract test that reads `DISCLOSURE_ACTIONS` out of the PHP source and fails if any member has no
+  phrase in `en.json`.
+  **ALL THREE QUERIES MOVED TOGETHER, FROM ONE CONSTANT.** The row list and both counters
+  (`actorTypeCountsFor`, `distinctActorCountFor`) are separate SQL statements, and the screen prints the
+  counters as its headline — a counter left on the old filter would have contradicted the list beneath it.
+  Pinned by a test that compares all three.
+  **THE SURFACE WAS THE OTHER HALF, AND IT WOULD HAVE PRINTED A FALSEHOOD.** `AccessLog.vue` rendered
+  every row as `t('patients.accessLog.readAction')` — **the word "read" hardcoded** — which was invisible
+  only while the server could return nothing else. A release arriving on that page would have been
+  LABELLED A READ: a wrong statement on the one screen whose purpose is that statement, and a quieter
+  failure than the missing row. The rule now lives in `resources/js/lib/disclosure.ts` (pure, so it is
+  unit-testable — this repo has no component-render harness, per `a11y-markup.test.ts`), the `action` is
+  SELECTED and carried through `rows()`, the CSV gains an `action` column, and the Patient-360 tab — the
+  other surface the finding drove — shows it too. **The fallback prints the raw action, never the read
+  phrasing**: unpolished and true beats polished and wrong.
+  **THE PAGE NOW STATES WHAT IT LEAVES OUT.** `scopeAll` describes the three classes; a new `scopeActivity`
+  says activity on the record is not listed and why, including the `referral.sent` reasoning. The eyebrow
+  is *"Record access · disclosure audit"*, not *"read audit"*.
+  **`P9-C1` AND THIS ARE ONE QUESTION ASKED TWICE** and were studied together before either was fixed —
+  there is one definition of a recordable disclosure, not two. D-221 decided that an export is a `read`
+  row, which is why the export needs no entry in this set. See [[Patients]], [[Clinical]],
+  `docs/qa/ROLE-AUDIT.md` (`P9-C2`), D-221, D-174, D-182, [[LOG]].

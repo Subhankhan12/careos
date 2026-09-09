@@ -210,6 +210,10 @@ class PatientShowController extends Controller
 
         foreach ($accessReport->forPatient($patient) as $row) {
             $rows[] = [
+                // The KIND of disclosure. `P9-C2` was driven on this tab as well as the dedicated
+                // screen: a release now reaches both, and both say which kind it is rather than
+                // leaving every row to read as a plain look-up.
+                'action' => $row->action,
                 'actor_type' => $row->actor_type,
                 'actor_id' => $row->actor_id,
                 'occurred_at' => $row->occurred_at,

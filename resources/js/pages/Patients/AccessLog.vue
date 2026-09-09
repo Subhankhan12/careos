@@ -4,6 +4,7 @@ import { computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import AccessLogRow from '@/Components/Clinical/AccessLogRow.vue';
+import { disclosureLabel } from '@/lib/disclosure';
 
 /*
  * The dedicated patient access log (PC.P5).
@@ -30,6 +31,8 @@ const props = defineProps<{
     /** Append-only audit rows, newest first, exactly as the server ordered them. */
     rows: Array<{
         occurred_at: string;
+        /** The RECORDED action — the kind of disclosure. Rendered, never assumed (`P9-C2`). */
+        action: string;
         actor_type: string;
         actor_id: string | null;
         actor_name: string;
@@ -84,6 +87,15 @@ function actorTypeLabel(actorType: string): string {
     const key = `patients.accessLog.actorTypes.${actorType}`;
     const label = t(key);
     return label === key ? actorType : label;
+}
+
+/*
+ * WHAT KIND OF DISCLOSURE THIS ROW IS, READ OFF THE RECORDED ACTION (`P9-C2`, QA-FIX.10b).
+ * The rule itself lives in `@/lib/disclosure` so it can be unit-tested; this page only supplies
+ * the translator. It used to be `t('…readAction')` — the word "read" hardcoded into the template.
+ */
+function actionLabel(action: string, resource: string | null): string {
+    return disclosureLabel(action, resource, (key, values) => t(key, values));
 }
 
 function applyFilters(days: string, actorTypes: string[]): void {
@@ -187,7 +199,7 @@ const exportHref = computed(() => {
                             v-for="(row, index) in group.rows"
                             :key="`${row.occurred_at}-${index}`"
                             :actor="row.actor_name"
-                            :action="t('patients.accessLog.readAction', { resource: row.resource_type ?? '—' })"
+                            :action="actionLabel(row.action, row.resource_type)"
                             :at="timeLabel(row.occurred_at)"
                             :surface="row.surface"
                             :basis="actorTypeLabel(row.actor_type)"
@@ -202,6 +214,13 @@ const exportHref = computed(() => {
             <div class="glass-card space-y-2 p-5 text-xs text-ink-subtle">
                 <p class="text-xs font-semibold uppercase tracking-wide text-ink-subtle">{{ t('patients.accessLog.scopeTitle') }}</p>
                 <p>{{ t('patients.accessLog.scopeAll') }}</p>
+                <!--
+                    THE BOUNDARY, STATED (`P9-C2`). The page used to name ONE limitation while its
+                    query silently excluded an entire category. What it leaves out is now printed
+                    beside what it includes, so the omission is a stated decision rather than a
+                    discovery the reader makes by noticing something missing.
+                -->
+                <p>{{ t('patients.accessLog.scopeActivity') }}</p>
                 <p>{{ t('patients.accessLog.scopeSelf') }}</p>
                 <p>{{ t('patients.accessLog.scopeOperator') }}</p>
                 <p>{{ t('patients.accessLog.scopeImmutable') }}</p>
