@@ -5,6 +5,7 @@ namespace Database\Seeders;
 use App\Services\EdDispositionService;
 use Carbon\CarbonImmutable;
 use Database\Factories\StaffProfileFactory;
+use Database\Seeders\Concerns\RefusesOutsideDevelopment;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
@@ -110,6 +111,8 @@ use Modules\Surgery\Services\TheatreSchedulingService;
  */
 class DemoHospitalSeeder extends Seeder
 {
+    use RefusesOutsideDevelopment;
+
     public const TENANT_SLUG = 'klinik-bergblick';
 
     public const TENANT_NAME = 'Klinik Bergblick';
@@ -156,6 +159,8 @@ class DemoHospitalSeeder extends Seeder
 
     public function run(): void
     {
+        $this->assertDisposableEnvironment();
+
         if (Tenant::query()->where('slug', self::TENANT_SLUG)->exists()) {
             return;
         }

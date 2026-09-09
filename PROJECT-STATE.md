@@ -281,7 +281,7 @@ the one that discloses the most; **`P9-H3`: 11 `withErrors` sites, zero renderer
 hits**, so `bed_manager`'s entire remit is one screen it cannot reach by clicking. **Nothing is fixed —
 audit only.**
 
-**QA-FIX.9 is fixing the top of the open list, in three parts.** Part 1 (`<pending>`, D-218) is done:
+**QA-FIX.9 is fixing the top of the open list, in three parts.** Part 1 (`817a875`, D-218) is done:
 **the single-item agent approve route is gated, and every caller of `approve()` is pinned (`P10-C3`).**
 **THE ENUMERATION WAS THE POINT, NOT THE ONE-LINER** — Phase 10's closing method rule applied to itself.
 Comment-stripped, `approve()`/`reject()`/`autoExecute()` have five callers: three in
@@ -309,6 +309,24 @@ Where the refusal test's fixture makes the two overlap, that is written into the
 refusal or a second Send used to be a 500. **Guarded by** 7 tests, mutation-checked three ways, each
 confirmed applied by a comment-stripped count (a raw grep for `comms.manage` in the controller returns 5;
 the code count is 2). **Pint caught a lie:** `composer check` exited 0 while Pint had FAILED.
+
+Part 2 (`<pending>`, D-219) is done: **demo seeders refuse to run in production by their own guard, and the
+skeleton platform super-admin is confined to a disposable database (`P10-C1`).** **THE STUDY'S KEY FINDING
+IS WHY DEPLOY.PROV COULD NOT SEE THIS:** its test asserts `DatabaseSeeder.php` contains no `Demo` and that
+`db:seed --force` leaves `Tenant::count() === 0` — **both true the whole time**, because a platform
+super-admin has `tenant_id = null` and so creates no tenant. What it pins is a property of the current file
+contents, not a runtime refusal. `RefusesOutsideDevelopment` now sits on all four demo seeders, called as
+the FIRST statement of `run()`, so it holds however the seeder is reached; `DatabaseSeeder` uses the same
+trait to confine the skeleton account. **The permitted set is an ALLOW-LIST (`local`, `testing`), not
+`!== 'production'`** — `staging`, `demo`, `uat` and a typo'd `prod` all pass a not-production check. Fail
+closed. The account is **confined, not deleted**, and the fix **prevents creation but does not remove an
+account an earlier seed already made** (no production deployment exists yet). DEPLOY.PROV's test is
+untouched and still passes. **CLI-verified — Playwright does not apply to a console-path guard and that is
+stated rather than faked:** under `production` the demo seeder is refused with 0 tenants and `db:seed
+--force` yields catalogs with 0 super-admins; under `local` both behave exactly as before. **Guarded by** 6
+tests, mutation-checked three ways — and the first mutation silently failed to apply while the suite stayed
+green, caught only by the comment-stripped grep-confirm.
+
 
 **PHASE 10 ADDENDUM (same day) — `P10-C3` (CRITICAL): the agent approve gate has a SECOND, UNGATED door.**
 Found after the phase was committed, by a second adversarial pass over the same scope, and **verified

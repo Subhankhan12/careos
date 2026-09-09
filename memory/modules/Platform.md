@@ -578,3 +578,36 @@ by any real role — the D-182 "refusal must be reachable" standard applied to R
 **only** `patient.*` action in the ledger; there is no `patient.created`/`patient.registered`. Driven: a CSV
 import created MRN-000016/17 with full contacts, wrote one batch-level row with **no `patient_id`**, and the
 two new patients have **zero** audit rows. See [[AiCore]], [[Patients]], [[LOG]].
+
+## QA-FIX.9b (2026-09-09) — `P10-C1`: the demo seeders refuse in production, by their own guard
+
+**THE STUDY'S KEY FINDING — why DEPLOY.PROV could not see this.** `ProvisioningCommandsTest:246-258`
+asserts `DatabaseSeeder.php` contains no `Demo` and that `db:seed --force` leaves `Tenant::count() === 0`
+while the catalogs seed. **Both were true the whole time**: `UserFactory`'s default state is
+`tenant_id = null`, so **a platform super-admin has no tenant** and the count stayed zero while the account
+was created. And what it does assert is a property of the current FILE CONTENTS — a future edit wiring a
+demo seeder in breaks the test, but nothing refuses at run time. The audit had leaned on that wiring in
+prose; a convention is not a control.
+
+**THE FIX.** `Database\Seeders\Concerns\RefusesOutsideDevelopment` — all four demo seeders `use` it and
+call `assertDisposableEnvironment()` as the **first statement** of `run()`, so the refusal holds however
+the seeder is reached (`--class=`, a call from `DatabaseSeeder`, a nested `$this->call()`, tinker, a job).
+`DatabaseSeeder` uses the same trait for `isDisposableEnvironment()` and creates the skeleton
+`test@example.com` super-admin only where the database is disposable; the catalogs still seed everywhere.
+
+**ALLOW-LIST, NOT `!== 'production'`.** Permitted: `local` (dev + the audit's browser drives) and `testing`
+(the suite, CI included). A not-production check is the obvious form and the wrong one — `staging`, `demo`,
+`uat` and a typo'd `prod` all satisfy it. Fail closed. `app()->environment(...)` is the repo's own idiom
+(`bootstrap/app.php:80`).
+
+**Confined, not deleted** — nothing references `test@example.com` outside `DatabaseSeeder`, so removal was
+available; confining keeps local/testing byte-identical to what contributors already run.
+**Scope stated:** this prevents creation, it does not remove an account an earlier seed already made.
+**DEPLOY.PROV is untouched and still passes** — it pins the wiring; this adds the refusal beside it.
+
+**CLI-verified (Playwright does not apply to a console guard, stated rather than faked):**
+`APP_ENV=production db:seed --class=DemoClinicSeeder --force` → refused, 0 tenants;
+`APP_ENV=production db:seed --force` → catalogs only, 0 super-admins. Under `local`, both behave exactly as
+before. **Guarded by** 6 tests, mutation-checked three ways — and the first mutation attempt silently
+failed to apply while the suite stayed green, caught by the comment-stripped grep-confirm. See D-219,
+[[LOG]].

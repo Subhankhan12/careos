@@ -7,6 +7,7 @@ use Carbon\CarbonInterface;
 use Database\Factories\EncounterFactory;
 use Database\Factories\StaffProfileFactory;
 use Database\Factories\VitalFactory;
+use Database\Seeders\Concerns\RefusesOutsideDevelopment;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Str;
 use Modules\AiCore\Models\KbArticle;
@@ -105,6 +106,8 @@ use RuntimeException;
  */
 class DemoSpitexSeeder extends Seeder
 {
+    use RefusesOutsideDevelopment;
+
     public const TENANT_SLUG = 'spitex-sonnengarten';
 
     public const TENANT_NAME = 'Spitex Sonnengarten';
@@ -168,6 +171,8 @@ class DemoSpitexSeeder extends Seeder
 
     public function run(): void
     {
+        $this->assertDisposableEnvironment();
+
         if (Tenant::query()->where('slug', self::TENANT_SLUG)->exists()) {
             return;
         }

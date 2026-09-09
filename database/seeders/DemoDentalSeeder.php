@@ -4,6 +4,7 @@ namespace Database\Seeders;
 
 use Carbon\CarbonImmutable;
 use Database\Factories\StaffProfileFactory;
+use Database\Seeders\Concerns\RefusesOutsideDevelopment;
 use Illuminate\Database\Seeder;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Str;
@@ -70,6 +71,8 @@ use RuntimeException;
  */
 class DemoDentalSeeder extends Seeder
 {
+    use RefusesOutsideDevelopment;
+
     public const TENANT_SLUG = 'zahnarztpraxis-morgenstern';
 
     public const TENANT_NAME = 'Zahnarztpraxis Morgenstern';
@@ -117,6 +120,8 @@ class DemoDentalSeeder extends Seeder
 
     public function run(): void
     {
+        $this->assertDisposableEnvironment();
+
         if (Tenant::query()->where('slug', self::TENANT_SLUG)->exists()) {
             return;
         }

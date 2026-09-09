@@ -10,6 +10,7 @@ use Database\Factories\EncounterFactory;
 use Database\Factories\PatientFactory;
 use Database\Factories\StaffProfileFactory;
 use Database\Factories\VitalFactory;
+use Database\Seeders\Concerns\RefusesOutsideDevelopment;
 use Illuminate\Database\Seeder;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Carbon;
@@ -122,6 +123,8 @@ use RuntimeException;
  */
 class DemoClinicSeeder extends Seeder
 {
+    use RefusesOutsideDevelopment;
+
     public const TENANT_SLUG = 'praxis-lindenhof';
 
     public const TENANT_NAME = 'Praxis Lindenhof';
@@ -201,6 +204,8 @@ class DemoClinicSeeder extends Seeder
 
     public function run(): void
     {
+        $this->assertDisposableEnvironment();
+
         if (Tenant::query()->where('slug', self::TENANT_SLUG)->exists()) {
             return;
         }

@@ -4881,3 +4881,53 @@ references the old ID.
   prose naming `comms.manage`, `ai.manage` and `whereKey()` — a raw grep for `comms.manage` returns 5 and
   the code count is 2.
   See [[AiCore]], [[Comms]], [[Platform]], `docs/qa/ROLE-AUDIT.md` (`P10-C3`), D-182, D-174, [[LOG]].
+
+- **D-219 — A safety property that lives in the WIRING is not a guard; the seeders own their own refusal
+  (QA-FIX.9b, `P10-C1`).**
+  `php artisan db:seed --force` is a documented production deploy step (DEPLOY runbook §6). It ran
+  `DatabaseSeeder`, which created the framework skeleton's `test@example.com` account — and `UserFactory`'s
+  default state is `tenant_id = null`, which is a **platform super-admin**, with the skeleton's published
+  password. Driven in Phase 10 in a clean browser: the login succeeded and handed over self-service 2FA
+  enrolment. A whole-tree grep for `environment('production')` / `isProduction` returned **zero matches**;
+  the only environment check in the codebase was `bootstrap/app.php:80`.
+  **WHY DEPLOY.PROV DID NOT CATCH IT, WHICH IS THE INSTRUCTIVE PART.**
+  `ProvisioningCommandsTest`'s *"the production seed path cannot reach a demo seeder"* asserts two things:
+  that `DatabaseSeeder.php` does not contain the string `Demo`, and that `db:seed --force` leaves
+  `Tenant::count() === 0` while the catalogs seed. Both were TRUE the whole time. **A platform super-admin
+  has no tenant**, so the tenant count stayed zero while the account was created — the assertion could not
+  see the thing that mattered. And what it does assert is a property of the current FILE CONTENTS: a future
+  edit wiring a demo seeder into `DatabaseSeeder` would break the test, but nothing at runtime would refuse.
+  The audit had repeatedly leaned on that wiring in prose (*"`db:seed --force` is both safe and required;
+  only an explicit `--class=Demo…` creates one"*), which is exactly the kind of convention this programme
+  keeps finding is not a control.
+  **THE FIX PUTS THE REFUSAL ON THE SEEDER.** `Database\Seeders\Concerns\RefusesOutsideDevelopment` is used
+  by all four demo seeders, each calling `assertDisposableEnvironment()` as the FIRST statement of `run()`,
+  so the refusal holds however the seeder is reached — `--class=`, a call from `DatabaseSeeder`, a nested
+  `$this->call()`, tinker, or a job. `DatabaseSeeder` uses the same trait for `isDisposableEnvironment()`
+  and creates the skeleton account only where the database is disposable; the catalogs still seed
+  everywhere, because that is the part production actually needs.
+  **THE LIST IS AN ALLOW-LIST, AND THAT IS THE DESIGN DECISION.** Permitted: `local` and `testing`, the two
+  environments the product's own development uses (`.env`/`.env.example` set `local` for dev and the QA
+  audit's browser drives; `phpunit.xml` sets `testing` for the suite, in CI too — CI copies `.env.example`
+  and never runs a demo seeder itself). A `!== 'production'` check would have been the obvious form and is
+  the wrong one: `staging`, `demo`, `uat` and a typo'd `prod` all satisfy it. Fail closed — a newly invented
+  environment name refuses until someone adds it deliberately. `app()->environment(...)` is the repo's own
+  existing idiom (`bootstrap/app.php:80`), not a new mechanism (D-170).
+  **THE SKELETON ACCOUNT IS CONFINED, NOT DELETED.** Nothing in the codebase references
+  `test@example.com` — a whole-tree grep finds it only in `DatabaseSeeder` — so removing it was available.
+  Confining it is the smaller change: local and testing stay byte-identical to what every contributor and
+  the audit already run, and the exposure this finding is about is production. Stated so the choice is
+  reviewable rather than implicit.
+  **SCOPE, STATED: THIS PREVENTS CREATION, IT DOES NOT REMOVE AN ACCOUNT ALREADY CREATED.** A database that
+  was seeded before this commit still holds the account. CareOS has no production deployment yet
+  (pre-first-customer), so there is no such database today; the deploy runbook's checks are the place to
+  catch it if that ever stops being true, and no row is rewritten here.
+  **WHAT IS NOT CLAIMED.** DEPLOY.PROV's test is left exactly as it is and still passes — it pins the
+  wiring, which remains worth pinning. This adds the refusal beside it rather than replacing it.
+  **Guarded by** six tests in `tests/Feature/Platform/DemoSeederEnvironmentGuardTest.php`, mutation-checked
+  three ways: removing one seeder's guard call reddens the production-refusal test AND the structural pin;
+  removing `DatabaseSeeder`'s condition reddens the super-admin test (the `P10-C1` reproduction); widening
+  the allow-list to include `production` reddens three. Each mutation was **confirmed applied by a
+  comment-stripped count before its run** — and the first attempt at one of them did NOT apply while the
+  suite stayed green, which is precisely the false confirmation the rule exists to catch.
+  See [[Platform]], `docs/qa/ROLE-AUDIT.md` (`P10-C1`), D-170, D-174, D-182, [[LOG]].

@@ -98,7 +98,8 @@ every later phase's timestamp observation suspect, and past-time booking was liv
 | `P8-C1` | CRITICAL | ✅ **FIXED** | QA-FIX.8a | `8636ea1` |
 | `P8-C2` | CRITICAL | ✅ **FIXED** | QA-FIX.8b | `5a16624` |
 | `P8-H2` · `P7-M5` | HIGH · MEDIUM | ✅ **FIXED** | QA-FIX.8c | `946cf87` |
-| `P10-C3` | CRITICAL | ✅ **FIXED** | QA-FIX.9a | `<pending>` |
+| `P10-C3` | CRITICAL | ✅ **FIXED** | QA-FIX.9a | `817a875` |
+| `P10-C1` | CRITICAL | ✅ **FIXED** | QA-FIX.9b | `<pending>` |
 | all others | — | 📋 recorded, not fixed | — | — |
 
 *(A commit cannot contain its own hash. Per the repo-wide marker convention, `<pending>` is backfilled
@@ -5940,6 +5941,33 @@ Server clock `2026-09-09 01:13 UTC`, tenant display zone `Europe/Zurich`, audit 
 
 #### `P10-C1` — The default seeder creates a platform super-admin with a published password, and nothing stops it running in production
 
+> ✅ **FIXED — QA-FIX.9b, commit `<pending>` (D-219).** The refusal now lives on the seeders rather than in
+> the wiring. `Database\Seeders\Concerns\RefusesOutsideDevelopment` is used by all four demo seeders, each
+> calling `assertDisposableEnvironment()` as the FIRST statement of `run()`, so it holds however the seeder
+> is reached — `--class=`, a call from `DatabaseSeeder`, a nested `$this->call()`, tinker or a job — and
+> `DatabaseSeeder` uses the same trait to create the skeleton super-admin **only where the database is
+> disposable**. The catalogs still seed everywhere, because that is what production actually needs.
+> **THE LIST IS AN ALLOW-LIST — `local` and `testing`, nothing else.** A `!== 'production'` check would
+> have been the obvious form and is the wrong one: `staging`, `demo`, `uat` and a typo'd `prod` all satisfy
+> it. Fail closed. `app()->environment(...)` is the repo's own existing idiom (`bootstrap/app.php:80`).
+> **WHY THIS FINDING SURVIVED DEPLOY.PROV, which is the instructive part.**
+> `ProvisioningCommandsTest`'s *"the production seed path cannot reach a demo seeder"* asserts that
+> `DatabaseSeeder.php` contains no `Demo` and that `db:seed --force` leaves `Tenant::count() === 0`. Both
+> were true the whole time — **a platform super-admin has no tenant**, so the tenant count stayed zero
+> while the account was created. That test is left exactly as it is and still passes; this adds the
+> refusal beside it rather than replacing it.
+> **SCOPE, STATED:** this prevents creation; it does not remove an account already created by an earlier
+> seed. CareOS has no production deployment yet, so there is no such database today. No row is rewritten.
+> **The account is confined, not deleted** — nothing in the codebase references `test@example.com`, so
+> removal was available; confining keeps local and testing byte-identical to what contributors and this
+> audit already run, and the exposure is production.
+> **VERIFIED FROM THE CLI, WHICH IS WHERE THIS DEFECT LIVES — Playwright does not apply and that is stated
+> rather than faked.** `APP_ENV=production php artisan db:seed --class=DemoClinicSeeder --force` →
+> **refused**, *"DemoClinicSeeder creates demo data and refuses to run in the "production" environment
+> (permitted: local, testing)"*, with **0 tenants** created. `APP_ENV=production php artisan db:seed
+> --force` → catalogs seeded, **0 super-admins**, `test@example.com` absent. The same two commands under
+> the normal `local` environment → the demo tenant seeds and the account exists, exactly as before.
+
 - **Route:** `POST /login` · **Account:** `test@example.com` / `password`
 - **Steps:** in a clean browser context, sign in with those credentials.
 - **What happened.** The login **succeeded** and landed on `/two-factor/enrollment`, already displaying a
@@ -6646,7 +6674,7 @@ forced the correction.
 
 #### `P10-C3` — A second approve-and-execute endpoint has NO `ai.manage` gate and NO clinical exclusion, so any clinician can execute a clinical agent action by posting its id
 
-> ✅ **FIXED — QA-FIX.9a, commit `<pending>` (D-218).** Two remedies, because two different things were
+> ✅ **FIXED — QA-FIX.9a, commit `817a875` (D-218).** Two remedies, because two different things were
 > wrong. **AUTHORITY:** both methods now carry `Gate::authorize('comms.manage')` — the gate the sibling
 > `InboxController:31` already has on this surface. **`ai.manage` was deliberately NOT used:** reception
 > holds `comms.manage` without it, so requiring the governance permission would have made sending an
