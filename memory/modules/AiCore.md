@@ -595,3 +595,51 @@ displayed message that produced `blocked_no_comms_consent`.
 the gate holds.* Phase 10 verified the queue's gates exhaustively and never asked what else calls
 `ApprovalQueue::approve`. The same discipline as `enumerate-consumers-before-scoping-a-test-run`, applied to
 an authorisation boundary.
+
+## QA-FIX.9a (2026-09-09) — `P10-C3`: the second caller of `ApprovalQueue::approve()` is gated and scoped
+
+**THE ENUMERATION, which is the part worth keeping.** Comment-stripped, `approve()`/`reject()`/
+`autoExecute()` have FIVE call sites: `AiApprovalQueueController` ×3 (single approve, reject, bulk loop —
+all `Gate::authorize('ai.manage')`), `InboxAgentController::sendDraft` (**was ungated**), and
+`AgentRuntime::autoExecute` (gates the tool permission AND requires `reversible`; unreachable while the
+ceiling clamps `auto`). Inverting the search over the **29 controllers with zero authorisation call**
+showed every other one is a non-staff guard (portal ×11, nurse PWA ×5, kiosk, public booking, guest
+tokens) or delegates to a service that gates on the action's own permission — `ThreadService`
+(`comms.manage`), `VisitAssignmentService` (`dispatch.manage`, branch-scoped), `OrderService`
+(`order.manage` + `patient.view`), `EncounterService` (`encounter.manage`), `ClinicalNoteService`
+(`note.write`/`note.sign`), `DocumentService` (`note.write`). **No other ungated door**, and `P1-M2`'s
+structural note about `OpenEncounterFromAppointmentController` is confirmed benign.
+
+**THE DIAGNOSIS.** `ApprovalQueue::approve` was never ungated — it gates the **TOOL's** permission, which
+answers *may this person do the underlying work*. It does not answer *may this person approve an agent's
+proposal*; `ai.manage` answers that and **no service asks it**. A service-level gate answers the service's
+question, not the surface's.
+
+**THE FIX, in two halves.** (1) `Gate::authorize('comms.manage')` on both `InboxAgentController` methods —
+the gate the sibling `InboxController:31` already has. **`ai.manage` deliberately NOT used:** reception
+holds `comms.manage` without it, so the governance permission would have made an AI-drafted reply
+org_admin-only. (2) **The scope, which is what closed the hole:** `whereKey() + tool_key =
+comms.draft_reply + status = pending`, so a clinical or financial id is NOT FOUND. That is the single-item
+counterpart of the bulk exclusion and deliberately not a copy — a surface-scoped route needs a SCOPE,
+stronger than a category blacklist and needing no list kept in step with the tool registry. The governance
+queue keeps no category check on its single approve, because a reviewer with `ai.manage` looking at one
+item IS the informed review.
+
+**WHICH LAYER BITES, established by mutation rather than assumed — the two are complementary.** The ROUTE
+GATE catches someone with no business on this surface at all: the `P10-C3` attacker is a doctor holding
+`note.write` and not `comms.manage`, refused **403** before the lookup runs (driven in the browser after the
+fix). The SCOPE catches a LEGITIMATE surface user reaching outside their surface — reception holds
+`comms.manage`, passes the gate, and is still refused a clinical id — which the gate cannot see, and which
+is why the scope is what closes the finding. In the refusal TEST the two overlap, so removing the route gate
+leaves that one test green; that is written into the test file rather than hidden (D-182). The non-vacuous
+proof of the gate is the structural test; of the scope, the three category/state tests.
+
+**Also fixed, because the finding names it:** no try/catch meant a fence refusal or a second Send was a
+**500**; `AiCoreException` is now answered as a redirect with an error.
+
+**Guarded by** 7 tests in `tests/Feature/AiCore/InboxAgentApproveGateTest.php`, mutation-checked three ways
+(route gate removed → structural test red; scope removed → all three category/state tests red, the `P10-C3`
+reproduction; a gate removed from `AiApprovalQueueController` → structural test red, proving it scans both
+files), each confirmed applied by a **comment-stripped** count. `P10-M7` (approve executes `input_payload`,
+never the `proposed_output` the reviewer read) is untouched and stays open. See D-218, [[AiCore]],
+[[Comms]], [[LOG]].

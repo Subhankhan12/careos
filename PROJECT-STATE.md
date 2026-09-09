@@ -281,6 +281,35 @@ the one that discloses the most; **`P9-H3`: 11 `withErrors` sites, zero renderer
 hits**, so `bed_manager`'s entire remit is one screen it cannot reach by clicking. **Nothing is fixed —
 audit only.**
 
+**QA-FIX.9 is fixing the top of the open list, in three parts.** Part 1 (`<pending>`, D-218) is done:
+**the single-item agent approve route is gated, and every caller of `approve()` is pinned (`P10-C3`).**
+**THE ENUMERATION WAS THE POINT, NOT THE ONE-LINER** — Phase 10's closing method rule applied to itself.
+Comment-stripped, `approve()`/`reject()`/`autoExecute()` have five callers: three in
+`AiApprovalQueueController` (all `ai.manage`-gated), `InboxAgentController::sendDraft` (**the ungated
+one**), and `AgentRuntime::autoExecute` (gates the tool permission and requires `reversible`). **One
+ungated door and no other:** inverting the search over the 29 controllers with zero authorisation call
+showed the rest are non-staff guards (portal, nurse PWA, kiosk, public booking, guest tokens) or delegate
+to a service that gates the action's own permission — and **`P1-M2`'s structural note about
+`OpenEncounterFromAppointmentController` is confirmed benign by it**. **The diagnosis is not "someone
+forgot a gate":** `ApprovalQueue::approve` gates the TOOL's permission, which answers *may this person do
+the work*, not *may this person approve an agent's proposal* — and no service asks the second question.
+**`ai.manage` was deliberately NOT the fix:** `/comms/inbox` is gated `comms.manage` and reception holds it
+without `ai.manage`, so the governance permission would have made an AI-drafted reply org_admin-only — a
+product change wearing a security fix's clothes. The route now carries `comms.manage`, the gate its sibling
+`InboxController` already has. **What actually closed the hole is the SCOPE:** the lookup is `whereKey() +
+tool_key = comms.draft_reply + status = pending`, so a clinical or financial id is NOT FOUND — the
+single-item counterpart of `bulkApprove`'s exclusion, and deliberately not a copy (a scope is stronger than
+a category blacklist and needs no list kept in step with the tool registry). The governance queue keeps no
+category check on its single approve, because a reviewer with `ai.manage` looking at one item IS the
+informed review. **Which layer bites, established by mutation:** the ROUTE GATE catches someone with no business on the
+surface (the `P10-C3` doctor: 403 before the lookup, driven in the browser after the fix); the SCOPE
+catches a legitimate surface user reaching outside their surface (reception passes the gate and is still
+refused a clinical id) — which the gate cannot see, and which is why the scope is what closes the finding.
+Where the refusal test's fixture makes the two overlap, that is written into the test rather than hidden (D-182). Also fixed because the finding names it: a fence
+refusal or a second Send used to be a 500. **Guarded by** 7 tests, mutation-checked three ways, each
+confirmed applied by a comment-stripped count (a raw grep for `comms.manage` in the controller returns 5;
+the code count is 2). **Pint caught a lie:** `composer check` exited 0 while Pint had FAILED.
+
 **PHASE 10 ADDENDUM (same day) — `P10-C3` (CRITICAL): the agent approve gate has a SECOND, UNGATED door.**
 Found after the phase was committed, by a second adversarial pass over the same scope, and **verified
 first-hand before being recorded**. `POST /comms/inbox/send-draft` → `InboxAgentController::sendDraft`

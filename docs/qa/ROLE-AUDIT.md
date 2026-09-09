@@ -98,6 +98,7 @@ every later phase's timestamp observation suspect, and past-time booking was liv
 | `P8-C1` | CRITICAL | ✅ **FIXED** | QA-FIX.8a | `8636ea1` |
 | `P8-C2` | CRITICAL | ✅ **FIXED** | QA-FIX.8b | `5a16624` |
 | `P8-H2` · `P7-M5` | HIGH · MEDIUM | ✅ **FIXED** | QA-FIX.8c | `946cf87` |
+| `P10-C3` | CRITICAL | ✅ **FIXED** | QA-FIX.9a | `<pending>` |
 | all others | — | 📋 recorded, not fixed | — | — |
 
 *(A commit cannot contain its own hash. Per the repo-wide marker convention, `<pending>` is backfilled
@@ -6644,6 +6645,45 @@ forced the correction.
 ### CRITICAL (addendum)
 
 #### `P10-C3` — A second approve-and-execute endpoint has NO `ai.manage` gate and NO clinical exclusion, so any clinician can execute a clinical agent action by posting its id
+
+> ✅ **FIXED — QA-FIX.9a, commit `<pending>` (D-218).** Two remedies, because two different things were
+> wrong. **AUTHORITY:** both methods now carry `Gate::authorize('comms.manage')` — the gate the sibling
+> `InboxController:31` already has on this surface. **`ai.manage` was deliberately NOT used:** reception
+> holds `comms.manage` without it, so requiring the governance permission would have made sending an
+> AI-drafted reply an org_admin-only act — a product change wearing a security fix's clothes.
+> **SCOPE, which is what actually closed the hole:** the action is resolved as
+> `whereKey() + tool_key = comms.draft_reply + status = pending`, so a clinical or financial id is NOT
+> FOUND rather than refused after the fact. That is the single-item counterpart of `bulkApprove`'s
+> exclusion and deliberately not a copy of it — a surface-scoped route needs a scope, which is stronger
+> than a category blacklist and needs no list kept in step with the tool registry. The governance queue
+> keeps no category check on its single approve, because a reviewer holding `ai.manage` looking at one
+> item IS the informed review the rule protects.
+> **THE ENUMERATION THE FINDING ASKED FOR FOUND NO OTHER DOOR.** Every caller of
+> `approve()`/`reject()`/`autoExecute()`, comment-stripped: three in `AiApprovalQueueController` (all
+> `ai.manage`-gated), this one, and `AgentRuntime::autoExecute` (which gates the tool permission and
+> additionally requires `reversible`). Inverting the search over the 29 controllers with no
+> authorisation call at all showed the rest are either non-staff guards (portal, nurse PWA, kiosk,
+> public booking, guest token) or delegate to a service that gates on the action's own permission —
+> `ThreadService`, `VisitAssignmentService`, `OrderService`, `EncounterService`, `ClinicalNoteService`,
+> `DocumentService`. **`P1-M2`'s structural note about `OpenEncounterFromAppointmentController` is
+> confirmed benign by this.**
+> **WHICH LAYER BITES, established by mutation rather than assumed — the two are complementary.** The
+> ROUTE GATE catches someone with no business on this surface at all: this finding's own attacker, a
+> doctor holding `note.write` and not `comms.manage`, is now **403 before the lookup runs** (re-driven in
+> the browser — see the verification below). The SCOPE catches a LEGITIMATE surface user reaching outside
+> their surface: reception holds `comms.manage`, passes the gate, and is still refused a clinical id —
+> which the gate cannot see, and which is why the scope is what closes the finding. Where the refusal
+> test's own fixture makes the two overlap, that is written into the test file rather than hidden, per
+> D-182. **`P10-M7` is untouched** — approve still executes `input_payload`, and that remains open.
+>
+> **RE-DRIVEN VIA PLAYWRIGHT MCP after the fix, the finding's exact steps.** A clean browser context, a
+> PENDING clinical action created by driving `/clinical/recalls`, signed in as `matthias.brunner`:
+> `GET /governance/approvals` → **403** (unchanged), and `POST /comms/inbox/send-draft` with that clinical
+> action id → **403** *"This action is unauthorized."* — where before it was **302 + `status = executed`,
+> `reviewed_by = '3'`**. Verified in the database afterwards: `status = pending`, `reviewed_by` NULL,
+> `approved_at`/`executed_at` NULL, and **zero** `ai_interactions` rows. **Positive control:** as
+> `org_admin` the governance queue's legitimate approve still works — Pending 3 → Pending 2, *"Action
+> approved and executed through the existing path."*
 
 - **Role:** `doctor` (`matthias.brunner@praxis-lindenhof.test` — holds `note.write`, does **not** hold
   `ai.manage`) · **Route:** `POST /comms/inbox/send-draft`

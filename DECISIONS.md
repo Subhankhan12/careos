@@ -4820,3 +4820,64 @@ references the old ID.
   these files now explains the old defect in prose that mentions the very thing being counted.
   See [[Lab]], [[Radiology]], [[ED]], [[Billing]], `docs/qa/ROLE-AUDIT.md` (P8-H2, P7-M5), D-199, D-208,
   [[LOG]].
+
+- **D-218 — A service-level gate answers the service's question, not the surface's; and what a single-item
+  route leaks is SCOPE, not permission (QA-FIX.9a, `P10-C3`).**
+  `POST /comms/inbox/send-draft` called `ApprovalQueue::approve()` with no permission check and resolved the
+  action with a bare `whereKey()`. Driven in Phase 10: a doctor holding `note.write` and **not** `ai.manage`
+  — 403 on `/governance/approvals` in the same session — executed a **clinical** agent action by posting its
+  id. Both governance safeguards fell at once: `ai.manage` fences the queue SCREEN rather than the approve
+  CAPABILITY, and the clinical/financial exclusion that `bulkApprove` enforces server-side had no
+  single-item counterpart anywhere (`isClinicalOrFinancial()` appears in exactly two production places —
+  the bulk loop and the autonomy ceiling).
+  **THE ENUMERATION WAS THE POINT, NOT THE ONE-LINER.** Every caller of `approve()`/`reject()`/
+  `autoExecute()` was listed comment-stripped: three in `AiApprovalQueueController` (all `ai.manage`-gated),
+  one in `InboxAgentController` (ungated), and `AgentRuntime::autoExecute` (which gates the tool permission
+  and additionally requires `reversible`). **One ungated door, and no other.** Inverting the search — the 29
+  controllers with no authorisation call at all — showed the rest are either non-staff guards (portal,
+  nurse PWA, kiosk, public booking, guest token) or delegate to a service that gates on the action's own
+  permission: `ThreadService` (`comms.manage`), `VisitAssignmentService` (`dispatch.manage`, branch-scoped),
+  `OrderService` (`order.manage` + `patient.view`), `EncounterService` (`encounter.manage`),
+  `ClinicalNoteService` (`note.write`/`note.sign`), `DocumentService` (`note.write`). `P1-M2`'s structural
+  note about `OpenEncounterFromAppointmentController` is confirmed benign by this.
+  **SO THE DIAGNOSIS IS NOT "SOMEONE FORGOT A GATE".** `ApprovalQueue::approve` *does* gate — on the TOOL's
+  permission, which answers *may this person do the underlying work*. It does not answer *may this person
+  approve an agent's proposal*, and no service asks that. That is why the door was open.
+  **`ai.manage` IS DELIBERATELY NOT THE FIX HERE.** `/comms/inbox` is gated `comms.manage`
+  (`InboxController:31`) and reception holds `comms.manage` without `ai.manage`; requiring the governance
+  permission would have made sending an AI-drafted reply an org_admin-only act — a product change wearing a
+  security fix's clothes. The route now carries `comms.manage`, the gate its own surface already has.
+  **WHAT ACTUALLY CLOSED THE HOLE IS THE SCOPE:** the lookup is `whereKey() + tool_key = comms.draft_reply +
+  status = pending`, so a clinical or financial id is NOT FOUND rather than refused after the fact. This is
+  the single-item counterpart of the bulk exclusion and deliberately not a copy of it — bulk needs a
+  category blacklist because a bulk gesture selects across categories by construction, while a
+  surface-scoped route needs a scope, which is strictly stronger: it also refuses operational actions this
+  surface never proposed, and it needs no list kept in step with the tool registry. **The governance queue
+  keeps no category check on its single approve**, because a reviewer holding `ai.manage` and looking at one
+  item IS the informed review the rule protects — Phase 10 drove exactly that and it is correct.
+  **PLACEMENT: THE CONTROLLER, WITH THE GENERALISATION IN A TEST.** `ai.manage` cannot go inside
+  `ApprovalQueue::approve()` without breaking the inbox, because approve-authority differs by surface — so
+  the service cannot carry it. What stops the next caller repeating the defect is a structural test:
+  every controller method calling `ApprovalQueue::approve(` must contain `Gate::authorize(`, scanned
+  comment-stripped, with a count assertion so it cannot pass by finding nothing.
+  **WHICH LAYER BITES, ESTABLISHED BY MUTATION RATHER THAN ASSUMED — the two are complementary.** The
+  ROUTE GATE catches someone with no business on this surface at all: that is the `P10-C3` attacker, a
+  doctor holding `note.write` and not `comms.manage`, refused 403 before the lookup runs (driven in the
+  browser after the fix). The SCOPE catches a LEGITIMATE surface user reaching outside their surface —
+  reception holds `comms.manage`, passes the gate, and is still refused a clinical id — which the gate
+  cannot see, and which is why the scope is what actually closes the finding. In the refusal TEST the two
+  overlap (its outsider holds only `note.write`, and `comms.draft_reply`'s tool permission is
+  `comms.manage`, so the service would refuse them anyway), so removing the route gate leaves that one
+  test green. That is written into the test file rather than hidden, per D-182: the non-vacuous proof of
+  the gate is the structural test, and of the scope the three category/state tests.
+  **Also fixed, because the finding names it:** the route had no `try/catch`, so a fence refusal or a
+  second Send was a 500. `AiCoreException` (whose subclass `FenceRefusalException` covers the fence) is now
+  answered as a redirect with an error, the way the governance controller already answers it.
+  **Guarded by** seven tests in `tests/Feature/AiCore/InboxAgentApproveGateTest.php`, mutation-checked three
+  ways — removing the route gate reddens the structural test; removing the scope reddens all three
+  category/state tests (the `P10-C3` reproduction); removing a gate from `AiApprovalQueueController`
+  reddens the structural test too, proving it scans both files. Each mutation was confirmed by a
+  **comment-stripped** count before its run, because this controller's docblock now explains the defect in
+  prose naming `comms.manage`, `ai.manage` and `whereKey()` — a raw grep for `comms.manage` returns 5 and
+  the code count is 2.
+  See [[AiCore]], [[Comms]], [[Platform]], `docs/qa/ROLE-AUDIT.md` (`P10-C3`), D-182, D-174, [[LOG]].
