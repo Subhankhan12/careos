@@ -518,3 +518,51 @@ unchanged.
 outside the four paths in the finding and have fixtures that legitimately book historical slots. See
 D-194 and `docs/qa/ROLE-AUDIT.md` for the residual, recorded as an open decision rather than closed
 silently.
+
+## QA phase 10 (2026-09-09) — portal self-booking, the waitlist, and the sixth partial write. Audit only.
+
+**THE BOOKING GUARDS HOLD ON THE PORTAL PATH — driven for the first time.** Phase 1 named portal
+self-booking as an unguarded consumer (`P1-H3`); QA-FIX.1b fixed the finder and added an independent booking
+guard, and neither had ever been exercised in a browser.
+- **Self-booking works end to end:** service → date → *Find slots* → slot → *Confirm booking* → the
+  appointment appears under "Upcoming".
+- **Past times are neither offered nor accepted.** A past date returns *"No free times that day — try
+  another date."*; a forged POST is refused: `errors.starts_at = "The requested start 2026-09-08 09:00:00
+  has already passed."` (same for a 2020 date). Both layers hold.
+- **The `accepts_online_bookings` soft-suspend is honoured on BOTH endpoints.** With the branch suspended
+  through `/admin/branches`, the slots endpoint returned `{"slots":[]}` and a forged store — the "client
+  already had slots" race — was refused: *"Branch … is not accepting online bookings."*
+- **The 24-hour cancellation window is server-enforced, not merely hidden.** The UI drops the Cancel button
+  and prints the rule; the forged cancel returns *"This appointment can no longer be cancelled online.
+  Please contact the practice."*, as does cancelling an in-progress appointment.
+
+**`P10-C2` (CRITICAL) — THE SIXTH CREATE-THEN-ASSOCIATE-OUTSIDE-A-TRANSACTION INSTANCE** (after `P3-C1`,
+`P4-H2`, `P6-M10`, `P7-M5`, `P8-H2`), and the first found by driving an agent approval.
+`WaitlistService::offer()` (`:97-111`) flips the entry to `offered` with a bare `->save()` and dispatches its
+event **outside any transaction**; `accept()` (`:129-153`) then opens its own `DB::transaction`, books, and
+throws on a conflict. `FillFromWaitlistTool::execute:79-80` calls the two in sequence with nothing around
+them. Driven: after I booked the proposal's slot, approving left `waitlist_entries.status = offered`, an
+audit row `waitlist.offered`, and **zero `waitlist_offers` rows** — the entry says it was offered and nothing
+records an offer. `offer()` requires `status === waiting`, so the action can never take that path again; the
+retry returned `{"booked":false,"reason":"no_matching_waitlist_entry"}`, which the service treats as
+**success**, and the Resolved tab now renders it as **"Approved"**. The waitlisted patient is neither waiting
+nor booked, invisible to the candidate search, with no product path back.
+
+**`P10-H3` (HIGH) — the waitlist auto-fill panel can never offer a CANCELLED slot, the only kind it exists
+for.** Driven: candidates found ("Bruno Nussbaumer · priority 10"), *Offer* clicked, 302, no offer row, no
+message. The request body carried `"resource_ids":[]` because `DayBoard.vue:171` passes
+`appt.resource_ids`, `DayBoardController.php:272` builds it from `$appointment->resourceLinks`, and
+**cancelling deletes them** — `AppointmentService.php:359-361` (staff) and `:279` (portal) both call
+`resourceLinks()->delete()`. Confirmed by query: every status carries 2 links except `cancelled` and
+`rescheduled`, which carry 0. `WaitlistOfferController::offer` requires `min:1`. The AGENT can fill the same
+slot because its proposal payload captured the ids before the cancellation; the human one-click path cannot.
+
+**`P10-H4` (HIGH) — the day-board Quick-book modal pre-selects the FIRST PATIENT.**
+`DayBoard.vue:183-189`: `patient_id: props.patients[0]?.id ?? ''`, with no placeholder option — driven, the
+select holds 15 options already set to "Erika Baumgartner MRN-000001". Pattern 7 in its original dropdown
+form, on the most consequential field in the modal; it survived QA-FIX.7a (which fixed exactly this shape in
+ED triage and inpatient admission, D-211) because the day board was never measured for it.
+
+**The honest copy on the waitlist panel is worth keeping:** *"An outstanding offer holds the patient's place
+in the queue — not the slot. Nothing stops this time being booked while they think about it, and if that
+happens their acceptance is refused like any other clash."* See [[AiCore]], [[Patients]], [[LOG]].

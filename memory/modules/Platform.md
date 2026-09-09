@@ -535,3 +535,46 @@ destination is the sanctioned operation: D-107 (Dental), D-110 (POLISH.1), now D
 Precedent says add key + role-gated item, but six top-level entries would re-create the density defect
 **D-111** fixed (org_admin's 15 flat items → capped at 10 + an Admin menu). Grouped menus are the right
 shape and are an IA decision, not wiring.
+
+## QA phase 10 (2026-09-09) — the admin area's own fences. Audit only.
+
+**`P10-C1` (CRITICAL) — THE DEFAULT SEEDER CREATES A PLATFORM SUPER-ADMIN WITH A PUBLISHED PASSWORD, AND NO
+ENVIRONMENT GUARD EXISTS ANYWHERE.** `database/seeders/DatabaseSeeder.php:19-22` unconditionally runs
+`User::factory()->create(['email' => 'test@example.com'])`, and `database/factories/UserFactory.php:24-35`
+documents its default state as *"a super-admin: tenant_id = null"* with `password => Hash::make('password')`.
+Verified by query: `id=1`, `tenant_id` NULL, `isSuperAdmin() === true`, `Hash::check('password', …)` true,
+no 2FA — and it is the **only** super-admin in the database. **Driven in a clean browser context: the login
+SUCCEEDS** and lands on `/two-factor/enrollment` with a fresh QR code and recovery codes, so mandatory 2FA
+hands the holder self-service enrolment rather than stopping them. (I stopped there; no enrolment was
+completed.) `grep -rn "environment('production')\|isProduction\|environment(\["` over `database/`, `app/`
+and `Modules/` (tests excluded) returns **ZERO matches** — the "demo seeders cannot run in production"
+assertion does not exist in this codebase. Mitigation, stated fairly: OPMODE.G1 closed the super-admin's
+tenant-DATA bypass, so this account cannot read tenant PHI without a grant; what it can do is the platform
+console, tenant administration and plan management.
+
+**FENCES THAT HOLD, all driven:**
+- **`/admin` is 403 for `org_admin`** — the platform shell is behind the `super-admin` middleware
+  (`routes/web.php:139-140`); tenant admin lives at `/admin/roles`, `/admin/branches`, … (200).
+- **The ledger export's PHI opt-in** renders **unticked**, defaults false, and needs `admin.manage` on top of
+  `audit.export` (`GovernanceLedgerExportController:51`). Driven both ways — 2 042 vs 2 672 bytes — and each
+  export writes its own audit row recording the choice (`opt_ins: []` / `["free_text"]`). The exact opposite
+  posture to `P9-C1`'s silent AR CSV.
+- **Operator mode is inert:** `grep -rn operator routes/*.php` → one comment, no route. The governance page
+  says so on screen. The **no-self-approval** rule is implemented and documented
+  (`OperatorGrantService:64-66`, `:538`, `:556`) but **code-established only** — nothing to drive (D-164).
+- **The KB and dashboards invent nothing:** no gap ranking, no coverage score; governed-agent cards print
+  `—` where there is no denominator; reporting prints a rate with its denominator.
+- **Pattern 7 is CLEAN in admin/governance:** no person selector anywhere; `/admin/roles` pre-selects each
+  user's CURRENT role (state, not convenience); no admin write takes a person from the request except
+  `/admin/roles/assign`, which validates tenant membership.
+
+**`P10-M6` (MEDIUM) — two of the narrowest guards cannot fire for any role that exists.** Approve-time
+re-authorisation needs a reviewer with `ai.manage` and without a tool permission; `ai.manage` is
+`org_admin`-only and `org_admin` holds all 11. The free-text export opt-in needs `audit.export` without
+`admin.manage`; only `org_admin` holds `audit.export`, and it holds `admin.manage`. Correct code, untestable
+by any real role — the D-182 "refusal must be reachable" standard applied to RBAC.
+
+**`P10-M4` (MEDIUM) — creating a patient is not audited by any path.** `patient.import.committed` is the
+**only** `patient.*` action in the ledger; there is no `patient.created`/`patient.registered`. Driven: a CSV
+import created MRN-000016/17 with full contacts, wrote one batch-level row with **no `patient_id`**, and the
+two new patients have **zero** audit rows. See [[AiCore]], [[Patients]], [[LOG]].

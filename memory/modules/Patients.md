@@ -375,3 +375,52 @@ tab renders raw actor ids where PC.P5 renders names (`P9-L3`); the portal consen
 enforces (`P9-L2`, the D-176 shape); `BreakGlassService` — the one component that demands a written reason
 — has **no production consumer**, so no read anywhere records *why* it happened (`P9-L4`). See
 [[Hospital]], [[Audit]], [[Billing]], [[LOG]].
+
+## QA phase 10 (2026-09-09) — the portal as an outsider. Audit only.
+
+**OWN-DATA-ONLY HOLDS ON EVERY ID-BEARING ROUTE, READ AND WRITE — the cleanest isolation result of the
+programme.** Signed in as one portal patient, forging another's ids: `GET /portal/documents/{other}` **404**,
+`GET /portal/invoices/{other}/pdf` **404**, `POST /portal/consents/withdraw` **404**,
+`POST /portal/appointments/cancel` **404**, `POST /portal/check-in` **404**,
+`POST /portal/telehealth/{other session}/token` **403** *"This patient is not part of this telehealth
+session."*, `POST /portal/messages` (other's thread) **403** *"This patient cannot access this thread."*
+Own ids return 200. **Not one cross-patient read or write succeeded.**
+
+**PORTAL READS REACH THE PATIENT'S OWN LOG — for six of eight surfaces.** Recorded with
+`actor_type = patient`, rendered as **"Patient (self)"**: `portal_home`, `portal_appointments`,
+`portal_documents`, `portal_document_download`, `portal_invoices`, `portal_invoice_download`,
+`portal_consents`, `portal_checkin`. **`P10-H5` (HIGH):** `PortalMessageController` and
+`PortalTelehealthController` have **0** `auditRead` calls each, against 2–3 in every sibling, so the
+patient's own conversations and video-visit schedule are disclosed with no row — inconsistent with a rule
+the codebase states eight times in the same words. (`PortalTreatmentPlanController` audits per plan inside
+the map, so an empty plan list writes nothing — correct by construction, not a gap.)
+
+**SCREEN AND EXPORT AGREE, AND EACH EXPORT AUDITS ITSELF.** Screen: *"30 recorded accesses by 2 distinct
+actors"* (chips `Patient (self) · 23` / `Staff user · 7`); CSV taken seconds earlier: 29 rows — the
+difference is the screen's own self-audit. Two consecutive exports returned **31 then 32** rows: one row per
+export, appearing in the next one, exactly as the page promises.
+
+**`P9-C2` RESTATED FROM THE PATIENT'S SIDE AND CONFIRMED.** Erika Baumgartner has a document shared with her
+(`shared_with_patient = 1`) and her subject-access export contains **no** row mentioning it — the report
+filters `action = 'read'`, a release is `document.shared`. The nDSG Art. 25 / GDPR Art. 15 artifact remains
+incomplete in exactly the category a subject-access request is about.
+
+**ENROLMENT AND RECOVERY ARE WELL BUILT, driven.** Three different bad invite tokens each returned HTTP 200
+with **byte-identical** copy (*"This invitation is no longer valid."*) — unknown, expired, used and
+wrong-tenant are indistinguishable. Password reset answers a known and an unknown address identically
+(*"If an account exists for that address…"*, single-use, 30 minutes). A wrong portal password is refused
+visibly — and **my grep of `Portal/Login.vue` for `errors` returned zero while the browser showed the
+message**, which is the method lesson of the phase.
+
+**`P10-M2` (MEDIUM) — the portal shows the VIEWER's calendar day.** At one instant: staff app *"Mittwoch,
+9. September 2026"*, portal *"TUESDAY, SEPTEMBER 8, 2026"*. An appointment I booked for 2026-09-09 08:00 —
+today in `Europe/Zurich` — is labelled **"tomorrow"**. `P10-M3`: `/portal/documents`, `/portal/messages` and
+`/portal/consents` print raw UTC (`2026-09-09 01:08:58`) beside that viewer-zone header.
+
+**`P10-L1` (LOW):** with a staff session and a portal session live in one browser, portal reads were
+attributed to the staff user in the access log. Mostly an artifact of my dual-session setup — a patient's
+browser has no staff session — but a shared practice terminal is a real place where both could exist.
+
+**PORTAL RESPONSIVE — THE FIRST PASS IN TEN PHASES.** At 390 px all eight portal nav links render at 36 px
+height with real widths, the invoices table sits in an `overflow-x: auto` wrapper, and the document does not
+scroll horizontally. The staff shell still fails the same check. See [[Scheduling]], [[Platform]], [[LOG]].

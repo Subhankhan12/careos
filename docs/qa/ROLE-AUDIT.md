@@ -32,7 +32,7 @@ missing · `LOW` cosmetic / polish.
 | **7** | **ED** (`ed_physician`, `triage_nurse`, `ed_charge_nurse`) | ✅ **DONE** — 2026-09-07 |
 | **8** | **Lab + Radiology** (`lab_tech`, `pathologist`, `phlebotomist`, `radiographer`, `radiologist`; `org_admin` for the billing surfaces no lab/radiology role can reach) | ✅ **DONE** — 2026-09-08 |
 | **9** | **Bed management + Medical records** (`bed_manager`, `him_records`; `ward_nurse`, `doctor`, `billing` and `org_admin` driven only for positive controls those two roles cannot reach) | ✅ **DONE** — 2026-09-08 |
-| 10 | Admin / governance (`org_admin`) + patient portal | ⏳ planned |
+| **10** | **Admin / governance (`org_admin`) + the patient portal** (a non-staff `PortalAccount`; `super_admin` only where a tenant fence touches it) | ✅ **DONE** — 2026-09-09 · **THE PROGRAMME IS COMPLETE** |
 
 ## Severity summary (running)
 
@@ -47,7 +47,10 @@ missing · `LOW` cosmetic / polish.
 | 7 — Emergency Department | 3 | 5 | 7 | 2 | 17 |
 | 8 — Lab + Radiology | 2 | 5 | 7 | 3 | 17 |
 | 9 — Bed management + Medical records | 3 | 6 | 11 | 5 | 25 |
-| **Total to date** | **21** | **40** | **77** | **30** | **168** |
+| 10 — Admin / governance + Patient portal | 2 | 5 | 6 | 2 | 15 |
+| **Total (ALL TEN PHASES)** | **23** | **45** | **83** | **32** | **183** |
+| of which **FIXED** by 20 QA-FIX gates | 18 | 12 | 4 | 1 | **35** |
+| of which **OPEN** | **5** | **33** | **79** | **31** | **148** |
 
 *(Counts are as RECORDED at audit time and are not restated when a later gate re-grades a finding.
 `P4-C4` was re-graded **CRITICAL → HIGH** by QA-FIX.4b — the defect was latent rather than active,
@@ -5844,3 +5847,770 @@ fallback-only defect — it can be the primary path.
   the patient uniquely and joins to the record, which is why `P9-C1` is graded as a disclosure; the file
   does not itself print a name.
 - **Performance is out of scope**, deferred to staging per the phase brief.
+
+---
+
+## Phase 10 — Admin / Governance + Patient Portal (the final phase)
+
+**Date:** 2026-09-09 · **Top commit at audit time:** `4ff4eeb`, CI `completed / success` confirmed via
+`commits/<sha>/check-runs` before driving anything · **Method:** every surface below driven in a real
+browser via Playwright MCP against a freshly re-seeded database, cross-read against the code. **AUDIT
+ONLY — nothing was fixed.**
+
+### Roles covered
+
+| Role | What it is | Account driven |
+|---|---|---|
+| `org_admin` | The most powerful role inside a tenant — 42 permissions, the only holder of `ai.manage`, `audit.export` and `admin.manage` | `andrea.lindenhof@praxis-lindenhof.test` |
+| **the patient portal** | A **non-staff** `PortalAccount` on the `patient` guard — not a role in `ROLE_TEMPLATES` at all | `erika.baumgartner@example.test` |
+
+Two further accounts were driven **only** to establish controls the two subjects cannot produce
+themselves: `nadia.luthi@example.test` (a second portal account, as the forgery target) and
+`test@example.com` (the seeded platform super-admin — see `P10-C1`).
+
+**Excluded:** every clinical and operational role, all covered in phases 1–9. `super_admin` is covered
+here only where a tenant-level fence touches it (`/admin`, and `P10-C1`); the platform console itself is
+out of scope, as it has been all programme — it is not a tenant surface.
+
+### Surfaces driven
+
+| Surface | Route | Result |
+|---|---|---|
+| Platform shell | `GET /admin` | ✅ **403 for org_admin** — the `super-admin` middleware holds |
+| Roles & access | `GET /admin/roles`, `POST /admin/roles/assign` | ✅ per-row select reflects the user's CURRENT role; assignment audited both ways |
+| Branches | `GET /admin/branches`, `POST …/online-bookings` | ✅ soft-suspend driven off and back on |
+| Kiosks / services / scheduling / notifications / security / settings | `GET /admin/*`, `GET /settings` | ✅ all 200; no person selector anywhere |
+| Agents & automation | `GET /admin/agents`, `POST /admin/agents` | ✅ **ceiling clamp proven with a forged `auto`** |
+| Governance dashboard | `GET /governance` | ✅ real counts; PHI opt-in unticked; operator mode declared off |
+| Ledger export | `GET /governance/ledger/export` | ✅ ZIP + manifest; self-audits; opt-in recorded |
+| Approval queue | `GET /governance/approvals` | ❌ `P10-C2`, `P10-H1`, `P10-H2` |
+| Approve / edit / bulk | `POST …/approve`, `…/bulk-approve` | ✅ re-authorise, re-ground, edit-through-the-gate, bulk exclusion — all proven; ❌ the bookkeeping around them |
+| Knowledge base | `GET /governance/kb` | ✅ no gap ranking, no coverage score, no invented metric |
+| Governed agents | `GET /governance/agents` | ✅ ceiling vs configured shown; `—` where there is no denominator |
+| Reporting | `GET /reporting` | ✅ counts, sums and one rate with its denominator printed |
+| Patient import | `GET/POST /imports/*` | ✅ 2 patients imported end to end; ❌ `P10-M4` |
+| Recall worklist (to create a clinical draft) | `POST /clinical/recalls/{id}/draft` | ✅ pending clinical action created by driving |
+| Day-board waitlist auto-fill | `POST /scheduling/waitlist/{candidates,offer}` | ❌ `P10-H3` |
+| Day-board Quick-book | `POST /scheduling/day-board/quick-book` | ❌ `P10-H4`; booking itself works |
+| Portal sign-in / bad password | `GET/POST /portal/login` | ✅ refusal rendered: "Those credentials do not match our records." |
+| Portal invite landing | `GET /portal/invite/{token}` | ✅ every dead token → one identical page |
+| Portal password reset | `GET/POST /portal/forgot-password` | ✅ known and unknown addresses answer byte-identically |
+| Portal home / appointments / documents / messages / invoices / consents / telehealth / treatment plan | `GET /portal/*` | ✅ own-data only; ⚠️ `P10-H5`, `P10-M2`, `P10-M3` |
+| Portal forged reads | `GET /portal/documents/{other}`, `…/invoices/{other}/pdf` | ✅ **404** |
+| Portal forged writes | `POST /portal/{consents/withdraw, appointments/cancel, telehealth/{s}/token, messages, check-in}` | ✅ **404 / 403 on every one** |
+| Portal self-booking | `POST /portal/appointments/{slots,}` | ✅ booked end to end; past slot neither offered nor accepted; soft-suspend honoured on both endpoints |
+| Portal cancellation window | `POST /portal/appointments/cancel` | ✅ the 24-hour rule is enforced server-side, not just hidden |
+| Access log + subject-access export | `GET /patients/{p}/access-log(/export)` | ✅ screen and export agree; each export audits itself |
+
+### Environment
+
+**Redis is UP** (Memurai, `PING → +PONG`), `CACHE_STORE=redis`, `QUEUE_CONNECTION=redis`,
+`SESSION_DRIVER=database`. All four demo tenants re-seeded and verified by query before driving
+(4 tenants / 43 users / 35 patients / 5 portal accounts / 8 agent actions — 4 pending, 2 executed,
+1 fence-refused, 1 rejected / 4 branches, all accepting online bookings / 15 appointments / 3 recalls).
+Server clock `2026-09-09 01:13 UTC`, tenant display zone `Europe/Zurich`, audit browser
+`America/Los_Angeles` — the three-way spread that makes `P10-M2` visible.
+**PERFORMANCE IS OUT OF SCOPE** — deferred to staging.
+
+**What the seed does NOT contain**, stated rather than worked around:
+- **No pending CLINICAL agent action.** The seed's `clinical.draft_recall_message` is proposed and then
+  rejected, so the bulk-exclusion test had nothing to exclude. One was **created by driving the product**:
+  `/clinical/recalls` → *Draft outreach wording* → a template typed → *Send to approval queue*.
+- **No reviewer holding `ai.manage` without the tool's own permission**, and none is constructible through
+  the product: `ai.manage` belongs to `org_admin` alone, and `org_admin` holds all 11 tool permissions.
+  The re-authorisation control therefore required an arranged precondition — `note.write` was detached
+  from *this tenant's* `org_admin` role row, the refusal driven, then the permission **restored and
+  verified** (`Gate::allows('note.write') === true`). Only the precondition was arranged; the refusal is
+  browser-established. See `P10-M6`.
+- **No stale agent draft.** Re-grounding cannot be observed unless the world changes between propose and
+  approve, so the world was changed **by driving**: the 09:00 slot the waitlist proposal targeted was
+  booked through Quick-book first.
+- **State created by driving and left in place:** two imported patients (`MRN-000016`, `MRN-000017`), two
+  portal self-bookings, one portal invite, one executed clinical draft. These are real records made
+  through real paths; deleting them would be the worse act. **One state could not be restored** — the
+  waitlist entry stranded in `offered` by `P10-C2`, which is the finding.
+- **Restored and verified:** the branch's `accepts_online_bookings`, the three autonomy levels I forged to
+  `auto`, and `org_admin`'s `note.write`.
+
+### CRITICAL
+
+#### `P10-C1` — The default seeder creates a platform super-admin with a published password, and nothing stops it running in production
+
+- **Route:** `POST /login` · **Account:** `test@example.com` / `password`
+- **Steps:** in a clean browser context, sign in with those credentials.
+- **What happened.** The login **succeeded** and landed on `/two-factor/enrollment`, already displaying a
+  fresh QR code and a set of recovery codes. Mandatory 2FA does not stop the holder of these credentials —
+  it hands them self-service enrolment of *their own* authenticator.
+- **What the account is.** Verified by query: `id=1`, `tenant_id = NULL`, `isSuperAdmin() === true`,
+  `Hash::check('password', …) === true`, `two_factor_secret` null. It is the **only** super-admin in the
+  database.
+- **Cause:** `database/seeders/DatabaseSeeder.php:19-22` calls `User::factory()->create(['name' => 'Test
+  User', 'email' => 'test@example.com'])` unconditionally, and `database/factories/UserFactory.php:24-35`
+  documents its default state as *"a super-admin: tenant_id = null"* with `password => Hash::make('password')`.
+- **There is no environment guard anywhere.** `grep -rn "environment('production')\|isProduction\|environment(\["`
+  over `database/`, `app/` and `Modules/` (tests excluded) returns **zero matches**. Not in `DatabaseSeeder`,
+  not in any of the four demo seeders, not in a base class. `php artisan db:seed` and `php artisan migrate
+  --seed` — both ordinary deploy steps — create this account in whatever environment they are run.
+- **Mitigation, stated fairly:** OPMODE.G1 closed the super-admin's tenant-DATA bypass, so this account
+  cannot read tenant PHI without a grant. What it *can* do is the platform console (`/admin`, which
+  `org_admin` itself is 403 on), tenant administration and plan management — and it is the account an
+  operator-mode grant would be issued from if that module were ever enabled.
+- **Why CRITICAL:** a security defect with published credentials, no environment guard, and a live login
+  proven in a browser. The brief's "DEPLOY.PROV assertion" — *the demo seeders cannot run in production* —
+  **does not exist in this codebase.**
+- I stopped at the enrolment screen and did **not** complete enrolment: no account state was changed.
+
+#### `P10-C2` — A refused agent approval half-commits, strands the patient, and the retry is then recorded as "Approved" although it booked nothing
+
+- **Role:** `org_admin` · **Route:** `POST /governance/approvals/{id}/approve`
+- **Steps, end to end in the browser.** (1) The seeded proposal `scheduler.fill_from_waitlist` targets
+  2026-09-09 09:00–09:30 for two named resources, with one waiting waitlist entry (Bruno Nussbaumer).
+  (2) I booked that exact slot first, through the day-board Quick-book, for a different patient — the new
+  appointment holds resource `01m21vbtvxczs4c7246vcz818p`, one of the two the proposal names. (3) I clicked
+  **Approve**.
+- **What happened — the good half.** The tool was **re-executed against live state** and the booking was
+  refused: `BookingConflictException: Resource 01m21vbtvxczs4c7246vcz818p is already booked for the
+  requested slot.` (`storage/logs/laravel.log`, `2026-09-09 01:18:40`). **No second appointment was
+  created.** Re-grounding is real — see the guards subsection.
+- **What happened — the defect.** The refusal left the world half-changed:
+  - `waitlist_entries.status` = **`offered`** (it was `waiting`), with `offered_starts_at` pointing at a
+    slot now booked by someone else;
+  - an audit row **`waitlist.offered`** was written at the same instant;
+  - `waitlist_offers` contains **zero rows** — verified by raw SQL. The entry says it was offered; nothing
+    records an offer.
+- **Cause:** `Modules/Scheduling/src/Services/WaitlistService.php:97-111` — `offer()` flips the entry to
+  `offered` with a bare `->save()` and dispatches its event **outside any transaction**; `accept()`
+  (`:129-153`) then opens its own `DB::transaction`, books, and throws. The rollback cannot reach the
+  commit that already happened. `FillFromWaitlistTool::execute` (`app/AiCore/Tools/FillFromWaitlistTool.php:79-80`)
+  calls the two in sequence with nothing around them. **This is the SIXTH create-then-associate-outside-a-
+  transaction instance the programme has found** (after `P3-C1`, `P4-H2`, `P6-M10`, `P7-M5`, `P8-H2`) —
+  the brief asked whether a sixth existed; it does.
+- **And then it gets worse on the retry.** `offer()` requires `status === waiting`, so the same action can
+  never take that path again. Approving a second time re-derived the payload, found no matching *waiting*
+  entry, and returned `{"booked":false,"reason":"no_matching_waitlist_entry"}` — which the service treats
+  as **success**. Final state, verified: `agent_actions.status = executed`, `approved_at` and `executed_at`
+  set, `reviewed_by = 2`. The Resolved tab renders it as:
+
+  > **Fill from waitlist · Scheduler** — Resolved by Andrea Lindenhof · 06:21 PM — **Approved**
+
+  with no indication anywhere that nothing was booked.
+- **The patient's position.** Bruno Nussbaumer is now neither waiting nor booked. He is stuck in `offered`
+  against a slot that belongs to someone else, invisible to the candidate search, with no product path
+  back — and the governance record says the action that stranded him was approved.
+- **Why CRITICAL:** wrong data on the governance record (an approval that did not happen), a patient
+  silently dropped out of an operational queue, and no path to recover through the product.
+
+### HIGH
+
+#### `P10-H1` — Every failed tool execution writes a permanent "approved" row to the AI ledger, for an action that was never approved into effect
+
+- **Role:** `org_admin` · **Route:** `POST /governance/approvals/{id}/approve`
+- **Driven three times, three different failure modes**, each leaving the same residue:
+  1. the booking conflict of `P10-C2` (action stayed `pending`);
+  2. an edit containing medical advice, refused by the tool's own fence (action stayed `pending`);
+  3. the same edit submitted twice (action stayed `pending` both times).
+- **What the ledger holds afterwards.** For the clinical action alone, `ai_interactions` shows
+  **`approved` at 01:27:00, `approved` at 01:27:15, `approved` at 01:27:53, `executed` at 01:27:53** — four
+  rows for one action, of which **two approvals never happened**. For the waitlist action, two `approved`
+  rows for one real approval.
+- **Cause:** `Modules/AiCore/src/Services/ApprovalQueue.php:88-100` calls
+  `$this->recorder->record(… 'approved' …)` **before** the `try { $tool->execute(...) }` at `:102`, and
+  nothing compensates on failure. Only `FenceRefusalException` gets a terminal record of its own — and even
+  then the stale `approved` row stands.
+- **It is visible, and it moves the numbers.** The queue's "APPROVED · 30D" tile read **50%** at the start,
+  **60%** after the failed booking approve, **57%** after the edit sequence; "AVG REVIEW · 30D" moved
+  0 min → 2.4 min → 4.5 min. The governance dashboard's AI-usage table now reads **approved 9 · executed 4**
+  — a five-row gap that no screen explains.
+- **The contrast that proves it is a code-ordering defect, not a design choice.** A failure of the
+  *re-authorisation* gate — which sits BEFORE the recorder — leaves **nothing**: driven, the 403 produced
+  `agent_actions.status = pending`, `reviewed_by = NULL`, and **zero** `ai_interactions` rows. The same
+  guard order applied to execution would leave nothing either.
+
+#### `P10-H2` — A domain refusal on approve escapes as an HTTP 500, and the reviewer is shown nothing at all
+
+- **Route:** `POST /governance/approvals/{id}/approve`
+- **Driven:** the `P10-C2` approve returned **500 Internal Server Error**. The page did not navigate, the
+  queue count did not change, and no message appeared anywhere on screen.
+- **Cause:** `app/Http/Controllers/AiApprovalQueueController.php:320-329` catches `FenceRefusalException`
+  and `AiCoreException`. `BookingConflictException` is neither — it extends `RuntimeException` — so it
+  propagates. Any tool whose domain refusal is not an `AiCoreException` produces a 500 on this button.
+- Compounded by `P10-M1`: even the refusals the controller *does* catch are invisible, because the queue
+  page renders no error bag.
+
+#### `P10-H3` — The waitlist auto-fill panel cannot make an offer for a cancelled slot — the only kind of slot it exists for
+
+- **Role:** `org_admin` (any `appointment.manage` holder) · **Route:** `POST /scheduling/waitlist/offer`
+- **Steps.** Day-board → *Waitlist auto-fill* → selected the freed slot
+  (`2026-09-09 09:00:00 · Sprechstunde 30 Minuten · Regula Tanner (cancelled)`) → **Find candidates**
+  (returned "Bruno Nussbaumer · priority 10 · Flexible") → **Offer**.
+- **What happened.** HTTP 302, the panel still says **"No offers yet."**, and no `waitlist_offers` row
+  exists. Replaying the identical request with Inertia headers returns
+  `errors.resource_ids = "The resource ids field is required."`
+- **Cause, pinned to the byte.** The request body the page sent was
+  `{"waitlist_entry_id":"…","branch_id":"…","starts_at":"2026-09-09 09:00:00","ends_at":"…","resource_ids":[],"source_appointment_id":"…"}`.
+  `DayBoard.vue:171` passes `appt.resource_ids`; `DayBoardController.php:272` builds that from
+  `$appointment->resourceLinks`; and **cancelling deletes them** —
+  `AppointmentService.php:359-361` (staff cancel/reschedule) and `:279` (portal cancel) both call
+  `$locked->resourceLinks()->delete()`. Confirmed by query: every appointment status carries 2 resource
+  links except `cancelled` and `rescheduled`, which carry **0**. `WaitlistOfferController::offer` validates
+  `resource_ids => required|array|min:1`.
+- **So the feature is unusable in its own use case.** Its own copy reads *"When a slot frees, offer it to a
+  matching waitlisted patient in one click."* The candidate search works; the one click cannot.
+- **Note the asymmetry:** the AGENT can fill the same slot, because its proposal payload carries the
+  resource ids captured before the cancellation. The human one-click path cannot.
+
+#### `P10-H4` — The day-board Quick-book modal pre-selects the first patient, with no placeholder
+
+- **Role:** any `appointment.manage` holder · **Route:** `POST /scheduling/day-board/quick-book`
+- **Driven:** opening Quick-book, the patient `<select>` holds **15 options** and is already set to
+  **"Erika Baumgartner MRN-000001"** — the first patient in the list. There is no "Select a patient…"
+  option, so no state exists in which nothing is chosen. The service select is likewise pre-set to
+  "Hausbesuch 60 Minuten".
+- **Cause:** `resources/js/pages/Scheduling/DayBoard.vue:183-189` —
+  `patient_id: props.patients[0]?.id ?? ''`.
+- **Why HIGH.** This is pattern 7 in its original dropdown form, on the single most consequential field in
+  the modal: a staff member who picks a slot and clicks **Book** without touching the patient field books
+  an appointment for whoever sorts first — creating a wrong-patient record and a wrong-patient reminder.
+  It survived QA-FIX.7a, which fixed exactly this shape in ED triage and inpatient admission (`P7-C1`,
+  `P7-C2`, D-211), because the day board was never measured for it. It is less severe than `P7-C1` only
+  because the wrong name is visible on the board afterwards; nothing forces anyone to look.
+
+#### `P10-H5` — Two portal surfaces disclose the patient's own data and write no read row
+
+- **Routes:** `GET /portal/messages`, `GET /portal/telehealth`
+- **Driven:** I visited all eight portal pages as the patient. The access log recorded eight surfaces —
+  `portal_home`, `portal_appointments`, `portal_documents`, `portal_document_download`, `portal_invoices`,
+  `portal_invoice_download`, `portal_consents`, `portal_checkin` — and **not** `portal_messages` or
+  `portal_telehealth`. Confirmed in the subject-access export: 11 distinct surfaces, neither of those
+  among them.
+- **Cause:** `grep -c auditRead` over the portal controllers returns `PortalMessageController` **0** and
+  `PortalTelehealthController` **0**, against 2–3 in each of the other six. Every one of those six carries
+  the same comment — *"the patient is reading their own record: one read row per render, through the
+  EXISTING auditRead() path, so this disclosure appears in their access log (PC.P5)"* — so the omission is
+  inconsistent with a rule the codebase states eight times.
+- **What is missing is the most sensitive of the set:** `/portal/messages` renders the content of the
+  patient's conversations with the practice.
+- `PortalTreatmentPlanController` audits **per plan inside the map** (`:47`), so a patient with no plans
+  produces no row. That is correct by construction — nothing was disclosed — and is not part of this
+  finding.
+
+### MEDIUM
+
+#### `P10-M1` — Admin, governance and portal render almost no refusals: 13 `withErrors` sites, 3 of 24 pages that could show one
+
+- **Driven twice, on the two most consequential buttons in the phase.** The approve refusal
+  (`errors.action = "Recall message drafts cannot contain medical advice or symptom guidance."`) and the
+  waitlist-offer refusal (`errors.resource_ids = "The resource ids field is required."`) both arrive in the
+  page props and neither appears on screen.
+- **Count:** 13 `->withErrors()` sites across the app-layer and Platform controllers. Of the 24 Vue pages
+  under `pages/Governance`, `pages/Admin` and `pages/Portal`, exactly **three** touch errors —
+  `Admin/Branches.vue` (2), `Admin/ServiceCatalog.vue` (1) and `Governance/ApprovalQueue.vue` (1, and that
+  one is `rejectForm.errors.reason`, the reject-reason validation, not the approve bag).
+- **The portal is the exception, and it was found by driving, not by grepping.** A wrong portal password
+  renders *"Those credentials do not match our records."* — my grep of `Portal/Login.vue` for `errors`
+  returned zero, and the browser proved the grep wrong. Recorded here because it is the method lesson of
+  the phase as much as a result.
+- This is `P6-C3` / `P7-H2` / `P8-H1` / `P9-H3` again — the fourth module family, and the first where the
+  invisible refusal sits on the agent-approval gate.
+
+#### `P10-M2` — The portal tells the patient what day it is in the VIEWER's timezone, so an appointment today is labelled "tomorrow"
+
+- **Driven, same instant, two surfaces.** Server clock `2026-09-09 01:13 UTC`; tenant display zone
+  `Europe/Zurich` (03:13 on the 9th); audit browser `America/Los_Angeles` (18:13 on the 8th).
+  - Staff app: **"Mittwoch, 9. September 2026"**.
+  - Patient portal: **"TUESDAY, SEPTEMBER 8, 2026"** and *"Good evening"*.
+- **And it reaches a clinical fact.** I booked a portal appointment for 2026-09-09 08:00 — today in the
+  practice's zone. The portal renders it under **"WED 9 Sep"** with the relative label **"tomorrow"**, and
+  the appointment beside it on 2026-09-10 as "in 2 days".
+- The portal is the surface where this matters most: the viewer is by definition remote, and the practice's
+  zone is the one that governs when they must arrive. D-192 already records "no frontend component consumes
+  the shared `timezone` prop"; this is its sharpest consequence in ten phases.
+
+#### `P10-M3` — Three portal pages print raw UTC timestamps beside a viewer-zone date
+
+- Driven: `/portal/documents` renders *"Result · PLAIN · 73 B · **2026-09-09 01:08:58**"*; `/portal/messages`
+  renders thread times as *"2026-09-09 01:09:05"*; `/portal/consents` renders *"Granted 2026-09-09 01:08:53"*.
+- All three are the stored UTC value with no formatting, on the same pages whose header says it is
+  September 8th. One product, one screen, two calendars and two clocks.
+
+#### `P10-M4` — Creating a patient is not audited at all, by any path
+
+- **Driven:** a CSV import of two patients through `/imports` — upload → map → dry-run → commit — created
+  `MRN-000016` and `MRN-000017` with correct names, dates of birth and two contact rows each.
+- **What it recorded:** exactly one audit row, `patient.import.committed` on `import_batch`, **with no
+  `patient_id`**. The two new patients have **zero** audit rows of any kind (queried by `patient_id` and by
+  `resource_id`).
+- **And it is not an import-only gap.** `patient.import.committed` is the **only** `patient.*` action in the
+  entire ledger — there is no `patient.created`, no `patient.registered`. A patient's record can come into
+  existence, by registration or by bulk import, with nothing anywhere recording when or by whom.
+- Consequence for the phase's fence: the access log a patient is handed under nDSG Art. 25 can never show
+  the first event in their own record.
+
+#### `P10-M5` — The portal booking date field offers dates the server will refuse
+
+- `input[type=date]` on `/portal/appointments` carries **no `min` attribute**, so the picker happily accepts
+  2026-09-01. Driven: the finder then returns *"No free times that day — try another date."* — the correct
+  answer to the wrong question. The client should not be able to ask.
+- Harmless in effect (both guards hold — see the guards subsection) but it is a dead end the user is walked
+  into, and the fix is one attribute.
+
+#### `P10-M6` — Two of the product's narrowest guards cannot fire for any role that exists
+
+- **The approve-time re-authorisation** (`ApprovalQueue::approve:81`) checks the reviewer against the
+  **tool's own** permission. It is a real guard — driven, it returns 403. But `ai.manage` is held by
+  `org_admin` **alone**, and `org_admin` holds all 11 tool permissions (`appointment.manage`, `note.write`,
+  `dispatch.manage`, `billing.manage`, `comms.manage`), so **no role in `ROLE_TEMPLATES` can reach the
+  queue and fail the check.** Proving it required detaching a permission from a tenant's role row.
+- **The free-text export opt-in** (`GovernanceLedgerExportController:51`) requires `admin.manage` on top of
+  `audit.export`. Only `org_admin` holds `audit.export`, and it holds `admin.manage` too — so the second
+  gate can never refuse anyone either.
+- Neither is a defect in itself; both are correct code. Recorded because the audit's own standard (D-182:
+  *a refusal must be reachable*) says a guard nobody can trip is a guard nobody can test — and because the
+  first one is the load-bearing half of the product's agent-safety claim.
+
+### LOW
+
+#### `P10-L1` — A portal read is attributed to the staff user when a staff session exists in the same browser
+
+- Observed while driving: with both a staff session and a portal session live in one browser (different
+  guards, both valid), portal page reads were recorded in the patient's access log as
+  **`Andrea Lindenhof · Staff user · portal_home`** rather than as `Patient (self)`.
+- The rows from the portal-only period are correct (`actor_type = patient`, actor = the portal account), so
+  the wiring is right; the actor resolution simply prefers the staff guard when both are present.
+- **Stated honestly: this is mostly an artifact of my own dual-session setup** — a patient's browser has no
+  staff session. It is recorded LOW rather than ignored because a shared practice terminal is a real place
+  where both could exist, and the log would then name the wrong reader.
+
+#### `P10-L2` — The portal booking form pre-selects the first service, with no placeholder
+
+- `/portal/appointments` opens with **"Kontrolle 15 Minuten"** already chosen out of three. The same shape
+  as `P8-L3`, and LOW for the same reason: a service is a category, not a person, and the slot search needs
+  a value to search with. Noted for completeness beside `P10-H4`, which is the version that matters.
+
+### Guards verified holding
+
+#### THE APPROVE PATH — the last unverified guarantee, now driven
+
+**1. RE-AUTHORISE — CONFIRMED, negatively and positively.** The controller gates `ai.manage`
+(`AiApprovalQueueController:304`); the service then gates the **tool's own** permission
+(`ApprovalQueue::approve:81` → `authorize($reviewer, $tool->definition()->permission)`). With `note.write`
+detached from this tenant's `org_admin` role, the forged approve of the clinical draft returned **HTTP 403**
+— and left nothing behind: `status = pending`, `reviewed_by = NULL`, **zero** `ai_interactions` rows. With
+the permission restored, the same action approved and executed. The queue screen states the guarantee in its
+own words — *"On approve, the server re-authorises you against `note.write` and re-derives the action against
+current state before it runs"* — and the words are true.
+
+**2. RE-GROUND — CONFIRMED THREE INDEPENDENT WAYS.** The stored payload is replayed; the **effect** is
+re-derived from live state at approve time.
+- *Against a changed world:* after I booked the proposal's slot, the re-executed tool hit the live resource
+  lock and refused — `BookingConflictException` on the exact resource I had taken. **No double booking.**
+- *Against changed data:* the retry re-ran the tool's own `preview()` and returned
+  `{"booked":false,"reason":"no_matching_waitlist_entry"}` — the stored match was not trusted.
+- *Against changed consent:* the clinical draft's execute re-read the recall, the patient and the rule, and
+  returned `status: "blocked_no_comms_consent"` because that patient has no `comms.email` consent **today**.
+The bookkeeping around these refusals is defective (`P10-C2`, `P10-H1`, `P10-H2`); the guarantee itself is
+real.
+
+**3. EDIT-THROUGH-THE-GATE — CONFIRMED, both halves.** The edit panel exposes the raw input payload.
+- *Refused:* an edited template reading *"If you have chest pain or fever, double your dose."* was rejected
+  at approve time by the tool's own fence —
+  `errors.action = "Recall message drafts cannot contain medical advice or symptom guidance."`
+  (`DraftRecallMessageTool::assertNoMedicalAdvice:116-121`). The human edit does **not** bypass the fence.
+- *Accepted:* a benign edit executed, and the record distinguishes it — `agent_actions.edited_payload`
+  holds the edit, `result.human_edited = true`, and both ledger rows carry `{"human_edited":true}`. The
+  screen said so: *"Your edited action was approved and posted through the same gate — recorded as
+  human-edited."*
+
+**4. FENCE REFUSAL IS COUNTABLE — CONFIRMED.** The queue's own tile reads **REFUSED BY FENCE 1**; the
+Resolved tab offers a **Fence-refused** filter with a real count and renders the fence's own words —
+*"Refused by the electric fence (system) · "This draft handed off to a human; there is nothing to send.""*
+— attributed to the system rather than to a person. A fence refusal fired **inside a bulk** was recorded the
+same way, not forced through.
+
+**5. BULK EXCLUDES CLINICAL AND FINANCIAL — CONFIRMED SERVER-SIDE WITH A FORGED REQUEST.** The UI marks the
+clinical card **"Individual review only"** and gives it no checkbox ("Select all low-risk (1)" over two
+pending items). I then forged the bulk anyway, POSTing four ids: the pending clinical action, a pending
+operational one, a pending action **from another tenant**, and a made-up id. The result:
+
+> `{"approved":0,"excluded":1,"skipped":3}`
+
+Verified per action: the clinical one **still `pending`, `reviewed_by = NULL`** (excluded by
+`ToolDefinition::isClinicalOrFinancial()` at `AiApprovalQueueController:400-405`); the cross-tenant one
+**untouched** (fail-closed); the operational one **`fence_refused`** — the per-item fence fired inside the
+bulk and was recorded, not overridden. Bulk is a loop over the same gate, with one extra exclusion in front
+of it, exactly as its docblock claims.
+
+#### THE PORTAL'S DISCLOSURE GUARANTEES
+
+**Own data only — CONFIRMED ON EVERY ID-BEARING ROUTE, READ AND WRITE.** Signed in as one patient and
+forging another patient's ids:
+
+| Probe | Result |
+|---|---|
+| `GET /portal/documents/{own}` | 200 |
+| `GET /portal/documents/{other patient's}` | **404** |
+| `GET /portal/invoices/{own}/pdf` | 200 |
+| `GET /portal/invoices/{other patient's}/pdf` | **404** |
+| `POST /portal/consents/withdraw` (other's consent) | **404** |
+| `POST /portal/appointments/cancel` (other's appointment) | **404** |
+| `POST /portal/check-in` (other's appointment) | **404** |
+| `POST /portal/telehealth/{other's session}/token` | **403** — *"This patient is not part of this telehealth session."* |
+| `POST /portal/messages` (other's thread) | **403** — *"This patient cannot access this thread."* |
+
+Not one cross-patient read or write succeeded. This is the cleanest isolation result the programme has
+produced, and it is the answer to the phase's cross-patient-disclosure question.
+
+**Portal reads reach the patient's own log — CONFIRMED for six of eight surfaces.** Eight distinct
+`portal_*` surfaces are recorded with `actor_type = patient`, and the access-log screen names the actor
+**"Patient (self)"**. The two gaps are `P10-H5`.
+
+**Screen and export agree — CONFIRMED.** The dedicated log reported *"30 recorded accesses by 2 distinct
+actors"* with chips `Patient (self) · 23` / `Staff user · 7`; the CSV taken seconds earlier held 29 rows,
+the difference being the screen's own self-audit. Two consecutive exports returned 31 then 32 rows —
+**each export writes exactly one row and appears in the next one**, precisely as the page promises.
+
+**A staff-side RELEASE still does not appear — Phase 9's `P9-C2`, restated from the patient's side and
+confirmed.** Erika Baumgartner has a document shared with her (`shared_with_patient = 1`), and her
+subject-access export contains **no** row mentioning it: the report filters `action = 'read'` and a release
+is `document.shared`. The patient-facing artifact remains incomplete in exactly the category a
+subject-access request is about.
+
+#### THE ADMIN AREA'S OWN FENCES
+
+- **`/admin` is 403 for `org_admin` — driven.** The platform shell is behind the `super-admin` middleware
+  (`routes/web.php:139-140`). Tenant admin lives at `/admin/roles`, `/admin/branches`, … which are 200. The
+  separation Phase 3 measured still holds. (What does *not* hold is who else can reach it — `P10-C1`.)
+- **The agent ceiling clamp — PROVEN WITH A FORGED REQUEST.** I POSTed `auto` for three tools. The response
+  said "saved"; the stored values are **`clinical.draft_recall_message → suggest`**,
+  **`billing.preflight_invoice → approve`**, **`scheduler.fill_from_waitlist → approve`**. Nothing reached
+  `auto`. The audit row `ai.autonomy_changed` records the **clamped** values, not the requested ones, so the
+  record cannot be used to claim a level that was never granted. The screen states the rule —
+  *"Every agent is capped at suggest — the ceiling can be lowered but never raised past human approval"* —
+  and the server enforces it.
+- **The PHI opt-in is off by default and separately gated.** The governance dashboard's single checkbox
+  *"Also include free-text fields"* renders **unticked** (D-176: a tick that is already ticked is not a
+  decision). `include_free_text` defaults false and additionally requires `admin.manage`
+  (`GovernanceLedgerExportController:51`). Driven both ways: the default export is 2 042 bytes, the opt-in
+  export 2 672, and **each writes its own audit row recording the choice** — `opt_ins: []` and
+  `opt_ins: ["free_text"]`. Contrast `P9-C1`, the AR export that records nothing: the same product, two
+  exports, opposite postures.
+- **Operator mode is inert, and the product says so on screen.** `grep -rn operator routes/*.php` returns
+  **one comment and no route**. The governance dashboard states: *"Support-access requests would also wait
+  on the practice owner, but operator mode is switched off in this build, so none can be raised."*
+  The **no-self-approval rule** is implemented and documented (`OperatorGrantService:64-66`, `:538`, `:556`
+  — *"the approver can never be the requester, and must belong to the tenant"*) but is **code-established
+  only**: with no HTTP surface there is nothing to drive, exactly as D-164 intends.
+- **The KB and the dashboards invent nothing.** The knowledge base shows *Active 4 / Archived 1* and no gap
+  ranking, coverage score or suggestion. The governed-agent cards render **`—`** where there is no
+  denominator rather than a zero. Reporting prints *"NO-SHOWS 1 · 11.1% of 9 scheduled"* — a rate with its
+  denominator on screen. And the AI "Estimated cost CHF 0.02" is a real `SUM(cost_minor)`: verified by
+  query, 2 minor units from two `embedded` rows with 118 input tokens against provider `internal`, model
+  `careos-portable-hash-v1` — every other row is zero-cost `tool-runtime`. **Nothing fabricates a spend for
+  a model that was never called.**
+
+#### SELF-BOOKING, THE PAST-TIME GUARD AND THE SOFT-SUSPEND
+
+- **Self-booking works end to end from the portal** — Phase 1 named it as an unguarded consumer (`P1-H3`)
+  and it had never been driven in a browser until now. Picked a service, found slots, confirmed: a real
+  appointment appeared under "Upcoming".
+- **Past times are neither offered nor accepted — both halves driven.** The finder returns *"No free times
+  that day — try another date."* for a past date. A forged POST is refused by the independent guard:
+  `errors.starts_at = "The requested start 2026-09-08 09:00:00 has already passed."` — and the same for a
+  2020 date. QA-FIX.1b's two layers both hold on the portal path.
+- **The soft-suspend is honoured on both endpoints.** With the branch's online booking switched off through
+  `/admin/branches`, the slots endpoint returned `{"slots":[]}` and a forged store — the "client already had
+  slots" race — was refused: *"Branch … is not accepting online bookings."* BRANCH.P1 holds where it
+  matters, at the write.
+- **The 24-hour cancellation window is enforced server-side, not merely hidden.** The UI drops the Cancel
+  button and prints *"Within 24 hours of the start — please call the practice to cancel."*; the forged
+  cancel is refused with *"This appointment can no longer be cancelled online. Please contact the
+  practice."* — as is a cancel of an in-progress appointment.
+
+#### THE PORTAL'S ENROLMENT AND RECOVERY SURFACES
+
+- **Every dead invite token looks identical.** Three different bad tokens each returned HTTP **200** with
+  byte-identical copy — *"This invitation is no longer valid."* — echoing nothing. Unknown, expired, used
+  and wrong-tenant are indistinguishable, which is what the controller's docblock promises.
+- **Password reset does not disclose whether an account exists.** A known and an unknown address produced
+  the same page: *"If an account exists for that address, a reset link is on its way. It can be used once
+  and stops working after 30 minutes."*
+- **A wrong portal password is refused visibly** — *"Those credentials do not match our records."*
+
+#### PATTERN 7 IN ADMIN AND GOVERNANCE — CLEAN
+
+Every selector in the admin area was inspected in the browser. `/admin/roles` pre-selects **each user's
+current role**, not the alphabetically-first option — a control reflecting stored state, which is correct.
+`/admin/kiosks`, `/admin/services` and `/settings` likewise reflect stored values or a neutral filter. There
+is **no person selector anywhere in admin or governance**, and no admin or governance write takes a person
+from the request other than `/admin/roles/assign`, whose whole purpose is to name one and which validates
+tenant membership before it acts. The one live instance in this phase is `P10-H4`, and it is in Scheduling.
+
+### The standing patterns, tenth and final phase
+
+**1. Ungated UI — the over-offer stays CLOSED, the under-offer stays OPEN, and the portal shows what
+"closed" looks like.** `org_admin`'s nav is honest (it is the one role that can open everything), and the
+portal's eight links all resolve for the patient who sees them. The under-offer half (D-214) is unchanged.
+
+**2. Timestamp and locale divergence — PRESENT, tenth phase, and the portal is the worst place for it.**
+`P10-M2` and `P10-M3`: the patient-facing surface renders the viewer's calendar day, three of its pages
+print raw UTC, and an appointment that is today is labelled "tomorrow". Ten for ten on this pattern.
+
+**3. No navigation below 768 px — ABSENT, for the first time in ten phases, on the portal.** Measured at
+390 px: all eight portal nav links render at 36 px height with real widths, the invoices table sits in an
+`overflow-x: auto` wrapper, and the document does not scroll horizontally. **The patient-facing half of the
+product passes the check the staff half has failed nine times.** The staff shell is unchanged (`P9-L1`).
+
+**4. A granted capability with no surface — PRESENT, in a new shape: a GUARD with no reachable caller.**
+`P10-M6`: two of the product's narrowest checks — approve-time re-authorisation and the free-text export
+opt-in — cannot refuse any role that exists, because the only role that reaches them holds everything they
+test for.
+
+**5. The fences hold — CONFIRMED IN ALL TEN PHASES, and the agent fences are the strongest yet.** The
+autonomy ceiling clamped a forged `auto` to `suggest` for a clinical tool and recorded the clamped value;
+the approve path re-authorises against the tool's own permission and re-derives from live state; a human
+edit is re-validated by the tool's own medical-advice fence; bulk approval excludes clinical and financial
+actions server-side against a forged id list; the KB ranks nothing; and the one cost figure on the
+governance dashboard is a real sum over real rows. **No fence has eroded in ten phases.**
+
+**6. A partial record — PRESENT IN BOTH DIRECTIONS, and the SIXTH create-then-associate instance is here.**
+*Refused:* `P10-M1`, 13 sites and three pages that could show one. *Succeeded:* `P10-C2` —
+`WaitlistService::offer()` commits outside `accept()`'s transaction, so a refused booking leaves an entry
+marked `offered`, an audit row saying so, and no offer. *And the third direction Phase 7 named — something
+left FALSELY behind:* `P10-H1`, an `approved` ledger row for an approval that never took effect.
+
+**7. Resolving a person by convenience — PRESENT as a dropdown default, back where the pattern started.**
+`P10-H4`: the day-board Quick-book modal pre-selects the first patient. Admin and governance are clean.
+
+**8. The module-local formatter — PRESENT on the portal.** `P10-M3`'s three raw-UTC renders are three more
+places that format a time without the shared helper; portal money, by contrast, is correct — `CHF 313.00`,
+`CHF 194.78`, currency always shown.
+
+---
+
+# THE PROGRAMME-CLOSING SUMMARY
+
+Ten phases, every role group in `RbacProvisioner::ROLE_TEMPLATES` plus the patient portal, each surface
+driven in a real browser and cross-read against the code. This section closes the programme: what was
+found, what was fixed, what the product's safety case actually rests on, what is still open and in what
+order it should be taken, and what the audit learned about auditing.
+
+## 1. Final severity table — ten phases
+
+| Phase | Role group | CRITICAL | HIGH | MEDIUM | LOW | Total |
+|---|---|---|---|---|---|---|
+| 1 | Reception / front-desk | 1 | 3 | 8 | 6 | 18 |
+| 2 | Clinician (doctor / dentist) | 1 | 4 | 9 | 5 | 19 |
+| 3 | Billing / finance | 1 | 4 | 8 | 2 | 15 |
+| 4 | Nursing / Spitex (incl. Nurse PWA) | **5** | 5 | 10 | 3 | 23 |
+| 5 | Pharmacy | 2 | 3 | 7 | 2 | 14 |
+| 6 | Surgery / OR | 3 | 5 | 10 | 2 | 20 |
+| 7 | Emergency Department | 3 | 5 | 7 | 2 | 17 |
+| 8 | Lab + Radiology | 2 | 5 | 7 | 3 | 17 |
+| 9 | Bed management + Medical records | 3 | 6 | 11 | 5 | 25 |
+| 10 | Admin / governance + Patient portal | 2 | 5 | 6 | 2 | 15 |
+| **TOTAL RECORDED** | | **23** | **45** | **83** | **32** | **183** |
+| **FIXED** | by 20 QA-FIX gates | **18** | **12** | **4** | **1** | **35** |
+| **OPEN** | | **5** | **33** | **79** | **31** | **148** |
+
+**Every CRITICAL from phases 1–8 has been fixed.** The five open CRITICALs are the three from Phase 9 and
+the two from Phase 10 — the two phases that have not yet had a fix gate.
+
+Fixed by gate: `P1-C1` (QA-FIX.1a) · `P1-H3` (1b) · `P2-C1` (2a) · `P2-H1` (2b) · `P3-C1` (3a) · `P3-H1`
+(3b) · `P4-C1` (4a) · `P4-C4` (4b, re-graded CRITICAL→HIGH) · `P4-C2`·`P4-C3` (4c) · `P4-C5` (4d) ·
+`P4-H3` (4e) · `P5-C1` (5a) · `P5-C2`·`P5-M4` (5b) · `P6-C1`·`P6-M10`·`P6-L2` (6a) · `P6-C2` (6b) ·
+`P6-C3` (6c) · `P7-C1`·`P7-C2` (7a) · `P7-C3` (7b) · `P7-H2` (7c) · pattern 1's over-offer half —
+`P1-H1`·`P2-H2`·`P3-M7`·`P4-H5`·`P5-H2`·`P6-H4`·`P7-H4` (7d) · `P8-C1` (8a) · `P8-C2` (8b) ·
+`P8-H2`·`P7-M5` (8c).
+
+## 2. The eight cross-phase patterns — final status
+
+**1. Ungated UI — HALF-CLOSED.**
+*Evidence:* `P1-H1`, `P2-H2`, `P3-M7`, `P4-H5`, `P5-H2`, `P6-H4`, `P7-H4`, `P8-H4`, `P9-M5`.
+*Closed half:* the **over-offer** — a landing page advertising links the role cannot open — by **QA-FIX.7d**
+(`c999181`, D-214). The study overturned seven phases of my own diagnosis: the cause was never the nav map,
+it was that `Landing.vue` carried eight ungated `<Link>`s. Confirmed since on two role groups it was not
+written against (Phase 8's radiographer, Phase 9's bed manager and him_records: zero body links).
+*Open half:* the **under-offer** — six built modules (ED, Surgery, Pharmacy, Lab, Radiology, Hospital) with
+no shell entry at any width. `grep -rn "/hospital" resources/js` returns zero hits. Deliberately not taken
+(D-214) because six more top-level entries would re-create the density defect D-111 fixed; the remedy needs
+an information-architecture decision, not wiring.
+
+**2. Timestamp and locale divergence — OPEN, present in all ten phases.**
+*Evidence:* `P1-C1` (fixed), `P2-H3`, `P4-C4` (fixed), `P4-H4`, `P5-M2`, `P6-M2`, `P7-M3`, `P8-M1`,
+`P9-M1`, `P9-M4`, `P10-M2`, `P10-M3`.
+*What is fixed:* the two storage-layer defects — web requests writing tenant-local wall-clock into UTC
+columns (QA-FIX.1a, D-192/193) and the PWA's eleven device-time write sites (QA-FIX.4b, D-202). **The data
+is now stored correctly everywhere.**
+*What is open:* the display layer. D-192 states it in its own text — *"No frontend component consumes the
+shared `timezone` prop for rendering today"* — and every phase since has measured the cost. Phase 9 found
+raw ISO-8601 on the admission page; Phase 10 found the portal telling a patient their appointment is
+"tomorrow" when it is today.
+
+**3. No navigation below 768 px — OPEN on staff, ABSENT on the portal.**
+*Evidence:* `P2-M8`, `P4-M9`, `P5-M6`, `P6-M8`, `P7-M4`, `P8-L1`, `P9-L1`.
+The staff shell's only nav is `hidden … md:flex` with no `md:hidden` counterpart and no drawer anywhere in
+its 228 lines. **Phase 10 is the first phase to find a surface that passes:** at 390 px the portal renders
+all eight of its links and wraps its one table in an `overflow-x: auto` container.
+
+**4. A granted capability with no surface — OPEN, and it has three shapes.**
+*Evidence:* `P5-H1`, `P6-H1`, `P7-H1`, `P7-H3`, `P8-H5`, `P9-H4`, `P9-M6`, `P10-M6`.
+*(a) A permission with no gate:* `document.view`, whose description names it as the HIM fence, gates nothing
+— clinical documents are gated by `patient.view`, held by 25 of 26 roles.
+*(b) A service with no route:* `ward.manage`'s three methods, two of `bed.manage`'s three,
+`TheatreSchedulingService`, `UnsignedNotesWorklist`.
+*(c) New in Phase 10 — a guard with no reachable caller:* approve-time re-authorisation and the free-text
+export opt-in cannot refuse any role that exists.
+
+**5. The fences hold — CLOSED, and never once eroded. Ten phases, ten confirmations.** See §3.
+
+**6. A partial record — HALF-CLOSED, in three directions.**
+*Evidence, refused-write direction:* `P6-C3` (fixed, QA-FIX.6c, D-210 — the `RefusalNotice` component),
+`P7-H2` (fixed, 7c), `P8-H1`, `P9-H3`, `P10-M1`. The component exists and three module families adopted it;
+Lab/Radiology, Hospital and Admin/Governance did not.
+*Evidence, succeeded-write direction:* `P3-C1` (fixed, 3a, D-199 — one operation, one transaction),
+`P4-H2`, `P6-M10` (fixed, 6a), `P7-M5` (fixed, 8c), `P8-H2` (fixed, 8c), and now **`P10-C2` — the sixth
+instance**, in `WaitlistService`, found by driving a stale agent approval.
+*Evidence, the third direction Phase 7 named — something left FALSELY behind:* `P10-H1`, an `approved`
+ledger row for an approval that never took effect.
+
+**7. Resolving a person by convenience — HALF-CLOSED, and its definition was corrected mid-programme.**
+*Evidence:* `P2-C1` (fixed, 2a, D-195 — `forUser` returns null rather than guessing), `P6-C2` (fixed, 6b),
+`P7-C1`·`P7-C2` (fixed, 7a, D-211), `P8-C2` (fixed, 8b, D-216), `P9-C3`, `P9-H6`, `P10-H4`.
+*The correction:* Phase 7 named this "attribution by dropdown default". Phase 8 proved that wrong — Radiology
+has no attribution dropdown at all, and the same failure arrived server-side via
+`?? StaffProfile::orderBy('display_name')->firstOrFail()`. The pattern is **resolving a person by
+convenience when the real one is unknown**, and the dropdown is only its most visible form.
+*What is open:* `P9-C3` (unconditional substitution of the admitting clinician across three clinical
+columns — the most severe instance found), `P9-H6` (an unordered `value('user_id')` in a nightly command
+that bypasses `SystemActorResolver`), and `P10-H4` (the dropdown form, back where the pattern started).
+
+**8. The module-local formatter — OPEN, and it is the cause behind pattern 2's display half.**
+*Evidence:* `P8-M1`/`M2`/`M3` (named it), `P9-M1`/`M3`/`M4`, `P10-M3`.
+Eight `fmt()` helpers and two `money()` helpers across twelve pages in Phase 8 alone; zero imports of
+`@/lib/date` or `@/lib/money` in Hospital; three raw-UTC renders on the portal. Each is small; together they
+are why one product shows one event at three different times.
+
+## 3. THE FENCES — the product's safety case in one place
+
+Ten phases tried to break these and could not. For each: what it forbids, and the strongest positive
+control the audit actually drove.
+
+| Fence | What it forbids | Strongest positive control driven |
+|---|---|---|
+| **Clinical judgment / severity styling (D-169)** | Any colour, band, flag, arrow or weight that grades a clinical value | Phase 5: a **mild** and a **severe** allergy render byte-identically. Phase 8: a Kalium **6.8** against a `3.5–5.1` range renders in the same container, span class, colour `rgb(42,51,42)`, weight 600, size 18px and border as an in-range 4.2 — with the abnormal value **created by driving**, because the seed had none. Phase 9: inpatient observations render as identical unstyled chips |
+| **Medication safety** | Any interaction, cross-reactivity or contraindication check | Phase 5: `MedicationSafetyProvider` states in the product's own words that this *"is a certified-partner function and is not performed here"* — with no cleared state and no green tick anywhere on the dispensing screen |
+| **Acuity** | Computing, suggesting, prefilling or tinting a triage level | Phase 7: `NullTriageAcuityProvider` returns `none()`, its docblock distinguishing *"'CareOS makes no acuity claim', not 'this patient is low acuity'"*; the empty state reads *"No automated suggestion. The triage nurse assigns the acuity."* Phase 7 also found and fixed the one place the recorded judgment was displayed in the wrong ORDER (`P7-C3`) |
+| **Result interpretation** | Abnormal flags, range verdicts, critical alerts, deltas, CAD | Phase 8: none of them exist; reference ranges are displayed as tenant-authored reference data beside the value and the screens say so; a radiology amendment produced v2 while v1 survived byte-identical |
+| **Surgical risk** | A blocking checklist or a computed risk score | Phase 6: *"This checklist is a record of what the team confirmed. It does not block the surgery — the team owns the decision to proceed."* Driven: a case completed at **0 of 17** checked, with nothing anywhere claiming otherwise; ASA III and ASA I render identically |
+| **Money reconciles to the unit** | Any page-side derivation of a figure the engine owns | Phase 6/8: `ChargeSetReader` returns the engine's stored amount already formatted, so no Vue does money arithmetic (QA-FIX.6a/8a, D-208/D-215). The composite hospital episode reconciles **δ=0** across six invariants |
+| **Agent ceilings** | Any autonomy level above the tool's ceiling; any agent acting without a human | **Phase 10:** a forged `auto` for three tools was clamped to `suggest`/`approve`/`approve`, and the audit row recorded the **clamped** values. Bulk approval refused a forged clinical id (`excluded: 1`) and skipped a cross-tenant one. Approve **re-authorises** against the tool's own permission (403 driven) and **re-grounds** against live state (a double-booking refused by a live resource lock). A human edit is re-validated by the tool's own fence and refused |
+| **Disclosure and transparency** | A read of a patient record that leaves no trace | Phase 9/10: eight portal surfaces and ~65 staff call sites write `action = 'read'` rows carrying the patient id; the access-log screen and its nDSG/GDPR export are **one query**; each export writes exactly one row and appears in the next one (31 → 32 driven). The gaps are recorded as `P9-C1`, `P9-C2`, `P9-H2`, `P10-H5` |
+| **Append-only records** | Editing or deleting a clinical or audit fact | Model `appendOnly()` guards **plus** `SIGNAL '45000'` database triggers on `lab_results`, `order_results`, `imaging_study_events`, `stay_events`, `audit_events`; the audit ledger is a per-tenant hash chain verified by replay — the governance dashboard reported **Valid, 379 events** |
+| **Tenant and patient isolation** | Reaching another tenant's or another patient's row | Phase 10: **every** forged cross-patient portal probe refused — 404 on documents, invoices, consents, appointments and check-in; 403 with an explicit message on telehealth and messages. A cross-tenant agent-action id in a forged bulk was skipped fail-closed. `TenantContext` refuses to query without a tenant |
+| **No invented workflow or metric (D-170 / D-176 / D-179)** | A control that lies, a number with nothing behind it | Phase 10: the KB ranks nothing and scores nothing; governed-agent cards print `—` where there is no denominator; reporting prints a rate with its denominator; the AI "Estimated cost CHF 0.02" is a real `SUM(cost_minor)` — two `embedded` rows, 118 tokens, provider `internal`. Phase 9: the referral, the one third-party-facing artifact, deliberately transmits nothing and says so |
+
+**No fence failed in ten phases.** `P5-C1` came closest and was not a fence failure — the safety seam was
+correct and the screen simply did not show it, which QA-FIX.5a fixed.
+
+## 4. THE OPEN LIST, PRIORITISED — what a first customer hits first
+
+Ordered by when a real practice would meet it, not by phase or severity.
+
+| # | ID | Severity | What happens | When they hit it |
+|---|---|---|---|---|
+| 1 | `P10-C1` | CRITICAL | `db:seed` creates a platform super-admin `test@example.com` / `password`, no environment guard anywhere | **At deploy, before anyone logs in** |
+| 2 | `P9-C1` | CRITICAL | The AR report CSV takes patient identifiers out with **no audit row at all** | First time anyone exports the finance report |
+| 3 | `P9-C3` | CRITICAL | Every ward round, note and observation is stored as the admitting clinician, not the person who did it | First inpatient chart entry |
+| 4 | `P10-C2` + `P10-H1` + `P10-H2` | CRITICAL + HIGH | A stale agent approval half-commits, strands a waitlisted patient, 500s, and is then recorded as "Approved" although it did nothing | First time a reviewer approves a draft the world has moved past |
+| 5 | `P1-H2` | HIGH | Patient registration fails silently unless four unmarked fields are filled | First patient registered |
+| 6 | `P10-H4` | HIGH | Quick-book pre-selects the first patient — a hurried booking books the wrong person | First hurried booking |
+| 7 | `P9-H1` | HIGH | A bed manager moving an occupied bed to `cleaning` wedges the patient with no way back | First time housekeeping tidies an occupied bed |
+| 8 | `P10-H3` | HIGH | Waitlist auto-fill cannot offer a cancelled slot — the only kind it exists for | First cancellation |
+| 9 | `P9-C2` + `P10-H5` | CRITICAL + HIGH | A release never appears in the patient's access log; two portal surfaces write no read row | First subject-access request |
+| 10 | `P4-H1`, `P4-H2` | HIGH | Nurse PWA sync 500s on reachable inputs and jams; a crashed batch commits part of itself | First field round with a flaky connection |
+| 11 | `P8-H1`, `P9-H3`, `P10-M1` | HIGH ×2 + MEDIUM | Refusals are invisible across Lab, Radiology, Hospital, Admin and Governance | Continuously, from day one |
+| 12 | `P6-H2` | HIGH | The theatre double-booking guard is correct, tested and unreachable; the path the product uses has no overlap check | First two cases scheduled into one theatre |
+| 13 | `P6-H3` | HIGH | A surgical case can be scheduled six years in the past and is displayed as upcoming | First typo in a date field |
+| 14 | `P5-H3` | HIGH | A dispense cannot be reversed, corrected or cancelled by any path | First dispensing error |
+| 15 | `P2-H4` | HIGH | The clinical chart cannot record what the clinician is permitted to record | First consultation |
+| 16 | `P3-H3` | HIGH | Write-offs and contractual adjustments cannot be created at all | First month-end |
+| 17 | `P3-H2` | HIGH | "PDF" invoices and dunning letters are plain-text files | First invoice sent |
+| 18 | `P7-H1`, `P7-H3` | HIGH | No HTTP path registers an ED presentation; the ED record has no medication surface | First ED shift |
+| 19 | `P9-H4`, `P9-H5` | HIGH | `document.view` gates nothing; the records role cannot release or record consent | First records request |
+| 20 | `P9-H6` | HIGH | The nightly bed-day accrual credits an arbitrary org_admin | First night after go-live |
+| 21 | `P6-H1`, `P7-H5`, `P8-H5`, `P5-H1`, `P6-H5` | HIGH | Roles 403 on the surfaces their permissions name; billing unreachable for the groups that generate the charges | First week, per role |
+| 22 | `P8-H3`, `P8-H4`, `P2-H3`, `P4-H4` | HIGH | Actors recorded and never named on screen; modules with no nav entry; clocks | Continuously |
+
+**The three that should be taken first, and why:** `P10-C1` because it is a security defect that exists
+before the product is used and is closed by one environment check; `P9-C1` because an unaudited export of
+patient identifiers is the one failure the whole disclosure fence exists to prevent; `P9-C3` because every
+inpatient record written between go-live and the fix carries the wrong clinician's name, and unlike the
+others it corrupts data that cannot be re-derived later.
+
+## 5. WHAT THE AUDIT CHANGED ABOUT ITS OWN METHOD
+
+**The guard-vacuity rules.** Five decisions, each written after a test passed while proving nothing:
+- **D-174** — a count rendered in the page is a claim about the record, so it must be counted where the
+  record lives; **an absence assertion over an empty collection proves nothing**.
+- **D-182** — a guard test must fail for the RIGHT reason: give the refused path everything it needs except
+  the thing under test. (Written because "a soft-suspended branch offers no slots" passed **with the guard
+  deleted** — the fixture's branch had no resources, so the finder returned empty either way.)
+- **D-183** — defence in depth is only real if each layer is pinned SEPARATELY; an earlier guard can hide a
+  later one from its own test.
+- **D-187** — a mutation that changes nothing is not a passing test, and `TenantContext::system()` is one of
+  them: it is a **no-op while a tenant is in context**.
+- **D-189** — a test whose fixture makes two different implementations agree is not testing the difference.
+
+**The comment-stripping rule.** Three times a structural scan reddened on the *comment explaining why the
+scan exists* — QA-FIX.6a first, then twice in QA-FIX.7b (the D-170 equivalence-table scan and the `'~'`
+sentinel guard), then twice more in QA-FIX.8a. The rule that came out of it: **strip comments before
+scanning, or target the code expression rather than the character**, and add a D-174 positive control
+proving the strip did not hollow the scan out. A related rule from QA-FIX.8: a mutation must be **verified
+applied by grep before the test runs** — three false confirmations were caught that way, two of them because
+the grep counted the pattern inside my own explanatory comment.
+
+**Where the browser caught what tests could not.** The programme's standing claim is that code reading is a
+complement, never a substitute. The instances that earned it:
+- `P6-C1` / `P8-C1` — a `<script setup>` name collision (`invoice` as both prop and function) made
+  `v-if="invoice"` permanently true and `v-if="isCharged && !invoice"` permanently false. The tests passed;
+  the screen printed **"Total: NaN"** under "No charge captured yet." and the issue button never rendered.
+- `P7-C3` — `localeCompare` on an acuity string. ESI and CTAS survived by luck; **Manchester inverted**, so
+  a control labelled "Recorded acuity" put the least urgent patient first. Only visible on screen.
+- `P10-C2` — the waitlist half-commit only appears if you change the world between propose and approve and
+  then look at three tables. No unit test was ever going to ask that question.
+- **And the reverse, this phase:** grepping `Portal/Login.vue` for `errors` returned zero, and the browser
+  showed *"Those credentials do not match our records."* — the grep was wrong. Code reading needs the
+  browser as much as the browser needs code reading.
+
+**Two pattern definitions were corrected mid-programme, both by evidence that contradicted me:**
+- **Pattern 1's root cause.** Seven phases wrote that the cause was the shell's fixed `NAV_PERMISSIONS`
+  list. QA-FIX.7d's study proved that false: `Landing.vue` carried eight ungated `<Link>`s, and adding keys
+  to the map would not have removed a single 403. Phase 3 had already got it right (`P3-M7`) and it was not
+  carried forward. Recorded as a correction banner rather than quietly amended.
+- **Pattern 7's real shape.** Phase 7 called it "attribution by dropdown default". Phase 8 found the same
+  failure with **no dropdown anywhere** — an alphabetical `first()` on the server. Phase 9 then found it
+  **unconditional**, with the correct answer one call away. The pattern is *resolving a person by
+  convenience*; the dropdown is only its most visible form.
+
+**One more, added by Phase 9 and confirmed here:** a finding that requires a precondition the product cannot
+create is still a browser finding **if you say exactly how the precondition was arranged and restore it**.
+Phase 8 nulled a `user_id`; Phase 9 provisioned a role through `/admin/roles`; Phase 10 detached a
+permission from a role row to make an unreachable guard reachable. Each was restored and verified.
+
+## 6. UNTESTABLE, AND WHY
+
+- **Operator mode** (`P10`, D-164): no HTTP route and no UI exist, deliberately. The no-self-approval rule
+  is implemented and documented in `OperatorGrantService` but is code-established only — there is nothing to
+  drive.
+- **`P9-H1`, the bed wedge:** not driven live because executing it would strand the demo tenant's only
+  admitted patient with no product path to recover.
+- **PACS/DICOM image viewing** (Phase 8): the seam is a null implementation and the product states that
+  viewing is a certified-partner function.
+- **Real LLM behaviour:** the AI layer calls no model — every interaction in the ledger is provider
+  `internal`, model `tool-runtime` or `careos-portable-hash-v1`. The approve path, the fences and the
+  ceilings were all driven; what a model would produce was not, because nothing produces it.
+- **Email and SMS delivery:** no outbound channel is configured; the recall and reminder paths were driven
+  to the point of dispatch and no further.
+- **`P10-M6`'s two guards** could only be driven by arranging a role state the product cannot produce.
+- **Performance:** out of scope for the whole programme, deferred to staging.
+- **Multi-user concurrency beyond the row-lock hammers** already in the suite: not driven in a browser.

@@ -504,3 +504,58 @@ path that emits the payload alone.
 **Not built:** the wireframe's signed PDF. There is no signing key; a "signed" file with an
 unmanaged key invites trust it cannot support. Stated on the dashboard.
 
+
+## QA phase 10 (2026-09-09) — THE APPROVE PATH, driven end to end. Audit only.
+
+Phase 10 exercised the guarantee the whole agent architecture rests on. **All five properties hold.**
+
+**RE-AUTHORISE — 403 driven.** `ApprovalQueue::approve:81` checks the reviewer against
+`$tool->definition()->permission`, not just the controller's `ai.manage`. Proven by detaching `note.write`
+from the tenant's `org_admin` role row (arranged precondition — no role exists that holds `ai.manage`
+without every tool permission, see `P10-M6`), then forging the approve: **HTTP 403**, action still
+`pending`, `reviewed_by` NULL, **zero `ai_interactions` rows**. Permission restored and verified.
+
+**RE-GROUND — proven three independent ways.** The stored payload is replayed; the EFFECT is re-derived.
+(1) I booked the slot the seeded `scheduler.fill_from_waitlist` proposal targeted, then approved: the
+re-executed tool hit the **live resource lock** and threw `BookingConflictException` on the exact resource
+— **no double booking**. (2) The retry re-ran the tool's own `preview()` and returned
+`{"booked":false,"reason":"no_matching_waitlist_entry"}`. (3) `DraftRecallMessageTool::execute` re-read the
+recall, patient and rule and returned `status: blocked_no_comms_consent` — consent re-checked at approve
+time.
+
+**EDIT-THROUGH-THE-GATE — both halves.** An edited template containing *"chest pain … double your dose"*
+was refused at approve time by `assertNoMedicalAdvice` (`DraftRecallMessageTool:116-121`) —
+`errors.action = "Recall message drafts cannot contain medical advice or symptom guidance."` A benign edit
+executed and is recorded distinctly: `agent_actions.edited_payload`, `result.human_edited = true`, and
+`{"human_edited":true}` on both ledger rows.
+
+**FENCE REFUSAL IS COUNTABLE.** Tile "REFUSED BY FENCE 1", a Resolved filter with a real count, and the
+fence's own words rendered verbatim, system-attributed.
+
+**BULK EXCLUDES CLINICAL/FINANCIAL — forged and refused.** A pending clinical action was created by driving
+`/clinical/recalls/{id}/draft`. Forging it into `bulk-approve` with an operational id, a **cross-tenant** id
+and a junk id returned `{"approved":0,"excluded":1,"skipped":3}`: clinical still `pending` /
+`reviewed_by` NULL (`AiApprovalQueueController:400-405`), cross-tenant untouched (fail-closed), operational
+recorded `fence_refused` — the per-item fence fired inside the bulk.
+
+**AGENT CEILING — forged `auto` clamped.** `POST /admin/agents` with `auto` for three tools stored
+`clinical.draft_recall_message → suggest`, `billing.preflight_invoice → approve`,
+`scheduler.fill_from_waitlist → approve`; the `ai.autonomy_changed` audit row records the **clamped** values,
+so the record cannot assert a level never granted.
+
+**THE DEFECTS ARE IN THE BOOKKEEPING AROUND THE GATE, NOT THE GATE.**
+- **`P10-H1` (HIGH):** `ApprovalQueue::approve:88-100` calls `recorder->record(… 'approved' …)` **before**
+  the `try { $tool->execute() }` at `:102`, with no compensation. Three failed attempts left three permanent
+  `approved` rows for actions that stayed pending; the dashboard now reads **approved 9 · executed 4** and
+  the queue tile moved 50% → 60% → 57%. The re-authorisation failure — which sits BEFORE the recorder —
+  leaves nothing, which proves this is ordering, not design.
+- **`P10-H2` (HIGH):** `BookingConflictException` is caught by neither `FenceRefusalException` nor
+  `AiCoreException` (`AiApprovalQueueController:320-329`) → **HTTP 500**, and the queue renders no error bag
+  (`ApprovalQueue.vue`'s only `errors` use is `rejectForm.errors.reason`).
+- **`P10-C2` (CRITICAL):** the refused approve half-committed through `WaitlistService` — see
+  [[Scheduling]].
+
+**Honesty check passed:** the AI "Estimated cost CHF 0.02" is a real `SUM(cost_minor)` — 2 minor units from
+two `embedded` rows, 118 tokens, provider `internal`, model `careos-portable-hash-v1`; every other row is
+zero-cost `tool-runtime`. Nothing fabricates spend for a model that is never called. See [[Platform]],
+[[Scheduling]], [[Patients]], [[LOG]].

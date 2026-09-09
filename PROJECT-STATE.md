@@ -34,7 +34,7 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
 
 ## STATUS: BUILD COMPLETE · DEPLOY-READY 🟢 GO · THE BUILDABLE PARITY PROGRAMME IS COMPLETE — ONE TRACK REMAINS: **DEPLOYMENT + PARTNERSHIPS**
 
-### 🔎 A ROLE-BY-ROLE QA AUDIT IS IN PROGRESS — `docs/qa/ROLE-AUDIT.md` (cumulative, 10 phases; 9 done, 168 findings)
+### ✅ THE ROLE-BY-ROLE QA AUDIT IS COMPLETE — `docs/qa/ROLE-AUDIT.md` (10 of 10 phases; **183 findings — 35 fixed, 148 open**, plus the programme-closing summary)
 
 **Phase 1 (reception / front-desk) is DONE** (`06a3f78`): 18 findings — 1 CRITICAL, 3 HIGH, 8 MEDIUM,
 6 LOW — every page **driven in a real browser** via Playwright MCP. Findings are **recorded, not
@@ -280,6 +280,43 @@ the one that discloses the most; **`P9-H3`: 11 `withErrors` sites, zero renderer
 **Pattern 1's under-offer half is now total** — `grep -rn "/hospital" resources/js` returns **zero
 hits**, so `bed_manager`'s entire remit is one screen it cannot reach by clicking. **Nothing is fixed —
 audit only.**
+
+**Phase 10 (admin/governance + the patient portal) is DONE — AND THE PROGRAMME IS COMPLETE**: 15 findings
+— 2 CRITICAL, 5 HIGH, 6 MEDIUM, 2 LOW. **The audit closes at 183 findings across ten phases: 35 fixed by
+20 QA-FIX gates, 148 open.** Every CRITICAL from phases 1–8 is fixed; the five open CRITICALs are Phase 9's
+three and Phase 10's two. **THE APPROVE PATH — the last unverified guarantee — IS NOW DRIVEN AND IT HOLDS.**
+Re-authorise: with `note.write` detached from the tenant's org_admin role (arranged, then restored and
+verified), the approve returned **403** and left nothing behind — pending, no reviewer, zero ledger rows.
+Re-ground: proven three ways — I booked the slot the waitlist proposal targeted, and the re-executed tool hit
+the **live resource lock** and refused (`BookingConflictException`, no double booking); the retry re-derived
+and returned `no_matching_waitlist_entry`; and the clinical draft re-read consent at approve time and
+returned `blocked_no_comms_consent`. Edit-through-the-gate: an edit containing medical advice was **refused
+by the tool's own fence** at approve time, and a benign edit executed recorded as `human_edited` on the
+action, the result and both ledger rows. Bulk: a **forged** list containing a clinical action returned
+`{"approved":0,"excluded":1,"skipped":3}` — the clinical one still pending, a cross-tenant id fail-closed,
+and a per-item fence refusal recorded rather than forced through. The **agent ceiling** clamped a forged
+`auto` to `suggest`/`approve` and audited the CLAMPED value. **THE PORTAL'S ISOLATION IS THE CLEANEST RESULT
+THE PROGRAMME HAS PRODUCED:** every forged cross-patient probe refused — 404 on documents, invoices,
+consents, appointments and check-in; 403 with an explicit message on telehealth and messages. Portal
+self-booking was driven end to end (the `P1-H3` consumer path, never browser-driven until now); a past slot
+is neither offered nor accepted; the branch soft-suspend is honoured on BOTH endpoints; the 24-hour
+cancellation window is enforced server-side. The portal is also **the first surface in ten phases to pass the
+390 px navigation check**. **`P10-C1` IS THE MOST SERIOUS DEPLOYMENT FINDING OF THE PROGRAMME:**
+`DatabaseSeeder` unconditionally creates `test@example.com` / `password` with `tenant_id = NULL` — a
+**platform super-admin** — and **no environment guard exists anywhere in the codebase** (`grep` for
+`environment('production')`/`isProduction` over `database/`, `app/`, `Modules/` returns zero). Driven in a
+clean browser: the login succeeds and hands over self-service 2FA enrolment. **`P10-C2` is the SIXTH
+create-then-associate-outside-a-transaction instance** and the first found by driving an agent approval: a
+refused approve left the waitlist entry `offered` with an audit row and **no offer row**, stranding the
+patient, and the retry was then recorded as **"Approved"** though it booked nothing. `P10-H1`: every failed
+execution writes a permanent `approved` ledger row (approved 9 vs executed 4 on the dashboard). `P10-H2`: a
+domain refusal escapes as a **500**. `P10-H3`: the waitlist auto-fill panel can never offer a **cancelled**
+slot — cancelling deletes the resource links the offer requires. `P10-H4`: the day-board Quick-book modal
+**pre-selects the first patient**. `P10-H5`: `/portal/messages` and `/portal/telehealth` write no read row.
+The artifact now also carries **the programme-closing summary** — the final severity table, the eight
+patterns' final status with every evidencing ID, **the fences consolidated as the product's safety case**
+(ten for ten, none eroded), the open CRITICAL/HIGH list ordered by what a first customer hits first, and what
+the audit changed about its own method. **Nothing is fixed — audit only.**
 
 **QA-FIX.7 is fixing the Phase-7 findings plus the cross-phase nav root cause, in four parts.** Part 1
 (`d3e0f3c`, D-211) is done: **ED triage and admission record the ACTOR, and attribution fields no longer
