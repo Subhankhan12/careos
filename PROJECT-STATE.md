@@ -327,7 +327,7 @@ stated rather than faked:** under `production` the demo seeder is refused with 0
 tests, mutation-checked three ways — and the first mutation silently failed to apply while the suite stayed
 green, caught only by the comment-stripped grep-confirm.
 
-Part 3 (`<pending>`, D-220) closes the gate: **a ward round, its note and its observations record their
+Part 3 (`db57327`, D-220) closes the gate: **a ward round, its note and its observations record their
 WRITER, not the admitting clinician (`P9-C3`).** **THE STUDY'S ANSWER IS NOT QA-FIX.2a's:** D-195 kept an
 outpatient ENCOUNTER on its booked clinician and moved only the note, but **a ward round has no booking and
 therefore no booked clinician**, so all THREE attributions change — Encounter practitioner, note author,

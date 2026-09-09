@@ -100,7 +100,7 @@ every later phase's timestamp observation suspect, and past-time booking was liv
 | `P8-H2` · `P7-M5` | HIGH · MEDIUM | ✅ **FIXED** | QA-FIX.8c | `946cf87` |
 | `P10-C3` | CRITICAL | ✅ **FIXED** | QA-FIX.9a | `817a875` |
 | `P10-C1` | CRITICAL | ✅ **FIXED** | QA-FIX.9b | `4e610b0` |
-| `P9-C3` | CRITICAL | ✅ **FIXED** | QA-FIX.9c | `<pending>` |
+| `P9-C3` | CRITICAL | ✅ **FIXED** | QA-FIX.9c | `db57327` |
 | all others | — | 📋 recorded, not fixed | — | — |
 
 *(A commit cannot contain its own hash. Per the repo-wide marker convention, `<pending>` is backfilled
@@ -5324,7 +5324,7 @@ controls the two phase roles cannot reach: `lena.studer@klinik-bergblick.test` (
 
 #### `P9-C3` — Every ward round, note and observation is stored as the ADMITTING CLINICIAN, not the person who did it — even when the actor has a staff profile
 
-> ✅ **FIXED — QA-FIX.9c, commit `<pending>` (D-220).** All THREE attributions now record the person who
+> ✅ **FIXED — QA-FIX.9c, commit `db57327` (D-220).** All THREE attributions now record the person who
 > performed the round: the Encounter's practitioner, the note's author and the vital's recorder, each
 > resolved from `StaffProfile::forUser($actor)`.
 > **THE STUDY'S CONCLUSION, WHICH IS NOT THE SAME AS QA-FIX.2a's.** D-195 kept an outpatient ENCOUNTER on
