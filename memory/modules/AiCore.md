@@ -559,3 +559,39 @@ so the record cannot assert a level never granted.
 two `embedded` rows, 118 tokens, provider `internal`, model `careos-portable-hash-v1`; every other row is
 zero-cost `tool-runtime`. Nothing fabricates spend for a model that is never called. See [[Platform]],
 [[Scheduling]], [[Patients]], [[LOG]].
+
+### ADDENDUM (same day) — `P10-C3`: the approve gate has a second, UNGATED door
+
+**A second route calls `ApprovalQueue::approve()` and has no `ai.manage` gate and no category check:**
+`POST /comms/inbox/send-draft` → `app/Http/Controllers/Comms/InboxAgentController.php:33-51`. The whole
+method is `validate(['action_id' => …])` → `AgentAction::query()->whereKey($id)->firstOrFail()` →
+`$queue->approve($action, $user)`. `grep Gate::authorize` over the file returns **nothing**; the route
+(`routes/web.php:235`) is in the plain `auth` group. The only surviving check is the tool's own permission
+inside the service.
+
+**Driven, in a clean browser context, as `matthias.brunner` (doctor — `note.write` yes, `ai.manage` NO):**
+`GET /governance/approvals` → **403** in the same session, then `POST /comms/inbox/send-draft` with a
+**pending CLINICAL action id** → 302, and the database shows `status = executed`, `reviewed_by = '3'`,
+`approved_at`/`executed_at` stamped, plus `approved` + `executed` `ai_interactions` rows with
+`approver = 3`.
+
+**Both governance safeguards are bypassed:** the `ai.manage` monopoly fences the queue SCREEN, not the
+approve CAPABILITY; and the clinical/financial exclusion that `bulkApprove` enforces server-side
+(`AiApprovalQueueController:400-405`) has no counterpart here — no `tool_key` restriction, no
+`isClinicalOrFinancial()` call. The UI is narrow (`AgentInboxDraftProvider` only offers pending
+`comms.draft_reply` for the open thread); the endpoint accepts any row in `agent_actions`.
+
+**This CORRECTS `P10-M6`** ("the re-authorisation guard cannot fire for any role that exists"): true of the
+queue path, false of the product — on this path the tool-permission check is the ONLY gate and fires on
+every call.
+
+**`P10-M7`:** `approve()` executes `$editedPayload ?? $action->input_payload` and **never reads
+`$action->proposed_output`** — the artifact the reviewer read under "PROPOSED OUTPUT (SOURCE-GROUNDED)".
+That is re-grounding working as designed, but it means "approve" cannot mean "what I read is what happens",
+and no screen says so. Seen twice this phase: a displayed waitlist match that produced `booked:false`, and a
+displayed message that produced `blocked_no_comms_consent`.
+
+**The method rule this adds:** *when a service method is the gate, enumerate its callers before concluding
+the gate holds.* Phase 10 verified the queue's gates exhaustively and never asked what else calls
+`ApprovalQueue::approve`. The same discipline as `enumerate-consumers-before-scoping-a-test-run`, applied to
+an authorisation boundary.

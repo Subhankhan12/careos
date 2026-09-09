@@ -34,7 +34,7 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
 
 ## STATUS: BUILD COMPLETE · DEPLOY-READY 🟢 GO · THE BUILDABLE PARITY PROGRAMME IS COMPLETE — ONE TRACK REMAINS: **DEPLOYMENT + PARTNERSHIPS**
 
-### ✅ THE ROLE-BY-ROLE QA AUDIT IS COMPLETE — `docs/qa/ROLE-AUDIT.md` (10 of 10 phases; **183 findings — 35 fixed, 148 open**, plus the programme-closing summary)
+### ✅ THE ROLE-BY-ROLE QA AUDIT IS COMPLETE — `docs/qa/ROLE-AUDIT.md` (10 of 10 phases; **185 findings — 35 fixed, 150 open**, plus the programme-closing summary)
 
 **Phase 1 (reception / front-desk) is DONE** (`06a3f78`): 18 findings — 1 CRITICAL, 3 HIGH, 8 MEDIUM,
 6 LOW — every page **driven in a real browser** via Playwright MCP. Findings are **recorded, not
@@ -280,6 +280,24 @@ the one that discloses the most; **`P9-H3`: 11 `withErrors` sites, zero renderer
 **Pattern 1's under-offer half is now total** — `grep -rn "/hospital" resources/js` returns **zero
 hits**, so `bed_manager`'s entire remit is one screen it cannot reach by clicking. **Nothing is fixed —
 audit only.**
+
+**PHASE 10 ADDENDUM (same day) — `P10-C3` (CRITICAL): the agent approve gate has a SECOND, UNGATED door.**
+Found after the phase was committed, by a second adversarial pass over the same scope, and **verified
+first-hand before being recorded**. `POST /comms/inbox/send-draft` → `InboxAgentController::sendDraft`
+(`app/Http/Controllers/Comms/InboxAgentController.php:33-51`) calls `ApprovalQueue::approve()` directly with
+**no `Gate::authorize` anywhere in the file** and **no category check**. Driven in a clean context as
+`matthias.brunner` (doctor: `note.write` yes, `ai.manage` NO): **403 on `/governance/approvals`** in the same
+session, then a **pending CLINICAL action executed** by posting its id — `status = executed`,
+`reviewed_by='3'`, `approved` + `executed` ledger rows at `approver=3`. Both governance safeguards fall at
+once: the `ai.manage` monopoly fences the queue SCREEN not the approve CAPABILITY (qualifying Phase 2's
+`P2-M1`), and the clinical/financial exclusion `bulkApprove` enforces has no counterpart on this route. **It
+corrects my own `P10-M6`** — the re-authorisation guard is not unreachable; on this path it is the ONLY
+gate. Also `P10-M7`: approve executes `input_payload` and never reads the `proposed_output` the reviewer
+read. **The programme now closes at 185 findings — 35 fixed, 150 open, SIX open CRITICALs.** `P10-C3` enters
+the open list at position 2, and two of the top four are one line each. The fences statement is unchanged:
+the tool still re-authorised, re-grounded and refused medical advice — what this breaks is who may press the
+button. **Method rule added:** *when a service method is the gate, enumerate its callers before concluding
+the gate holds.* **Nothing is fixed — audit only.**
 
 **Phase 10 (admin/governance + the patient portal) is DONE — AND THE PROGRAMME IS COMPLETE**: 15 findings
 — 2 CRITICAL, 5 HIGH, 6 MEDIUM, 2 LOW. **The audit closes at 183 findings across ten phases: 35 fixed by

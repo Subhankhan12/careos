@@ -47,10 +47,13 @@ missing · `LOW` cosmetic / polish.
 | 7 — Emergency Department | 3 | 5 | 7 | 2 | 17 |
 | 8 — Lab + Radiology | 2 | 5 | 7 | 3 | 17 |
 | 9 — Bed management + Medical records | 3 | 6 | 11 | 5 | 25 |
-| 10 — Admin / governance + Patient portal | 2 | 5 | 6 | 2 | 15 |
-| **Total (ALL TEN PHASES)** | **23** | **45** | **83** | **32** | **183** |
+| 10 — Admin / governance + Patient portal | 3 | 5 | 7 | 2 | 17 |
+| **Total (ALL TEN PHASES)** | **24** | **45** | **84** | **32** | **185** |
 | of which **FIXED** by 20 QA-FIX gates | 18 | 12 | 4 | 1 | **35** |
-| of which **OPEN** | **5** | **33** | **79** | **31** | **148** |
+| of which **OPEN** | **6** | **33** | **80** | **31** | **150** |
+
+*(Phase 10's counts include the two addendum findings `P10-C3` and `P10-M7`, recorded the same day after a
+second adversarial pass over the same scope — see "Phase 10 — ADDENDUM" at the end of this document.)*
 
 *(Counts are as RECORDED at audit time and are not restated when a later gate re-grades a finding.
 `P4-C4` was re-graded **CRITICAL → HIGH** by QA-FIX.4b — the defect was latent rather than active,
@@ -6407,10 +6410,13 @@ order it should be taken, and what the audit learned about auditing.
 | 7 | Emergency Department | 3 | 5 | 7 | 2 | 17 |
 | 8 | Lab + Radiology | 2 | 5 | 7 | 3 | 17 |
 | 9 | Bed management + Medical records | 3 | 6 | 11 | 5 | 25 |
-| 10 | Admin / governance + Patient portal | 2 | 5 | 6 | 2 | 15 |
-| **TOTAL RECORDED** | | **23** | **45** | **83** | **32** | **183** |
+| 10 | Admin / governance + Patient portal | 3 | 5 | 7 | 2 | 17 |
+| **TOTAL RECORDED** | | **24** | **45** | **84** | **32** | **185** |
 | **FIXED** | by 20 QA-FIX gates | **18** | **12** | **4** | **1** | **35** |
-| **OPEN** | | **5** | **33** | **79** | **31** | **148** |
+| **OPEN** | | **6** | **33** | **80** | **31** | **150** |
+
+*(Phase 10 includes `P10-C3` and `P10-M7`, added the same day by the addendum at the end of this document.
+`P10-C3` enters the open list at position 2, and it corrects `P10-M6`.)*
 
 **Every CRITICAL from phases 1–8 has been fixed.** The five open CRITICALs are the three from Phase 9 and
 the two from Phase 10 — the two phases that have not yet had a fix gate.
@@ -6516,9 +6522,13 @@ correct and the screen simply did not show it, which QA-FIX.5a fixed.
 
 Ordered by when a real practice would meet it, not by phase or severity.
 
+**`P10-C3` was inserted at position 2 by the addendum**, so every row below it shifts down one place; the
+numbering that follows is the original ordering and is left as written rather than renumbered.
+
 | # | ID | Severity | What happens | When they hit it |
 |---|---|---|---|---|
 | 1 | `P10-C1` | CRITICAL | `db:seed` creates a platform super-admin `test@example.com` / `password`, no environment guard anywhere | **At deploy, before anyone logs in** |
+| 2 | `P10-C3` | CRITICAL | `POST /comms/inbox/send-draft` has no `ai.manage` gate and no clinical exclusion — any clinician can approve-and-execute a clinical agent action by posting its id | **First day any clinician has an action id**; driven as a doctor who is 403 on the queue in the same session |
 | 2 | `P9-C1` | CRITICAL | The AR report CSV takes patient identifiers out with **no audit row at all** | First time anyone exports the finance report |
 | 3 | `P9-C3` | CRITICAL | Every ward round, note and observation is stored as the admitting clinician, not the person who did it | First inpatient chart entry |
 | 4 | `P10-C2` + `P10-H1` + `P10-H2` | CRITICAL + HIGH | A stale agent approval half-commits, strands a waitlisted patient, 500s, and is then recorded as "Approved" although it did nothing | First time a reviewer approves a draft the world has moved past |
@@ -6541,11 +6551,17 @@ Ordered by when a real practice would meet it, not by phase or severity.
 | 21 | `P6-H1`, `P7-H5`, `P8-H5`, `P5-H1`, `P6-H5` | HIGH | Roles 403 on the surfaces their permissions name; billing unreachable for the groups that generate the charges | First week, per role |
 | 22 | `P8-H3`, `P8-H4`, `P2-H3`, `P4-H4` | HIGH | Actors recorded and never named on screen; modules with no nav entry; clocks | Continuously |
 
-**The three that should be taken first, and why:** `P10-C1` because it is a security defect that exists
-before the product is used and is closed by one environment check; `P9-C1` because an unaudited export of
-patient identifiers is the one failure the whole disclosure fence exists to prevent; `P9-C3` because every
-inpatient record written between go-live and the fix carries the wrong clinician's name, and unlike the
-others it corrupts data that cannot be re-derived later.
+**The four that should be taken first, and why:** `P10-C1` because it is a security defect that exists
+before the product is used and is closed by one environment check; **`P10-C3` because it is an
+authorisation hole, reachable by every clinician in the tenant, that defeats both controls the agent
+governance rests on — and it is closed by one `Gate::authorize` line**; `P9-C1` because an unaudited export
+of patient identifiers is the one failure the whole disclosure fence exists to prevent; `P9-C3` because
+every inpatient record written between go-live and the fix carries the wrong clinician's name, and unlike
+the others it corrupts data that cannot be re-derived later.
+
+**Two of the four are one line each.** `P10-C1` needs an environment guard in `DatabaseSeeder`; `P10-C3`
+needs the `Gate::authorize('ai.manage')` that its sibling controller already has, plus the category check
+`bulkApprove` already implements. Neither requires a design decision.
 
 ## 5. WHAT THE AUDIT CHANGED ABOUT ITS OWN METHOD
 
@@ -6614,3 +6630,119 @@ permission from a role row to make an unreachable guard reachable. Each was rest
 - **`P10-M6`'s two guards** could only be driven by arranging a role state the product cannot produce.
 - **Performance:** out of scope for the whole programme, deferred to staging.
 - **Multi-user concurrency beyond the row-lock hammers** already in the suite: not driven in a browser.
+
+---
+
+## Phase 10 — ADDENDUM (same day, after the section above was first committed)
+
+The two findings below were surfaced by a second, adversarial pass over the same scope run after
+`9507803` was pushed, and **both were then verified first-hand in the browser and in the code** before being
+recorded. They are appended rather than folded into the section above, and `P10-M6` carries a correction
+banner, because this document does not rewrite findings — it corrects them in place with the evidence that
+forced the correction.
+
+### CRITICAL (addendum)
+
+#### `P10-C3` — A second approve-and-execute endpoint has NO `ai.manage` gate and NO clinical exclusion, so any clinician can execute a clinical agent action by posting its id
+
+- **Role:** `doctor` (`matthias.brunner@praxis-lindenhof.test` — holds `note.write`, does **not** hold
+  `ai.manage`) · **Route:** `POST /comms/inbox/send-draft`
+- **Steps, in a clean browser context.** Signed in as the doctor. In the same session:
+  1. `GET /governance/approvals` → **403**. The governance queue correctly refuses him.
+  2. `POST /comms/inbox/send-draft` with `{"action_id":"01m220em1fke2bsbchw5hg6kxt"}` — the id of a
+     **pending CLINICAL action** (`clinical.draft_recall_message`), created minutes earlier by driving
+     `/clinical/recalls`. → **302, no refusal.**
+- **What happened, verified in the database.** `agent_actions`: `status = executed`, `reviewed_by = '3'`,
+  `approved_at` and `executed_at` both `2026-09-09 02:39:56`, with the rendered recall message in `result`.
+  `ai_interactions`: `approved` then `executed`, both `approver = 3` — and user 3 is
+  `matthias.brunner@praxis-lindenhof.test`. **A clinician with no `ai.manage` approved and executed a
+  clinical agent action.**
+- **Cause:** `app/Http/Controllers/Comms/InboxAgentController.php:33-51`. The whole method is
+  `validate(['action_id' => ['required','string']])` → `AgentAction::query()->whereKey($id)->firstOrFail()`
+  → `$queue->approve($action, $user)`. **`grep Gate::authorize` over the file returns nothing**, and the
+  route (`routes/web.php:235`) sits in the plain `auth` group. The only surviving check is the one inside
+  `ApprovalQueue::approve` — the tool's own permission — which for a clinical draft is `note.write`, held by
+  every doctor and every nurse.
+- **Two governance safeguards are bypassed at once:**
+  1. **The `ai.manage` monopoly.** The approval queue is `ai.manage`-gated and org_admin is its only holder;
+     this endpoint is not gated at all. The monopoly fences the *screen*, not the *capability*.
+  2. **The clinical/financial exclusion.** `bulkApprove` refuses clinical and financial actions server-side
+     against a forged id list (`AiApprovalQueueController:400-405`, driven and confirmed in this phase).
+     This single-item endpoint performs **no category check whatsoever** — no `tool_key` restriction, no
+     `isClinicalOrFinancial()` call — so the action bulk refuses can be executed one at a time here.
+- **The UI is narrow; the endpoint is not.** `AgentInboxDraftProvider` only surfaces pending
+  `comms.draft_reply` actions matching the open thread, so the button a user can click is safe. The gap is
+  between what the provider offers and what the controller accepts: `whereKey` over the entire
+  `agent_actions` table.
+- **It also has no error handling.** No try/catch, and `bootstrap/app.php` registers no renderable for
+  `AiCoreException` — so a fence refusal or a second send of the same action is a 500, where the governance
+  controller returns a handled response (`AiApprovalQueueController:322-329`).
+- **Why CRITICAL:** an agent action of the category the product explicitly excludes from batch approval,
+  executed by a user the governance surface refuses, through a route with no authorisation check. It is the
+  one shape this phase's brief names outright — an agent action taken outside the human gate the design
+  claims for it.
+- **It qualifies a Phase-2 finding.** `P2-M1` recorded that `ai.manage` is held by `org_admin` alone, so no
+  clinician can reach the approval queue. That is true of the queue and false of the capability, and the
+  distinction was never measured until now.
+
+### MEDIUM (addendum)
+
+#### `P10-M7` — Approval executes the stored INPUT, never the proposed output the reviewer actually read
+
+- `ApprovalQueue::approve` sets `$payload = $editedPayload ?? $action->input_payload` (`:85`) and calls
+  `$tool->execute($payload, $reviewer)` (`:103`). **`$action->proposed_output` is never read on the approve
+  path** — no hash, no version, no diff, no staleness comparison.
+- The queue screen renders `proposed_output` under the heading **"PROPOSED OUTPUT (SOURCE-GROUNDED)"**, so
+  the reviewer approves one artifact and the server produces another from the same inputs.
+- **This is the necessary consequence of re-grounding, not a contradiction of it** — re-deriving from live
+  state is the property this phase confirmed and wants. But it means "approve" cannot mean "what I read is
+  what happens", and nothing on screen says so. Driven twice in this phase: the waitlist action displayed a
+  match and produced `booked:false`; the clinical draft displayed a message and produced
+  `blocked_no_comms_consent`. In both cases the executed result differed from the rendered proposal and the
+  reviewer was told only "Approved".
+- Recorded MEDIUM: the mechanism is right, the reviewer's mental model is not supported. A displayed
+  proposal that the approve path never reads is the D-176 shape applied to a decision rather than a control.
+
+### Correction to `P10-M6`
+
+> ⚠️ **CORRECTED, same phase, by `P10-C3`.** `P10-M6` states that the approve-time re-authorisation guard
+> "cannot fire for any role that exists", because `ai.manage` is `org_admin`-only and `org_admin` holds all
+> eleven tool permissions. **That is true of the governance-queue path and false of the product.** On
+> `POST /comms/inbox/send-draft` there is no `ai.manage` gate at all, so the tool-permission check is not a
+> redundant second guard — it is the **only** guard, and it fires on every call. The finding's observation
+> about the free-text export opt-in is unaffected. Recorded as a correction rather than an edit, in keeping
+> with this document's rule; the original text stands above.
+
+### What this addendum changes in the programme close
+
+- **Phase 10 becomes 17 findings — 3 CRITICAL, 5 HIGH, 7 MEDIUM, 2 LOW.**
+- **The programme closes at 185 findings: 35 fixed, 150 open.** Open CRITICALs become **six** — Phase 9's
+  three and Phase 10's three.
+- **The open list's ordering changes.** `P10-C3` enters at **position 2**, immediately after `P10-C1`: it is
+  reachable by every clinician in the tenant from day one, needs nothing but an action id, and defeats the
+  two controls the agent-governance design rests on. It sits above `P9-C1` because it is an authorisation
+  hole rather than a recording gap.
+- **Pattern 4 gains a fourth shape — a guard bypassed by a second route.** The programme has now recorded a
+  permission with no gate (`document.view`), a service with no route (`ward.manage`), a guard with no
+  reachable caller (`P10-M6`), and a gated capability reachable through an ungated door (`P10-C3`).
+- **The fences statement is unchanged and stands.** No fence computed, suggested or graded anything, and the
+  agent CEILING clamp holds. What `P10-C3` breaks is the *authorisation* around the gate, not the fence
+  inside it: the tool still re-authorised against `note.write`, still re-grounded, and still refused
+  medical advice. The safety case in §3 is about what the product will not decide; `P10-C3` is about who may
+  press the button.
+
+### Method note — why this was missed, and how it was found
+
+The Phase 10 pass drove the approval queue exhaustively and treated it as *the* approve surface, because
+that is what the governance design and `P2-M1` both say it is. The queue's own gates were verified in both
+directions, including a 403 that required arranging a role state the product cannot produce. **What was not
+done was to ask which OTHER routes call `ApprovalQueue::approve`.** A second adversarial pass over the same
+scope asked exactly that, found `InboxAgentController::sendDraft`, and the claim was then verified
+first-hand — file read, permissions queried, and the execution driven in a clean browser context as a
+clinician who is 403 on the queue in the same session.
+
+The generalisable rule, and the last one this programme adds to its method: **when a service method is the
+gate, enumerate its callers before concluding the gate holds.** It is the same discipline the audit already
+applies to permissions (D-182: a refusal must be reachable) and to services
+(`enumerate-consumers-before-scoping-a-test-run`), applied to an authorisation boundary. Verifying a gate at
+one call site proves that call site, not the gate.
