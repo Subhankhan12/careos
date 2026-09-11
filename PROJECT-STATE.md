@@ -7,9 +7,13 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
 >
 > **WHERE THE PROJECT STANDS, in five facts:**
 >
-> 1. **THE BUILD IS COMPLETE AND AUDITED.** Eight verticals on one multi-tenant platform — clinic · dental ·
->    home-care (Spitex) · inpatient/ADT · pharmacy · surgery/OR · ED · lab (LIS) · radiology (RIS) — plus the
->    offline Nurse PWA. HL7/FHIR and DICOM/PACS are **correctly absent**: certified-partner seams with
+> 1. **THE BUILD IS COMPLETE AND AUDITED.** The **eight verticals** on one multi-tenant platform, plus the
+>    offline Nurse PWA. Inventory in `docs/ONBOARDING.md` §5. ⚠️ **A PRE-EXISTING COUNTING CONTRADICTION,
+>    FLAGGED HERE RATHER THAN SILENTLY RENUMBERED:** the repo says "eight verticals" in at least four places
+>    but **enumerates NINE lanes** — clinic · dental · home-care (Spitex) · inpatient/ADT · pharmacy · lab
+>    (LIS) · radiology (RIS) · surgery/OR · ED. Which of the nine is not counted as its own vertical is not
+>    determinable from the repo, so **the number is left as written and the discrepancy recorded**; it is a
+>    naming question for the product owner, not a defect. HL7/FHIR and DICOM/PACS are **correctly absent**: certified-partner seams with
 >    Manual/Null implementations bound. Do not build a homemade one.
 > 2. **THE BUILDABLE WIREFRAME-PARITY PROGRAMME IS COMPLETE** — the original nine pages plus **six domain
 >    batches**. **There is no parity page, batch or vertical left to build. Do not invent one.**

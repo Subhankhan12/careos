@@ -7109,9 +7109,14 @@ findings at once.
 Per phase, the counted IDs match the severity table in §1 exactly, class by class: P1 18 · P2 19 · P3 15 ·
 P4 23 · P5 14 · P6 20 · P7 17 · P8 17 · P9 25 · P10 17 = **185**, plus `QF10a-H1` = **186**.
 
-**A counting note for whoever checks this next.** Only 157 findings appear as their own `#### \`PN-XN\``
-heading; Phases 1, 4 and 5 record some of their MEDIUM and LOW findings in condensed grouped form. Counting
-headings gives 157 and is WRONG. Counting distinct IDs gives 185 (+1) and is right.
+**A COUNTING NOTE FOR WHOEVER CHECKS THIS NEXT — and it is the difference between 157 and 186.** Only **157**
+findings appear as their own `#### \`PN-XN\`` heading. **Phases 1, 4 and 5 define their lower-severity findings
+as BULLET ITEMS instead** — `- **\`P1-L1\` — …`, `- **\`P4-M1\` — …`, `- **\`P5-M1\` — …` — which accounts for
+exactly the 28 missing: Phase 1's six LOW, Phase 4's ten MEDIUM and three LOW, Phase 5's seven MEDIUM and two
+LOW. **Counting both definition forms (`^#### \`ID\`` OR `^- **\`ID\``, deduplicated) reproduces the per-phase
+table exactly, phase by phase**, with zero duplicate headings, zero orphans and zero out-of-phase definitions.
+So: **counting headings gives 157 and is wrong; counting distinct IDs gives 185, +`QF10a-H1` = 186, and is
+right.**
 
 ## Zero open CRITICALs — stated precisely
 
@@ -7139,10 +7144,13 @@ re-graded to HIGH on the evidence while being fixed, and none was withdrawn, mer
 4 `4dfd59c` · 5 `3199a7c` · 6 `6784bfa` (+ `6886f01`, which added `P6-M10`) · 7 `9c4dc63` · 8 `f5959c8` ·
 9 `41cc78e` · 10 `9507803` (+ `ab59c27`, the same-day addendum that added `P10-C3` and `P10-M7`).
 
-**TEN fix gates, not eleven** — QA-FIX.1 … QA-FIX.10 — across **29 parts that changed code**, every part's
-commit verified to exist and to be an ancestor of `805930e`. A separate, earlier `FIX.1`–`FIX.5` series
-belongs to the pre-QA re-audit and is not part of this programme; counting it is the likely source of an
-"eleven".
+**TEN fix-gate NAMES** — QA-FIX.1 … QA-FIX.10 — across **30 executed parts, 29 of which changed code**, every
+part's commit verified to exist and to be an ancestor of `805930e`. **BOTH "ten" AND "eleven" ARE DEFENSIBLE,
+so here is the reconciliation:** ten is the count of gate NAMES; **eleven is the count of gate EXECUTIONS, if
+you count `474cefe` (QA-FIX.6 Part 4) as its own** — it is numbered as a part of gate 6 but is a standalone
+determination that changed no app code and closed no finding, which is why it appears in no fix-status row. A
+separate, earlier `FIX.1`–`FIX.5` series belongs to the pre-QA re-audit and is not part of this programme at
+all.
 
 **A thirtieth part deliberately built nothing.** `474cefe` — *QA-FIX.6 Part 4: the theatre booking gap is a
 FEATURE, not wiring (stopped, nothing built)* — determined on four verified counts that the gap could not be

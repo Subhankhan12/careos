@@ -67,9 +67,14 @@ does not block deploy, and is **not unfinished by accident**. Plan: `docs/featur
 reception `06a3f78` · clinician `a5e17dc` · billing `a5cea30` · nursing/Spitex + Nurse PWA `4dfd59c` ·
 pharmacy `3199a7c` · surgery/OR `6784bfa` · ED `9c4dc63` · lab + radiology `f5959c8` · bed management +
 medical records `41cc78e` · admin/governance + patient portal `9507803` (+ addendum `ab59c27`).
-**Ten fix gates** (QA-FIX.1 … QA-FIX.10) across **29 code-changing parts** closed the top of the list.
+**TEN fix-gate NAMES** (QA-FIX.1 … QA-FIX.10) across **30 executed parts, 29 of which changed code.** The
+thirtieth is `474cefe` — *QA-FIX.6 Part 4: the theatre booking gap is a FEATURE, not wiring (stopped, nothing
+built)* — which determined on four verified counts that the gap could not be closed without building a feature,
+and stopped. **If you see "eleven gates" anywhere, that is where the eleventh comes from** (a separate, earlier
+`FIX.1`–`FIX.5` series belongs to the pre-QA re-audit and is not part of this programme).
 
-**`docs/qa/ROLE-AUDIT.md` IS THE AUTHORITATIVE RECORD — 7 180 lines, and it is append-only by its own rule:**
+**`docs/qa/ROLE-AUDIT.md` IS THE AUTHORITATIVE RECORD — the largest artifact in the repo, and append-only by
+its own rule:**
 
 - **Findings are recorded permanently and are NEVER removed when fixed.** A fixed finding keeps its **ID**,
   its **evidence** and its **reproduction**, and gains a **FIXED banner** naming the gate, the commit and the
