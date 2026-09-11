@@ -4897,7 +4897,7 @@ currently only reachable via the charge step.)
 #### `P8-H3` — Every actor is recorded correctly and no surface names any of them
 
 
-> ✅ **FIXED — QA-FIX.11b, commit `<pending>` (D-225). A DISPLAY fix, because this finding is a display
+> ✅ **FIXED — QA-FIX.11b, commit `18786eb` (D-225). A DISPLAY fix, because this finding is a display
 > defect — its own first line says so:** *"The data model is right throughout … And not one of them is
 > displayed."* No write changed and no recorded value changed; a test pins that none of the four
 > controllers assigns an attribution column, only reads one.
@@ -5691,7 +5691,7 @@ controls the two phase roles cannot reach: `lena.studer@klinik-bergblick.test` (
 #### `P9-H6` — The nightly bed-day accrual credits an arbitrary org_admin, bypassing the resolver written to stop exactly this
 
 
-> ✅ **FIXED — QA-FIX.11b, commit `<pending>` (D-225).** The command now resolves its actor with
+> ✅ **FIXED — QA-FIX.11b, commit `18786eb` (D-225).** The command now resolves its actor with
 > **`SystemActorResolver::forPermission($tenant, 'billing.manage')`** — the resolver
 > `billing:dunning-run`, `billing:reconcile` and `reporting:summary` already used and **Hospital was the
 > only scheduled command skipping**. `resolveBillingActor()` is deleted.
@@ -7393,5 +7393,5 @@ name and touches no write.
 
 | ID | Severity | Status | Gate | Commit |
 |---|---|---|---|---|
-| `P9-H6` | HIGH | ✅ **FIXED** | QA-FIX.11b | `<pending>` |
-| `P8-H3` | HIGH | ✅ **FIXED** | QA-FIX.11b | `<pending>` |
+| `P9-H6` | HIGH | ✅ **FIXED** | QA-FIX.11b | `18786eb` |
+| `P8-H3` | HIGH | ✅ **FIXED** | QA-FIX.11b | `18786eb` |

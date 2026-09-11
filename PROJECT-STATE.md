@@ -491,7 +491,7 @@ either, and the narrow catch above routed a real refusal to two of them; the 500
 right, but it moved part of the problem and the record says so. **Playwright-verified:** three refusals
 across two modules plus a success control, every page previously showing **zero** `role="alert"` elements.
 
-**QA-FIX.11b (`<pending>`, D-225) is done, and it CLOSES FAMILY 6: `P9-H6` and `P8-H3` are FIXED.** The two
+**QA-FIX.11b (`18786eb`, D-225) is done, and it CLOSES FAMILY 6: `P9-H6` and `P8-H3` are FIXED.** The two
 were **different kinds of defect**. **`P9-H6`** was a genuine attribution defect on an **unattended** path —
 `AccrueBedDaysCommand` picked an org_admin by role with no `ORDER BY` and no permission check, while its own
 docblock claimed otherwise. It now uses **`SystemActorResolver::forPermission()`**, the resolver every other
