@@ -633,3 +633,21 @@ screens (Scan Comparison, Ortho Progress, Chair Scheduling, Inventory & Steriliz
 subsystems, three already deferred by decision and one (sterilisation/reprocessing) with no model
 anywhere. **Optional gates still open:** B3 structured procedure records; B4 the `Resource`
 capability field, which also closes the recorded APPT.P4 gap.
+## FINAL STATE after the ten-phase QA programme (2026-09-10, `805930e`)
+
+**Dental was not one of the ten role phases**, so it carries no `P*` findings of its own. Two things the
+programme established about it are worth keeping:
+
+- **`DentalImageController::download` DOES audit — one call deep**, in
+  `DentalImagingService::fileContents()` → `$document->auditRead(['surface' => 'dental_image_download', …])`.
+  QA-FIX.10a's export enumeration first reported it as **unaudited** because it grepped the controller FILE,
+  which contains no `audit` string at all; the controller's own docblock says *"read-logged inside the
+  service."* **The correction is the lesson: a file-level grep answers "does this file audit", not "does this
+  REQUEST audit".** If you audit this module's streaming routes, follow the calls.
+- **Five Dental services hand-write `record(['action' => 'read', …])`** rather than using the `LogsReads`
+  trait — `DentalImagingService`, `DiagnosisService`, `PerioChartService`, `ToothChartService`,
+  `TreatmentPlanService`. All five correctly set `patient_id`. They are the established precedent for writing
+  a read row where no `LogsReads` model is at hand (D-221).
+- **The fence here is unchanged and was re-asserted by the wider programme:** no DMFT/dmft, no finding count,
+  no severity ramp, no caries/pathology detection, no overlay — and the comment-stripped, non-alphanumeric-
+  stripped scans that enforce it are the origin of the repo's **comment-stripping rule**.

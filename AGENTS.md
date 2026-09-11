@@ -14,11 +14,40 @@ Market packs:
 - **Pack #1 — EU-Generic billing** (first).
 - **Pack #2 — US / EVV lane** (second).
 
-> **STATE IN ONE LINE (as of `c086de5`, 2026-08-17):** the BUILD is COMPLETE — eight verticals, all six hospital
-> phases, three clean QA audits — the **nine-page wireframe-parity pass is CLOSED**, and the **Operator Mode
-> SECURITY CORE (G1–G3) is DONE**, which closed a live super-admin containment gap. **The highest-value track is
-> DEPLOYMENT + partnership integrations.** Do NOT invent a vertical, a hospital phase, or a parity page; wait for
-> the pasted gate. Full detail in `PROJECT-STATE.md`; parked work + triggers in `DEFERRED.md`.
+> **STATE IN ONE LINE (as of `805930e`, 2026-09-10):** the BUILD is COMPLETE — eight verticals, all six hospital
+> phases — the **nine-page wireframe-parity pass is CLOSED** and the **six domain parity batches are COMPLETE**,
+> the **Operator Mode SECURITY CORE (G1–G3) is DONE** (it closed a live super-admin containment gap), and **the
+> TEN-PHASE ROLE-BY-ROLE QA PROGRAMME IS COMPLETE WITH ZERO OPEN CRITICALS.** **The highest-value track is
+> DEPLOYMENT + partnership integrations.** Do NOT invent a vertical, a hospital phase, a parity page or a QA
+> gate; wait for the pasted gate. Full detail in `PROJECT-STATE.md`; parked work + triggers in `DEFERRED.md`.
+>
+> **THE QA PROGRAMME, AND WHY ITS RECORD MATTERS MORE THAN ITS NUMBER.** Ten audit phases drove every role in a
+> real browser; ten fix gates (QA-FIX.1 … QA-FIX.10, 29 code-changing parts) closed the top of the list.
+> **`docs/qa/ROLE-AUDIT.md` is the authoritative record: 186 findings, 41 fixed, 145 open — 0 CRITICAL, 34 HIGH,
+> 80 MEDIUM, 31 LOW.** It is **append-only by its own rule** — a fixed finding is **never removed**; it keeps its
+> **ID, its evidence and its reproduction** and gains a **FIXED banner** naming the gate, commit and decision.
+> **Read the banner before re-investigating anything**, and never delete or rewrite a finding.
+>
+> **What the zero means:** **no known defect remains that loses data, falsifies a clinical or financial record,
+> or breaches authorisation.** All 24 findings recorded as CRITICAL are fixed — by fixing them, not by moving
+> them: none was withdrawn and none was merged away. The one honest exception is **`P4-C4`, re-graded
+> CRITICAL → HIGH by QA-FIX.4b** because the defect was latent rather than active — **and fixed in that same
+> gate**, so it does not contribute to the zero. The 34 open HIGHs are a different class (reach, visibility,
+> recording, locale, attribution-display, one partial write) and **none blocks deployment**; they are grouped
+> into seven families with the precedent fix for each in `DEFERRED.md`.
+>
+> **THE FENCES HELD.** Ten phases of adversarial driving eroded **no fence** — every defect was in
+> presentation, navigation, attribution, partial writes, recording gaps or authorisation, never in the engines or
+> the fences. The safety case with the strongest **driven** control for each fence is in `docs/qa/ROLE-AUDIT.md`
+> §3 and restated in `docs/ONBOARDING.md` §3.
+>
+> **THE METHOD RULES the programme produced are its most transferable output** — consolidated in
+> `docs/ONBOARDING.md` §0b. Before writing a test here, know these: an absence assertion over an empty
+> collection is vacuously true (**D-174**); a refusal test must be one that would succeed without its guard
+> (**D-182**); a mutation that changes nothing proves nothing, so **grep-confirm it applied** (**D-187**); a
+> **comment-stripped** scan, because the file explaining why a token is forbidden contains it (this bit **five
+> times**); **exit codes lie — read the log text** (`composer check` exited 0 with failures at least four
+> times); and **local-green ≠ CI-green** — verify via `commits/<sha>/check-runs`.
 >
 > **⏸️ Two things are DELIBERATELY parked — neither is unfinished by accident:** **Operator Mode G4–G11**
 > (operator-convenience UI; backend inert with **no HTTP route or UI** — see `memory/modules/OperatorMode.md`)
@@ -160,8 +189,13 @@ modules never depend on each other. Enforced by `tests/Architecture/ModuleBounda
 **BEFORE a task** — read, in order:
 1. `AGENTS.md` (this file).
 2. `PROJECT-STATE.md` — where the project stands, gates done, next action.
-3. `DECISIONS.md` and `DEFERRED.md` — architecture decisions and parked work.
-4. The relevant `memory/modules/<Module>.md` for the module(s) you will touch.
+3. `DECISIONS.md` (**D-001 → D-223**, append-only, no gaps) and `DEFERRED.md` — architecture decisions and
+   parked work, including the prioritised QA open list.
+4. **`docs/qa/ROLE-AUDIT.md` if you are touching anything the QA programme audited** — which is every staff
+   role. **Check for an existing finding and its FIXED banner before investigating a defect**; it may already
+   be recorded, already fixed, or deliberately left open with the reason written down. Never remove or rewrite
+   a finding.
+5. The relevant `memory/modules/<Module>.md` for the module(s) you will touch.
 
 **AFTER a task** — leave a durable record:
 1. Append **one** entry to `memory/LOG.md` (newest at bottom): commit hash + one-line summary +

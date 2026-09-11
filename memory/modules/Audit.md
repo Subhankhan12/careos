@@ -72,3 +72,26 @@ and patient-scoped read logging for Summary source rows.
 - Least-privilege DB user with UPDATE/DELETE revoked on `audit_events` (deferred; triggers guard now).
 - Schedule `audit:ensure-partitions` once the scheduler exists (deferred).
 - Break-glass flagging on every access is caller-driven; full patient access-report UI is later.
+
+## FINAL STATE after the ten-phase QA programme (2026-09-10, `805930e`)
+
+**This module is the programme's spine — three CRITICALs and two of the last three fixes landed on it.**
+
+- **There is exactly ONE physical writer of audit rows:** `AuditService::record()`. Every other reference to
+  `audit_events` in `app/` and `Modules/` is a SELECT, a comment, the model's `$table` or the migration.
+  **An absent row therefore means a caller never called — never that a second path swallowed it.**
+- `record()` wraps each row in `DB::transaction` with a **per-tenant `FOR UPDATE` lock**, so N rows are N
+  serialised appends. Keep per-request row counts bounded (QA-FIX.10a caps the AR export at 11).
+- **`patient_id` DEFAULTS TO NULL** and is only set if the caller passes it. Nothing at the write path enforces
+  the link, so a disclosure written without it is silently patient-less — invisible in the patient's own log
+  while looking perfectly well-formed in the ledger. This is how `P9-C1` happened.
+- **`P1-C1` (CRITICAL, fixed `78a05db`, D-192/193)** — web requests wrote **tenant-local wall-clock into the
+  append-only ledger's UTC columns**. Stated precisely at the time and still true: **the chain was never
+  broken**; the values were wrong, the hashes were consistent. Storage is UTC from every path now; display is
+  tenant-local.
+- **The disclosure set is `PatientAccessReport::DISCLOSURE_ACTIONS`** (D-222) and an export is a **`read` row
+  with an export surface** (D-221). **Do not invent an action string for a disclosure** — it produces a
+  well-formed, hash-chained row that no patient can ever see.
+- **The append-only fence held in all ten phases:** model `appendOnly()` guards plus `SIGNAL '45000'` database
+  triggers on `lab_results`, `order_results`, `imaging_study_events`, `stay_events`, `audit_events`; the chain
+  is verified by replay. Nothing in the programme mutated or deleted a recorded fact.

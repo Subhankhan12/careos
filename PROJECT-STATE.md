@@ -3,6 +3,54 @@
 Short, factual snapshot of where the project stands. Updated at consolidations and after gates
 (per the MEMORY PROTOCOL in AGENTS.md).
 
+> ## 🏁 RECONCILIATION — 2026-09-10, commit `805930e`. READ THIS BLOCK FIRST; everything below it is history.
+>
+> **WHERE THE PROJECT STANDS, in five facts:**
+>
+> 1. **THE BUILD IS COMPLETE AND AUDITED.** Eight verticals on one multi-tenant platform — clinic · dental ·
+>    home-care (Spitex) · inpatient/ADT · pharmacy · surgery/OR · ED · lab (LIS) · radiology (RIS) — plus the
+>    offline Nurse PWA. HL7/FHIR and DICOM/PACS are **correctly absent**: certified-partner seams with
+>    Manual/Null implementations bound. Do not build a homemade one.
+> 2. **THE BUILDABLE WIREFRAME-PARITY PROGRAMME IS COMPLETE** — the original nine pages plus **six domain
+>    batches**. **There is no parity page, batch or vertical left to build. Do not invent one.**
+> 3. **OPERATOR MODE: the security core (G1–G3) is DONE** and closed a live super-admin containment gap.
+>    **G4–G11 are DELIBERATELY DEFERRED to post-first-customer (D-164)** — operator-convenience UI. The
+>    backend is **inert: zero HTTP routes, no UI**. It is not unfinished by accident; **do not "finish" it.**
+> 4. **THE TEN-PHASE ROLE-BY-ROLE QA PROGRAMME IS COMPLETE, WITH ZERO OPEN CRITICALS.** Ten audit phases
+>    drove every role in a real browser; ten fix gates across 29 code-changing parts closed the top of the
+>    list. `docs/qa/ROLE-AUDIT.md` is the authoritative record — **186 findings, 41 fixed, 145 open: 0
+>    CRITICAL, 34 HIGH, 80 MEDIUM, 31 LOW.** Counts verified by counting the artifact, not by trusting a
+>    summary; see that file's appended *"STATE AS OF THIS RECONCILIATION"* block.
+> 5. **TWO TRACKS REMAIN: (a) DEPLOYMENT — the highest-value work and the only one actually queued — and
+>    (b) the prioritised open HIGH/MEDIUM list in `DEFERRED.md`.** Nothing else is queued. Wait for a pasted
+>    gate.
+>
+> **WHAT THE ZERO MEANS, stated so it cannot be over-read.** **No known defect remains that loses data,
+> falsifies a clinical or financial record, or breaches authorisation.** All 24 findings recorded as CRITICAL
+> are fixed. One of the 24, `P4-C4`, was re-graded CRITICAL → HIGH by QA-FIX.4b on the evidence (the defect
+> was latent — the shipped client only ever sends UTC) **and was fixed in that same gate**, so it does not
+> contribute to the zero. **No finding was withdrawn, and none was merged away**; every ID still carries its
+> evidence and its reproduction under a FIXED banner.
+>
+> **THE 34 OPEN HIGHs ARE A DIFFERENT CLASS OF DEFECT** and none of them blocks deployment. They are defects
+> of **reach** (a permission with no surface, a module with no nav entry — 16 of the 34), **visibility** (a
+> refusal the user never sees — 4), **recording** (PHI shown or exported with no audit row — 3), **locale and
+> display** (3), **attribution not surfaced** (2), **one partial write** (`P4-H2`, the last open member of the
+> six create-then-associate instances), and five operations that mislead or cannot be undone. Grouped, with
+> the precedent fix for each family, in `DEFERRED.md`.
+>
+> **THE FENCES HELD.** Ten phases of adversarial driving eroded **no fence** — nothing computed a clinical
+> judgment, no acuity was derived, no severity was styled, no money was computed page-side, no agent ceiling
+> was exceeded, and no append-only record was mutated. Every defect found was in presentation, navigation,
+> attribution, partial writes, recording gaps or authorisation. `P5-C1` came closest and was **not** a fence
+> failure: the medication-safety seam was correct and the screen simply did not show it. The safety case, with
+> the strongest driven positive control for each fence, is `docs/qa/ROLE-AUDIT.md` §3 and is restated in
+> `docs/ONBOARDING.md` §3.
+>
+> **THE METHOD RULES ARE THE PROGRAMME'S MOST TRANSFERABLE OUTPUT** and are consolidated in
+> `docs/ONBOARDING.md` §0b — read them before writing a test in this repo. `DECISIONS.md` runs
+> **D-001 → D-223** with no gaps and no duplicates; the QA era is **D-192 → D-223**.
+
 > **AUTH-SEC SECURITY SPRINT (2026-08-17) — two High live defects found by the auth audit are FIXED, and both
 > STRENGTHEN the auth floor (nothing weakened).** (1) **AUTH-SEC.1** — "Remember me" no longer bypasses the 2FA
 > challenge: a recaller-restored session is turned back into a pending two-factor login and re-challenged, and the
@@ -447,7 +495,15 @@ the gate holds.* **Nothing is fixed — audit only.**
 **Phase 10 (admin/governance + the patient portal) is DONE — AND THE PROGRAMME IS COMPLETE**: 15 findings
 — 2 CRITICAL, 5 HIGH, 6 MEDIUM, 2 LOW. **The audit closes at 183 findings across ten phases: 35 fixed by
 20 QA-FIX gates, 148 open.** Every CRITICAL from phases 1–8 is fixed; the five open CRITICALs are Phase 9's
-three and Phase 10's two. **THE APPROVE PATH — the last unverified guarantee — IS NOW DRIVEN AND IT HOLDS.**
+three and Phase 10's two.
+
+> ⚠️ **THE THREE COUNTS IN THE PARAGRAPH ABOVE ARE SUPERSEDED — left as written because this is the record of
+> what Phase 10 reported at the time.** They predate the same-day addendum (which took Phase 10 to **17**
+> findings and the programme to 185) and the four gates since. **Current, as of the 2026-09-10 reconciliation:
+> 186 findings · 41 fixed · 145 open · ZERO open CRITICALs · 34 open HIGH, across TEN QA-FIX gates (29
+> code-changing parts), not twenty.** See the reconciliation block at the top of this file.
+
+**THE APPROVE PATH — the last unverified guarantee — IS NOW DRIVEN AND IT HOLDS.**
 Re-authorise: with `note.write` detached from the tenant's org_admin role (arranged, then restored and
 verified), the approve returned **403** and left nothing behind — pending, no reviewer, zero ledger rows.
 Re-ground: proven three ways — I booked the slot the waitlist proposal targeted, and the re-executed tool hit

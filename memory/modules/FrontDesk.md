@@ -68,3 +68,20 @@ FrontDesk may use Patients + Scheduling (models + services), Platform, and `Audi
   add if a customer needs it.
 - Reception-initiated check-in (source `reception`) — the day-board `arrive` action already covers staff
   check-in; the `reception` source value exists for completeness.
+
+## FINAL STATE after the ten-phase QA programme (2026-09-10, `805930e`)
+
+**Phase 1 of the role-by-role QA audit was reception / front-desk (`06a3f78`) — 18 findings: 1 CRITICAL,
+3 HIGH, 8 MEDIUM, 6 LOW.** It set the programme's method: every page driven in a real browser, and every
+claim verified by query rather than by an exit code.
+
+- **`P1-C1` (CRITICAL) — FIXED** `78a05db`, D-192/193: the process-wide timezone mutation that wrote
+  tenant-local wall-clock into UTC columns, including the audit ledger. Found while driving reception; it
+  affected every authenticated write path in the product.
+- **`P1-H3` (HIGH) — FIXED** `f6b619a`, D-194: the slot finder and booking guard now refuse past-time slots.
+- **`P1-H1` — FIXED** as part of pattern 1's over-offer half (`c999181`, D-214): the nav map and the page body
+  now agree about what the role can do. **The study overturned seven phases of the programme's own diagnosis**
+  — the cause was never the shell's permission list, it was eight ungated `<Link>`s in `Landing.vue`.
+- **STILL OPEN — `P1-H2` (HIGH): patient registration fails silently unless four unmarked fields are filled.**
+  It is the first item a new practice hits. It belongs to the *invisible refusals* family in `DEFERRED.md`,
+  whose precedent fix is `RefusalNotice` (D-210).

@@ -132,3 +132,22 @@ owner-approved `OperatorGrant`** — enforced server-side, fail-closed, at **BOT
   matches ~30 unrelated models (PaymentPlan, Allergy, Agent…).
 - The agent is excluded by construction (T9): an exact-file-list test pins every file that may reference a
   grant, plus no AiCore/AiTool reference and nothing scheduled.
+
+## FINAL STATE after the ten-phase QA programme (2026-09-10, `805930e`)
+
+**Nothing here changed, and that is the finding.** G1–G3 (the security core) are done; **G4–G11 stay
+deliberately deferred (D-164)**, the backend is **inert — zero HTTP routes, no UI** — and ten phases of
+adversarial driving produced no reason to revisit that.
+
+- **It is the ONE stated gap in the patient access log, and the gap is structural rather than an omission.**
+  The platform-support ledger path writes `actor_type = 'operator'` with action `operator.access` and **no
+  `patient_id`** — those rows are tenant-scoped, recording that the platform touched the clinic, not that
+  anyone read a given patient. `PatientAccessReport` cannot attribute them to a patient **without inventing a
+  link, so it does not try**, and the access-log screen **states the limitation on the page** rather than
+  implying the log is exhaustive. Since Operator Mode is unreachable today, no such access can occur.
+- **Phase 10 drove operator-mode self-approval and the fence held.**
+- **`P10-C1` (CRITICAL) — FIXED** `4e610b0`, D-219, and it is adjacent to this module's whole purpose: the
+  skeleton **platform super-admin** (`test@example.com` / `password`) was created by `db:seed` with no
+  environment guard. The refusal now lives on the seeders themselves, so it holds however they are reached.
+  **This module's containment work is why that account mattered.**
+- **Do not "finish" G4–G11 unprompted.** It adds no safety property G1–G3 do not already enforce.

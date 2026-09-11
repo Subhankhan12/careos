@@ -2,24 +2,49 @@
 
 Deliberately deferred work. Not forgotten — parked until the right phase.
 
-> **READ THIS FIRST (state as of `cc0ed68`, SCHED.P3, 2026-08-30).** The BUILD is complete — eight verticals,
-> all hospital phases, three clean QA audits — the **BUILDABLE WIREFRAME-PARITY PROGRAMME IS COMPLETE** (the
-> original nine pages + six domain batches), and the **Operator Mode SECURITY CORE (G1–G3) is DONE**, which
-> closed a live super-admin containment gap.
+> **READ THIS FIRST — state as of `805930e`, 2026-09-10, after the ten-phase QA programme and its ten fix
+> gates.** The BUILD is complete and audited. The **BUILDABLE WIREFRAME-PARITY PROGRAMME IS COMPLETE** (the
+> original nine pages + six domain batches). The **Operator Mode SECURITY CORE (G1–G3) is DONE**, which closed
+> a live super-admin containment gap. **The TEN-PHASE ROLE-BY-ROLE QA PROGRAMME IS COMPLETE with ZERO open
+> CRITICALs** — 186 findings, 41 fixed, 145 open (0 CRITICAL · 34 HIGH · 80 MEDIUM · 31 LOW), recorded
+> permanently in `docs/qa/ROLE-AUDIT.md`.
 >
-> **THERE IS NO BUILDABLE PARITY WORK LEFT AND NO VERTICAL LEFT TO BUILD.**
+> **THERE IS NO BUILDABLE PARITY WORK LEFT AND NO VERTICAL LEFT TO BUILD. Do not invent a gate — wait for a
+> pasted one.**
 >
 > **THE WORK, IN PRIORITY ORDER:**
 >
 > | # | Track | State |
 > |---|---|---|
-> | **(a)** | **DEPLOYMENT to the paying customers** | **THE REAL NEXT VALUE — and the only track that is actually queued.** Runbook + `.env` template + rehearsed onboarding ready, and first-customer provisioning exists (`plans:seed` / `tenant:create` / `tenant:add-admin`, `b006d07`, D-165) — verdict **🟢 GO**. ⚠️ **An undiagnosed staging error is still parked, and NO DETAIL ABOUT IT WAS EVER CAPTURED ANYWHERE.** Expect to reproduce it from scratch. |
-> | **(b)** | **Certified-partner seams** | Business conversations, not gates. **Drug-safety** (`MedicationSafetyProvider` — display-only null object today) · **HL7/FHIR** (`LabConnectivity` interface, `ManualLabConnectivity` bound) · **PACS/DICOM + 3D scan** (`ImagingConnectivity` interface, `NullImagingConnectivity` bound) · **anaesthesia device-data** · **insurance/claims clearinghouse**. Each is wired as a seam so a partner drops in; never a homemade engine. |
-> | **(c)** | **Operator Mode G4–G11** | **DELIBERATELY DEFERRED to post-first-customer (D-164)** — operator convenience UI. Backend **inert: zero HTTP routes**. Adds no safety property G1–G3 do not already enforce. **NOT unfinished by accident.** Plan: `docs/features/OPERATOR-MODE-MAP.md`. |
-> | **(d)** | **Open gaps the parity programme surfaced** | Real, small, and each recorded where it was found — see the table below. |
-> | **(e)** | **Declined screens (D-188)** | Not gaps. See the table below. |
+> | **(a)** | **DEPLOYMENT to the paying customers** | **THE REAL NEXT VALUE — and still the only track that is actually queued.** Runbook + `.env` template + rehearsed onboarding ready; first-customer provisioning exists (`plans:seed` / `tenant:create` / `tenant:add-admin`, `b006d07`, D-165) — verdict **🟢 GO**, and the QA programme did not change that verdict: **no open finding loses data, falsifies a clinical or financial record, or breaches authorisation.** ⚠️ **An undiagnosed staging error is still parked and NO DETAIL ABOUT IT WAS EVER CAPTURED ANYWHERE.** Expect to reproduce it from scratch. |
+> | **(b)** | **The QA open list — 34 HIGH in seven families** | Grouped below by **what the fix has in common**, not by phase, because that is what makes them cheap together. Each family names the precedent that already exists in the codebase. |
+> | **(c)** | **Certified-partner seams** | Business conversations, not gates. **Drug-safety** (`MedicationSafetyProvider` — display-only null object today) · **HL7/FHIR** (`LabConnectivity`, `ManualLabConnectivity` bound) · **PACS/DICOM + 3D scan** (`ImagingConnectivity`, `NullImagingConnectivity` bound) · **triage acuity** (`NullTriageAcuityProvider`) · **anaesthesia device-data** · **insurance/claims clearinghouse**. Each is a seam so a partner drops in; **never a homemade engine — that is a permanent non-goal, not a backlog item.** |
+> | **(d)** | **Operator Mode G4–G11** | **DELIBERATELY DEFERRED to post-first-customer (D-164)** — operator convenience UI. Backend **inert: zero HTTP routes**. Adds no safety property G1–G3 do not already enforce. **NOT unfinished by accident.** Plan: `docs/features/OPERATOR-MODE-MAP.md`. |
+> | **(e)** | **Open gaps the parity programme surfaced** | Real, small, each recorded where it was found — the tables further down. |
+> | **(f)** | **Declined screens (D-188)** | Not gaps. See the table below. |
 >
-> ### (d) The open gaps, each surfaced by a gate and left honest
+> ### (b) THE QA OPEN LIST — 34 open HIGH, grouped by shared remedy
+>
+> Verified by counting `docs/qa/ROLE-AUDIT.md` itself. **Take a family, not a phase.** Sizes are open HIGHs;
+> the 80 open MEDIUMs and 31 LOWs thicken families 1, 3 and 5 above all and introduce no new family.
+>
+> | # | Family | Open HIGH | Modules | Precedent that applies |
+> |---|---|---|---|---|
+> | **1** | **Unreachable capabilities & missing nav** — a permission with no surface; a module with no nav entry; a guard with no reachable caller; a role 403 on the routes its own permissions name | **16** — `P2-H4` `P3-H3` `P3-H4` `P5-H1` `P5-H3` `P6-H1` `P6-H2` `P6-H5` `P7-H1` `P7-H3` `P7-H5` `P8-H4` `P8-H5` `P9-H4` `P9-H5` `P10-H3` | 9 | **PARTIAL — D-214** (QA-FIX.7d, `c999181`) closed the *over-offer* half: a nav map that advertises what the role cannot open. The *under-offer* half is open, and **several members are genuinely FEATURE work, not wiring** (`P7-H1` has no HTTP entry point at all; `P3-H3` write-offs do not exist; `P5-H3` a dispense cannot be reversed by any path). **Triage each before scheduling — this family is not one job**, and the QA-FIX.6 Part 4 precedent (`474cefe`) is the model: determine feature-vs-wiring first, and stop rather than build a feature inside a fix gate. |
+> | **2** | **Operations that mislead, or that cannot be undone** | **5** — `P1-H2` `P3-H2` `P4-H1` `P9-H1` `P10-H4` | 5 | No single precedent. `P1-H2` (silent registration failure) shares family 3's remedy. `P10-H4` (Quick-book pre-selects the first patient) is a one-line placeholder. `P9-H1` (an occupied bed moved to `cleaning` wedges the patient) needs a **state-machine decision**, not a patch. `P3-H2` ("PDF" invoices are plain text) is a truthfulness defect: either produce a PDF or stop calling it one. |
+> | **3** | **Invisible refusals** — the refusal is correct and the user is shown nothing | **4** — `P8-H1` `P9-H3` `P10-H2` (+ MEDIUM `P10-M1`) | 5 | **YES, STRONG — `resources/js/Components/RefusalNotice.vue`** (D-210, QA-FIX.6c; re-applied by QA-FIX.7c/D-213). Already at 12 call sites across Surgery, ED and Radiology. Remaining modules: **Lab, Radiology (beyond the one site QA-FIX.8b added for its own new refusal), Hospital (11 refusal sites, 0 renderers), Governance.** `P10-H2` additionally needs a catch widened — `BookingConflictException` is not an `AiCoreException`, so a domain refusal escapes as a 500. |
+> | **4** | **Unrecorded disclosure** — PHI is shown or leaves the system and nothing records it | **3** — `P9-H2` `P10-H5` `QF10a-H1` | 3 | **YES, STRONG — D-221/D-222** (QA-FIX.10a/10b) settled the exact shape: an `action = 'read'` row with an export surface carrying `patient_id`, reachable by `PatientAccessReport::DISCLOSURE_ACTIONS`. **Do NOT invent a new action string** — a bespoke action produces a well-formed, hash-chained row that no patient can ever see, which is the mistake QA-FIX.10a made and caught. |
+> | **5** | **Display / locale divergence** | **3** — `P2-H3` `P4-H4` `P6-H3` | 3 | **YES — D-091** `formatDateOnly` (14 call sites) for date-only rendering, and **D-192/D-193** (store UTC, display tenant-local) for timestamps. `P6-H3` (a case scheduled six years in the past, displayed as upcoming) also needs a past-date guard — the **D-194** shape from QA-FIX.1b. |
+> | **6** | **Attribution recorded but never surfaced, or resolved by convenience** | **2** — `P8-H3` `P9-H6` | 2 | **YES — D-216/D-220.** `P9-H6`'s remedy already exists and is already named in D-220: **`SystemActorResolver::forPermission()`** (`Modules/Platform/src/Services/SystemActorResolver.php:45`), which every other scheduled command already uses. `P8-H3` is a rendering task: the actor is recorded correctly everywhere and named on no surface. |
+> | **7** | **Partial writes — create-then-associate outside a transaction** | **1** — `P4-H2` | 1 | **YES, PROVEN FIVE TIMES — D-199**, one operation one transaction. **`P4-H2` is the LAST open member of the six instances the programme found**: `P3-C1`, `P6-M10`, `P7-M5`, `P8-H2` and `P10-C2` are all fixed. A crashed Nurse-PWA sync batch commits part of itself while telling the device everything failed. |
+>
+> **Recommended order, and why:** **3** then **4** first — both have a strong precedent, both are small, and
+> both are honesty defects on surfaces the product already ships. Then **7** (one finding, proven remedy,
+> closes a six-instance pattern for good), then **6** (two findings, remedy already written), then **5**. Leave
+> **1** for last and **triage it first** — it is half the open HIGHs and is not one job. **2** is per-item and
+> `P9-H1` needs a product decision before code.
+>
+> ### (e) The open gaps, each surfaced by a gate and left honest
 >
 > | Gap | Where | Why it is open |
 > |---|---|---|
@@ -33,7 +58,7 @@ Deliberately deferred work. Not forgotten — parked until the right phase.
 > | **The PT.P4 portal AI-provenance decision** | PT.P4 | Staff-side provenance is settled (COMMS.P1 names the human sender). Whether the PATIENT sees that a reply was agent-drafted is still an open product decision. |
 > | **⚠️ The password-policy decision** | AUTH-SEC | `Password::default()` — min 8 chars, no complexity rule, no breach check. **Not a defect and not a build task** — it needs the product owner. |
 >
-> ### (e) Declined screens — D-188, not gaps
+> ### (f) Declined screens — D-188, not gaps
 >
 > | Screen | Batch | Why declining beats a reduction |
 > |---|---|---|

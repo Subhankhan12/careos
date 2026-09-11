@@ -5,7 +5,7 @@ order gives you the complete, accurate context.
 
 ---
 
-## 0. The five things that decide what you should do
+## 0. The SIX things that decide what you should do
 
 ### 1. THE BUILD IS COMPLETE AND AUDITED
 
@@ -61,7 +61,41 @@ route** (verify: zero operator routes in `route:list`). It adds no safety proper
 does not block deploy, and is **not unfinished by accident**. Plan: `docs/features/OPERATOR-MODE-MAP.md`.
 **Do not "finish" it.**
 
-### 5. THE ONE REMAINING TRACK IS DEPLOYMENT + PARTNERSHIPS
+### 5. THE TEN-PHASE ROLE-BY-ROLE QA PROGRAMME IS COMPLETE — ZERO OPEN CRITICALS
+
+**Ten audit phases** drove every role in a **real browser** (Playwright MCP), one role group per phase:
+reception `06a3f78` · clinician `a5e17dc` · billing `a5cea30` · nursing/Spitex + Nurse PWA `4dfd59c` ·
+pharmacy `3199a7c` · surgery/OR `6784bfa` · ED `9c4dc63` · lab + radiology `f5959c8` · bed management +
+medical records `41cc78e` · admin/governance + patient portal `9507803` (+ addendum `ab59c27`).
+**Ten fix gates** (QA-FIX.1 … QA-FIX.10) across **29 code-changing parts** closed the top of the list.
+
+**`docs/qa/ROLE-AUDIT.md` IS THE AUTHORITATIVE RECORD — 7 180 lines, and it is append-only by its own rule:**
+
+- **Findings are recorded permanently and are NEVER removed when fixed.** A fixed finding keeps its **ID**,
+  its **evidence** and its **reproduction**, and gains a **FIXED banner** naming the gate, the commit and the
+  decision. Read a banner before re-investigating anything.
+- **Nothing is rewritten.** Corrections are appended as dated blocks or correction banners — see the
+  `P10-M6` correction and the *"STATE AS OF THIS RECONCILIATION"* block at the end of the file.
+- **186 findings · 41 fixed · 145 open — 0 CRITICAL · 34 HIGH · 80 MEDIUM · 31 LOW.** Counts verified by
+  counting the artifact. **Counting `####` headings gives 157 and is WRONG** — Phases 1, 4 and 5 record some
+  MEDIUM/LOW findings in condensed grouped form. Count distinct IDs.
+
+**WHAT ZERO OPEN CRITICALS MEANS, and what it does not.** **No known defect remains that loses data,
+falsifies a clinical or financial record, or breaches authorisation.** All 24 findings recorded as CRITICAL
+are fixed. It was reached by fixing them, not by moving them: **no finding was withdrawn and none was merged
+away.** The one honest exception is **`P4-C4`, re-graded CRITICAL → HIGH by QA-FIX.4b** because the defect
+was latent rather than active (the shipped client only ever sends UTC; the offending evidence came from a
+curl-crafted action) — **and it was fixed in that same gate**, so it does not contribute to the zero.
+
+**THE 34 OPEN HIGHs ARE A DIFFERENT CLASS** and none blocks deployment: defects of **reach** (a permission
+with no surface, a module with no nav entry — 16 of the 34), **visibility** (a refusal nobody sees — 4),
+**recording** (PHI disclosed with no audit row — 3), **display/locale** (3), **attribution not surfaced** (2),
+**one partial write** (`P4-H2`, the last of six), and five misleading or irreversible operations. Grouped into
+seven families with the precedent fix for each in `DEFERRED.md` — **take a family, not a phase.**
+
+**Do not start a QA-FIX.11, and do not pick a HIGH to fix unprompted.** Wait for a pasted gate.
+
+### 6. THE ONE REMAINING TRACK IS DEPLOYMENT + PARTNERSHIPS
 
 If asked *"what's next?"* — the answer is **DEPLOY**. ⚠️ An **undiagnosed staging error** is still parked and
 **no detail about it was ever captured**; expect to reproduce it from scratch. Everything else is in
@@ -71,56 +105,154 @@ waitlist create-path blocker, the two Appointment follow-ons, and the password-p
 
 ---
 
-## 0b. The durable rules this programme produced
+## 0b. THE METHOD RULES — read these before you write a test in this repo
 
-The fences are in §3. These are the **formulations** that made them hold — the programme's most reusable output.
-Full text in `DECISIONS.md` (which runs **D-001 → D-191**, no gaps).
+The fences are in §3; these are the **formulations that made them hold**, and they are the most transferable
+output of everything done here. Each one exists because a green test proved nothing, or because a tool lied.
+Full text in `DECISIONS.md`, which runs **D-001 → D-223** with **no gaps and no duplicates** (the QA era is
+**D-192 → D-223**).
 
-**The four guard-vacuity rules — a green assertion that proves nothing is the recurring failure:**
+### The guard-vacuity rules — a green assertion that proves nothing is the recurring failure
 
-- **D-174** — an absence assertion over an **empty collection is vacuously true**. Always add a **positive
-  control** proving the subject was non-empty and the fixture would have tempted the breach.
-- **D-182** — a refusal test must be one that would **SUCCEED without its guard**. Make the refused thing
-  genuinely reachable, or you are asserting nothing.
-- **D-183** — **a guard behind another guard cannot be tested through the front door.** Pin each layer with a
-  subject only IT can refuse (call the service directly).
-- **D-189** — **a symmetric fixture lets a hardcoded assertion pass.** If a test pins a *choice*, the fixture
-  must contain a case where the two choices give different answers. (Appeared six times.)
+- **D-174 — an absence assertion over an empty collection is VACUOUSLY TRUE.** A payload scan whose fixture
+  recorded no rows, a glob that resolves to no files, a count rendered from an empty list: all pass for ever
+  while protecting nothing. Always add a **positive control** proving the subject was non-empty, **over data
+  that would TEMPT the breach** — an abnormal vital, a severe allergy, a deep pocket, an expensive fee, a
+  populated pick-list. *Written after a vitals fence scan passed over a fixture with no vitals.*
+- **D-182 — a refusal test must be one that would SUCCEED without its guard.** Give the refused path
+  everything it needs except the thing under test. *Written because "a soft-suspended branch offers no slots"
+  passed **with the guard deleted** — the fixture's branch had no resources, so the finder returned empty
+  either way.*
+- **D-183 — a guard behind another guard cannot be tested through the front door.** Defence in depth is only
+  real if each layer is pinned SEPARATELY, with a subject only that layer can refuse (call the service
+  directly). An earlier guard otherwise hides a later one from its own test.
+- **D-187 — a mutation that changes nothing proves nothing.** *Written on `TenantContext::system()`, which is
+  a **no-op while a tenant is in context** — so "mutating" a scoped lookup to system mode removed nothing and
+  the guard was never exercised.* **Grep-confirm every mutation actually applied before you run the suite.**
+- **D-189 — a symmetric or round-numbered fixture lets a hardcoded assertion pass.** If a test pins a
+  *choice*, the fixture must make the two choices give **different** answers. Make fixtures awkward: uneven
+  amounts, distinct names, three items rather than one. *Appeared six times.*
 
-**The honesty rules — what may appear on a screen:**
+### The comment-stripping rule — this bit FIVE times
 
-- **D-170** — never invent a backend, agent or tool to match a mock. Omit and **state the omission**.
+**Any scan for a forbidden token must strip comments first, because the file explaining why the token is
+forbidden will contain it.** A structural scan reddened on its own explanatory comment in **QA-FIX.6a**, twice
+in **QA-FIX.7b** (the D-170 equivalence-table scan and the `'~'` sentinel guard), and twice more in
+**QA-FIX.8a** — five times. The rule: **strip comments before scanning, or target the code expression rather
+than the character**, and add a D-174 positive control proving the strip did not hollow the scan out.
+
+Its corollary, and the reason every fix gate in this repo now does it: **a mutation must be verified applied
+by a COMMENT-STRIPPED grep before the test runs.** Three false confirmations were caught that way, two of them
+because the grep counted the pattern inside the author's own explanatory comment — and in QA-FIX.9b a mutation
+**silently failed to apply while the suite stayed green**, which without the comment-stripped count would have
+read as a vacuous test.
+
+### A fixture whose two people are the same person cannot catch a misattribution
+
+This is why **`P2-C1`, `P6-C2`, `P7-C1` and `P9-C3` all survived their own suites**: each was an attribution
+defect — a note, an assessment, a triage, a ward round recorded against the wrong person — and in every case
+the existing test fixture had the actor and the attributed person be the **same user**, so storing either one
+gave an identical result. **Make actor ≠ subject on purpose.** The related pattern is *resolving a person by
+convenience* (a dropdown default, an alphabetical `first()`, an unconditional copy of a stay's admitting
+clinician); the dropdown is only its most visible form. Remedy: `StaffProfile::forUser()` returns **null**
+rather than guessing (D-195, D-216), and a caller that cannot identify the actor **refuses to write**.
+
+### Tools lie — read the output, not the status
+
+- **EXIT CODES LIE. Read the log text.** `composer check` has **exited 0 with failures at least four times**:
+  QA-FIX.9a (Pint had FAILED), QA-FIX.10a (only the last 12 lines were captured, so Pint and PHPStan were
+  never actually seen), QA-FIX.10b (exited 0 with **2 failing tests**), and earlier in the programme. Confirm
+  **Pint `passed`**, **PHPStan `[OK] No errors`** and the **Pest summary line** individually, by reading them.
+- **LOCAL-GREEN ≠ CI-GREEN.** Verify every gate through the GitHub API at
+  `commits/<sha>/check-runs`. MariaDB (dev) and MySQL 8 (CI) disagree about JSON re-serialisation, Redis is
+  present on CI and absent locally, and time-relative fixtures flake on slower runners. *Note: GitHub's
+  check-run retention expires — three QA-FIX.6 commits now return `total_count: 0`, which is retention, not
+  failure; their contemporaneous LOG entries record them green.*
+- **A FILE-LEVEL GREP ANSWERS THE WRONG QUESTION.** `grep -i audit` over a controller tells you whether **that
+  file** audits, not whether **the request** audits — the answer can live one call deep. *QA-FIX.10a's export
+  enumeration wrongly reported `DentalImageController::download` as unaudited; it audits inside
+  `DentalImagingService::fileContents()`, and the controller's own docblock said so.* **An enumeration that
+  reports a negative must follow the calls first.**
+- **WHEN A SERVICE METHOD IS THE GATE, ENUMERATE ITS CALLERS BEFORE CONCLUDING THE GATE HOLDS.** *`P10-C3`:
+  the approval queue's gates were verified in both directions, but nobody asked which OTHER routes call
+  `ApprovalQueue::approve` — one did, ungated, and any clinician could execute a clinical agent action by
+  posting its id.* Verifying a gate at one call site proves that call site, not the gate.
+
+### The browser catches what tests cannot
+
+Code reading is a complement, never a substitute. The instances that earned the rule:
+
+| What the suite said | What the browser showed |
+|---|---|
+| `P6-C1` / `P8-C1` — tests green | A `<script setup>` name collision (`invoice` as both prop and function) made `v-if="invoice"` permanently true. The screen printed **"Total: NaN"** under *"No charge captured yet."*, and the issue button never rendered. |
+| `P7-C3` — tests green | `localeCompare` on an acuity string. ESI and CTAS survived by luck; **Manchester inverted**, so a control labelled *"Recorded acuity"* put the **least** urgent patient first. |
+| **QA-FIX.4d — all 36 unit tests passed on a fix that did not work** | The dedupe memo was claimed AFTER an `await`. Sequentially correct; but `@change` and `@click` are in flight **simultaneously**, so the second call read a stale memo. Driven: **"Pending offline actions: 2"** and two rows on the server. A green suite describing a fix that did nothing. |
+| `P10-C2` — no unit test would ask | The waitlist half-commit appears only if you change the world **between** propose and approve and then inspect three tables. |
+| **QA-FIX.10b — 8 green unit tests** | **vue-i18n resolves a message key as a DOTTED PATH**, so `actions.document.shared` never matched a flat `"document.shared"` entry. The tests passed because the fake translator did a flat lookup — **the stub was easier to satisfy than the real thing, so it tested the stub.** The page rendered the raw action. |
+| **And the reverse** | Grepping `Portal/Login.vue` for `errors` returned **zero**, while the browser showed *"Those credentials do not match our records."* **The grep was wrong.** Code reading needs the browser as much as the browser needs code reading. |
+
+### Two more, earned late
+
+- **A finding that needs a precondition the product cannot create is still a legitimate browser finding** —
+  *if* you state exactly how the precondition was arranged and **restore it afterwards**. Phase 8 nulled a
+  `user_id`; Phase 9 provisioned a role through `/admin/roles`; Phase 10 detached a permission from a role row
+  to make an unreachable guard reachable. Each was restored and verified.
+- **A pattern definition is a claim, and claims get corrected by evidence.** Pattern 1's root cause was
+  written wrongly for seven phases (blamed on the nav map; QA-FIX.7d proved it was ungated `<Link>`s in the
+  page body) and Pattern 7's shape was corrected twice. Both were fixed with **correction banners, not quiet
+  amendments.**
+
+### The honesty rules — what may appear on a screen
+
+- **D-170** — never invent a backend, agent or tool to match a mock. Omit, and **state the omission**.
 - **D-176** — **an unbacked PRESENCE is worse than an absence.** A disabled control still says the capability
   exists.
-- **D-179** — never assert an action never taken.
+- **D-179** — never assert an action never taken. *A tool that RETURNS is a tool that succeeded: when
+  `FillFromWaitlistTool` returned `booked => false`, the queue recorded the action as "Approved" although it
+  booked nothing (`P10-C2`). It must throw.*
 - **D-188** — when a wireframe assumes a **different architecture**, decline it rather than shipping a
   misleading reduction.
+- **D-197** — record, don't rewrite. Historical rows written by a now-fixed defect are **counted and
+  reported**, not silently corrected.
+- **D-199** — **one operation, one transaction.** Six instances of create-then-associate-outside-a-transaction
+  were found (`P3-C1`, `P4-H2`, `P6-M10`, `P7-M5`, `P8-H2`, `P10-C2`); five are fixed and **`P4-H2` is the
+  last one open.**
+- **D-221** — an export that names patients writes **two shapes the product already had**: a ledger row for
+  the file, and an `action = 'read'` row per named patient. **Do not invent an action string** — a bespoke
+  action produces a well-formed, hash-chained row that no patient can ever see.
 
-**The rest, all load-bearing:** D-166 (a stat tile is CLOSED — no computed value enters one) · D-169 (a severity
-ramp needs no judgment word — the rule lives in the **styling**) · D-171 (licensed data kept out by a repo-wide
-scan) · D-172 (on a clinical image the breach is **DRAWING**) · D-173 (a guard dies on a file **MOVE** — scans
-must resolve their subject) · D-181 (patient-facing and staff-facing components do not merge) · D-184 (prove the
-**carve-out**, not just the rule) · D-187 (a mutation that changes nothing proves nothing — a no-op is not a
-catch) · D-190 (do not write a record that may be false into an **append-only** table) · D-191 (an undocumented
-ordering column is a fence hole waiting for a label).
+**The rest, all load-bearing:** D-166 (a stat tile is CLOSED — no computed value enters one) · D-169 (a
+severity ramp needs no judgment word — the rule lives in the **styling**) · D-171 (licensed data kept out by a
+repo-wide scan) · D-172 (on a clinical image the breach is **DRAWING**) · D-173 (a guard dies on a file
+**MOVE** — scans must resolve their subject) · D-181 (patient-facing and staff-facing components do not merge)
+· D-184 (prove the **carve-out**, not just the rule) · D-190 (do not write a record that may be false into an
+**append-only** table) · D-191 (an undocumented ordering column is a fence hole waiting for a label) · D-210
+(`RefusalNotice` — a refusal nobody can see is not a refusal) · D-214 (the nav map and the page body must
+agree about what the role can do).
 
 ## 1. Read order
 
 1. **`AGENTS.md`** — single source of truth: project, stack, hard rules, workflow, module map, MEMORY PROTOCOL.
 2. **`PROJECT-STATE.md`** — authoritative "where we are" snapshot (BUILD COMPLETE · eight verticals · all hospital
    phases · focus = deploy + partnerships · latest commit + suite counts).
-3. **`DECISIONS.md`** — architecture decision log, **D-001 → D-191** (191 entries), verified with **no gaps and
-   no duplicates** (append-only; **never edit a past entry**). The ones a new session actually needs are
-   collected in **§0b above** — the four guard-vacuity rules (**D-174/D-182/D-183/D-189**) and the four honesty
-   rules (**D-170/D-176/D-179/D-188**). Also load-bearing: **D-149** (the wireframe-parity discipline itself),
+3. **`docs/qa/ROLE-AUDIT.md`** — **the authoritative QA record, and the largest artifact in the repo.** Ten
+   phases of role-by-role browser driving; **186 findings, 41 fixed, 145 open (0 CRITICAL · 34 HIGH · 80
+   MEDIUM · 31 LOW)**. **Append-only by its own rule:** a fixed finding is never removed — it keeps its ID,
+   evidence and reproduction and gains a **FIXED banner**. **Read the banner before re-investigating
+   anything.** Start at the fix-status table near the top, then the *"STATE AS OF THIS RECONCILIATION"*
+   block at the very end, which supersedes the stale counts in the programme-closing summary.
+4. **`DECISIONS.md`** — architecture decision log, **D-001 → D-223** (223 entries), verified with **no gaps and
+   no duplicates** (append-only; **never edit a past entry**). The QA era is **D-192 → D-223**. The ones a new
+   session actually needs are collected in **§0b above** — the guard-vacuity rules
+   (**D-174/D-182/D-183/D-187/D-189**) and the honesty rules (**D-170/D-176/D-179/D-188/D-197/D-199/D-221**). Also load-bearing: **D-149** (the wireframe-parity discipline itself),
    **D-155/156/157** (the Appointment Detail chain — real display · the real `LEGAL_TRANSITIONS` action row ·
    the real slot-finder + overlap guard; **D-156** is why the day-board may compose confirm→arrive),
    **D-158/159/160** (the auth security sprint), **D-161→D-164** (the Operator Mode chain, ending in *paused
    after its security core, deliberately, with no HTTP surface*), **D-165** (first-customer provisioning) and
    **D-185** (refusals must be indistinguishable in shape).
-4. **`DEFERRED.md`** — the parked backlog, each item with its pull-forward TRIGGER (the certified-partner seams +
-   medical-device non-goals + earlier parked items).
-5. **`memory/LOG.md`** — one line per completed gate; the full build history (Phases 0/A–G · P0P ·
+5. **`DEFERRED.md`** — the parked backlog, each item with its pull-forward TRIGGER, **plus the QA open list
+   grouped into seven families with the precedent fix for each** — take a family, not a phase.
+6. **`memory/LOG.md`** — one line per completed gate; the full build history (Phases 0/A–G · P0P ·
    CLINIC.W1–W10 · FIX.1–5 · POLISH.1–3 · UI.F1–2 · DENTAL.G1–9 · HOSPITAL.G1–7 · PHARMACY.G1–5 ·
    SURGERY.G1–5 · ED.G1–6 · LAB.G1–6 · RAD.G1–5 · A11Y.1 · the OPMODE.G1–G3 security core · the original
    parity gates [SETTINGS.P1–6 · APPROVAL.P1–7 · BRANCH.P1–5 · AGENT.P1–6 · ALLERGY.P1 · BILLAR.P1–7 ·
@@ -131,18 +263,18 @@ ordering column is a fence hole waiting for a label).
    `grep -rn "<pending>" memory/ docs/ *.md`, because module files carry their own markers and an earlier
    file-scoped sweep left nine of them stale for ten days. Never backfill by `--amend` (it re-hashes the
    commit); backfill in the *following* commit.
-6. **`memory/modules/*.md`** — per-module deep notes (21, incl. the cross-module **`OperatorMode.md`** — read it
+7. **`memory/modules/*.md`** — per-module deep notes (21, incl. the cross-module **`OperatorMode.md`** — read it
    before touching anything operator-related): Platform, Audit, AiCore, People, Patients, Scheduling,
    Clinical, Billing, Comms, FrontDesk, Nursing, Reporting, Import, **Dental, Hospital, Pharmacy, Surgery, ED,
    Lab, Radiology**.
-7. **The vertical MAPS** (each vertical is MAP-FIRST — a reconciliation/scope map before code):
+8. **The vertical MAPS** (each vertical is MAP-FIRST — a reconciliation/scope map before code):
    `docs/CLINIC-DELIVERY-MAP.md` · `docs/DENTAL-DELIVERY-MAP.md` · `docs/HOSPITAL-PHASE1-ADT-MAP.md` ·
    `docs/HOSPITAL-PHASE2-PHARMACY-MAP.md` · `docs/HOSPITAL-PHASE3-LAB-MAP.md` ·
    `docs/HOSPITAL-PHASE4-RADIOLOGY-MAP.md` · `docs/HOSPITAL-PHASE5-SURGERY-MAP.md` · `docs/HOSPITAL-PHASE6-ED-MAP.md`.
-8. **`docs/FEATURE-INVENTORY.md`** — classified gap map (why each remaining thing is unbuilt).
-9. **`docs/MASTER-STATUS-REPORT.md`** — cross-vertical status + gap audit.
-10. **`docs/DB-PARITY.md`** — MariaDB-10.4 (dev) ↔ MySQL-8 (prod/CI) parity notes (the P0P.G15 `dateTime()` rule).
-11. **The audit reports** — `docs/QA-AUDIT-REPORT.md` (live-browser QA + FIX.1–5), `docs/DEEP-AUDIT-REPORT.md`,
+9. **`docs/FEATURE-INVENTORY.md`** — classified gap map (why each remaining thing is unbuilt).
+10. **`docs/MASTER-STATUS-REPORT.md`** — cross-vertical status + gap audit.
+11. **`docs/DB-PARITY.md`** — MariaDB-10.4 (dev) ↔ MySQL-8 (prod/CI) parity notes (the P0P.G15 `dateTime()` rule).
+12. **The audit reports** — `docs/QA-AUDIT-REPORT.md` (live-browser QA + FIX.1–5), `docs/DEEP-AUDIT-REPORT.md`,
     `docs/FULL-EXERCISE-AUDIT-REPORT.md` (all-roles exercise). Plus `docs/ONBOARDING-REHEARSAL-REPORT.md`,
     `docs/DISCOVERY.md`, `docs/SCREENS.md`, `docs/AGENT-EVALS.md`, `docs/DEPLOY-RUNBOOK.md`.
 11b. **`docs/wireframe-parity/*.md`** — the parity programme's audit/diff reports. **SEVENTEEN docs, ALL
@@ -152,12 +284,12 @@ ordering column is a fence hole waiting for a label).
     The six batch diffs: `DENTAL-BATCH-DIFF.md`, `PATIENTS-CLINICAL-BATCH-DIFF.md`, `PORTAL-BATCH-DIFF.md`,
     `GOVERNANCE-AI-BATCH-DIFF.md`, `COMMS-BATCH-DIFF.md`, `SCHEDULING-BATCH-DIFF.md`. Plus
     `WIREFRAME-INVENTORY.md` and `WAITLIST-MANAGEMENT-DIFF.md`. **What is still noted in them are HONEST
-    BACKEND GAPS and DELIBERATE DECLINES, not parity failures** — see `DEFERRED.md` (d) and (e). The decoded
+    BACKEND GAPS and DELIBERATE DECLINES, not parity failures** — see `DEFERRED.md` (e) and (f). The decoded
     wireframes live in the **gitignored** `resources/prototype/` (regenerate by decoding the bundle; never
     committed).
-12. **The scoping doc** (`careos-hospital-expansion-scoping.md`) — **NOT in-repo** (external); the hospital build is
+13. **The scoping doc** (`careos-hospital-expansion-scoping.md`) — **NOT in-repo** (external); the hospital build is
     captured in the six HOSPITAL-PHASE maps above.
-13. **this file** (`docs/ONBOARDING.md`).
+14. **this file** (`docs/ONBOARDING.md`).
 
 ---
 
@@ -229,7 +361,34 @@ factory TOTP secret is the fixed **`JBSWY3DPEHPK3PXP`** — derive the current O
 
 ---
 
-## 3. Hard rules (never violate — these OVERRIDE defaults)
+## 3. THE FENCES — the product's safety case, and what ten phases of driving proved
+
+**Ten phases of adversarial driving eroded NO FENCE.** Every one of the 186 findings was a defect of
+**presentation, navigation, attribution, a partial write, a recording gap or authorisation** — never of the
+engines or the fences. Nothing computed a clinical judgment, no acuity was derived, no severity was styled, no
+money was computed page-side, no agent ceiling was exceeded, and no append-only record was mutated. `P5-C1`
+came closest and was **not** a fence failure: the medication-safety seam was correct and the screen simply did
+not show it.
+
+The safety case in one table, each row with the **strongest positive control actually driven** — not the rule
+as written, but the observation that would have failed had the fence given way. Full evidence in
+`docs/qa/ROLE-AUDIT.md` §3.
+
+| Fence | What it forbids | Strongest control driven |
+|---|---|---|
+| **Record-not-judge / render-not-judge** (D-169) | Any colour, band, flag, arrow or weight that grades a clinical value | A **mild** and a **severe** allergy render **byte-identically**. A Kalium **6.8** against a `3.5–5.1` range renders in the same container, span class, colour `rgb(42,51,42)`, weight 600, size 18px and border as an in-range 4.2 — with the abnormal value **created by driving**, because the seed had none. |
+| **Acuity is ASSIGNED, never computed** | Computing, suggesting, prefilling or tinting a triage level | `NullTriageAcuityProvider` returns `none()`; its docblock distinguishes *"'CareOS makes no acuity claim', not 'this patient is low acuity'"*; the empty state reads *"No automated suggestion. The triage nurse assigns the acuity."* The one place the recorded judgment was displayed in the wrong ORDER was found and fixed (`P7-C3`). |
+| **Medication safety is a null-object seam** | Any interaction, cross-reactivity or contraindication check | `MedicationSafetyProvider` states in the product's own words that this *"is a certified-partner function and is not performed here"* — **with no cleared state and no green tick anywhere** on the dispensing screen. A homemade version is a permanent NON-GOAL, not a backlog item. |
+| **Result interpretation** | Abnormal flags, range verdicts, critical alerts, deltas, CAD | None exist. Reference ranges are displayed as tenant-authored data beside the value and the screens say so; a radiology amendment produced v2 while **v1 survived byte-identical**. |
+| **Checklists RECORD, they do not ENFORCE** | A blocking checklist or a computed surgical risk | A case was **completed at 0 of 17 checked**, with nothing anywhere claiming otherwise. ASA III and ASA I render identically. |
+| **Money is engine-computed, and δ=0** | Any page-side derivation of a figure the engine owns | `ChargeSetReader` returns the engine's stored amount **already formatted**, so no Vue does money arithmetic (D-208/D-215). The composite hospital episode reconciles **δ=0 across six invariants**. |
+| **Agent ceilings, human commit** | Any autonomy above the tool's ceiling; any agent acting without a human | A forged `auto` for three tools was **clamped** to `suggest`/`approve`/`approve`, and the audit row recorded the **clamped** values. Bulk approval refused a forged clinical id (`excluded: 1`) and skipped a cross-tenant one. Approve **re-authorises** (403 driven) and **re-grounds** against live state (a double-booking refused by a live resource lock). A human edit is re-validated by the tool's own fence. |
+| **Append-only records** | Editing or deleting a clinical or audit fact | Model `appendOnly()` guards **plus** `SIGNAL '45000'` database triggers on `lab_results`, `order_results`, `imaging_study_events`, `stay_events`, `audit_events`. The audit ledger is a per-tenant hash chain verified by replay — the governance dashboard reported **Valid, 379 events**. |
+| **Tenant and patient isolation, fail-closed** | Reaching another tenant's or another patient's row | **Every** forged cross-patient portal probe refused — 404 on documents, invoices, consents, appointments and check-in; 403 with an explicit message on telehealth and messages. A cross-tenant agent-action id in a forged bulk was skipped fail-closed. `TenantContext` refuses to query without a tenant. |
+| **Disclosure is visible to the patient** | A read of a patient record that leaves no trace | ~65 staff call sites and eight portal surfaces write `action = 'read'` rows carrying the patient id; the access-log screen and its nDSG/GDPR export are **ONE query**, so the file cannot disagree with the screen; viewing and exporting are themselves audited and appear in the next view. The gaps were recorded, and `P9-C1`/`P9-C2` are fixed — `P9-H2`, `P10-H5` and `QF10a-H1` remain open. |
+| **No invented workflow or metric** (D-170/176/179) | A control that lies, a number with nothing behind it | The KB ranks nothing and scores nothing; governed-agent cards print `—` where there is no denominator; the AI *"Estimated cost CHF 0.02"* is a real `SUM(cost_minor)`. The referral — the one third-party-facing artifact — deliberately **transmits nothing and says so**. |
+
+## 3a. Hard rules (never violate — these OVERRIDE defaults)
 
 - **ELECTRIC FENCE — record-not-judge / render-not-judge (across ALL eight verticals).** Every clinical surface —
   vitals, labs, odontogram, perio, dentist diagnosis, imaging, inpatient ward-vitals, the eMAR, the WHO checklist,

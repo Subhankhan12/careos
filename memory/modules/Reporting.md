@@ -124,3 +124,18 @@ old "awaiting data" stub. Test: `tests/Feature/AppLandingTest.php`. No new metri
   New metrics (production-by-category, provider throughput, recall compliance, etc.) are
   post-discovery work — add the service method first, then surface it; never invent a metric
   in the controller/view.
+
+## FINAL STATE after the ten-phase QA programme (2026-09-10, `805930e`)
+
+- **`P3-H1` (HIGH) — FIXED** `d6f0cc5`, D-200: two different figures were both labelled **COLLECTED**. They
+  are now labelled with their **bases**, because the engine legitimately computes both and the defect was the
+  caption, not the arithmetic.
+- **THE FENCE HELD HERE IN ALL TEN PHASES:** every displayed figure is a `MetricsService` return value, and no
+  page derives a number the engine owns (D-208, D-215). A rate is printed **with its denominator**, and a
+  governed-agent card prints `—` where there is no denominator rather than a fabricated zero (D-176).
+- **A stat tile is CLOSED (D-166):** no computed value enters one. The audit drove this repeatedly and found no
+  page-side money arithmetic; the composite hospital episode reconciles **δ=0 across six invariants**.
+- **Exports are disclosures.** `GovernanceLedgerExportController` writes an aggregate `*.exported` row with no
+  `patient_id`; an export that NAMES patients must additionally write one `action = 'read'` row per named
+  patient (D-221) or it cannot reach anyone's access log. **`P9-C1` was exactly that omission** in the AR
+  management report.

@@ -51,9 +51,17 @@ missing · `LOW` cosmetic / polish.
 | **Total (ALL TEN PHASES)** | **24** | **45** | **84** | **32** | **185** |
 | of which **FIXED** by 20 QA-FIX gates | 18 | 12 | 4 | 1 | **35** |
 | of which **OPEN** | **6** | **33** | **80** | **31** | **150** |
+| ⚠️ **SUPERSEDED — CURRENT as of 2026-09-10** | | | | | |
+| **Total recorded** (+ `QF10a-H1`, recorded by a fix gate) | **24** | **46** | **84** | **32** | **186** |
+| of which **FIXED** by **TEN** QA-FIX gates (29 parts) | **24** | 12 | 4 | 1 | **41** |
+| of which **OPEN** | **0** | **34** | **80** | **31** | **145** |
 
 *(Phase 10's counts include the two addendum findings `P10-C3` and `P10-M7`, recorded the same day after a
 second adversarial pass over the same scope — see "Phase 10 — ADDENDUM" at the end of this document.)*
+
+*(**The first three total rows are the state at programme close and are left as written** — this document does
+not rewrite what it recorded. The SUPERSEDED rows beneath them are current, re-derived by counting this file's
+own finding ids; the full derivation is in "STATE AS OF THIS RECONCILIATION" at the very end.)*
 
 *(Counts are as RECORDED at audit time and are not restated when a later gate re-grades a finding.
 `P4-C4` was re-graded **CRITICAL → HIGH** by QA-FIX.4b — the defect was latent rather than active,
@@ -7074,3 +7082,107 @@ a negative must follow the calls before it reports one.
 - **Note for whoever fixes it:** the day-pack's *list* surface already audits
   (`'surface' => 'nurse_day_pack'`), so the finding is specifically that the **download** was not given the
   same treatment as the read that precedes it.
+
+---
+
+# STATE AS OF THIS RECONCILIATION — 2026-09-10, commit `805930e`
+
+**Appended, not edited.** Everything above is the record as it was written. The programme-closing summary
+(§1–§6) was composed at the end of Phase 10, **before QA-FIX.9 and QA-FIX.10 landed**, so its fixed/open
+counts and its open-CRITICAL list are stale by four gates' work. This block carries the current state. The
+original is left exactly as written, which is this document's own rule: *findings are recorded permanently
+and never removed when fixed; a fixed finding keeps its ID, its evidence and its reproduction.*
+
+## The counts, verified by counting the artifact
+
+Not taken from any summary line. Derived by extracting every distinct finding ID from this document
+(`grep -oE '\bP[0-9]+-[CHML][0-9]+\b' | sort -u`, plus `QF10a-H1`, which a fix gate recorded) and by
+expanding every row of the fix-status table at the top of this file, including the rows that cover several
+findings at once.
+
+| | CRITICAL | HIGH | MEDIUM | LOW | **Total** |
+|---|---|---|---|---|---|
+| **Recorded** | 24 | 46 | 84 | 32 | **186** |
+| **Fixed** | **24** | 12 | 4 | 1 | **41** |
+| **OPEN** | **0** | **34** | **80** | **31** | **145** |
+
+Per phase, the counted IDs match the severity table in §1 exactly, class by class: P1 18 · P2 19 · P3 15 ·
+P4 23 · P5 14 · P6 20 · P7 17 · P8 17 · P9 25 · P10 17 = **185**, plus `QF10a-H1` = **186**.
+
+**A counting note for whoever checks this next.** Only 157 findings appear as their own `#### \`PN-XN\``
+heading; Phases 1, 4 and 5 record some of their MEDIUM and LOW findings in condensed grouped form. Counting
+headings gives 157 and is WRONG. Counting distinct IDs gives 185 (+1) and is right.
+
+## Zero open CRITICALs — stated precisely
+
+**All 24 findings recorded as CRITICAL across the ten phases are fixed.** The highest open severity is now
+HIGH. This was reached by fixing them, not by moving them:
+
+- **No finding was withdrawn.** No ID was removed from this document; every one still carries its evidence
+  and its reproduction.
+- **No findings were merged.** Several gates closed more than one finding at once (QA-FIX.4c closed
+  `P4-C2` + `P4-C3`; QA-FIX.7d closed seven findings that were one pattern) — that is one fix answering
+  several findings, not one finding absorbing another. All of them keep their own IDs.
+- **One finding was re-graded, and it is the honest exception: `P4-C4`, CRITICAL → HIGH by QA-FIX.4b**,
+  because the defect was **latent rather than active** — the shipped client only ever sends UTC, and the
+  `+02:00` evidence came from a curl-crafted action rather than from the product's own client. **It does not
+  contribute to the zero**: it was FIXED in the same gate that re-graded it (`ce2ebaa`), so it is closed
+  either way. The re-grade is recorded in three places already — the note under §1's table, the fix-status
+  row, and the finding's own FIXED banner.
+
+So the defensible sentence is: **every CRITICAL this programme recorded is fixed; one of the 24 was
+re-graded to HIGH on the evidence while being fixed, and none was withdrawn, merged away or left open.**
+
+## The ten phases and the ten gates
+
+**Ten audit phases**, each an audit-only commit: Phase 1 `06a3f78` · 2 `a5e17dc` · 3 `a5cea30` ·
+4 `4dfd59c` · 5 `3199a7c` · 6 `6784bfa` (+ `6886f01`, which added `P6-M10`) · 7 `9c4dc63` · 8 `f5959c8` ·
+9 `41cc78e` · 10 `9507803` (+ `ab59c27`, the same-day addendum that added `P10-C3` and `P10-M7`).
+
+**TEN fix gates, not eleven** — QA-FIX.1 … QA-FIX.10 — across **29 parts that changed code**, every part's
+commit verified to exist and to be an ancestor of `805930e`. A separate, earlier `FIX.1`–`FIX.5` series
+belongs to the pre-QA re-audit and is not part of this programme; counting it is the likely source of an
+"eleven".
+
+**A thirtieth part deliberately built nothing.** `474cefe` — *QA-FIX.6 Part 4: the theatre booking gap is a
+FEATURE, not wiring (stopped, nothing built)* — determined on four verified counts that the gap could not be
+closed without building a feature, and stopped. It is a gate part with no fix, and it belongs in the count
+of what the programme did.
+
+**CI, honestly.** 25 of the 29 fix commits still return `completed / success` from
+`commits/<sha>/check-runs`. Three — `9d5c047`, `f8b7a7b`, `1388af3`, all QA-FIX.6 — now return
+`total_count: 0`: GitHub's check-run retention has expired, not a failure. Their contemporaneous records in
+`memory/LOG.md` show each was confirmed green before the next part began. One, `d3e0f3c` (QA-FIX.7a),
+returns `completed / failure`: a **CI flake**, a random ULID colliding with the governance clinical-content
+scan, fixed in the very next commit `17cea32` (*"the governance clinical-content scan no longer trips on a
+random ULID (CI flake)"*), which is green. HEAD `805930e` is green.
+
+## The open list, prioritised — 34 HIGH in seven families
+
+§4's ordering was written at programme close and its top four rows are now all fixed. This is the current
+list, grouped by **what the fix would have in common** rather than by phase, because that is what makes them
+cheap to do together. Each family names the precedent that already exists in the codebase.
+
+| # | Family | Open HIGH | Modules | Precedent that applies |
+|---|---|---|---|---|
+| **1** | **Unreachable capabilities & missing nav** — a permission with no surface, a module with no nav entry, a guard with no reachable caller, a role 403 on the routes its permissions name | 16 — `P2-H4` `P3-H3` `P3-H4` `P5-H1` `P5-H3` `P6-H1` `P6-H2` `P6-H5` `P7-H1` `P7-H3` `P7-H5` `P8-H4` `P8-H5` `P9-H4` `P9-H5` `P10-H3` | 9 | **PARTIAL.** D-214 (QA-FIX.7d, `c999181`) closed the *over-offer* half — a nav map that advertises what the role cannot open. The *under-offer* half is open, and several members are genuinely feature work, not wiring. **Triage each before scheduling: this family is not one job.** |
+| **2** | **Operations with no way back, or that mislead** | 5 — `P1-H2` `P3-H2` `P4-H1` `P9-H1` `P10-H4` | 5 | None single. `P1-H2` shares family 3's remedy; `P10-H4` is a one-line placeholder; `P9-H1` needs a state-machine decision. |
+| **3** | **Invisible refusals** — a refusal happens and the user is shown nothing | 4 — `P8-H1` `P9-H3` `P10-H2` (+ MEDIUM `P10-M1`) | 5 | **YES, STRONG.** `resources/js/Components/RefusalNotice.vue` (D-210, QA-FIX.6c) already applied to Surgery and ED, 12 call sites. Lab, Radiology, Hospital and Governance are the remaining modules. `P10-H2` additionally needs a catch widened — `BookingConflictException` is not an `AiCoreException`. |
+| **4** | **Unrecorded disclosure** — PHI is shown or leaves, and nothing records it | 3 — `P9-H2` `P10-H5` `QF10a-H1` | 3 | **YES, STRONG.** D-221/D-222 (QA-FIX.10a/10b) settled the shape: a `read` row with an export surface carrying `patient_id`, reachable by `PatientAccessReport::DISCLOSURE_ACTIONS`. **Do not invent an action string.** |
+| **5** | **Display / locale divergence** | 3 — `P2-H3` `P4-H4` `P6-H3` | 3 | **YES.** D-091 `formatDateOnly` (14 call sites) and D-192/D-193 (store UTC, display tenant-local). `P6-H3` also needs a past-date validation, the D-194 shape. |
+| **6** | **Attribution recorded but not surfaced, or resolved by convenience** | 2 — `P8-H3` `P9-H6` | 2 | **YES.** D-216/D-220. `P9-H6`'s remedy is already named and already exists: `SystemActorResolver::forPermission()` (`Modules/Platform/src/Services/SystemActorResolver.php:45`), which every other scheduled command uses. |
+| **7** | **Partial writes — create-then-associate outside a transaction** | 1 — `P4-H2` | 1 | **YES, PROVEN FIVE TIMES.** D-199. **This is the LAST open member of the six**: `P3-C1`, `P6-M10`, `P7-M5`, `P8-H2` and `P10-C2` are all fixed. |
+
+The 80 open MEDIUMs and 31 open LOWs thicken families 1, 3 and 5 above all; none introduces a family of its
+own.
+
+**DEPLOYMENT remains the highest-value track and is not one of these families.** No open HIGH blocks it: none
+loses data, falsifies a clinical or financial record, or breaches authorisation. They are defects of reach,
+visibility, attribution-display and locale.
+
+## What did NOT change
+
+§3's fence statement stands unmodified and is restated in `docs/ONBOARDING.md`. **Ten phases of adversarial
+driving eroded no fence.** Every CRITICAL and HIGH fell into presentation, navigation, attribution, partial
+writes, recording gaps or authorisation — never into the engines or the fences. Nothing computed a clinical
+judgment, no acuity was derived, no money was computed page-side, and no agent ceiling was exceeded.
