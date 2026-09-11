@@ -4826,7 +4826,7 @@ outside the five names a `lab.*` or `radiology.*` permission.
 #### `P8-H1` — Neither Lab nor Radiology renders any refusal: the `P6-C3` / `P7-H2` defect, third module
 
 
-> ✅ **FIXED — QA-FIX.11a, commit `<pending>` (D-224).** An **ADOPTION, not a design** (D-210, D-213):
+> ✅ **FIXED — QA-FIX.11a, commit `51017e2` (D-224).** An **ADOPTION, not a design** (D-210, D-213):
 > `RefusalNotice.vue` already existed and already read the WHOLE error bag, so this was **seventeen imports
 > and seventeen tags** — no new component, no new mechanism, no restyle, no reword. A test asserts none of
 > these modules rolled its own.
@@ -5577,7 +5577,7 @@ controls the two phase roles cannot reach: `lena.studer@klinik-bergblick.test` (
 #### `P9-H3` — Eleven refusal sites, zero renderers: no Hospital page shows a refusal
 
 
-> ✅ **FIXED — QA-FIX.11a, commit `<pending>` (D-224).** An **ADOPTION, not a design** (D-210, D-213):
+> ✅ **FIXED — QA-FIX.11a, commit `51017e2` (D-224).** An **ADOPTION, not a design** (D-210, D-213):
 > `RefusalNotice.vue` already existed and already read the WHOLE error bag, so this was **seventeen imports
 > and seventeen tags** — no new component, no new mechanism, no restyle, no reword. A test asserts none of
 > these modules rolled its own.
@@ -6293,7 +6293,7 @@ Server clock `2026-09-09 01:13 UTC`, tenant display zone `Europe/Zurich`, audit 
 #### `P10-H2` — A domain refusal on approve escapes as an HTTP 500, and the reviewer is shown nothing at all
 
 
-> ✅ **FIXED — QA-FIX.11a, commit `<pending>` (D-224).** An **ADOPTION, not a design** (D-210, D-213):
+> ✅ **FIXED — QA-FIX.11a, commit `51017e2` (D-224).** An **ADOPTION, not a design** (D-210, D-213):
 > `RefusalNotice.vue` already existed and already read the WHOLE error bag, so this was **seventeen imports
 > and seventeen tags** — no new component, no new mechanism, no restyle, no reword. A test asserts none of
 > these modules rolled its own.
@@ -6391,7 +6391,7 @@ Server clock `2026-09-09 01:13 UTC`, tenant display zone `Europe/Zurich`, audit 
 #### `P10-M1` — Admin, governance and portal render almost no refusals: 13 `withErrors` sites, 3 of 24 pages that could show one
 
 
-> ⚠️ **PARTLY FIXED — QA-FIX.11a, commit `<pending>` (D-224). The approval-queue half is closed; the rest is
+> ⚠️ **PARTLY FIXED — QA-FIX.11a, commit `51017e2` (D-224). The approval-queue half is closed; the rest is
 > NOT an adoption and is deliberately left open.**
 > **CLOSED:** `Governance/ApprovalQueue.vue` now renders `RefusalNotice`, so the approve refusal this finding
 > drove — *"Recall message drafts cannot contain medical advice or symptom guidance."* — reaches the screen,
@@ -7330,8 +7330,8 @@ rather than widened into — the standing rule since QA-FIX.9a.
 
 | ID | Severity | Status | Gate | Commit |
 |---|---|---|---|---|
-| `P8-H1` | HIGH | ✅ **FIXED** | QA-FIX.11a | `<pending>` |
-| `P9-H3` | HIGH | ✅ **FIXED** | QA-FIX.11a | `<pending>` |
-| `P10-H2` | HIGH | ✅ **FIXED** | QA-FIX.11a | `<pending>` |
-| `P10-M1` | MEDIUM | ⚠️ **PARTLY FIXED** (approval queue only — the rest is design work, see its banner) | QA-FIX.11a | `<pending>` |
+| `P8-H1` | HIGH | ✅ **FIXED** | QA-FIX.11a | `51017e2` |
+| `P9-H3` | HIGH | ✅ **FIXED** | QA-FIX.11a | `51017e2` |
+| `P10-H2` | HIGH | ✅ **FIXED** | QA-FIX.11a | `51017e2` |
+| `P10-M1` | MEDIUM | ⚠️ **PARTLY FIXED** (approval queue only — the rest is design work, see its banner) | QA-FIX.11a | `51017e2` |
 | `QF11a-M1` | MEDIUM | 📋 recorded, not fixed | — | — |

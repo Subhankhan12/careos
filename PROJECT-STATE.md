@@ -475,7 +475,7 @@ all four demo tenants. **Playwright re-drove Phase 10's exact steps:** after the
 is still `waiting`, `offered_starts_at`/`offered_branch_id` are NULL, `waitlist.offered` is 0,
 `waitlist_offers` is 0, appointments unchanged at 13, the action still `pending`, and the chain verifies.
 
-**QA-FIX.11a (`<pending>`, D-224) is done: the remaining modules render their refusals — family 3 closed
+**QA-FIX.11a (`51017e2`, D-224) is done: the remaining modules render their refusals — family 3 closed
 except for one deliberately-stopped half.** `P8-H1` (Lab + Radiology), `P9-H3` (Hospital) and `P10-H2` (a
 domain refusal escaping as a 500) are **FIXED**; `P10-M1` is **PARTLY** fixed. **An ADOPTION, not a design**
 (D-210, D-213): seventeen imports and seventeen tags of the existing `RefusalNotice.vue` — no new component,
