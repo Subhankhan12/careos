@@ -451,3 +451,15 @@ listing it would assert a disclosure the product did not make) and `notification
 action strings are assembled by interpolation (`'admission.'.$status`), so it would look exhaustive without
 being so — the shape of the finding itself. The guard is a two-directional test plus a contract test that
 reads the PHP constant and fails if a member has no phrase in `en.json`.
+
+
+## The access log gained three disclosure surfaces and the report did not change (QA-FIX.12a, D-226)
+
+`ward_board`, `portal_messages`, `portal_telehealth` and `nurse_visit_attachment_download` now appear in
+`PatientAccessReport`. **`DISCLOSURE_ACTIONS` is byte-identical** — every one of them is a plain `read` row,
+so nothing was added to the set and no action class was invented. That is the check that family 4 was closed
+by adoption rather than by design.
+
+**The mutation that proves it matters:** giving any of those four sites a bespoke action leaves "is audited"
+GREEN and turns "reaches the patient's log" RED — QA-FIX.10a's own correction (D-221), carried forward and
+demonstrated rather than claimed.

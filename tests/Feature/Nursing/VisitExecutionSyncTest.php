@@ -46,6 +46,17 @@ function e7Ctx(): TenantContext
     return app(TenantContext::class);
 }
 
+/**
+ * Drop the two pieces of per-request state that survive inside a single test and would otherwise let a
+ * request be answered as the WRONG user or under a hand-seeded tenant: the auth guard's cached user and
+ * the `TenantContext` singleton. A request-level assertion has to stand on the real middleware.
+ */
+function e7ForgetRequestState(): void
+{
+    app('auth')->forgetGuards();
+    e7Ctx()->forget();
+}
+
 function e7Role(string $key): Role
 {
     return Role::query()->where('key', $key)->firstOrFail();
@@ -335,11 +346,26 @@ test('visit attachments are private and streamed only through an authorized cont
 
     $otherTenant = e7Fixture('beta');
 
+    /*
+     * THE GUARD AND THE CONTEXT ARE FORGOTTEN BEFORE EACH REQUEST (the C-1 / FIX.1 lesson, re-learned
+     * by QA-FIX.12a). Two pieces of state survive a request inside one test: Laravel caches the resolved
+     * user on the auth guard, and this fixture seeds the `TenantContext` SINGLETON directly so it can
+     * create rows. Without these two lines BOTH requests below are really made by the FIRST tenant's
+     * user against a pre-seeded context — so the 404 asserted here came from the seeding rather than
+     * from the product, and the assertion was vacuous as a cross-tenant check.
+     *
+     * Verified by measuring rather than by reading: with the guard left cached the controller sees
+     * `user=1, tenant=alpha` on BOTH calls; forgetting it, the cross-tenant call genuinely arrives as
+     * `user=2, tenant=beta` and is refused. This is the same masking the C-1 remediation described —
+     * "the suite pre-seeded the TenantContext singleton before each request".
+     */
+    e7ForgetRequestState();
+
     $this->withToken(e7Token($otherTenant['user']))
         ->getJson(route('api.nurse.attachments.download', $attachment))
         ->assertNotFound();
 
-    e7Ctx()->set($fixture['tenant']);
+    e7ForgetRequestState();
 
     $this->withToken(e7Token($fixture['user']))
         ->get(route('api.nurse.attachments.download', $attachment))

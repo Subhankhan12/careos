@@ -248,3 +248,16 @@ reproduction; a gate removed from `AiApprovalQueueController` → structural tes
 files), each confirmed applied by a **comment-stripped** count. `P10-M7` (approve executes `input_payload`,
 never the `proposed_output` the reviewer read) is untouched and stays open. See D-218, [[AiCore]],
 [[Comms]], [[LOG]].
+
+
+## The last two portal surfaces reach the patient's access log (QA-FIX.12a, `P10-H5`, D-226)
+
+`PortalMessageController::index` and `PortalTelehealthController::index` each record one `read` row per
+render — the EXISTING `auditRead()` path the other six portal controllers already used, with the same
+comment they already carried. Before this, these two were the only portal pages writing nothing, and
+`/portal/messages` — which renders the content of the patient's conversations with the practice — was the
+most sensitive of the eight.
+
+Telehealth resolves the patient from `$account->patient_id` rather than assuming a loaded relation.
+`PortalTreatmentPlanController` is still deliberately not in this set: it audits per plan inside the map, so
+a patient with no plans produces no row — correct by construction.

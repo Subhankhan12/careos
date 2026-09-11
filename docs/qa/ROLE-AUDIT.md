@@ -57,6 +57,7 @@ missing · `LOW` cosmetic / polish.
 | of which **OPEN** | **0** | **34** | **80** | **31** | **145** |
 | ⚠️ **SUPERSEDED AGAIN — CURRENT as of QA-FIX.11b** | | | | | |
 | **Total recorded** (+ `QF11a-M1`) | **24** | **46** | **85** | **32** | **187** |
+| **Total recorded** (+ `QF12a-H1`, + `QF12a-M1`; rows above are superseded, not corrected) | **24** | **47** | **86** | **32** | **189** |
 | of which **FIXED** | **24** | **17** | 4 | 1 | **46** |
 | of which **OPEN** | **0** | **29** | **81** | **31** | **141** |
 
@@ -5576,6 +5577,43 @@ controls the two phase roles cannot reach: `lena.studer@klinik-bergblick.test` (
 
 #### `P9-H2` — The ward board discloses every admitted patient and writes no read row
 
+> ✅ **FIXED — QA-FIX.12a, commit `<pending>` (D-226).** `WardBoardController::show` now calls
+> `$disclosed->auditRead(['surface' => 'ward_board'])` once per ACTIVE STAY, through the path `Stay`
+> already had — `LogsReads` plus an `auditPatientId()` that already mapped to the occupant. **Nothing was
+> designed:** the action stays `read`, which `PatientAccessReport::DISCLOSURE_ACTIONS` already contains, so
+> the row reaches the patient's log without inventing an action class. The constant is byte-identical after
+> this part.
+> **ONE ROW PER PATIENT, NOT ONE ROW LISTING THEM (D-221/D-189).** `PatientAccessReport` reaches a log by
+> `patient_id = ?`, so a single row naming the census would be invisible to every patient on it. The test
+> uses a TWO-patient fixture on purpose: a one-patient fixture cannot tell the two shapes apart.
+> **THE D-184 CARVE-OUT IS PROVEN, NOT ASSERTED.** Only OCCUPIED beds are audited, so an empty ward
+> discloses nobody and writes nothing. An absence assertion over an empty board would be vacuous on its
+> own, so the non-empty case supplies its complement.
+> **THE COST IS STATED.** `AuditService::record()` takes a per-tenant `FOR UPDATE` lock per row, so one
+> board render costs one serialised append per admitted patient — bounded by the ward's occupied beds, i.e.
+> by the census itself. That is the price of the disclosure being recorded at all.
+> **MUTATION-CHECKED TWO WAYS.** Removing the `auditRead()` reddens this finding's test and nothing else.
+> Replacing it with a bespoke `ward.viewed` audit record — well-formed, hash-chained, patient-scoped —
+> leaves **"is audited" GREEN** and turns **"reaches the patient's log" RED**, which is QA-FIX.10a's own
+> correction carried forward and demonstrated rather than claimed.
+> **PLAYWRIGHT-VERIFIED, BY TWO DIFFERENT PEOPLE — the one who discloses and the one who reads the log.**
+> Signed in as **Urs Baumann (`bed_manager`)**, the role this finding names, and opened `/hospital/wards`.
+> The board disclosed verbatim *"IM-ICU-1 · ICU · Occupied · **Rolf Schmid** · In bed 10d 14h"*, plus the
+> empty and non-occupied beds (*Chirurgie 0/2 occupied*, *Innere Medizin 1/5 occupied*, beds in *Cleaning*,
+> *Free* and *Blocked*).
+> **BEFORE: `ward_board` rows = 0, and Rolf Schmid's access log was COMPLETELY EMPTY** — verified through
+> `PatientAccessReport`, not the raw table. **AFTER: exactly 1 row**, and it is his.
+> Then signed in as a DIFFERENT user, **Dr. Anke Berg (`org_admin`)**, and opened his access log, which
+> reads verbatim *"2 recorded accesses by 2 distinct actors"* and lists
+> *"**Urs Baumann** read stays · Staff user · **ward_board** · 10:22 PM"*.
+> The downloaded subject-access CSV carries the same row verbatim:
+> `"2026-09-11 22:22:47.607401",read,user,28,"Urs Baumann",stays,01m298vw851bc3cdmpadwcs9sr,ward_board`
+> **THE CARVE-OUT WAS VISIBLE LIVE, NOT JUST IN A TEST:** one occupied bed produced exactly one row; the
+> empty ward and the Cleaning/Free/Blocked beds produced none.
+> **AND THE ACCESS LOG REFUSED THE BED MANAGER.** `urs.baumann` opening the access-log screen got **403** —
+> he can disclose the census and cannot read the disclosure record. Noted as observed behaviour, not a
+> finding of this gate.
+
 - **Role:** `bed_manager` · **Route:** `GET /hospital/wards`
 - **What the page discloses.** Driven live: the board renders, per occupied bed, the occupant's full name,
   the ward, the bed label and the admission time — `IM-ICU-1 · ICU · Occupied · Rolf Schmid · In bed 7d
@@ -6416,6 +6454,40 @@ Server clock `2026-09-09 01:13 UTC`, tenant display zone `Europe/Zurich`, audit 
 
 #### `P10-H5` — Two portal surfaces disclose the patient's own data and write no read row
 
+> ✅ **FIXED — QA-FIX.12a, commit `<pending>` (D-226).** Two one-line additions on the EXISTING path.
+> `PortalMessageController::index` calls `$patient->auditRead(['surface' => 'portal_messages'])`;
+> `PortalTelehealthController::index` resolves the patient from `$account->patient_id` and calls
+> `auditRead(['surface' => 'portal_telehealth'])`. Both now carry the same comment the other six portal
+> controllers already carried — the rule the codebase had already stated six times and these two did not
+> follow.
+> **THE MOST SENSITIVE OF THE EIGHT WAS THE ONE MISSING.** `/portal/messages` renders the content of the
+> patient's conversations with the practice, and it recorded nothing.
+> **MUTATION-CHECKED SEPARATELY, ONE SITE AT A TIME.** Removing the messages call reddens this finding's
+> test **and** the export test — correctly, because that test drives `portal.messages` to prove the export
+> agrees with the screen. Removing the telehealth call reddens this finding's test and the structural
+> carry-forward guard. Neither removal reddens the ward-board or attachment tests, so the three fixes are
+> independently pinned.
+> **`PortalTreatmentPlanController` IS STILL NOT PART OF THIS.** It audits per plan inside the map, so a
+> patient with no plans produces no row — correct by construction, nothing was disclosed. Unchanged.
+> **PLAYWRIGHT-VERIFIED, AS THE PATIENT, THROUGH THE REAL PORTAL.** Signed in at `/portal/login` as
+> **Margrit Ackermann** (`margrit.ackermann@example.test`, spitex-sonnengarten) and opened both pages.
+> `/portal/messages` disclosed her own conversation verbatim — *"Frage zur Einsatzzeit nächste Woche"*,
+> under *"Only your own conversations appear here."* — and `/portal/telehealth` rendered *"Video visits"*.
+> **BEFORE: `portal_messages` = 0 and `portal_telehealth` = 0**, while her log already held two seeded
+> `inbox_agent` rows — so the report was working and these two surfaces simply were not in it.
+> **AFTER: 1 and 1**, both in her own log via `PatientAccessReport`, beside the `portal_home` row that
+> always worked (the control showing the other six surfaces were never the problem).
+> Then, as staff (**Regula Baumann**, `org_admin` of her tenant), her access log read *"6 recorded accesses
+> by 3 distinct actors"* and the downloaded CSV carries both new rows verbatim:
+> `"2026-09-11 22:28:28.431952",read,patient,01m298twzq…,"Patient (self)",patient,01m298tw…,portal_messages`
+> `"2026-09-11 22:28:31.874369",read,patient,01m298twzq…,"Patient (self)",patient,01m298tw…,portal_telehealth`
+> **A DEFECT WAS FOUND WHILE VERIFYING THIS, AND IT IS RECORDED AS `QF12a-M1` RATHER THAN FIXED HERE.** The
+> FIRST drive was made with a staff session still live in the same browser, and all three portal rows —
+> including the pre-existing `portal_home` — recorded **"Dr. Anke Berg · Staff user"** instead of the
+> patient. `PlatformAuditContext::actor()` checks the staff guard first and lets it win. The drive was
+> repeated with no staff session and the same three surfaces recorded **"Patient (self)"**, which is the
+> evidence above. Both appear in the same export, minutes apart, so the A/B is in one file.
+
 - **Routes:** `GET /portal/messages`, `GET /portal/telehealth`
 - **Driven:** I visited all eight portal pages as the patient. The access log recorded eight surfaces —
   `portal_home`, `portal_appointments`, `portal_documents`, `portal_document_download`, `portal_invoices`,
@@ -7206,6 +7278,40 @@ a negative must follow the calls before it reports one.
 
 #### `QF10a-H1` — The nurse day-pack streams a home-visit photo or signature with no audit row of any kind
 
+> ✅ **FIXED — QA-FIX.12a, commit `<pending>` (D-226) — BUT THIS FINDING'S PREMISE WAS HALF WRONG, AND
+> SAYING SO IS THE POINT.**
+> **THE ROUTE RETURNED HTTP 500 FOR EVERY CALLER AND HAD SINCE IT SHIPPED.** Driven live against the dev
+> server with a valid Sanctum `nurse:day-pack` token, as the nurse who owns the visit, against a real
+> attachment: **HTTP 500**, `application/json`, 14,664 bytes, body `Refusing to query
+> [Modules\Nursing\Models\VisitAttachment] with no tenant context (fail-closed)`. `nurse_visit_attachment_download`
+> rows: **0**. So "a home-visit photo leaves the system with no audit row" was right that no row was
+> written and **wrong that anything left the system** — nothing was ever streamed to anybody.
+> **WHICH CHANGED THE FIX.** Adding `auditRead()` to a route that streams nothing would have recorded a
+> presence the product does not have (D-176) and closed this finding on paper while leaving its premise
+> false. The route was repaired FIRST — implicit route-model binding of a `BelongsToTenant` model replaced
+> by the repo's own documented convention, a `string $attachment` resolved in-controller after the tenant
+> middleware has run — and only then audited. The cause is recorded as its own finding, **`QF12a-H1`**,
+> rather than folded silently into this one; it is fixed in the same commit because this fix is meaningless
+> without it, and the dependency is stated rather than hidden.
+> **VERIFIED LIVE, END TO END, AFTER THE REPAIR:** `HTTP 200 · image/jpeg · 10 bytes · body "live-bytes"`,
+> `nurse_visit_attachment_download` rows **1**, `patient_id=01m28zttr9hqqrpawt6qtv4bje` (Margrit Ackermann),
+> `context={"surface":"nurse_visit_attachment_download","type":"photo"}`, **in their access log: YES**.
+> **CLI-VERIFIED, NOT CLAIMED AS A BROWSER STEP.** This is an API route behind a Sanctum ability with no
+> page in the product, so it was driven from the command line (the QA-FIX.9b precedent) rather than
+> asserted as a browser drive it does not have.
+> **A GREEN TEST WAS COVERING THIS ROUTE THE WHOLE TIME.** `VisitExecutionSyncTest`'s *"visit attachments
+> are private…"* asserted a cross-tenant 404 and an authorized 200 over this exact route and never failed.
+> Measured: the auth guard's cached user and the fixture's hand-seeded `TenantContext` singleton meant the
+> controller saw `user=1, tenant=alpha` on BOTH calls — the 404 came from the seeding, not the product.
+> That test is **strengthened** here (guard + context forgotten before each request, so each token really
+> authenticates; the cross-tenant call now arrives as `user=2, tenant=beta`), and mutation-checked with
+> `withoutGlobalScopes()`. Recorded under `QF12a-H1`.
+> **THE MODEL ALREADY CARRIED THE LINK.** `VisitAttachment.patient_id` is non-nullable and tenant-asserted,
+> so `auditPatientId()` returns it directly and nothing had to be invented to reach the patient's log.
+> **THE FINDING'S OWN NOTE STANDS:** the day-pack's LIST surface already audited (`'surface' =>
+> 'nurse_day_pack'`); the download was the gap, and now matches it.
+> **MUTATION-CHECKED.** Removing the `auditRead()` reddens exactly this finding's test and nothing else.
+
 - **Route:** `GET /api/nurse/attachments/{attachment}/download` (`routes/api.php:33`) ·
   **Controller:** `Modules/Nursing/src/Http/Controllers/NurseVisitAttachmentController::__invoke`
 - **What leaves.** `VisitAttachment` is a `photo` or a `signature` captured at a patient's home visit
@@ -7233,6 +7339,124 @@ a negative must follow the calls before it reports one.
 - **Note for whoever fixes it:** the day-pack's *list* surface already audits
   (`'surface' => 'nurse_day_pack'`), so the finding is specifically that the **download** was not given the
   same treatment as the read that precedes it.
+
+#### `QF12a-H1` — The nurse day-pack attachment route has never worked: implicit model binding of a tenant-owned row 500s for every caller
+
+- **Recorded by QA-FIX.12a while fixing `QF10a-H1`, and fixed in the same commit** — the reason it could
+  not be deferred is below.
+- **Route:** `GET /api/nurse/attachments/{attachment}/download` (`routes/api.php:33`) ·
+  **Controller:** `Modules/Nursing/src/Http/Controllers/NurseVisitAttachmentController::__invoke`
+- **What happens.** Driven live against the dev server with a valid Sanctum `nurse:day-pack` token, as the
+  nurse who owns the visit, against a real attachment: **HTTP 500**, `application/json`, 14,664 bytes, body
+  `Refusing to query [Modules\Nursing\Models\VisitAttachment] with no tenant context (fail-closed)`.
+  This is not an edge case — the route returns 500 for **every** caller, on every request, and always has.
+- **Cause — the C-1 class, on the API group.** The controller was born as
+  `__invoke(Request $request, VisitAttachment $attachment)` in `0739258` (P0E.G7) and was never changed.
+  Laravel resolves that implicit binding in `SubstituteBindings`; `bootstrap/app.php:64` registers
+  `IdentifyTenantFromUser` via `$middleware->api(append: [...])`, so it runs **after** it. A
+  `BelongsToTenant` model is therefore queried with no tenant context and the fail-closed `TenantScope`
+  guard throws. That is precisely the C-1 / FIX.1 defect, reappearing on the API group instead of the web
+  group.
+- **Why neither guard caught it.** `docs/MASTER-STATUS-REPORT.md:193` enumerates exactly this class and
+  declares it **"CLEAN. … The only Eloquent binding is `PublicBookingController.php:24 index(Tenant
+  $tenant)`"**. The claim was false: this route was a second binding, and unlike the booking one it binds a
+  tenant-**owned** row rather than the tenant root. C-1's own remediation
+  (`docs/QA-AUDIT-REPORT.md:159`, recommendation #7) added browser/E2E smoke precisely so "a request-time
+  500 like C-1 can't ship green again" — but this is an **API** route behind a Sanctum ability, which no
+  browser smoke reaches.
+- **AND THERE WAS A TEST. IT PASSED, FOR THE WRONG REASON — WHICH IS THE MORE IMPORTANT HALF.**
+  `tests/Feature/Nursing/VisitExecutionSyncTest.php` → *"visit attachments are private and streamed only
+  through an authorized controller"* drove this exact route and asserted a cross-tenant **404** and an
+  authorized **200**, and it was green throughout. (A path grep misses it — it addresses the route by name,
+  `route('api.nurse.attachments.download', …)`. My first sweep said "no test exists"; that was wrong, and
+  finding the test is what explains the green.) **Two pieces of state survive a request inside one test:**
+  the auth guard caches the resolved user, and the fixture seeds the `TenantContext` **singleton** directly
+  so it can create rows. **Measured, not read:** with the guard left as the suite leaves it, the controller
+  sees `user=1, tenant=alpha` on BOTH calls — so the "other tenant" request was never made by the other
+  tenant, and the implicit binding resolved under the hand-seeded context instead of the missing one. The
+  404 came from the seeding; the 200 came from the same user twice. **This is precisely the masking C-1's
+  remediation named** — *"the suite pre-seeded the `TenantContext` singleton before each request, masking
+  the real middleware ordering"* — still live in this test, three years of gates later.
+- **The test is strengthened here, not relaxed.** It now forgets the guard and the context before each
+  request, so each token genuinely authenticates. Re-measured: the cross-tenant call arrives as
+  `user=2, tenant=beta` and is refused **404**; the authorized call arrives as alpha and succeeds.
+  Mutation-checked: bypassing the tenant scope in the controller (`withoutGlobalScopes()`) turns it RED.
+  Under the old version that cross-tenant assertion was vacuous.
+- **It fails CLOSED, which is why this is HIGH and not CRITICAL.** No PHI was disclosed and no tenant
+  boundary was crossed — the guard did its job. The defect is that a shipped feature (downloading a
+  home-visit photo or signature) has never worked for anybody, and a status document asserted the opposite.
+- **Why it could not be deferred to its own gate.** `QF10a-H1` asked for an audit row on this disclosure.
+  **The disclosure was not occurring.** Adding `auditRead()` to a route that streams nothing to nobody
+  would have recorded a presence the product does not have (D-176) and would have closed `QF10a-H1` on
+  paper while leaving its premise false. Repairing the route is a precondition for that fix meaning
+  anything, so the two are in one commit and the dependency is stated rather than hidden.
+- **`QF10a-H1`'s premise was therefore half wrong, and the record says so.** "A home-visit photo leaves the
+  system with no audit row" was right that no row was written and wrong that anything left the system.
+  What was true — and is what the fix addresses — is that the route *intends* to disclose and recorded
+  nothing; once repaired it discloses for real, so it needs the row.
+- **Fix.** The repo's own documented convention (`docs/ONBOARDING.md:425-426`): take a `string $attachment`
+  and resolve in-controller, after the tenant context is set —
+  `VisitAttachment::query()->whereKey($attachment)->firstOrFail()`. Verified live: **HTTP 200,
+  `image/jpeg`, the real stored bytes**, and one `read` row reaching the patient's own access log.
+- **The class is now clean — verified by enumeration, not by the stale claim.** A comment-stripped scan of
+  every `*Controller.php` under `Modules/` for an action type-hinting a model imported from a `\Models\`
+  namespace returns **3**, all of them `PublicBookingController::index/slots/store(Tenant $tenant)` on
+  `book/{tenant:slug}` — the tenant ROOT resolved from a slug, which is intentional and not this class.
+  Before this fix the same scan returned **4**. (The status report named only `index`; there are three
+  methods. That undercount is noted, not fixed here.)
+- **Note for the record:** `docs/MASTER-STATUS-REPORT.md` is already flagged stale elsewhere in this
+  programme. This is a concrete instance of that staleness, not a new documentation finding.
+
+#### `QF12a-M1` — A live staff session in the same browser steals attribution for the patient's own portal reads
+
+- **Recorded by QA-FIX.12a during the `P10-H5` browser verification. NOT fixed — recorded, per the standing
+  rule that a newly-found defect gets its own id rather than widening the part.**
+- **Cause, exact.** `app/Audit/PlatformAuditContext::actor()` checks the **default (staff) guard first and
+  lets it win unconditionally**:
+  ```php
+  $user = Auth::user();                       // staff/web guard — checked FIRST
+  if ($user !== null) { return ['type' => 'user', 'id' => …]; }
+  $patient = Auth::guard('patient')->user();  // only reached when NO staff session exists
+  ```
+  The staff app and the patient portal are the same origin and share one session cookie, so both guards can
+  hold a user at once. When they do, every audited portal surface records the STAFF member as the actor —
+  even though the `portal-auth` middleware authenticated the patient and the page served that patient's own
+  data.
+- **Measured as a clean A/B: same browser, same two pages, same patient, minutes apart. The only difference
+  is whether a staff session was live.**
+
+  | surface | staff session live (22:25) | no staff session (22:28) |
+  |---|---|---|
+  | `portal_home` (pre-existing) | `user` · id 24 · *Dr. Anke Berg* | `patient` · *Patient (self)* |
+  | `portal_messages` | `user` · id 24 · *Dr. Anke Berg* | `patient` · *Patient (self)* |
+  | `portal_telehealth` | `user` · id 24 · *Dr. Anke Berg* | `patient` · *Patient (self)* |
+
+- **It is PRE-EXISTING and not introduced by this gate.** `portal_home` has been audited since PC.P5 and
+  shows the identical behaviour; the two surfaces QA-FIX.12a added merely inherit it. `PlatformAuditContext`
+  was not touched by this gate.
+- **Both directions are wrong, and that is what makes it more than cosmetic.** The patient's own access log
+  — a legal instrument under nDSG Art. 25 / GDPR Art. 15 — states that a named clinician read the record
+  when they did not; and the patient's own access to their own record disappears from the "Patient (self)"
+  count. Both appear in the subject-access export verbatim:
+  ```
+  "…22:28:28",read,patient,01m298twzq…,"Patient (self)",patient,01m298tw…,portal_messages
+  "…22:25:20",read,user,24,"Dr. Anke Berg",patient,01m298tw…,portal_messages
+  ```
+- **Why MEDIUM, and the argument for HIGH stated rather than hidden.** MEDIUM because **no disclosure goes
+  unrecorded** — the row exists, carries the right `patient_id`, and reaches the patient's log, so this is
+  not a family-4 defect; and it requires a staff session and a portal session to coexist in one browser.
+  The argument for HIGH is that an access log naming the wrong actor is a false statement in a record the
+  patient is entitled to rely on, and family 6 graded `P9-H6` HIGH for attributing a write to a person who
+  did not make it. **Graded MEDIUM on reachability, not on consequence; a grader may reasonably disagree.**
+- **How reachable is it, honestly?** It needs one browser with both sessions. That is not exotic: staff
+  helping a patient sign in at a desk, a staff member who is also a patient of the practice, or anyone who
+  opens the portal in the tab beside the clinic app. It is not reachable by an anonymous attacker and grants
+  no access that was not already held — the staff user still only sees what their own permissions allow.
+- **Not fixed here, and the fix is not a one-liner.** Reversing the guard order would be wrong in the other
+  direction (a staff member legitimately browsing staff pages while a stale portal cookie exists). The
+  honest remedy is to resolve the actor from **the guard that authorised THIS request** — the portal routes
+  know they ran behind `portal-auth` — rather than from a global "whoever is logged in" lookup. That is a
+  design decision across every audited surface, so it belongs in its own gate with its own tests.
 
 ---
 

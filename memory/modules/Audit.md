@@ -95,3 +95,19 @@ and patient-scoped read logging for Summary source rows.
 - **The append-only fence held in all ten phases:** model `appendOnly()` guards plus `SIGNAL '45000'` database
   triggers on `lab_results`, `order_results`, `imaging_study_events`, `stay_events`, `audit_events`; the chain
   is verified by replay. Nothing in the programme mutated or deleted a recorded fact.
+
+## A live staff session steals attribution for a patient's own portal reads (QA-FIX.12a, `QF12a-M1`, OPEN)
+
+`app/Audit/PlatformAuditContext::actor()` checks the **default (staff) guard first and lets it win
+unconditionally**; only if `Auth::user()` is null does it look at `Auth::guard('patient')`. The staff app
+and the portal are the same origin and share one session cookie, so both guards can hold a user at once.
+
+**Measured A/B, same browser, same pages, same patient, minutes apart:** with a staff session live,
+`portal_home` / `portal_messages` / `portal_telehealth` all recorded `user` · *"Dr. Anke Berg"*; with no
+staff session, all three recorded `patient` · *"Patient (self)"*. Both halves are in one exported CSV.
+
+**Pre-existing** (`portal_home` has behaved this way since PC.P5) and **graded MEDIUM on reachability, not
+consequence** — nothing goes unrecorded, but the patient's legal access log names an actor who did not read
+the record. **Not fixed:** reversing the guard order is wrong in the other direction; the honest remedy
+resolves the actor from the guard that authorised THIS request, which is a change across every audited
+surface and needs its own gate.

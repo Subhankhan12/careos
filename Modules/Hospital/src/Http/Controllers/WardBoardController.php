@@ -55,6 +55,31 @@ class WardBoardController
             ->get()
             ->keyBy('current_bed_id');
 
+        /*
+         * `P9-H2` (QA-FIX.12a, D-226) — THE BOARD DISCLOSES EVERY ADMITTED PATIENT, SO IT RECORDS ONE
+         * READ PER PATIENT.
+         *
+         * Of Hospital's five read surfaces, the four that show ONE patient were logged and the one that
+         * shows EVERY patient was not — so a staff member could enumerate the whole inpatient census
+         * (who is in the building, in which ward, in which bed, since when) and leave no trace in any
+         * patient's access log.
+         *
+         * ONE ROW PER PATIENT, NOT ONE ROW LISTING THEM (D-221). `PatientAccessReport` reaches a log by
+         * `patient_id = ?`, so a single row naming the census is invisible to every one of them. The
+         * EXISTING `auditRead()` path is used — `Stay` already has `LogsReads` and already maps to its
+         * patient — so no second audit path is introduced and the action stays `read`, which
+         * `DISCLOSURE_ACTIONS` already contains. **A bespoke action here would be well-formed,
+         * hash-chained and invisible** — the mistake QA-FIX.10a made and caught.
+         *
+         * THE COST, STATED: `AuditService::record()` takes a per-tenant `FOR UPDATE` lock per row, so a
+         * board render costs one serialised append per ADMITTED patient. That is bounded by the ward's
+         * occupied beds — the census itself — and it is the price of the disclosure being recorded at
+         * all. Only OCCUPIED beds are audited: an empty ward discloses nobody and writes nothing.
+         */
+        foreach ($activeStays as $disclosed) {
+            $disclosed->auditRead(['surface' => 'ward_board']);
+        }
+
         $board = $wards->activeWards()->map(function (Ward $ward) use ($beds, $activeStays, $canManageBeds): array {
             $wardBeds = $beds->forWard($ward)->where('active', true)->values();
             $occupied = 0;

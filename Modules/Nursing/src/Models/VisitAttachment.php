@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Carbon;
 use InvalidArgumentException;
+use Modules\Audit\Concerns\LogsReads;
 use Modules\Patients\Models\Patient;
 use Modules\Platform\Concerns\BelongsToTenant;
 use Modules\Platform\Exceptions\CrossTenantReferenceException;
@@ -24,7 +25,7 @@ use Modules\Platform\Exceptions\CrossTenantReferenceException;
  */
 class VisitAttachment extends Model
 {
-    use BelongsToTenant, HasUlids;
+    use BelongsToTenant, HasUlids, LogsReads;
 
     public const TYPE_PHOTO = 'photo';
 
@@ -95,5 +96,15 @@ class VisitAttachment extends Model
         if (! in_array($this->type, self::TYPES, true)) {
             throw new InvalidArgumentException('Visit attachment type is not valid.');
         }
+    }
+
+    /**
+     * `QF10a-H1` (QA-FIX.12a) — a home-visit photo or signature IS this patient's record, so a download
+     * of it is a disclosure and must reach their access log. The link was already on the model:
+     * `patient_id` is non-nullable and tenant-asserted, so nothing had to be invented to carry it.
+     */
+    protected function auditPatientId(): ?string
+    {
+        return (string) $this->patient_id;
     }
 }

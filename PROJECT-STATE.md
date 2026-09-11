@@ -86,7 +86,7 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
 
 ## STATUS: BUILD COMPLETE · DEPLOY-READY 🟢 GO · THE BUILDABLE PARITY PROGRAMME IS COMPLETE — ONE TRACK REMAINS: **DEPLOYMENT + PARTNERSHIPS**
 
-### ✅ THE ROLE-BY-ROLE QA AUDIT IS COMPLETE — `docs/qa/ROLE-AUDIT.md` (10 of 10 phases; **187 findings — 46 fixed, 141 open** as of QA-FIX.11b; **every CRITICAL is fixed — 0 open, highest open severity is HIGH at 29**)
+### ✅ THE ROLE-BY-ROLE QA AUDIT IS COMPLETE — `docs/qa/ROLE-AUDIT.md` (10 of 10 phases; **189 findings — 50 fixed, 139 open** as of QA-FIX.12a; **every CRITICAL is fixed — 0 open, highest open severity is HIGH at 26**)
 
 **Phase 1 (reception / front-desk) is DONE** (`06a3f78`): 18 findings — 1 CRITICAL, 3 HIGH, 8 MEDIUM,
 6 LOW — every page **driven in a real browser** via Playwright MCP. Findings are **recorded, not
@@ -504,6 +504,41 @@ them through a one-query resolver, with an unresolvable id left **unnamed** rath
 where each defect lives:** `P9-H6` from the **CLI** (a browser step would have no meaning) — a forced accrual
 stored `created_by = Dr. Anke Berg`; `P8-H3` in the **browser** on all four pages, against a finding that
 recorded a name scan returning nothing.
+
+**QA-FIX.12a (`<pending>`, D-226) is done, and it CLOSES FAMILY 4: `P9-H2`, `P10-H5` and `QF10a-H1` are
+FIXED — and it recorded TWO new findings on the way.** Family 4 is "PHI is shown or leaves, and nothing
+records it", and **nothing was designed**: D-221/D-222 had already settled the shape, so every fix is
+`auditRead()` on a model that already has `LogsReads`, and **`PatientAccessReport::DISCLOSURE_ACTIONS` is
+byte-identical after this part** — the check that no action class was invented. No legal-basis, recipient or
+purpose model was introduced; that is a disclosure register, a feature, and it is not here.
+**`P9-H2`** records one row per ADMITTED patient, not one row listing them (D-221) — a census row would be
+invisible to everyone on it. Only OCCUPIED beds are audited (D-184), proven by a complementary empty-ward
+test rather than asserted, and the cost is stated: one serialised append per admitted patient per render.
+**`P10-H5`** is two lines on the path the other six portal controllers already used.
+**`QF10a-H1`'s PREMISE WAS HALF WRONG, AND THAT CHANGED THE FIX.** Driven live with a valid Sanctum token,
+`GET /api/nurse/attachments/{attachment}/download` returned **HTTP 500 for every caller and had since it
+shipped** — implicit route-model binding of a `BelongsToTenant` model, resolved before the appended
+`IdentifyTenantFromUser`. **Nothing was ever streamed to anybody**, so auditing alone would have been an
+unbacked presence (D-176). The route was repaired first (a string id resolved in-controller — the repo's own
+documented convention) and only then audited; after the repair, live: HTTP 200, `image/jpeg`, real bytes,
+one row reaching the patient's log. Recorded as **`QF12a-H1`** rather than folded in silently.
+**A GREEN TEST HAD BEEN COVERING THAT BROKEN ROUTE ALL ALONG** — `VisitExecutionSyncTest` asserted a
+cross-tenant 404 and an authorized 200 over it. Measured: the auth guard's cached user and the fixture's
+hand-seeded `TenantContext` **singleton** meant the controller saw `user=1, tenant=alpha` on BOTH calls, so
+**the 404 came from the seeding, not the product** — exactly the masking C-1's own remediation named. The
+test is **strengthened, not relaxed**, and mutation-checked with `withoutGlobalScopes()`.
+**The C-1 class is now genuinely clean, verified by enumeration rather than by `MASTER-STATUS-REPORT.md:193`,
+which declared it clean and missed this route:** a comment-stripped scan of every `Modules/**/*Controller.php`
+returns **3** (all `PublicBookingController(Tenant $tenant)` on `book/{tenant:slug}`, the tenant ROOT from a
+slug) and returned **4** before the fix.
+**`QF12a-M1` IS OPEN AND DELIBERATELY NOT FIXED HERE.** During the browser verification, a staff session
+live in the same browser caused every portal read — **including the pre-existing `portal_home`** — to be
+attributed to *"Dr. Anke Berg · Staff user"* instead of the patient, because
+`PlatformAuditContext::actor()` checks the staff guard first and the two apps share one session cookie.
+Re-driven with no staff session, the same surfaces recorded *"Patient (self)"* — a clean A/B, both halves in
+one exported CSV. Nothing goes unrecorded, so it is not a family-4 defect; it is graded **MEDIUM on
+reachability with the argument for HIGH stated**, and the honest fix (resolve the actor from the guard that
+authorised THIS request) is a decision across every audited surface and needs its own gate.
 
 
 **PHASE 10 ADDENDUM (same day) — `P10-C3` (CRITICAL): the agent approve gate has a SECOND, UNGATED door.**

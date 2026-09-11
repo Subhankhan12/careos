@@ -5261,3 +5261,86 @@ references the old ID.
   restoring the old convenience resolver reddens the structural guard; deleting one page's rendered name
   reddens the render guard. See [[Hospital]], [[Lab]], [[Radiology]], [[Platform]], D-195, D-216, D-220,
   D-197, D-176, [[LOG]].
+
+- **D-226 — The remaining disclosures reach the patient's log through the EXISTING path and no new action
+  class; and one of the three findings could not be fixed until its route was repaired, because it was
+  disclosing nothing at all (QA-FIX.12a, closing `P9-H2`, `P10-H5`, `QF10a-H1`, and recording + fixing
+  `QF12a-H1`).**
+  Family 4 is "PHI is shown or leaves, and nothing records it". D-221/D-222 had already settled the shape,
+  so **this part designed nothing**: every fix is `auditRead()` on a model that already has `LogsReads`,
+  producing a `read` row carrying `patient_id` — already inside
+  `PatientAccessReport::DISCLOSURE_ACTIONS`. **The constant is byte-identical after this part**, which is
+  the check that no action class was invented.
+  **THE BOUNDARY WAS NOT RE-OPENED.** D-222's rule — a row belongs in the patient's log when it records
+  *this patient's record being made visible or available to someone* — admits all three findings without
+  argument: a census of who is in which bed, the content of a patient's own messages, and a home-visit
+  photo leaving the system. The two classes D-222 REJECTED with reasons (`referral.sent`, because CareOS
+  transmits nothing; `notification.sent`, a message *about* care rather than a disclosure *of* the record)
+  are untouched. **No legal-basis, recipient or purpose model was introduced** — that is a disclosure
+  register, a feature, and it is not here.
+  **QA-FIX.10a's OWN CORRECTION IS CARRIED FORWARD AND PINNED BY MUTATION.** Its first attempt gave the new
+  rows a bespoke action: well-formed, hash-chained, patient-scoped — and **invisible**, because the report
+  filters on `DISCLOSURE_ACTIONS`. A fix that closes half a finding while reading as complete is worse than
+  no fix. Demonstrated here rather than asserted: replacing the ward board's `auditRead()` with a bespoke
+  `ward.viewed` record leaves **"is audited" GREEN** (a patient-scoped row exists) and turns **"reaches the
+  patient's log" RED**. Both probes were green before the mutation.
+  **`P9-H2` — ONE ROW PER PATIENT, NOT ONE ROW LISTING THEM (D-221/D-189).** The ward board's disclosure is
+  per occupant, so the audit is per occupant: `foreach ($activeStays as $disclosed) { $disclosed->auditRead(['surface' => 'ward_board']); }`.
+  A two-patient fixture is used deliberately — a one-patient fixture cannot tell "one row per patient" from
+  "one row listing them". **The D-184 carve-out is proven, not asserted:** only OCCUPIED beds are audited,
+  so an empty ward writes nothing, and a complementary test supplies that case so the absence assertion is
+  not vacuous. **The cost is stated rather than hidden:** one serialised audit append per admitted patient
+  per board view, on a per-tenant `FOR UPDATE` chain lock.
+  **`P10-H5` — TWO LINES, AND THE CODEBASE HAD ALREADY WRITTEN THE RULE SIX TIMES.** The other six portal
+  controllers each carry the same comment about auditing the patient's read of their own record; these two
+  did not. They now do, with that comment. Telehealth resolves the patient from `$account->patient_id`
+  rather than assuming a loaded relation.
+  **`QF10a-H1` — THE PREMISE WAS HALF WRONG, AND FINDING THAT OUT CHANGED THE FIX.** Driving the route live
+  with a valid Sanctum token returned **HTTP 500 for every caller**: implicit route-model binding of a
+  `BelongsToTenant` model, resolved by `SubstituteBindings` before the appended `IdentifyTenantFromUser`,
+  so the fail-closed tenancy guard threw. **Nothing had ever been streamed to anybody.** Auditing that
+  route as it stood would have recorded a presence the product does not have (D-176) and closed the finding
+  while leaving it false. So the route was repaired first, by the repo's own documented convention — a
+  `string $attachment` resolved in-controller after context is set — and *then* audited. Recorded as
+  **`QF12a-H1`**, a new finding with its own id, rather than folded silently into the fix; fixed in the
+  same commit because the other fix is meaningless without it, and that dependency is stated.
+  **THERE WAS A TEST OVER THAT ROUTE AND IT WAS GREEN THE WHOLE TIME — THE MASKING C-1 NAMED, STILL LIVE.**
+  `VisitExecutionSyncTest`'s *"visit attachments are private…"* drove this exact route and asserted a
+  cross-tenant 404 and an authorized 200. A path grep misses it because it addresses the route by NAME, and
+  my first sweep wrongly reported no test at all. **Two pieces of state survive a request inside one test:**
+  the auth guard caches the resolved user, and the fixture seeds the `TenantContext` **singleton** directly.
+  Measured rather than read: with them left alone the controller sees `user=1, tenant=alpha` on BOTH calls —
+  the "other tenant" request was never made by the other tenant, and the implicit binding resolved under the
+  hand-seeded context instead of the missing one. **The 404 came from the seeding, not from the product**,
+  which is exactly what C-1's remediation described and warned about. **The test is STRENGTHENED, not
+  relaxed:** it now forgets the guard and the context before each request, the cross-tenant call genuinely
+  arrives as `user=2, tenant=beta` and is refused, and a `withoutGlobalScopes()` mutation in the controller
+  turns it RED. **A green test over a route that 500s for every real caller is the most expensive kind of
+  false assurance, and it is recorded here rather than quietly fixed.**
+  **THE C-1 CLASS IS NOW GENUINELY CLEAN, AND THE DOCUMENT THAT SAID SO WAS WRONG.**
+  `MASTER-STATUS-REPORT.md:193` declared this class clean and named `PublicBookingController::index` as its
+  only Eloquent binding. A comment-stripped scan of every `*Controller.php` under `Modules/` now returns
+  **3** — `PublicBookingController::index/slots/store(Tenant $tenant)`, the tenant ROOT resolved from a
+  slug, which is intentional — and returned **4** before this fix. The enumeration is this gate's, not the
+  document's.
+  **TWO CONCURRENT MUTATION RUNS PRODUCED A FULL PAGE OF FALSE RESULTS, AND THE TEXT IS WHAT CAUGHT IT.**
+  A background runner was still alive when a second was launched; both mutated the same four files and both
+  ran Pest against the one shared dev database. Every test in both runs reported `6 failed (0 assertions)`
+  — the signature of two `RefreshDatabase` processes trampling one schema, not of a mutation. An exit code
+  would have said nothing. **Mutation runs are serial and in the foreground from here**, and each reverts
+  to a pristine snapshot whose diff fingerprint is re-verified after every single run.
+  **Guarded by** six tests in `tests/Feature/Qa/DisclosureReachesPatientTest.php`, mutation-checked five
+  ways: removing any one of the four `auditRead()` calls reddens that disclosure's own test, and the
+  bespoke-action mutation reddens only the "reaches the log" half. Audit context is asserted by **decoding
+  the JSON**, never matched as SQL text (the standing repo rule — MySQL 8 re-serialises JSON columns).
+  **A SECOND NEW FINDING CAME OUT OF THE BROWSER VERIFICATION AND IS RECORDED, NOT FIXED (`QF12a-M1`).**
+  The first portal drive was made with a staff session still live in the same browser, and all three portal
+  rows — including the **pre-existing** `portal_home` — recorded *"Dr. Anke Berg · Staff user"* instead of
+  the patient. `PlatformAuditContext::actor()` checks the staff guard FIRST and lets it win, and the two
+  apps share one session cookie. Re-driven with no staff session, the same three surfaces recorded
+  *"Patient (self)"* — a clean A/B, same pages, same patient, both halves visible in one exported CSV.
+  It is **not a family-4 defect** (nothing goes unrecorded) and **not caused by this gate**, so it is
+  recorded with its own id and left open: the honest fix resolves the actor from the guard that authorised
+  THIS request, which is a decision across every audited surface and belongs in its own gate.
+  See [[Hospital]], [[Comms]], [[Nursing]], [[Patients]], [[Platform]], [[Audit]], D-221, D-222, D-184,
+  D-189, D-176, [[LOG]].

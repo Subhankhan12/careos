@@ -508,3 +508,19 @@ row the engine returned.
 permission, so old and new resolve identically). It bites on a second org_admin, a **branch-scoped** one, or
 an org_admin without `billing.manage`. **Historical rows measured: 32 accruals, 0 miscredited** — nothing
 was rewritten.
+
+
+## The ward board records one read per admitted patient (QA-FIX.12a, `P9-H2`, D-226)
+
+`WardBoardController::show` calls `$disclosed->auditRead(['surface' => 'ward_board'])` once per ACTIVE STAY,
+before the board is assembled. Of Hospital's five read surfaces, the four showing ONE patient were logged
+and the one showing EVERY patient was not — so the whole inpatient census could be enumerated with no trace
+in any patient's access log.
+
+**One row per patient, not one row listing them** (D-221): `PatientAccessReport` reaches a log by
+`patient_id = ?`, so a single census row is invisible to everyone on it. `Stay` already had `LogsReads` and
+already mapped to its patient, so nothing was built and the action stays `read`.
+
+**Only OCCUPIED beds are audited** — an empty ward discloses nobody and writes nothing (D-184).
+**The cost, stated:** one serialised audit append per admitted patient per board render, on the per-tenant
+`FOR UPDATE` chain lock.

@@ -8,6 +8,7 @@ use Inertia\Inertia;
 use Inertia\Response;
 use Modules\Comms\Models\TelehealthSession;
 use Modules\Comms\Services\TelehealthService;
+use Modules\Patients\Models\Patient;
 use Modules\Patients\Models\PortalAccount;
 
 /**
@@ -21,6 +22,11 @@ class PortalTelehealthController
     public function index(Request $request): Response
     {
         $account = $this->account($request);
+
+        // `P10-H5` (QA-FIX.12a) — one read row per render, the EXISTING path, same as the other six
+        // portal surfaces (PC.P5).
+        Patient::query()->whereKey($account->patient_id)->firstOrFail()
+            ->auditRead(['surface' => 'portal_telehealth']);
 
         $sessions = TelehealthSession::query()
             ->where('patient_id', $account->patient_id)

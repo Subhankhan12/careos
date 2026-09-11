@@ -22,6 +22,15 @@ class PortalMessageController
     public function index(Request $request, ThreadService $threads): Response
     {
         $patient = $this->patient($request);
+
+        /*
+         * `P10-H5` (QA-FIX.12a) — the patient is reading their own record: one read row per render,
+         * through the EXISTING auditRead() path, so this disclosure appears in their access log (PC.P5).
+         * This surface renders the CONTENT of their conversations with the practice and was the most
+         * sensitive of the eight portal pages, yet it was one of the two that recorded nothing.
+         */
+        $patient->auditRead(['surface' => 'portal_messages']);
+
         $threadRows = $threads->threadsForPatient($patient);
 
         $activeThread = null;

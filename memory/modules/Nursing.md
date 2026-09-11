@@ -463,3 +463,35 @@ the server. **P4-H1 remains OPEN.**
 `accepted` and that is correct — the forged field is ignored and the visit is theirs. A real
 cross-assignment test needs a **second nurse in the SAME tenant**; two tenants only prove tenant
 isolation, which is a different guard.
+
+
+## The day-pack attachment route was BROKEN, and fixing it came before auditing it (QA-FIX.12a, `QF10a-H1` + `QF12a-H1`, D-226)
+
+`GET /api/nurse/attachments/{attachment}/download` returned **HTTP 500 for every caller and had since it
+shipped** (`0739258`). `NurseVisitAttachmentController::__invoke` took `VisitAttachment $attachment` —
+implicit route-model binding of a `BelongsToTenant` model, resolved by `SubstituteBindings`, which runs
+BEFORE the appended `IdentifyTenantFromUser`. The fail-closed tenancy guard threw every time. **Nothing was
+ever streamed to anybody**, so `QF10a-H1`'s premise ("a photo leaves with no audit row") was half wrong.
+
+**Auditing alone would have been an unbacked presence** (D-176), so the route was repaired first, by the
+repo's documented convention — `string $attachment` resolved in-controller after the tenant middleware —
+and only then audited. Recorded as its own finding `QF12a-H1`; fixed in the same commit because the other
+fix is meaningless without it.
+
+`VisitAttachment` gained `LogsReads` and an `auditPatientId()` returning its non-nullable, tenant-asserted
+`patient_id`. The download records `['surface' => 'nurse_visit_attachment_download', 'type' => ...]`
+**before** the bytes are handed over — matching every other audited download in the codebase.
+
+**A GREEN TEST WAS COVERING THE BROKEN ROUTE.** `VisitExecutionSyncTest`'s *"visit attachments are
+private…"* asserted a cross-tenant 404 and an authorized 200 over it and never failed. Two pieces of state
+survive a request inside one test — the auth guard's cached user and the `TenantContext` **singleton** the
+fixture seeds — so the controller saw `user=1, tenant=alpha` on BOTH calls. The 404 came from the seeding,
+not the product. **The test now calls `e7ForgetRequestState()` before each request** so each token really
+authenticates; mutation-checked with `withoutGlobalScopes()`.
+
+**Writing a request-level test here? Forget the guard AND the context first**, or the request is answered
+as the wrong user under a tenant you seeded by hand.
+
+**If you add an API route with a param: take a string id and resolve in-controller.** After this fix the
+only Eloquent bindings left in `Modules/` are `PublicBookingController::index/slots/store(Tenant $tenant)`
+on `book/{tenant:slug}` — the tenant ROOT from a slug, which is intentional.
