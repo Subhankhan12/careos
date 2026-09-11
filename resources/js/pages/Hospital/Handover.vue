@@ -3,6 +3,7 @@ import { Head, router } from '@inertiajs/vue3';
 import { reactive, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import AppLayout from '@/Layouts/AppLayout.vue';
+import RefusalNotice from '@/Components/RefusalNotice.vue';
 
 // Nursing shift handover (HOSPITAL.G5) — PRESENTATIONAL (P0D.GU): the outgoing nurse authors a
 // structured SBAR handover, and the stay's shift-by-shift history is shown raw. RECORD-NOT-JUDGE:
@@ -61,6 +62,9 @@ const SBAR = [
     <AppLayout>
         <Head :title="t('hospital.handover.title')" />
         <div class="space-y-5">
+            <!-- The server's own refusal, shown where it happened (QA-FIX.11a; D-210, D-213). -->
+            <RefusalNotice />
+
             <!-- Header -->
             <div class="euca-tile-dark flex flex-col justify-between gap-4 p-6 sm:flex-row sm:items-center">
                 <div>

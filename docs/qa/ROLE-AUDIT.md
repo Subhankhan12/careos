@@ -55,6 +55,10 @@ missing · `LOW` cosmetic / polish.
 | **Total recorded** (+ `QF10a-H1`, recorded by a fix gate) | **24** | **46** | **84** | **32** | **186** |
 | of which **FIXED** by **TEN** QA-FIX gates (29 parts) | **24** | 12 | 4 | 1 | **41** |
 | of which **OPEN** | **0** | **34** | **80** | **31** | **145** |
+| ⚠️ **SUPERSEDED AGAIN — CURRENT as of QA-FIX.11a** | | | | | |
+| **Total recorded** (+ `QF11a-M1`) | **24** | **46** | **85** | **32** | **187** |
+| of which **FIXED** | **24** | **15** | 4 | 1 | **44** |
+| of which **OPEN** | **0** | **31** | **81** | **31** | **143** |
 
 *(Phase 10's counts include the two addendum findings `P10-C3` and `P10-M7`, recorded the same day after a
 second adversarial pass over the same scope — see "Phase 10 — ADDENDUM" at the end of this document.)*
@@ -4821,6 +4825,34 @@ outside the five names a `lab.*` or `radiology.*` permission.
 
 #### `P8-H1` — Neither Lab nor Radiology renders any refusal: the `P6-C3` / `P7-H2` defect, third module
 
+
+> ✅ **FIXED — QA-FIX.11a, commit `<pending>` (D-224).** An **ADOPTION, not a design** (D-210, D-213):
+> `RefusalNotice.vue` already existed and already read the WHOLE error bag, so this was **seventeen imports
+> and seventeen tags** — no new component, no new mechanism, no restyle, no reword. A test asserts none of
+> these modules rolled its own.
+> **THE MEASURED SCOPE WAS FOUR TIMES THE ESTIMATE.** Comment-stripped: **Lab 8 · Radiology 11 · Hospital 11
+> = 30 refusal sites across 17 pages**, of which **sixteen rendered no error bag at all** (`grep -cE
+> '\berrors\b'` returned 0 on each). Only `Radiology/Report.vue` already had the notice — added by QA-FIX.8b
+> for its own new refusal, which is also why this finding's count of 18 is now 19: `unidentifiedAuthor()`
+> was introduced by `5a16624` **after** Phase 8 counted. The finding was right when written.
+> **WHICH KEY IS REACHABLE IS NOT UNIFORM — the argument for reading the bag, demonstrated.** On
+> `Lab/Catalog` the DOMAIN key is **unreachable** (`LabCatalogException::codeAndNameRequired()` fires on an
+> empty code, which `required` has already rejected), so only the FIELD key can appear. On
+> `Hospital/WardBoard` the driven refusal produced **three messages at once**. A notice naming keys would
+> have shown nothing on the first and part of the second.
+> **TWO REFUSALS WERE WORSE THAN INVISIBLE — BOTH WERE UNCAUGHT 500s, both fixed here with NARROW catches**
+> (never `Throwable`, asserted): `Lab/Review.vue`'s only control posts to the reused
+> `clinical.orders.review`, where `markReviewed()` throws for a non-`resulted` order and **nothing caught it
+> — verified by driving: HTTP 500, no redirect, no error bag**; and **`P10-H2`**, where a tool's domain
+> refusal at approve time is not an `AiCoreException` and escaped both catches. **The 500 → 302 change
+> weakens nothing** — both still refuse, nothing is written either way.
+> **PLAYWRIGHT-VERIFIED, three refusals across two modules plus the success control.** `Lab/Catalog`:
+> *"The code field is required."* `Lab/Review` (the former 500): *"Only a resulted order can be marked
+> reviewed."* — reproduced the finding's own scenario with a stale second tab. `Hospital/WardBoard`: *"The
+> patient id field is required. / The admitting clinician id field is required. / The admission type field
+> is required."* **Before: zero `role="alert"` elements on every one of these pages.** Success control: a
+> valid catalog write showed **0 alerts** and `lab_tests` went **3 → 4** in the database.
+
 **18 `->withErrors([...])` sites across 10 controllers** (Lab: billing 3, catalog 1, orders 1, results 1,
 specimens 2; Radiology: report 3, study 2, billing 3, catalog 1, orders 1) — and
 `grep -rln "RefusalNotice|page.props.errors" resources/js/pages/Lab resources/js/pages/Radiology`
@@ -5544,6 +5576,34 @@ controls the two phase roles cannot reach: `lena.studer@klinik-bergblick.test` (
 
 #### `P9-H3` — Eleven refusal sites, zero renderers: no Hospital page shows a refusal
 
+
+> ✅ **FIXED — QA-FIX.11a, commit `<pending>` (D-224).** An **ADOPTION, not a design** (D-210, D-213):
+> `RefusalNotice.vue` already existed and already read the WHOLE error bag, so this was **seventeen imports
+> and seventeen tags** — no new component, no new mechanism, no restyle, no reword. A test asserts none of
+> these modules rolled its own.
+> **THE MEASURED SCOPE WAS FOUR TIMES THE ESTIMATE.** Comment-stripped: **Lab 8 · Radiology 11 · Hospital 11
+> = 30 refusal sites across 17 pages**, of which **sixteen rendered no error bag at all** (`grep -cE
+> '\berrors\b'` returned 0 on each). Only `Radiology/Report.vue` already had the notice — added by QA-FIX.8b
+> for its own new refusal, which is also why this finding's count of 18 is now 19: `unidentifiedAuthor()`
+> was introduced by `5a16624` **after** Phase 8 counted. The finding was right when written.
+> **WHICH KEY IS REACHABLE IS NOT UNIFORM — the argument for reading the bag, demonstrated.** On
+> `Lab/Catalog` the DOMAIN key is **unreachable** (`LabCatalogException::codeAndNameRequired()` fires on an
+> empty code, which `required` has already rejected), so only the FIELD key can appear. On
+> `Hospital/WardBoard` the driven refusal produced **three messages at once**. A notice naming keys would
+> have shown nothing on the first and part of the second.
+> **TWO REFUSALS WERE WORSE THAN INVISIBLE — BOTH WERE UNCAUGHT 500s, both fixed here with NARROW catches**
+> (never `Throwable`, asserted): `Lab/Review.vue`'s only control posts to the reused
+> `clinical.orders.review`, where `markReviewed()` throws for a non-`resulted` order and **nothing caught it
+> — verified by driving: HTTP 500, no redirect, no error bag**; and **`P10-H2`**, where a tool's domain
+> refusal at approve time is not an `AiCoreException` and escaped both catches. **The 500 → 302 change
+> weakens nothing** — both still refuse, nothing is written either way.
+> **PLAYWRIGHT-VERIFIED, three refusals across two modules plus the success control.** `Lab/Catalog`:
+> *"The code field is required."* `Lab/Review` (the former 500): *"Only a resulted order can be marked
+> reviewed."* — reproduced the finding's own scenario with a stale second tab. `Hospital/WardBoard`: *"The
+> patient id field is required. / The admitting clinician id field is required. / The admission type field
+> is required."* **Before: zero `role="alert"` elements on every one of these pages.** Success control: a
+> valid catalog write showed **0 alerts** and `lab_tests` went **3 → 4** in the database.
+
 - **Role:** `ward_nurse` (any) · **Route:** `POST /hospital/admissions/{stay}/rounds`
 - **Driven live.** With a round already open, clicked **Start ward round** a second time. The page did not
   navigate, the round list did not change, and **nothing at all appeared on screen** — no banner, no
@@ -6232,6 +6292,34 @@ Server clock `2026-09-09 01:13 UTC`, tenant display zone `Europe/Zurich`, audit 
 
 #### `P10-H2` — A domain refusal on approve escapes as an HTTP 500, and the reviewer is shown nothing at all
 
+
+> ✅ **FIXED — QA-FIX.11a, commit `<pending>` (D-224).** An **ADOPTION, not a design** (D-210, D-213):
+> `RefusalNotice.vue` already existed and already read the WHOLE error bag, so this was **seventeen imports
+> and seventeen tags** — no new component, no new mechanism, no restyle, no reword. A test asserts none of
+> these modules rolled its own.
+> **THE MEASURED SCOPE WAS FOUR TIMES THE ESTIMATE.** Comment-stripped: **Lab 8 · Radiology 11 · Hospital 11
+> = 30 refusal sites across 17 pages**, of which **sixteen rendered no error bag at all** (`grep -cE
+> '\berrors\b'` returned 0 on each). Only `Radiology/Report.vue` already had the notice — added by QA-FIX.8b
+> for its own new refusal, which is also why this finding's count of 18 is now 19: `unidentifiedAuthor()`
+> was introduced by `5a16624` **after** Phase 8 counted. The finding was right when written.
+> **WHICH KEY IS REACHABLE IS NOT UNIFORM — the argument for reading the bag, demonstrated.** On
+> `Lab/Catalog` the DOMAIN key is **unreachable** (`LabCatalogException::codeAndNameRequired()` fires on an
+> empty code, which `required` has already rejected), so only the FIELD key can appear. On
+> `Hospital/WardBoard` the driven refusal produced **three messages at once**. A notice naming keys would
+> have shown nothing on the first and part of the second.
+> **TWO REFUSALS WERE WORSE THAN INVISIBLE — BOTH WERE UNCAUGHT 500s, both fixed here with NARROW catches**
+> (never `Throwable`, asserted): `Lab/Review.vue`'s only control posts to the reused
+> `clinical.orders.review`, where `markReviewed()` throws for a non-`resulted` order and **nothing caught it
+> — verified by driving: HTTP 500, no redirect, no error bag**; and **`P10-H2`**, where a tool's domain
+> refusal at approve time is not an `AiCoreException` and escaped both catches. **The 500 → 302 change
+> weakens nothing** — both still refuse, nothing is written either way.
+> **PLAYWRIGHT-VERIFIED, three refusals across two modules plus the success control.** `Lab/Catalog`:
+> *"The code field is required."* `Lab/Review` (the former 500): *"Only a resulted order can be marked
+> reviewed."* — reproduced the finding's own scenario with a stale second tab. `Hospital/WardBoard`: *"The
+> patient id field is required. / The admitting clinician id field is required. / The admission type field
+> is required."* **Before: zero `role="alert"` elements on every one of these pages.** Success control: a
+> valid catalog write showed **0 alerts** and `lab_tests` went **3 → 4** in the database.
+
 - **Route:** `POST /governance/approvals/{id}/approve`
 - **Driven:** the `P10-C2` approve returned **500 Internal Server Error**. The page did not navigate, the
   queue count did not change, and no message appeared anywhere on screen.
@@ -6301,6 +6389,22 @@ Server clock `2026-09-09 01:13 UTC`, tenant display zone `Europe/Zurich`, audit 
 ### MEDIUM
 
 #### `P10-M1` — Admin, governance and portal render almost no refusals: 13 `withErrors` sites, 3 of 24 pages that could show one
+
+
+> ⚠️ **PARTLY FIXED — QA-FIX.11a, commit `<pending>` (D-224). The approval-queue half is closed; the rest is
+> NOT an adoption and is deliberately left open.**
+> **CLOSED:** `Governance/ApprovalQueue.vue` now renders `RefusalNotice`, so the approve refusal this finding
+> drove — *"Recall message drafts cannot contain medical advice or symptom guidance."* — reaches the screen,
+> as does the `P10-H2` domain refusal that used to escape as a 500.
+> **LEFT OPEN, WITH THE REASON:** of this finding's 24 Governance/Admin/Portal pages, **six already render
+> errors their own way** — `Admin/Branches.vue` (13 `errors` references), `Admin/Settings.vue` (10),
+> `Admin/ServiceCatalog.vue` (8), `Admin/Scheduling.vue` (4), `Governance/KnowledgeBase.vue` (4),
+> `Admin/Roles.vue` (3). Adopting the notice there means deciding **per page** whether to REPLACE a bespoke
+> per-form renderer — a restyle, which this gate was explicitly forbidden to do — or to add a second
+> renderer beside it, which D-213's own guard treats as a defect. **That is design work, not an adoption**,
+> so it is stopped and stated rather than half-done (the QA-FIX.6 Part 4 posture).
+> **Also note the finding's own method lesson still stands:** `Portal/Login.vue` renders its refusal despite
+> a grep for `errors` returning zero — found by driving, not by grepping.
 
 - **Driven twice, on the two most consequential buttons in the phase.** The approve refusal
   (`errors.action = "Recall message drafts cannot contain medical advice or symptom guidance."`) and the
@@ -7194,3 +7298,40 @@ visibility, attribution-display and locale.
 driving eroded no fence.** Every CRITICAL and HIGH fell into presentation, navigation, attribution, partial
 writes, recording gaps or authorisation — never into the engines or the fences. Nothing computed a clinical
 judgment, no acuity was derived, no money was computed page-side, and no agent ceiling was exceeded.
+
+---
+
+## QA-FIX.11a — ADDENDUM: one new finding, recorded not fixed
+
+The family-3 enumeration reached outside its own modules exactly once, and what it found is recorded here
+rather than widened into — the standing rule since QA-FIX.9a.
+
+### MEDIUM (QA-FIX.11a addendum)
+
+#### `QF11a-M1` — Clinical's own pages render no error bag either, and QA-FIX.11a has now routed a real refusal to two of them
+
+- **Surfaces:** `resources/js/pages/Clinical/Chart.vue` and `resources/js/pages/Clinical/OrdersReview.vue`
+- **Measured:** `grep -cE '\berrors\b'` returns **0** on both, and neither imports `RefusalNotice`. They are
+  the same `P6-C3` shape as Surgery, ED, Lab, Radiology and Hospital were.
+- **Why it is recorded now.** `Lab/Review.vue`'s only control posts to the REUSED `clinical.orders.review`
+  endpoint. QA-FIX.11a gave that endpoint a narrow catch so the refusal reaches the user as a 302 with a
+  message instead of an **HTTP 500** — which fixed Lab's page, and simultaneously made the same refusal
+  *reachable and invisible* on the two Clinical pages that also post there. **The 500 was worse, so the
+  change is still right; but it moved part of the problem rather than removing it, and saying so is the
+  point of this entry.**
+- **Scope, honestly:** this is the third consumer of one endpoint, not a survey of Clinical. **Clinical has
+  not been enumerated** — no count of its `withErrors` sites or its pages is claimed here, and a fix should
+  begin by enumerating it the way this gate enumerated Lab, Radiology and Hospital.
+- **Severity MEDIUM, not HIGH:** the refusal is a stale-worklist case, the page still refuses correctly, and
+  nothing is written either way — it is invisible, not wrong.
+- **Precedent:** `RefusalNotice` (D-210) applies unchanged; this is an adoption whenever it is taken.
+
+### Fix-status rows added by this gate
+
+| ID | Severity | Status | Gate | Commit |
+|---|---|---|---|---|
+| `P8-H1` | HIGH | ✅ **FIXED** | QA-FIX.11a | `<pending>` |
+| `P9-H3` | HIGH | ✅ **FIXED** | QA-FIX.11a | `<pending>` |
+| `P10-H2` | HIGH | ✅ **FIXED** | QA-FIX.11a | `<pending>` |
+| `P10-M1` | MEDIUM | ⚠️ **PARTLY FIXED** (approval queue only — the rest is design work, see its banner) | QA-FIX.11a | `<pending>` |
+| `QF11a-M1` | MEDIUM | 📋 recorded, not fixed | — | — |

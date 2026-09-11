@@ -3,6 +3,7 @@ import { Head, router } from '@inertiajs/vue3';
 import { reactive } from 'vue';
 import { useI18n } from 'vue-i18n';
 import AppLayout from '@/Layouts/AppLayout.vue';
+import RefusalNotice from '@/Components/RefusalNotice.vue';
 
 // Specimen tracking (LAB.G3) — PRESENTATIONAL. Collect a specimen for a lab order (accession generated) +
 // advance its legal-only state; view the append-only state history. The state + accession are operational
@@ -52,6 +53,9 @@ function advance(s: SpecimenRow, status: string): void {
     <AppLayout>
         <Head :title="t('lab.specimens.title')" />
         <div class="mx-auto max-w-4xl space-y-6 p-6">
+            <!-- The server's own refusal, shown where it happened (QA-FIX.11a; D-210, D-213). -->
+            <RefusalNotice />
+
             <div class="euca-tile-dark p-6">
                 <p class="text-xs font-semibold uppercase tracking-[0.14em] text-euca-200">{{ t('lab.specimens.eyebrow') }}</p>
                 <h1 class="mt-1 text-2xl font-semibold tracking-tight text-euca-50">{{ labOrder.patient }}</h1>

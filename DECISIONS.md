@@ -5145,3 +5145,62 @@ references the old ID.
   comment-stripped source, and the two halves are pinned INDEPENDENTLY: removing the transaction reddens
   the two atomicity tests only; restoring the `booked => false` return reddens the false-success test only.
   See [[Scheduling]], [[AiCore]], `docs/qa/ROLE-AUDIT.md` (`P10-C2`), D-199, D-179, D-197, [[LOG]].
+
+- **D-224 — The last three modules adopt the refusal component; the family is closed by ADOPTION, and the two
+  refusals that were worse than invisible were 500s (QA-FIX.11a, closing `P8-H1`, `P9-H3`, `P10-H2`, and the
+  approval-queue half of `P10-M1`).**
+  The family was found four times and always the same way: a module refuses correctly and **no page renders
+  it**, so a refusal and a success are byte-identical to the user — the page reloads, nothing is recorded,
+  the POST returns 302, which is success-shaped. `P6-C3` (Surgery, 16 sites) → QA-FIX.6c/D-210. `P7-H2` (ED,
+  10 sites) → QA-FIX.7c/D-213. This part closes the rest.
+  **NOTHING WAS BUILT (D-210, D-213).** `RefusalNotice.vue` already existed with the property these modules
+  need most — **it reads the WHOLE bag** — and was adopted verbatim: **seventeen imports and seventeen tags,
+  no restyle, no reword, no new mechanism.** A test asserts none of the three modules rolled its own.
+  **THE SCOPE WAS FOUR TIMES THE ESTIMATE, AND THE ENUMERATION IS THE REASON TO CHECK.** The gate expected
+  "~12 call sites". Measured comment-stripped: **Lab 8 · Radiology 11 · Hospital 11 = 30**, on **17 pages**,
+  of which sixteen rendered **no error bag at all** — `grep -cE '\berrors\b'` returned **0** on every one.
+  Only `Radiology/Report.vue` had the notice, added by QA-FIX.8b for its own new refusal.
+  **`P8-H1` SAID 18 AND THE TRUE COUNT IS 19, FOR A GOOD REASON.** The extra site is
+  `ImagingReportController::unidentifiedAuthor()` — a refusal QA-FIX.8b **introduced after Phase 8 counted**,
+  as `5a16624` shows. The finding was right when written.
+  **WHICH KEY IS REACHABLE IS NOT UNIFORM, AND THAT IS THE WHOLE ARGUMENT FOR READING THE BAG.** On
+  `Lab/Catalog` the live control produces the **FIELD** key — driven in the browser, verbatim *"The code field
+  is required."* The service's own `LabCatalogException::codeAndNameRequired()` fires only on an empty code
+  AFTER `trim()`, and Laravel's default `TrimStrings`/`ConvertEmptyStringsToNull` middleware (not removed in
+  `bootstrap/app.php`) collapses a whitespace-only code to null before `required` sees it — so the form as
+  shipped yields the field key, not the domain one. On `Hospital/WardBoard` the reverse holds, and the driven refusal produced **three
+  messages at once**. A notice naming keys would have shown nothing on the first page and part of the second.
+  **TWO REFUSALS WERE WORSE THAN INVISIBLE — BOTH WERE UNCAUGHT 500s, AND BOTH ARE FIXED HERE** (the D-210
+  precedent applied again):
+  - **`Lab/Review.vue`'s only control.** Its sole write posts to the REUSED `clinical.orders.review`
+    endpoint, and `OrderService::markReviewed()` throws `InvalidArgumentException` for an order that is not
+    `resulted`. **Nothing caught it — verified by driving it: HTTP 500, no redirect, no error bag.** A
+    double-click, or a worklist left open while a colleague reviewed the row, produced a blank error page.
+  - **`P10-H2`, the approval queue.** `ApprovalQueue::approve()` re-executes the tool against live state, so
+    a tool can legitimately refuse at approve time; those refusals are the domain's own types and are **not**
+    `AiCoreException` subclasses (`BookingConflictException` extends `RuntimeException`), so they escaped
+    both catches. The catch now names exactly four real, verified types —
+    `BookingConflictException|BookingUnavailableException|WaitlistException|AssignmentValidationException` —
+    each asserted by a test to exist AND to be outside the `AiCoreException` hierarchy, **so naming it cannot
+    be dead code**.
+  **NARROW CATCHES, NEVER `Throwable`**, and a test asserts the string `catch (Throwable` is absent. **The
+  500 → 302 change weakens nothing:** both still refuse, nothing is written either way, and the reviewer now
+  reads the domain's own sentence instead of a blank page.
+  **I INVENTED AN EXCEPTION TYPE AND CAUGHT MYSELF.** The first version of the approval-queue catch named a
+  `DomainRefusalException` that **does not exist anywhere in the repo**. It was removed and replaced by the
+  four types actually thrown, each verified to exist — the D-176 discipline applied to my own code.
+  **`P10-M1` IS ONLY PARTLY CLOSED, AND THE REST IS NOT AN ADOPTION.** Its approval-queue half is fixed here.
+  Its remaining surface is **24 Governance/Admin/Portal pages of which six already render errors their own
+  way** (`Admin/Branches` 13 mentions, `Admin/Settings` 10, `ServiceCatalog` 8, `Admin/Scheduling` 4,
+  `KnowledgeBase` 4, `Admin/Roles` 3). Adopting the notice there means deciding per page whether to REPLACE a
+  bespoke renderer — a restyle, which this gate is forbidden to do — or to add a second one beside it, which
+  D-213's guard explicitly treats as a defect. **That is design work, not adoption, and it is left open and
+  stated** (the QA-FIX.6 Part 4 posture).
+  **A NEW FINDING WAS RECORDED, NOT FIXED:** `Clinical/Chart.vue` and `Clinical/OrdersReview.vue` also render
+  no error bag, and the narrow catch added here now routes a real refusal to both. Recorded as `QF11a-M1`
+  rather than widened into, per the standing rule.
+  **Guarded by** eight tests in `tests/Feature/Qa/RefusalVisibilityAdoptionTest.php`, mutation-checked three
+  ways: deleting `<RefusalNotice />` from any adopted page reddens the structural guard; removing either
+  narrow catch reddens exactly that 500's test and nothing else. A **positive control** asserts a successful
+  write flashes no error at all, so the suite cannot be satisfied by a page that always shows something.
+  See [[Lab]], [[Radiology]], [[Hospital]], [[Clinical]], [[AiCore]], D-210, D-213, D-176, [[LOG]].

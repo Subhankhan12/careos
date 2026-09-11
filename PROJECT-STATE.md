@@ -86,7 +86,7 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
 
 ## STATUS: BUILD COMPLETE · DEPLOY-READY 🟢 GO · THE BUILDABLE PARITY PROGRAMME IS COMPLETE — ONE TRACK REMAINS: **DEPLOYMENT + PARTNERSHIPS**
 
-### ✅ THE ROLE-BY-ROLE QA AUDIT IS COMPLETE — `docs/qa/ROLE-AUDIT.md` (10 of 10 phases; **186 findings — 41 fixed, 145 open** as of QA-FIX.10c; **every CRITICAL is fixed — 0 open, highest open severity is HIGH at 34**)
+### ✅ THE ROLE-BY-ROLE QA AUDIT IS COMPLETE — `docs/qa/ROLE-AUDIT.md` (10 of 10 phases; **187 findings — 44 fixed, 143 open** as of QA-FIX.11a; **every CRITICAL is fixed — 0 open, highest open severity is HIGH at 31**)
 
 **Phase 1 (reception / front-desk) is DONE** (`06a3f78`): 18 findings — 1 CRITICAL, 3 HIGH, 8 MEDIUM,
 6 LOW — every page **driven in a real browser** via Playwright MCP. Findings are **recorded, not
@@ -474,6 +474,22 @@ damages the patient's record.** **Historical stranded entries are countable and 
 all four demo tenants. **Playwright re-drove Phase 10's exact steps:** after the refused approve the entry
 is still `waiting`, `offered_starts_at`/`offered_branch_id` are NULL, `waitlist.offered` is 0,
 `waitlist_offers` is 0, appointments unchanged at 13, the action still `pending`, and the chain verifies.
+
+**QA-FIX.11a (`<pending>`, D-224) is done: the remaining modules render their refusals — family 3 closed
+except for one deliberately-stopped half.** `P8-H1` (Lab + Radiology), `P9-H3` (Hospital) and `P10-H2` (a
+domain refusal escaping as a 500) are **FIXED**; `P10-M1` is **PARTLY** fixed. **An ADOPTION, not a design**
+(D-210, D-213): seventeen imports and seventeen tags of the existing `RefusalNotice.vue` — no new component,
+no restyle, no reword. **The scope was four times the gate's estimate:** comment-stripped, Lab 8 · Radiology
+11 · Hospital 11 = **30 sites across 17 pages**, sixteen of which rendered **no error bag at all**. **Two
+refusals were worse than invisible — both were uncaught 500s** and both now refuse with a message through a
+**narrow** catch (never `Throwable`): `Lab/Review.vue`'s only control (the reused `clinical.orders.review`
+endpoint) and the approval queue's `P10-H2`. **The 500 → 302 change weakens nothing.** **`P10-M1` is stopped
+deliberately:** six of its 24 Governance/Admin/Portal pages already render errors their own way, so adopting
+there is a per-page replace-or-duplicate decision — **design work, not adoption** (the QA-FIX.6 Part 4
+posture). **One new finding recorded, not fixed — `QF11a-M1`:** Clinical's own pages render no error bag
+either, and the narrow catch above routed a real refusal to two of them; the 500 was worse so the change is
+right, but it moved part of the problem and the record says so. **Playwright-verified:** three refusals
+across two modules plus a success control, every page previously showing **zero** `role="alert"` elements.
 
 
 **PHASE 10 ADDENDUM (same day) — `P10-C3` (CRITICAL): the agent approve gate has a SECOND, UNGATED door.**

@@ -3,6 +3,7 @@ import { Head, Link, router } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import AppLayout from '@/Layouts/AppLayout.vue';
+import RefusalNotice from '@/Components/RefusalNotice.vue';
 
 // The lab "results to review" worklist (LAB.G5) — PRESENTATIONAL. Closes the order → result → review loop. The
 // ordering clinician's resulted lab orders, shown as FACTS (patient, test, raw result + displayed range, the
@@ -65,6 +66,9 @@ function review(orderId: string | null): void {
     <AppLayout>
         <Head :title="t('lab.review.title')" />
         <div class="mx-auto max-w-5xl space-y-6 p-6">
+            <!-- The server's own refusal, shown where it happened (QA-FIX.11a; D-210, D-213). -->
+            <RefusalNotice />
+
             <div class="euca-tile-dark p-6">
                 <p class="text-xs font-semibold uppercase tracking-[0.14em] text-euca-200">{{ t('lab.review.eyebrow') }}</p>
                 <h1 class="mt-1 text-2xl font-semibold tracking-tight text-euca-50">{{ t('lab.review.title') }}</h1>

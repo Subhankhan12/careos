@@ -3,6 +3,7 @@ import { Head, router, useForm, usePage } from '@inertiajs/vue3';
 import { computed, reactive, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import AppLayout from '@/Layouts/AppLayout.vue';
+import RefusalNotice from '@/Components/RefusalNotice.vue';
 import Button from '@/Components/Button.vue';
 import Card from '@/Components/Card.vue';
 
@@ -266,6 +267,9 @@ function clearResolvedFilters(): void {
     <AppLayout>
         <Head :title="t('aiQueue.title')" />
         <div class="settings-surface space-y-6">
+            <!-- The server's own refusal, shown where it happened (QA-FIX.11a; D-210, D-213). -->
+            <RefusalNotice />
+
             <div class="flex flex-wrap items-start justify-between gap-4">
                 <div>
                     <p class="text-xs font-semibold uppercase tracking-[0.14em] text-euca-700">{{ t('aiQueue.eyebrow') }}</p>

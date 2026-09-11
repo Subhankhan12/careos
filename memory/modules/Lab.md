@@ -267,3 +267,18 @@ the idempotency key, so an orphaned charge was invisible to the guard and a retr
 **Only ED of the three can be demonstrated live** (it captures >1 charge, so a mid-capture failure is
 reachable). Lab captures exactly one charge per order, so its atomicity is held by the structural guard
 in `tests/Feature/Lab/ChargeCaptureAtomicityTest.php` plus the identical remedy. Stated, not papered over.
+
+## Refusals are visible (QA-FIX.11a, D-224)
+
+Every Lab page now renders **`RefusalNotice`** (`resources/js/Components/RefusalNotice.vue`, D-210) — an
+**adoption**, not a design: one import, one tag, no restyle, no reword. Before this the module refused
+correctly and **no page showed it**, so a refusal and a success were byte-identical to the user.
+
+**If you add a page with a write control, add the notice** — one import plus `<RefusalNotice />` as the
+first child of the page wrapper. **If a page has no reachable refusal, do NOT add it** and pin the absence
+with a reason (D-176; the `Checklist.vue` precedent).
+
+**It reads the WHOLE error bag on purpose.** `validate()` keys by FIELD, the controllers key by DOMAIN, and
+**which one a live control can actually reach differs per page** — on `Lab/Catalog` only the field key is
+reachable; on `Hospital/WardBoard` a single refusal produced three messages at once. Never narrow it to
+named keys.

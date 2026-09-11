@@ -3,6 +3,7 @@ import { Head, router } from '@inertiajs/vue3';
 import { reactive } from 'vue';
 import { useI18n } from 'vue-i18n';
 import AppLayout from '@/Layouts/AppLayout.vue';
+import RefusalNotice from '@/Components/RefusalNotice.vue';
 
 // The imaging exam catalog (RAD.G1) — PRESENTATIONAL. The tenant authors its OWN exam menu (no licensed set).
 // The catalog records modality + body part (reference data) — this screen records it; it computes NO image
@@ -42,6 +43,9 @@ function deactivate(exam: RadiologyExam): void {
     <AppLayout>
         <Head :title="t('radiology.catalog.title')" />
         <div class="mx-auto max-w-4xl space-y-6 p-6">
+            <!-- The server's own refusal, shown where it happened (QA-FIX.11a; D-210, D-213). -->
+            <RefusalNotice />
+
             <div class="euca-tile-dark p-6">
                 <p class="text-xs font-semibold uppercase tracking-[0.14em] text-euca-200">{{ t('radiology.catalog.eyebrow') }}</p>
                 <h1 class="mt-1 text-2xl font-semibold tracking-tight text-euca-50">{{ t('radiology.catalog.title') }}</h1>

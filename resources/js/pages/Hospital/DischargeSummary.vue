@@ -3,6 +3,7 @@ import { Head, router } from '@inertiajs/vue3';
 import { computed, reactive } from 'vue';
 import { useI18n } from 'vue-i18n';
 import AppLayout from '@/Layouts/AppLayout.vue';
+import RefusalNotice from '@/Components/RefusalNotice.vue';
 
 // Discharge summary + closed-episode view (HOSPITAL.G7) — the Phase-1 close-out. PRESENTATIONAL: it shows
 // the derived LOS (a fact), the sign-and-lock summary (draft editor OR finalized read-only), and the stay's
@@ -91,6 +92,9 @@ function finalize(): void {
     <AppLayout>
         <Head :title="t('hospital.dischargeSummary.title')" />
         <div class="space-y-5">
+            <!-- The server's own refusal, shown where it happened (QA-FIX.11a; D-210, D-213). -->
+            <RefusalNotice />
+
             <!-- Header tile -->
             <div class="euca-tile-dark flex flex-col justify-between gap-4 p-6 sm:flex-row sm:items-start">
                 <div>

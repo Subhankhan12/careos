@@ -3,6 +3,7 @@ import { Head, router } from '@inertiajs/vue3';
 import { computed, reactive, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import AppLayout from '@/Layouts/AppLayout.vue';
+import RefusalNotice from '@/Components/RefusalNotice.vue';
 
 // The ward board (HOSPITAL.G3) — the live bed-occupancy cockpit. PRESENTATIONAL over the G1 bed
 // model + G2 ADT domain (P0D.GU): it renders service data and dispatches the EXISTING ADT/bed
@@ -134,6 +135,9 @@ function setStatus(bed: BedTile, status: string): void {
     <AppLayout>
         <Head :title="t('hospital.board.title')" />
         <div class="space-y-5">
+            <!-- The server's own refusal, shown where it happened (QA-FIX.11a; D-210, D-213). -->
+            <RefusalNotice />
+
             <div class="euca-tile-dark p-6">
                 <p class="text-xs font-semibold uppercase tracking-[0.14em] text-euca-200">{{ t('hospital.board.eyebrow') }}</p>
                 <h1 class="mt-1 text-2xl font-semibold tracking-tight text-euca-50">{{ t('hospital.board.title') }}</h1>

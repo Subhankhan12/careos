@@ -655,3 +655,18 @@ and `executed_at`, and the Resolved tab renders **"Approved"**. `FillFromWaitlis
 `ai_interaction.approved` row BEFORE calling the tool and never compensates, so a refused approval still
 leaves one stale `approved` row; `P10-H2` — a domain refusal that is not an `AiCoreException` (e.g.
 `BookingConflictException`) escapes as a 500; `P10-M1` — the queue page renders no error bag.
+
+## A tool's DOMAIN refusal at approve time no longer escapes as a 500 (QA-FIX.11a, `P10-H2`, D-224)
+
+`ApprovalQueue::approve()` re-executes the tool against live state, so a tool can legitimately refuse then —
+the slot was taken, the row moved on. Those refusals are the **domain's own** exception types and are **NOT
+`AiCoreException` subclasses** (`BookingConflictException extends RuntimeException`), so they escaped both of
+`AiApprovalQueueController`'s catches and reached the reviewer as an **HTTP 500** with no page and no message.
+
+The catch is **NARROW** and names exactly the four real types that can escape:
+`BookingConflictException|BookingUnavailableException|WaitlistException|AssignmentValidationException`.
+**Never `Throwable`** — a genuine bug must still crash. A test asserts each type **exists AND is outside the
+`AiCoreException` hierarchy**, so naming one cannot become dead code; if you add a tool whose service throws
+a new domain type, add it here and to that test.
+
+`Governance/ApprovalQueue.vue` now renders `RefusalNotice`, so the approve refusal is finally on screen.

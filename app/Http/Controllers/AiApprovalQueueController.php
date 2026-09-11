@@ -19,7 +19,11 @@ use Modules\AiCore\Services\ApprovalQueue;
 use Modules\AiCore\Services\AutonomyPolicy;
 use Modules\AiCore\Services\ToolDefinition;
 use Modules\AiCore\Services\ToolRegistry;
+use Modules\Nursing\Exceptions\AssignmentValidationException;
 use Modules\Platform\Models\User;
+use Modules\Scheduling\Exceptions\BookingConflictException;
+use Modules\Scheduling\Exceptions\BookingUnavailableException;
+use Modules\Scheduling\Exceptions\WaitlistException;
 
 /**
  * AI approval queue (CLINIC.W9) — a READ + ACT-THROUGH-EXISTING-PATH window onto the
@@ -325,6 +329,24 @@ class AiApprovalQueueController
             // caught before AiCoreException — FenceRefusalException is a subclass.
             return redirect()->route('governance.approvals.index')->with('status', 'fence_refused');
         } catch (AiCoreException $e) {
+            return back()->withErrors(['action' => $e->getMessage()]);
+        } catch (BookingConflictException|BookingUnavailableException|WaitlistException|AssignmentValidationException $e) {
+            /*
+             * `P10-H2` (QA-FIX.11a) — A DOMAIN REFUSAL FROM THE TOOL IS A REFUSAL, NOT A CRASH.
+             *
+             * `ApprovalQueue::approve()` re-executes the tool against live state, so a tool can legitimately
+             * refuse at approve time — the slot was taken, the row moved on. Those refusals are the domain's
+             * own exception types and are NOT `AiCoreException` subclasses (`BookingConflictException`
+             * extends `RuntimeException`), so they escaped both catches above and reached the user as an
+             * **HTTP 500 with no page, no message and no error bag** — driven in Phase 10.
+             *
+             * THIS IS A NARROW CATCH, NEVER `Throwable` (D-210). Only the declared domain-refusal types are
+             * answered; a genuine bug still crashes, which is what a 500 is for.
+             *
+             * **THE 500 → 302 CHANGE WEAKENS NOTHING.** Both still refuse and both still write nothing: the
+             * tool already rolled its own work back (D-223), the action stays `pending`, and the reviewer
+             * now reads the domain's own sentence instead of a blank error page.
+             */
             return back()->withErrors(['action' => $e->getMessage()]);
         }
 

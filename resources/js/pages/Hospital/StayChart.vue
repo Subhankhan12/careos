@@ -3,6 +3,7 @@ import { Head, Link, router } from '@inertiajs/vue3';
 import { computed, reactive, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import AppLayout from '@/Layouts/AppLayout.vue';
+import RefusalNotice from '@/Components/RefusalNotice.vue';
 
 // Bedside charting for an inpatient stay (HOSPITAL.G4) — PRESENTATIONAL over the REUSED Clinical
 // module (P0D.GU): the stay's ward rounds (reused Encounters, each linking to the EXISTING
@@ -62,6 +63,9 @@ function submitOrder(): void {
     <AppLayout>
         <Head :title="t('hospital.chart.title')" />
         <div class="space-y-5">
+            <!-- The server's own refusal, shown where it happened (QA-FIX.11a; D-210, D-213). -->
+            <RefusalNotice />
+
             <!-- Header -->
             <div class="euca-tile-dark flex flex-col justify-between gap-4 p-6 sm:flex-row sm:items-center">
                 <div>

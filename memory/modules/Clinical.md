@@ -556,3 +556,15 @@ not, and `DemoClinicSeederTest` failed with *"Failed asserting that an array con
 `AppointmentService` exactly as reception does. The demo week became **more** honest, not less: the
 loop it claims to demonstrate now contains the arrival it always implied. `DemoSpitexSeeder` passes a
 null appointment and was unaffected.
+
+## `OrderController::review` now refuses instead of 500ing — and Clinical's own pages still show nothing (QA-FIX.11a, `QF11a-M1`)
+
+`OrderService::markReviewed()` throws `InvalidArgumentException` for an order that is not `resulted`, and
+**nothing caught it** — a double-click or a stale worklist produced an **HTTP 500**, verified by driving it.
+It now has a NARROW catch (never `Throwable`) returning `back()->withErrors(['order' => …])`.
+
+**THREE pages post to this one endpoint** — `Lab/Review.vue`, `Clinical/Chart.vue`,
+`Clinical/OrdersReview.vue`. Lab's page renders `RefusalNotice` and shows the message; **the two Clinical
+pages render no error bag at all**, so the refusal reaches them and is invisible. Recorded as **`QF11a-M1`**,
+not fixed: Clinical has never been enumerated for this family the way Lab, Radiology and Hospital were, and
+a fix should start by enumerating it. The precedent (`RefusalNotice`, D-210) applies unchanged.
