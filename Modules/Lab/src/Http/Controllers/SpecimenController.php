@@ -13,6 +13,7 @@ use Modules\Lab\Models\Specimen;
 use Modules\Lab\Models\SpecimenEvent;
 use Modules\Lab\Services\SpecimenService;
 use Modules\Patients\Models\Patient;
+use Modules\People\Models\StaffProfile;
 use Modules\Platform\Exceptions\CrossTenantReferenceException;
 use Modules\Platform\Models\User;
 
@@ -55,11 +56,18 @@ class SpecimenController
                 'collected_at' => $s->collected_at->toIso8601String(),
                 'available_transitions' => Specimen::TRANSITIONS[$s->status] ?? [], // the FIXED legal map (record-not-judge)
                 'transition_url' => route('lab.specimens.transition', $s->id),
-                'events' => $s->events()->orderBy('occurred_at')->get()->map(fn (SpecimenEvent $e): array => [
-                    'event_type' => $e->event_type,
-                    'reason' => $e->reason,
-                    'occurred_at' => $e->occurred_at->toIso8601String(),
-                ])->all(),
+                'events' => (function () use ($s): array {
+                    $events = $s->events()->orderBy('occurred_at')->get();
+                    // `P8-H3`: display only — the recorded `performed_by`, finally named.
+                    $names = $this->actorNames($events->pluck('performed_by')->all());
+
+                    return $events->map(fn (SpecimenEvent $e): array => [
+                        'event_type' => $e->event_type,
+                        'reason' => $e->reason,
+                        'occurred_at' => $e->occurred_at->toIso8601String(),
+                        'performed_by_name' => $names[(string) $e->performed_by] ?? null,
+                    ])->all();
+                })(),
             ])->all(),
             'options' => ['statuses' => Specimen::STATUSES],
             'actions' => [
@@ -111,5 +119,50 @@ class SpecimenController
         }
 
         return redirect()->route('lab.specimens.show', $record->lab_order_id)->with('status', 'specimen-updated');
+    }
+
+    /**
+     * `P8-H3` (QA-FIX.11b, D-225) — WHO DID THIS, resolved for DISPLAY ONLY.
+     *
+     * The actor was always recorded correctly; no surface named them. This changes nothing about the
+     * write — it reads the already-stored `users.id` and resolves a name, in ONE query for the whole
+     * list rather than per row. Same shape as `PatientAccessLogController::actorNames()`: the staff
+     * profile's display name when there is one, the user's name otherwise, and **null when the id
+     * resolves to nobody** — an unknown id is left unnamed rather than labelled (D-176).
+     *
+     * PHP normalises a numeric string key to an int, so a map keyed by user id is
+     * `array<int|string, string>` — not `array<string, string>`. Typing it honestly is what lets the
+     * `?? null` lookups below be checked rather than merely accepted.
+     *
+     * @param  list<string|int|null>  $ids
+     * @return array<int|string, string>
+     */
+    private function actorNames(array $ids): array
+    {
+        $ids = array_values(array_unique(array_filter(array_map(
+            static fn ($id): string => (string) $id,
+            $ids,
+        ), static fn (string $id): bool => $id !== '')));
+
+        if ($ids === []) {
+            return [];
+        }
+
+        $names = [];
+        foreach (User::query()->whereIn('id', $ids)->get(['id', 'name']) as $user) {
+            $names[(string) $user->id] = (string) $user->name;
+        }
+
+        foreach (StaffProfile::query()->whereIn('user_id', $ids)->get(['user_id', 'display_name', 'first_name', 'last_name']) as $profile) {
+            $display = $profile->display_name !== ''
+                ? $profile->display_name
+                : trim($profile->first_name.' '.$profile->last_name);
+
+            if ($display !== '') {
+                $names[(string) $profile->user_id] = $display;
+            }
+        }
+
+        return $names;
     }
 }

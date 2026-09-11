@@ -5204,3 +5204,60 @@ references the old ID.
   narrow catch reddens exactly that 500's test and nothing else. A **positive control** asserts a successful
   write flashes no error at all, so the suite cannot be satisfied by a page that always shows something.
   See [[Lab]], [[Radiology]], [[Hospital]], [[Clinical]], [[AiCore]], D-210, D-213, D-176, [[LOG]].
+
+- **D-225 — The unattended accrual uses the resolver that REFUSES; and `P8-H3` is a DISPLAY defect, so its fix
+  renders a name and touches no write (QA-FIX.11b, closing `P9-H6` and `P8-H3`).**
+  Family 6's two findings are **different kinds of defect**, and saying which is which is most of the work.
+  **`P9-H6` — A GENUINE ATTRIBUTION DEFECT, ON AN UNATTENDED PATH.**
+  `AccrueBedDaysCommand::resolveBillingActor()` was
+  `RoleAssignment::query()->where('role_id', $orgAdminId)->value('user_id')` — **no `ORDER BY`**, no check
+  that the user holds `billing.manage`, no exclusion of a branch-scoped assignment or a super-admin. It
+  picked by ROLE and hoped the permission followed. The command's own docblock CLAIMED the charges were
+  *"Attributed to the tenant's billing-capable admin (billing.manage)"* — a claim the query never verified,
+  and `ChargeCaptureService` persists that actor as `charges.created_by` on every bed-day charge.
+  **THE REMEDY ALREADY EXISTED AND HOSPITAL WAS THE ONLY SCHEDULED COMMAND SKIPPING IT.**
+  `SystemActorResolver::forPermission()` is used by `billing:dunning-run`, `billing:reconcile` and
+  `reporting:summary`; nothing in Hospital used it. **I read it before trusting it, because a resolver that
+  guessed would be the very defect four gates were spent closing** — and it does not guess:
+  it returns **`?User`, null when nobody qualifies** (the caller skips that tenant, and the command already
+  had exactly that branch); it is **deterministic** (`orderBy('id')`, so the audit trail is stable across
+  runs); it **verifies the permission is genuinely held TENANT-WIDE** via `PermissionService::has()` with no
+  branch, so a branch-scoped role never qualifies; it **excludes super-admins**; and it **fails closed** if
+  the tenant context does not match. That is the D-195/D-216 posture exactly.
+  **AN UNATTENDED ACTOR IS A DIFFERENT CASE FROM AN UNIDENTIFIABLE ONE, AND THAT IS WHY THIS IS NOT
+  `P9-C3`'s FIX.** QA-FIX.9c refused the write when the actor had no staff profile, because a ward round has
+  a human doing it. A nightly sweep legitimately has **no human at all**, so the honest answer is a named,
+  permission-holding system actor — and **no tenant at all** when nobody qualifies, rather than a
+  substituted human.
+  **THE DEFECT IS LATENT IN THE SEEDED DATA, AND SAYING SO IS THE POINT.** Driven across all four demo
+  tenants with the OLD query reconstructed faithfully (model-scoped, as it really ran): old and new resolve
+  to the **same person every time**, because each demo tenant has exactly one org_admin who does hold
+  `billing.manage`. It bites when a tenant has a second org_admin, a branch-scoped one, or an org_admin
+  without the permission. **This is the `P4-C4` shape — latent rather than active — and it is recorded that
+  way rather than dressed up.** The guard test therefore uses a **branch-scoped** admin created FIRST, the
+  one case where the old query demonstrably picks the wrong person and the resolver does not.
+  **HISTORICAL ROWS: COUNTABLE, AND THE ANSWER IS THAT NOTHING NEEDS REWRITING HERE.** Every bed-day charge
+  carries `charges.created_by`, so miscredited rows are reachable by joining `bed_day_accruals` to
+  `charges`. Measured across the four demo tenants: **every existing bed-day charge is already credited to
+  the same user the resolver returns**, so the count of wrong rows is **zero**. No row is rewritten (D-197).
+  **`P8-H3` — A DISPLAY DEFECT, NOT AN ATTRIBUTION ONE, AND THE FINDING SAYS SO ITSELF:** *"The data model is
+  right throughout … And not one of them is displayed."* `order_results.entered_by`,
+  `specimen_events.performed_by`, `imaging_study_events.performed_by` and `clinical_notes.signed_by` all hold
+  the authenticated actor correctly. **So the fix renders a name and changes no write** — a test pins that
+  none of the four controllers assigns an attribution column, only reads one.
+  **FOUR SURFACES, ONE QUERY EACH, AND AN UNKNOWN ID STAYS UNNAMED.** Each controller gained a private
+  `actorNames()` resolving the whole list in ONE query — the `PatientAccessLogController::actorNames()`
+  shape: the staff profile's display name when there is one, the user's name otherwise, and **null when the
+  id resolves to nobody**, because labelling an unresolvable id would be an unbacked presence (D-176). The
+  templates print the name behind a `v-if`, so a null renders no dangling separator.
+  **WHY THE FIXTURES MAKE THE TWO PEOPLE DIFFERENT:** a fixture whose actor and subject are the same person
+  cannot catch a misattribution — the property whose absence let `P2-C1`, `P6-C2`, `P7-C1` and `P9-C3` all
+  survive their own suites.
+  **VERIFIED WHERE THE DEFECT LIVES.** `P9-H6`'s surface is a scheduled console command, so it was driven
+  **from the CLI** (the QA-FIX.9b precedent) — not claimed as a browser step it does not have: a fresh
+  accrual was forced and the stored `charges.created_by` read back as the tenant's genuine `billing.manage`
+  holder. `P8-H3`'s surfaces are pages and were verified in the browser.
+  **Guarded by** eight tests in `tests/Feature/Qa/AttributionFamilyTest.php`, mutation-checked two ways:
+  restoring the old convenience resolver reddens the structural guard; deleting one page's rendered name
+  reddens the render guard. See [[Hospital]], [[Lab]], [[Radiology]], [[Platform]], D-195, D-216, D-220,
+  D-197, D-176, [[LOG]].

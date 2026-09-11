@@ -10,7 +10,7 @@ import RefusalNotice from '@/Components/RefusalNotice.vue';
 // THE IMAGE — the DICOM image path is the seam-stubbed RAD.G6 (a certified partner), never a diagnostic viewer.
 const { t, locale } = useI18n();
 
-type StudyEventRow = { event_type: string; reason: string | null; occurred_at: string };
+type StudyEventRow = { event_type: string; reason: string | null; occurred_at: string; performed_by_name: string | null };
 type StudyRow = {
     id: string;
     accession_number: string;
@@ -83,7 +83,7 @@ function advance(status: string): void {
                     <button v-for="st in study.available_transitions" :key="st" type="button" class="rounded-full bg-euca-600 px-3 py-1 text-xs font-semibold text-white transition hover:bg-euca-700" @click="advance(st)">{{ t(`radiology.study.advanceTo.${st}`) }}</button>
                 </div>
                 <ol class="mt-3 space-y-1 border-t border-euca-50 pt-2 text-xs text-ink-subtle">
-                    <li v-for="(e, i) in study.events" :key="i">{{ t(`radiology.study.status.${e.event_type}`) }} · {{ fmt(e.occurred_at) }}<template v-if="e.reason"> — {{ e.reason }}</template></li>
+                    <li v-for="(e, i) in study.events" :key="i">{{ t(`radiology.study.status.${e.event_type}`) }} · {{ fmt(e.occurred_at) }}<template v-if="e.performed_by_name"> · {{ e.performed_by_name }}</template><template v-if="e.reason"> — {{ e.reason }}</template></li>
                 </ol>
             </div>
 

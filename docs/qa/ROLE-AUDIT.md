@@ -55,10 +55,10 @@ missing · `LOW` cosmetic / polish.
 | **Total recorded** (+ `QF10a-H1`, recorded by a fix gate) | **24** | **46** | **84** | **32** | **186** |
 | of which **FIXED** by **TEN** QA-FIX gates (29 parts) | **24** | 12 | 4 | 1 | **41** |
 | of which **OPEN** | **0** | **34** | **80** | **31** | **145** |
-| ⚠️ **SUPERSEDED AGAIN — CURRENT as of QA-FIX.11a** | | | | | |
+| ⚠️ **SUPERSEDED AGAIN — CURRENT as of QA-FIX.11b** | | | | | |
 | **Total recorded** (+ `QF11a-M1`) | **24** | **46** | **85** | **32** | **187** |
-| of which **FIXED** | **24** | **15** | 4 | 1 | **44** |
-| of which **OPEN** | **0** | **31** | **81** | **31** | **143** |
+| of which **FIXED** | **24** | **17** | 4 | 1 | **46** |
+| of which **OPEN** | **0** | **29** | **81** | **31** | **141** |
 
 *(Phase 10's counts include the two addendum findings `P10-C3` and `P10-M7`, recorded the same day after a
 second adversarial pass over the same scope — see "Phase 10 — ADDENDUM" at the end of this document.)*
@@ -4896,6 +4896,26 @@ currently only reachable via the charge step.)
 > count, because every one of these files now explains the old defect in prose naming the thing counted.
 #### `P8-H3` — Every actor is recorded correctly and no surface names any of them
 
+
+> ✅ **FIXED — QA-FIX.11b, commit `<pending>` (D-225). A DISPLAY fix, because this finding is a display
+> defect — its own first line says so:** *"The data model is right throughout … And not one of them is
+> displayed."* No write changed and no recorded value changed; a test pins that none of the four
+> controllers assigns an attribution column, only reads one.
+> **FOUR SURFACES, ONE QUERY EACH.** Each controller gained a private `actorNames()` resolving the whole
+> list in ONE query — the `PatientAccessLogController::actorNames()` shape: the staff profile's display
+> name when there is one, the user's name otherwise. **An id that resolves to nobody is left UNNAMED**
+> rather than labelled (D-176), and the templates print the name behind a `v-if`, so a null renders no
+> dangling separator.
+> **PHPSTAN CAUGHT A REAL TYPING BUG IN MY OWN HELPER, and it was not a lint nit:** the map was declared
+> `array<string, string>`, but **PHP normalises a numeric string key to an int**, so the declared contract
+> was wrong and the `?? null` lookups were unverifiable. Corrected to `array<int|string, string>` — typed
+> honestly rather than silenced.
+> **PLAYWRIGHT-VERIFIED ON ALL FOUR SURFACES.** The finding recorded that a text scan of the report page for
+> `Dr.|med.|Lang|Berg` returned **nothing**. Now: the report version block reads **"Version 1 / Signed ·
+> Sep 11, 02:45 AM · Dr. Anke Berg"**; the imaging study history reads **"Ordered / Acquired / Reported ·
+> … · Dr. Anke Berg"**; the specimen history reads **"Collected / In lab / Resulted · … · Dr. Anke Berg"**;
+> and the lab result line reads **"ACC-000001 · Source: manual · … · Dr. Anke Berg"**.
+
 The data model is right throughout: `order_results.entered_by`, `specimen_events.performed_by`,
 `imaging_study_events.performed_by` and `clinical_notes.signed_by` are all `users` FKs holding the
 **authenticated actor**, and `clinical_notes.author_id` is the `staff_profiles` clinician — the
@@ -5669,6 +5689,33 @@ controls the two phase roles cannot reach: `lena.studer@klinik-bergblick.test` (
   share, unshare, reclassify and delete are JSON/route-only, reachable by typing a URL.
 
 #### `P9-H6` — The nightly bed-day accrual credits an arbitrary org_admin, bypassing the resolver written to stop exactly this
+
+
+> ✅ **FIXED — QA-FIX.11b, commit `<pending>` (D-225).** The command now resolves its actor with
+> **`SystemActorResolver::forPermission($tenant, 'billing.manage')`** — the resolver
+> `billing:dunning-run`, `billing:reconcile` and `reporting:summary` already used and **Hospital was the
+> only scheduled command skipping**. `resolveBillingActor()` is deleted.
+> **THE RESOLVER WAS READ BEFORE IT WAS TRUSTED, because one that guessed would be this very defect.** It
+> does not: it **returns null when nobody qualifies** (and the command already had the skip branch), is
+> **deterministic** (`orderBy('id')`), **verifies the permission is genuinely held TENANT-WIDE** via
+> `PermissionService::has()` with no branch, **excludes super-admins**, and **fails closed** on a tenant
+> mismatch. That is the D-195/D-216 posture.
+> **AN UNATTENDED ACTOR IS A DIFFERENT CASE FROM AN UNIDENTIFIABLE ONE.** QA-FIX.9c refused the write when a
+> ward round's actor had no staff profile, because a human was doing it. A nightly sweep legitimately has no
+> human, so the honest answer is a named permission-holder — and **no run at all** for a tenant with none.
+> **THE DEFECT IS LATENT IN THE SEEDED DATA, AND THAT IS REPORTED RATHER THAN DRESSED UP.** Driving all four
+> demo tenants with the old query reconstructed faithfully (model-scoped, as it really ran) resolves to the
+> **same person every time**, because each demo tenant has exactly one org_admin who does hold
+> `billing.manage`. It bites on a second org_admin, a **branch-scoped** one, or an org_admin without the
+> permission — and the branch-scoped case is the one the guard test uses, because it is the one where the
+> old query demonstrably picks the wrong person.
+> **HISTORICAL ROWS ARE COUNTABLE AND THE COUNT IS ZERO.** Miscredited rows are reachable by joining
+> `bed_day_accruals` to `charges` and comparing `created_by` with what the resolver returns. Measured across
+> the four demo tenants: **32 accruals, 0 miscredited.** No row is rewritten (D-197).
+> **VERIFIED FROM THE CLI, WHERE THIS DEFECT LIVES — a browser step would have no meaning** (the QA-FIX.9b
+> precedent). Today's accrual for the admitted stay was deleted so the idempotent generator would re-create
+> it, `hospital:accrue-bed-days` was run, and the freshly-written charge reads
+> **`Bed-day (ICU) · created_by = Dr. Anke Berg`** — `klinik-bergblick`'s genuine `billing.manage` holder.
 
 - **Surface:** `hospital:accrue-bed-days`, scheduled 05:30 daily across every active tenant
   (`routes/console.php:65-68`)
@@ -7335,3 +7382,16 @@ rather than widened into — the standing rule since QA-FIX.9a.
 | `P10-H2` | HIGH | ✅ **FIXED** | QA-FIX.11a | `51017e2` |
 | `P10-M1` | MEDIUM | ⚠️ **PARTLY FIXED** (approval queue only — the rest is design work, see its banner) | QA-FIX.11a | `51017e2` |
 | `QF11a-M1` | MEDIUM | 📋 recorded, not fixed | — | — |
+
+---
+
+## QA-FIX.11b — fix-status rows
+
+Family 6 is **closed**. Its two findings were different kinds of defect and are recorded as such: `P9-H6`
+was a genuine attribution defect on an unattended path; `P8-H3` was a display defect whose fix renders a
+name and touches no write.
+
+| ID | Severity | Status | Gate | Commit |
+|---|---|---|---|---|
+| `P9-H6` | HIGH | ✅ **FIXED** | QA-FIX.11b | `<pending>` |
+| `P8-H3` | HIGH | ✅ **FIXED** | QA-FIX.11b | `<pending>` |

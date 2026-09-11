@@ -10,7 +10,7 @@ import RefusalNotice from '@/Components/RefusalNotice.vue';
 // FACTS — the screen records them; nothing computes a priority or auto-routes (the electric fence).
 const { t, locale } = useI18n();
 
-type SpecimenEventRow = { event_type: string; reason: string | null; occurred_at: string };
+type SpecimenEventRow = { event_type: string; reason: string | null; occurred_at: string; performed_by_name: string | null };
 type SpecimenRow = {
     id: string;
     accession_number: string;
@@ -90,7 +90,7 @@ function advance(s: SpecimenRow, status: string): void {
                             <button v-for="st in s.available_transitions" :key="st" type="button" class="rounded-full bg-euca-600 px-3 py-1 text-xs font-semibold text-white transition hover:bg-euca-700" @click="advance(s, st)">{{ t(`lab.specimens.advanceTo.${st}`) }}</button>
                         </div>
                         <ol class="mt-3 space-y-1 border-t border-euca-50 pt-2 text-xs text-ink-subtle">
-                            <li v-for="(e, i) in s.events" :key="i">{{ t(`lab.specimens.status.${e.event_type}`) }} · {{ fmt(e.occurred_at) }}<template v-if="e.reason"> — {{ e.reason }}</template></li>
+                            <li v-for="(e, i) in s.events" :key="i">{{ t(`lab.specimens.status.${e.event_type}`) }} · {{ fmt(e.occurred_at) }}<template v-if="e.performed_by_name"> · {{ e.performed_by_name }}</template><template v-if="e.reason"> — {{ e.reason }}</template></li>
                         </ol>
                     </li>
                 </ul>

@@ -611,3 +611,21 @@ available; confining keeps local/testing byte-identical to what contributors alr
 before. **Guarded by** 6 tests, mutation-checked three ways — and the first mutation attempt silently
 failed to apply while the suite stayed green, caught by the comment-stripped grep-confirm. See D-219,
 [[LOG]].
+
+## `SystemActorResolver` is the ONLY way a scheduled command may choose an actor (QA-FIX.11b, D-225)
+
+`SystemActorResolver::forPermission($tenant, $permission)` **refuses rather than guesses**, and that is the
+whole point: it returns **null when nobody qualifies** (the caller must SKIP that tenant), is **deterministic**
+(`orderBy('id')` so the audit trail is stable across runs), **verifies the permission is held TENANT-WIDE**
+via `PermissionService::has()` with no branch (a branch-scoped role never qualifies), **excludes
+super-admins**, and **fails closed** if the tenant context does not match.
+
+**All four scheduled commands now use it** — `billing:dunning-run`, `billing:reconcile`,
+`reporting:summary` and `hospital:accrue-bed-days`. Hospital was the last holdout (`P9-H6`): it picked
+`RoleAssignment::where('role_id', $orgAdminId)->value('user_id')` — no ORDER BY, no permission check — while
+its docblock claimed otherwise.
+
+**If you write a new unattended command, use this and honour the null.** An unattended actor is a different
+case from an unidentifiable one: a ward round has a human and must refuse without one (D-220); a nightly
+sweep has none, so a named permission-holder is right and **no run at all** is the correct answer when there
+is nobody.

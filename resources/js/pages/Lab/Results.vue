@@ -12,7 +12,7 @@ import RefusalNotice from '@/Components/RefusalNotice.vue';
 const { t, locale } = useI18n();
 
 type SpecimenRow = { id: string; accession_number: string; status: string; can_result: boolean; result_url: string };
-type ResultRow = { id: string; result_value: string | null; source: string; entered_at: string; accession_number: string | null };
+type ResultRow = { id: string; result_value: string | null; source: string; entered_at: string; accession_number: string | null; entered_by_name: string | null };
 
 const props = defineProps<{
     labOrder: { id: string; patient: string; test: string | null; code: string | null; priority: string; order_status: string | null };
@@ -102,7 +102,7 @@ function record(): void {
                             <span v-if="reference.reference_range" class="text-xs text-ink-subtle">{{ t('lab.results.reference') }}: {{ reference.reference_range }}</span>
                         </div>
                         <p class="mt-1 text-xs text-ink-subtle">
-                            <template v-if="r.accession_number">{{ r.accession_number }} · </template>{{ t('lab.results.source') }}: {{ r.source }} · {{ fmt(r.entered_at) }}
+                            <template v-if="r.accession_number">{{ r.accession_number }} · </template>{{ t('lab.results.source') }}: {{ r.source }} · {{ fmt(r.entered_at) }}<template v-if="r.entered_by_name"> · {{ r.entered_by_name }}</template>
                         </p>
                     </li>
                 </ul>

@@ -19,6 +19,7 @@ type ReportVersion = {
     impression: string | null;
     amendment_reason: string | null;
     signed_at: string | null;
+    signed_by_name: string | null;
 };
 
 const props = defineProps<{
@@ -109,7 +110,7 @@ function amend(): void {
                     <li v-for="v in versions" :key="v.id" class="rounded-lg border border-euca-100 p-4">
                         <div class="flex items-center justify-between">
                             <span class="text-sm font-semibold text-ink">{{ t('radiology.report.version') }} {{ v.version }}</span>
-                            <span class="rounded-full bg-ink/5 px-2.5 py-1 text-xs font-semibold text-ink">{{ v.status === 'signed' ? t('radiology.report.signed') : t('radiology.report.draft') }}<template v-if="v.signed_at"> · {{ fmt(v.signed_at) }}</template></span>
+                            <span class="rounded-full bg-ink/5 px-2.5 py-1 text-xs font-semibold text-ink">{{ v.status === 'signed' ? t('radiology.report.signed') : t('radiology.report.draft') }}<template v-if="v.signed_at"> · {{ fmt(v.signed_at) }}</template><template v-if="v.signed_by_name"> · {{ v.signed_by_name }}</template></span>
                         </div>
                         <p class="mt-2 text-sm text-ink"><span class="text-ink-subtle">{{ t('radiology.report.findings') }}:</span> {{ v.findings ?? '—' }}</p>
                         <p class="mt-1 text-sm text-ink"><span class="text-ink-subtle">{{ t('radiology.report.impression') }}:</span> {{ v.impression ?? '—' }}</p>

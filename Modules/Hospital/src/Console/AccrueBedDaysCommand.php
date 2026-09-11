@@ -5,10 +5,9 @@ namespace Modules\Hospital\Console;
 use Illuminate\Console\Command;
 use Modules\Hospital\Models\Stay;
 use Modules\Hospital\Services\BedBillingService;
-use Modules\Platform\Models\Role;
-use Modules\Platform\Models\RoleAssignment;
 use Modules\Platform\Models\Tenant;
 use Modules\Platform\Models\User;
+use Modules\Platform\Services\SystemActorResolver;
 use Modules\Platform\Services\TenantContext;
 
 /**
@@ -16,7 +15,12 @@ use Modules\Platform\Services\TenantContext;
  * (HOSPITAL.G6). Shaped exactly like nursing:materialize-visits (the map's endorsed pattern): a
  * per-tenant sweep that delegates to an IDEMPOTENT generator — re-running never double-charges (the
  * bed_day_accruals unique key). The charges go through the EXISTING ChargeCaptureService (no money
- * math here). Attributed to the tenant's billing-capable admin (billing.manage). Scheduled daily.
+ * math here). Scheduled daily.
+ *
+ * ATTRIBUTION (QA-FIX.11b, `P9-H6`, D-225). The charges are attributed to a user who GENUINELY HOLDS
+ * `billing.manage`, resolved by {@see SystemActorResolver::forPermission()} — the same resolver
+ * `billing:dunning-run`, `billing:reconcile` and `reporting:summary` already use. This docblock
+ * previously CLAIMED that attribution while the code picked an arbitrary org_admin row.
  */
 class AccrueBedDaysCommand extends Command
 {
@@ -24,7 +28,7 @@ class AccrueBedDaysCommand extends Command
 
     protected $description = 'Accrue per-diem bed-day charges for active inpatient stays (idempotent).';
 
-    public function handle(TenantContext $tenants, BedBillingService $billing): int
+    public function handle(TenantContext $tenants, BedBillingService $billing, SystemActorResolver $actors): int
     {
         $total = 0;
         $previous = $tenants->current();
@@ -32,9 +36,12 @@ class AccrueBedDaysCommand extends Command
         foreach (Tenant::query()->where('status', 'active')->orderBy('id')->get() as $tenant) {
             $tenants->set($tenant);
 
-            $actor = $this->resolveBillingActor();
+            $actor = $actors->forPermission($tenant, 'billing.manage');
+
+            // No billing manager => no accrual for this tenant. An unattended run is never
+            // attributed to somebody who was never given the permission (D-195, D-216).
             if (! $actor instanceof User) {
-                $this->warn("No billing-capable user for tenant {$tenant->id}; skipped.");
+                $this->warn("Skipped {$tenant->slug}: no user holds billing.manage.");
 
                 continue;
             }
@@ -53,18 +60,5 @@ class AccrueBedDaysCommand extends Command
         $this->line("Bed-days accrued: {$total}.");
 
         return self::SUCCESS;
-    }
-
-    /** The tenant's org_admin (holds billing.manage) — the accrual's billing actor. */
-    private function resolveBillingActor(): ?User
-    {
-        $roleId = Role::query()->where('key', 'org_admin')->value('id');
-        if ($roleId === null) {
-            return null;
-        }
-
-        $userId = RoleAssignment::query()->where('role_id', $roleId)->value('user_id');
-
-        return $userId === null ? null : User::query()->find($userId);
     }
 }

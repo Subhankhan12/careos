@@ -62,15 +62,21 @@ class ImagingReportController
                 'status' => $study->status,
             ],
             // The report versions — AUTHORED prose (findings = objective, impression = assessment). No computed field.
-            'versions' => $versions->map(fn (ClinicalNote $n): array => [
-                'id' => $n->id,
-                'version' => $n->version,
-                'status' => $n->status,
-                'findings' => $n->objective,       // authored prose
-                'impression' => $n->assessment,    // authored prose
-                'amendment_reason' => $n->amendment_reason,
-                'signed_at' => $n->signed_at?->toIso8601String(),
-            ])->all(),
+            'versions' => (function () use ($versions): array {
+                // `P8-H3`: the signatory was always recorded and never named. DISPLAY ONLY.
+                $names = $this->actorNames($versions->pluck('signed_by')->all());
+
+                return $versions->map(fn (ClinicalNote $n): array => [
+                    'id' => $n->id,
+                    'version' => $n->version,
+                    'status' => $n->status,
+                    'findings' => $n->objective,       // authored prose
+                    'impression' => $n->assessment,    // authored prose
+                    'amendment_reason' => $n->amendment_reason,
+                    'signed_at' => $n->signed_at?->toIso8601String(),
+                    'signed_by_name' => $names[(string) $n->signed_by] ?? null,
+                ])->all();
+            })(),
             'actions' => [
                 'can_write' => Gate::allows('note.write'),
                 'can_sign' => Gate::allows('note.sign'),
@@ -187,5 +193,50 @@ class ImagingReportController
         return back()->withErrors([
             'radiology_report' => 'Your user account has no staff profile, so a report cannot record who wrote it.',
         ]);
+    }
+
+    /**
+     * `P8-H3` (QA-FIX.11b, D-225) — WHO DID THIS, resolved for DISPLAY ONLY.
+     *
+     * The actor was always recorded correctly; no surface named them. This changes nothing about the
+     * write — it reads the already-stored `users.id` and resolves a name, in ONE query for the whole
+     * list rather than per row. Same shape as `PatientAccessLogController::actorNames()`: the staff
+     * profile's display name when there is one, the user's name otherwise, and **null when the id
+     * resolves to nobody** — an unknown id is left unnamed rather than labelled (D-176).
+     *
+     * PHP normalises a numeric string key to an int, so a map keyed by user id is
+     * `array<int|string, string>` — not `array<string, string>`. Typing it honestly is what lets the
+     * `?? null` lookups below be checked rather than merely accepted.
+     *
+     * @param  list<string|int|null>  $ids
+     * @return array<int|string, string>
+     */
+    private function actorNames(array $ids): array
+    {
+        $ids = array_values(array_unique(array_filter(array_map(
+            static fn ($id): string => (string) $id,
+            $ids,
+        ), static fn (string $id): bool => $id !== '')));
+
+        if ($ids === []) {
+            return [];
+        }
+
+        $names = [];
+        foreach (User::query()->whereIn('id', $ids)->get(['id', 'name']) as $user) {
+            $names[(string) $user->id] = (string) $user->name;
+        }
+
+        foreach (StaffProfile::query()->whereIn('user_id', $ids)->get(['user_id', 'display_name', 'first_name', 'last_name']) as $profile) {
+            $display = $profile->display_name !== ''
+                ? $profile->display_name
+                : trim($profile->first_name.' '.$profile->last_name);
+
+            if ($display !== '') {
+                $names[(string) $profile->user_id] = $display;
+            }
+        }
+
+        return $names;
     }
 }

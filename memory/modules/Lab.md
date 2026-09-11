@@ -282,3 +282,16 @@ with a reason (D-176; the `Checklist.vue` precedent).
 **which one a live control can actually reach differs per page** — on `Lab/Catalog` only the field key is
 reachable; on `Hospital/WardBoard` a single refusal produced three messages at once. Never narrow it to
 named keys.
+
+## The recorded actor is finally NAMED on screen (QA-FIX.11b, `P8-H3`, D-225)
+
+The data model was always right — the actor was recorded correctly everywhere — and **no surface displayed
+any of them**. That was a DISPLAY defect, so the fix renders a name and **changes no write**.
+
+Each controller has a private `actorNames(array $ids): array<int|string, string>` resolving the whole list
+in **ONE query** (the `PatientAccessLogController::actorNames()` shape): staff `display_name` first, the
+user's `name` otherwise. **An id that resolves to nobody is left UNNAMED** rather than labelled (D-176), and
+the template prints behind a `v-if` so a null renders no dangling separator.
+
+**Type note that PHPStan caught:** the map is `array<int|string, string>`, not `array<string, string>` —
+**PHP normalises a numeric string key to an int**, so the stricter-looking type was simply wrong.

@@ -496,3 +496,15 @@ with a reason (D-176; the `Checklist.vue` precedent).
 **which one a live control can actually reach differs per page** — on `Lab/Catalog` only the field key is
 reachable; on `Hospital/WardBoard` a single refusal produced three messages at once. Never narrow it to
 named keys.
+
+## The nightly bed-day accrual credits a real billing manager (QA-FIX.11b, `P9-H6`, D-225)
+
+`AccrueBedDaysCommand` now uses **`SystemActorResolver::forPermission($tenant, 'billing.manage')`** — the
+resolver every other scheduled command already used. `resolveBillingActor()` is gone; it picked by ROLE with
+no ORDER BY and never checked the permission, so `charges.created_by` on every bed-day charge was whichever
+row the engine returned.
+
+**The defect was LATENT in the demo data** (each tenant has exactly one org_admin who does hold the
+permission, so old and new resolve identically). It bites on a second org_admin, a **branch-scoped** one, or
+an org_admin without `billing.manage`. **Historical rows measured: 32 accruals, 0 miscredited** — nothing
+was rewritten.

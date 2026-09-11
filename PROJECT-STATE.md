@@ -86,7 +86,7 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
 
 ## STATUS: BUILD COMPLETE · DEPLOY-READY 🟢 GO · THE BUILDABLE PARITY PROGRAMME IS COMPLETE — ONE TRACK REMAINS: **DEPLOYMENT + PARTNERSHIPS**
 
-### ✅ THE ROLE-BY-ROLE QA AUDIT IS COMPLETE — `docs/qa/ROLE-AUDIT.md` (10 of 10 phases; **187 findings — 44 fixed, 143 open** as of QA-FIX.11a; **every CRITICAL is fixed — 0 open, highest open severity is HIGH at 31**)
+### ✅ THE ROLE-BY-ROLE QA AUDIT IS COMPLETE — `docs/qa/ROLE-AUDIT.md` (10 of 10 phases; **187 findings — 46 fixed, 141 open** as of QA-FIX.11b; **every CRITICAL is fixed — 0 open, highest open severity is HIGH at 29**)
 
 **Phase 1 (reception / front-desk) is DONE** (`06a3f78`): 18 findings — 1 CRITICAL, 3 HIGH, 8 MEDIUM,
 6 LOW — every page **driven in a real browser** via Playwright MCP. Findings are **recorded, not
@@ -490,6 +490,20 @@ posture). **One new finding recorded, not fixed — `QF11a-M1`:** Clinical's own
 either, and the narrow catch above routed a real refusal to two of them; the 500 was worse so the change is
 right, but it moved part of the problem and the record says so. **Playwright-verified:** three refusals
 across two modules plus a success control, every page previously showing **zero** `role="alert"` elements.
+
+**QA-FIX.11b (`<pending>`, D-225) is done, and it CLOSES FAMILY 6: `P9-H6` and `P8-H3` are FIXED.** The two
+were **different kinds of defect**. **`P9-H6`** was a genuine attribution defect on an **unattended** path —
+`AccrueBedDaysCommand` picked an org_admin by role with no `ORDER BY` and no permission check, while its own
+docblock claimed otherwise. It now uses **`SystemActorResolver::forPermission()`**, the resolver every other
+scheduled command already used and which **refuses rather than guesses** (null when nobody qualifies,
+deterministic, permission verified tenant-wide, super-admins excluded, fail-closed). **The defect is LATENT
+in the seeded data** — old and new resolve to the same person in all four demo tenants — and that is recorded
+rather than dressed up; **historical rows measured: 32 accruals, 0 miscredited.** **`P8-H3`** was a **display**
+defect, as its own first line says: the actor was recorded correctly and never shown. Four surfaces now name
+them through a one-query resolver, with an unresolvable id left **unnamed** rather than labelled. **Verified
+where each defect lives:** `P9-H6` from the **CLI** (a browser step would have no meaning) — a forced accrual
+stored `created_by = Dr. Anke Berg`; `P8-H3` in the **browser** on all four pages, against a finding that
+recorded a name scan returning nothing.
 
 
 **PHASE 10 ADDENDUM (same day) — `P10-C3` (CRITICAL): the agent approve gate has a SECOND, UNGATED door.**

@@ -17,6 +17,7 @@ use Modules\Lab\Models\LabTest;
 use Modules\Lab\Models\Specimen;
 use Modules\Lab\Services\LabResultService;
 use Modules\Patients\Models\Patient;
+use Modules\People\Models\StaffProfile;
 use Modules\Platform\Exceptions\CrossTenantReferenceException;
 use Modules\Platform\Models\User;
 
@@ -87,16 +88,20 @@ class LabResultController
                 ])->all(),
             // The append-only result history — the RAW value + when + source. The range is shown beside (above),
             // NOT baked into a computed verdict. NO abnormal/flag/critical/high/low/delta/interpretation field.
-            'results' => $orderResults
-                ->sortByDesc('entered_at')
-                ->values()
-                ->map(fn (OrderResult $r): array => [
+            'results' => (function () use ($orderResults, $accessionByResult): array {
+                $sorted = $orderResults->sortByDesc('entered_at')->values();
+                // `P8-H3`: who entered the result was recorded and never shown. DISPLAY ONLY.
+                $names = $this->actorNames($sorted->pluck('entered_by')->all());
+
+                return $sorted->map(fn (OrderResult $r): array => [
                     'id' => $r->id,
                     'result_value' => $r->result_value, // the RAW recorded value (a fact)
                     'source' => $r->source,             // manual (the seam's manual path)
                     'entered_at' => $r->entered_at->toIso8601String(),
                     'accession_number' => $accessionByResult[$r->id] ?? null, // which specimen produced it
-                ])->all(),
+                    'entered_by_name' => $names[(string) $r->entered_by] ?? null,
+                ])->all();
+            })(),
             'actions' => [
                 'can_result' => Gate::allows('lab.result'),
             ],
@@ -126,5 +131,50 @@ class LabResultController
         }
 
         return redirect()->route('lab.results.show', $record->lab_order_id)->with('status', 'lab-result-recorded');
+    }
+
+    /**
+     * `P8-H3` (QA-FIX.11b, D-225) — WHO DID THIS, resolved for DISPLAY ONLY.
+     *
+     * The actor was always recorded correctly; no surface named them. This changes nothing about the
+     * write — it reads the already-stored `users.id` and resolves a name, in ONE query for the whole
+     * list rather than per row. Same shape as `PatientAccessLogController::actorNames()`: the staff
+     * profile's display name when there is one, the user's name otherwise, and **null when the id
+     * resolves to nobody** — an unknown id is left unnamed rather than labelled (D-176).
+     *
+     * PHP normalises a numeric string key to an int, so a map keyed by user id is
+     * `array<int|string, string>` — not `array<string, string>`. Typing it honestly is what lets the
+     * `?? null` lookups below be checked rather than merely accepted.
+     *
+     * @param  list<string|int|null>  $ids
+     * @return array<int|string, string>
+     */
+    private function actorNames(array $ids): array
+    {
+        $ids = array_values(array_unique(array_filter(array_map(
+            static fn ($id): string => (string) $id,
+            $ids,
+        ), static fn (string $id): bool => $id !== '')));
+
+        if ($ids === []) {
+            return [];
+        }
+
+        $names = [];
+        foreach (User::query()->whereIn('id', $ids)->get(['id', 'name']) as $user) {
+            $names[(string) $user->id] = (string) $user->name;
+        }
+
+        foreach (StaffProfile::query()->whereIn('user_id', $ids)->get(['user_id', 'display_name', 'first_name', 'last_name']) as $profile) {
+            $display = $profile->display_name !== ''
+                ? $profile->display_name
+                : trim($profile->first_name.' '.$profile->last_name);
+
+            if ($display !== '') {
+                $names[(string) $profile->user_id] = $display;
+            }
+        }
+
+        return $names;
     }
 }
