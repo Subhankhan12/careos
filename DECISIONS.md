@@ -5344,3 +5344,69 @@ references the old ID.
   THIS request, which is a decision across every audited surface and belongs in its own gate.
   See [[Hospital]], [[Comms]], [[Nursing]], [[Patients]], [[Platform]], [[Audit]], D-221, D-222, D-184,
   D-189, D-176, [[LOG]].
+
+- **D-227 — The unit of atomicity is the ACTION and always was; the defect was that a failing action did
+  not ANSWER. Every action now yields exactly one result, which closes `P4-H2` and `P4-H1` together
+  (QA-FIX.12b, recording `QF12b-H1`).**
+  **THE GATE ASKED FOR THE UNIT OF ATOMICITY, AND THE ANSWER IS THAT THE EXISTING ONE WAS RIGHT.**
+  `NurseSyncService::process()` wrapped each action in its own `DB::transaction`, and the finding named
+  that as the cause. It is not. Actions in an offline outbox are **independent and deduped by
+  `client_uuid`**, so a batch-level transaction would throw away good care because one action was
+  malformed — strictly worse for a field device — and it would fight the idempotency the ledger already
+  provides, because a retry would re-run work the server had already accepted. **The boundary stays at the
+  action. What was missing is the invariant that every action PRODUCES A RESULT.**
+  **WHAT THE DEFECT ACTUALLY WAS.** When one action threw, the throw escaped `process()`, escaped the
+  controller, and replaced the whole response with a **500 carrying no `results` array** — while the
+  actions that had already run stayed durable, because each had committed in its own transaction. The
+  device was told *everything* failed when part of it had succeeded. **Driven live before the fix**, with
+  a real Sanctum token against the running app: `[valid visit_note, check_in missing client_visit_uuid]`
+  → **HTTP 500, no `results`**, `visit_notes` **36 → 37**, and the good note's ledger row already
+  `accepted`. **After: HTTP 200**, two results — `accepted` and `rejected`/`action_failed` — and the same
+  single note committed. The commit was never the problem; the denial of it was.
+  **`P4-H1` CLOSES WITH IT, AND THAT IS A PROPERTY OF THE CLIENT, NOT A HOPE.** Both of `P4-H1`'s 500s are
+  the same escape (`Undefined array key "client_visit_uuid"` at the undefensive read three lines after a
+  defensive one, and the visit state machine's `Only scheduled visits can be checked in.`) — both driven
+  live before and after. Its "jam" is `nurse-pwa/src/api.ts` removing **nothing** on a non-OK response; the
+  same file already removes **every** `client_uuid` present in `results`, whatever its status. So a
+  complete envelope drains the outbox **with no client change at all**, and a test pins that exact line so
+  the argument cannot rot.
+  **I WROTE A GUARD THAT COULD NEVER FIRE, AND THE MUTATION CAUGHT IT.** The first version also had
+  `catch (HttpException $e) { throw $e; }` to keep batch-level 403s batch-level. A mutation deleting that
+  arm left **all nine tests green**; enumerating the throws showed why — both token-level 403s are raised
+  in `nurseResources()`, which `sync()` calls *before* the per-action map, and `resourceFor()`'s only throw
+  needs an empty resource collection that `nurseResources()` has already ruled out. **Nothing can reach
+  it.** It was removed rather than kept as an unfireable guard with a confident comment — the D-176
+  discipline applied to my own code, exactly as in QA-FIX.11a's invented exception type. The positive
+  control stays, reworded to say where the boundary actually lives.
+  **A REJECTION IS LEDGERED, WHICH IS WHAT MAKES THE UNJAM PERMANENT.** The failing action's own
+  transaction rolls back, so nothing of it is durable; the ledger row is written **outside** that
+  transaction, so a retry replays the same rejection instead of re-running it. Without that row the poison
+  action would be re-attempted on every sync — the jam again, one layer down. `CODE_ACTION_FAILED` was
+  added rather than reusing `validation_failed`, which every other path uses for a payload the service
+  itself judged; the result carries the exception CLASS and no message, so a PHP internal never reaches a
+  device.
+  **THE ATOMICITY CLAIM HAS A STATED LIMIT.** It is a claim about the DATABASE. `visitAttachment()` calls
+  `Storage::disk('local')->put()` inside the transaction, and a filesystem write does not roll back — a
+  later failure in that action would leave an unreferenced blob. Validation happens before the write, so
+  this is narrow, but the honest sentence is "the action is atomic in the database", not "the action is
+  atomic".
+  **AND THE FIX MAKES A TRADE-OFF, WHICH IS RECORDED AS `QF12b-H1` RATHER THAN GLOSSED.** Browser-driving
+  the real PWA showed that a rejected action is **deleted from the device with nothing said** —
+  `App.vue:79` discards the results `syncOutboxWithRetry()` returns and then clears the error. A note
+  written BEFORE the check-in is rejected `visit_not_found` and **lost**, while the same note written after
+  it is saved: a clean A/B through the real client. So for the throwing case this gate converts *"jams for
+  ever, loudly"* into *"is dropped, quietly"*. **It is still the right call** — the jam blocked every
+  action on the device indefinitely, destroying strictly more care, and the quiet drop was already the
+  behaviour for the far more common ordinary rejections. **What makes both acceptable is surfacing
+  rejections in the PWA, which is family 3's shape, not family 7's, and is left open with its own id.**
+  **Guarded by** nine tests in `tests/Feature/Qa/SyncBatchAnswersEveryActionTest.php`, mutation-checked
+  three ways, each reverting to a re-verified diff fingerprint: removing the catch reddens the six tests
+  that depend on it and leaves the PWA pin, the batch-level boundary and the positive control green;
+  removing the per-action transaction reddens **only** the rollback test; answering without ledgering the
+  rejection reddens **only** the replay test. **The rollback test uses a deliberately discriminating
+  fixture** — an action that WRITES the execution `Visit` and only then throws on a location missing its
+  longitude — because the obvious fixture throws before any write and would have passed with no
+  transaction at all. Two earlier mutations were void and are recorded as such: one did not parse, and one
+  was semantically identical because `HttpException extends \RuntimeException`. The applier now refuses to
+  report a result unless the mutant both changes the file and compiles.
+  See [[Nursing]], [[Platform]], D-176, D-202, D-205, [[LOG]].

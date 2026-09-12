@@ -629,3 +629,11 @@ its docblock claimed otherwise.
 case from an unidentifiable one: a ward round has a human and must refuse without one (D-220); a nightly
 sweep has none, so a named permission-holder is right and **no run at all** is the correct answer when there
 is nobody.
+
+
+## `HttpException` is not a per-action signal in the nurse sync (QA-FIX.12b, D-227)
+
+`Symfony\Component\HttpKernel\Exception\HttpException` **extends `\RuntimeException`** — which is why a
+mutation replacing `catch (HttpException)` with `catch (\RuntimeException)` was semantically identical and
+proved nothing. Worth remembering whenever a narrow catch is mutation-checked: pick a mutation that changes
+BEHAVIOUR, and verify the mutant both differs and compiles before reading its result.

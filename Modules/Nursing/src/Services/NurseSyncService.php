@@ -44,6 +44,13 @@ class NurseSyncService
 
     public const CODE_VALIDATION_FAILED = 'validation_failed';
 
+    /**
+     * `P4-H2` (QA-FIX.12b) — an action that threw. Its own transaction rolled back, so nothing of it is
+     * durable; this names that outcome honestly instead of mislabelling it `validation_failed`, which
+     * every other refusal path uses for a payload the service itself judged.
+     */
+    public const CODE_ACTION_FAILED = 'action_failed';
+
     private const MAX_ATTACHMENT_BYTES = 5_242_880;
 
     private const ALLOWED_ATTACHMENT_MIMES = [
@@ -94,9 +101,74 @@ class NurseSyncService
             return $this->resultFromLedger($existing);
         }
 
-        return DB::transaction(function () use ($nurse, $resources, $action): array {
-            $payload = $this->payload($action);
-            $resource = $this->resourceFor($resources, $payload);
+        /*
+         * RESOLVED OUTSIDE THE TRANSACTION, ON PURPOSE (QA-FIX.12b, `P4-H2`).
+         *
+         * Both are reads, and the rejection path below needs `$resource` to write this action's
+         * ledger row AFTER its transaction has rolled back. `payload()` is total — it never throws.
+         * `resourceFor()` declares an `HttpException(403)` for an empty resource collection, which
+         * `nurseResources()` has already made impossible; resolving it here rather than inside the try
+         * keeps it a batch-level concern either way.
+         */
+        $payload = $this->payload($action);
+        $resource = $this->resourceFor($resources, $payload);
+
+        /*
+         * WHERE THE BATCH-LEVEL BOUNDARY ACTUALLY LIVES — and why there is no `catch (HttpException)`
+         * here, although I wrote one first.
+         *
+         * A 403 about the TOKEN ("not scoped to this tenant", "no active practitioner resource") is true
+         * of every action in the batch, so answering it per-action would be a lie of a different kind.
+         * Both of those throws are in `nurseResources()`, which `sync()` calls BEFORE the map — outside
+         * this try, and so unreachable by the catch below. The third, in `resourceFor()`, fires only on
+         * an EMPTY resource collection, which `nurseResources()` has already made impossible, and it is
+         * called above rather than inside the try in any case.
+         *
+         * My first version re-threw `HttpException` here. A mutation deleting that arm left all nine
+         * tests green, and enumerating the throws showed why: nothing can reach it. It was removed
+         * rather than kept as an unfireable guard carrying a confident comment — the D-176 discipline
+         * applied to my own code, as in QA-FIX.11a.
+         */
+        try {
+            return $this->dispatch($nurse, $resource, $action, $payload);
+        } catch (\Throwable $e) {
+            /*
+             * `P4-H2` — THE INVARIANT: EVERY ACTION YIELDS EXACTLY ONE RESULT.
+             *
+             * Before this, an escape from one action replaced the WHOLE response with a 500 carrying no
+             * `results` array, while the actions that had already run stayed durable — each has its own
+             * transaction. The device was told everything failed when part of it had succeeded, and
+             * (per `P4-H1`) removed nothing from its outbox, so one malformed action jammed the queue
+             * for ever. Driven live before the fix: `[valid visit_note, check_in missing
+             * client_visit_uuid]` → HTTP 500, no `results`, and `visit_notes` 36 → 37 with the note's
+             * ledger row already `accepted`.
+             *
+             * THE UNIT OF ATOMICITY IS THE ACTION, AND THAT WAS NEVER THE DEFECT. Actions are
+             * independent and deduped by `client_uuid`, so a batch-level rollback would throw away good
+             * care because one action was malformed — worse for an offline queue, and it would fight
+             * the idempotency the ledger already provides. What was missing is that a failing action
+             * must still ANSWER. Its own transaction has rolled back, so nothing of it is durable, and
+             * the ledger row is written here, outside, so a retry replays this same rejection instead
+             * of re-running it.
+             */
+            return $this->recordLedger(
+                $nurse, $resource, $action, $payload, null,
+                NurseSyncAction::STATUS_REJECTED, self::CODE_ACTION_FAILED,
+                ['reason' => 'action_failed', 'exception' => class_basename($e)], null,
+            );
+        }
+    }
+
+    /**
+     * The per-action transaction. One action, one boundary — see `process()` for why it is per-action.
+     *
+     * @param  array<string, mixed>  $action
+     * @param  array<string, mixed>  $payload
+     * @return array<string, mixed>
+     */
+    private function dispatch(User $nurse, Resource $resource, array $action, array $payload): array
+    {
+        return DB::transaction(function () use ($nurse, $resource, $action, $payload): array {
             $type = (string) $action['type'];
 
             // THE SINGLE UTC BOUNDARY FOR DEVICE TIMES (QA-FIX.4b, P4-C4, D-202).

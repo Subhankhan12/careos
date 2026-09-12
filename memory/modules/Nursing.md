@@ -495,3 +495,36 @@ as the wrong user under a tenant you seeded by hand.
 **If you add an API route with a param: take a string id and resolve in-controller.** After this fix the
 only Eloquent bindings left in `Modules/` are `PublicBookingController::index/slots/store(Tenant $tenant)`
 on `book/{tenant:slug}` — the tenant ROOT from a slug, which is intentional.
+
+
+## Every sync action yields exactly one result (QA-FIX.12b, `P4-H2` + `P4-H1`, D-227)
+
+`NurseSyncService::process()` now catches an escape from an action and records it as a `rejected` ledger
+row with `CODE_ACTION_FAILED`, **outside** that action's own (rolled-back) transaction. The dispatch itself
+moved into `dispatch()`, which holds the per-action `DB::transaction`.
+
+**THE UNIT OF ATOMICITY IS THE ACTION, AND THAT WAS NEVER THE DEFECT** — the finding blamed it, wrongly.
+Actions are independent and deduped by `client_uuid`, so a batch-level transaction would discard good care
+because one action was malformed, and would fight the ledger's idempotency. What was missing is that a
+failing action must ANSWER: before, one throw replaced the whole response with a 500 carrying no `results`
+while the actions already run stayed durable.
+
+**`P4-H1` closes with it**, including its jam: `nurse-pwa/src/api.ts` already removes every `client_uuid`
+present in `results`, whatever its status, so a complete envelope drains the outbox with **no client
+change**. A test pins that exact line so the argument cannot rot.
+
+**A guard that could never fire was written and then removed.** The first version also re-threw
+`HttpException` to keep batch-level 403s batch-level; a mutation deleting that arm left all nine tests
+green, because both token-level 403s are raised in `nurseResources()` — called by `sync()` *before* the
+per-action map — and `resourceFor()`'s throw needs an empty collection that `nurseResources()` already
+ruled out. Removed rather than kept (D-176).
+
+**The atomicity claim is about the DATABASE.** `visitAttachment()` calls `Storage::put()` inside the
+transaction and a filesystem write does not roll back, so a later failure there would leave an orphan blob.
+
+**OPEN, AND IT IS THE OTHER HALF OF THIS STORY — `QF12b-H1`:** `App.vue:79` discards what
+`syncOutboxWithRetry()` returns and clears the error, while `api.ts` deletes every returned uuid. So a
+rejected action vanishes from the device silently. Browser-driven A/B: a note written BEFORE the check-in
+is rejected `visit_not_found` and **LOST**; the same note written after it is saved. Pre-existing, not
+caused by this gate — but this gate's fix routes throwing actions into that same quiet path, which is the
+trade-off stated in D-227.

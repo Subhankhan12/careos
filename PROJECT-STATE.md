@@ -86,7 +86,7 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
 
 ## STATUS: BUILD COMPLETE · DEPLOY-READY 🟢 GO · THE BUILDABLE PARITY PROGRAMME IS COMPLETE — ONE TRACK REMAINS: **DEPLOYMENT + PARTNERSHIPS**
 
-### ✅ THE ROLE-BY-ROLE QA AUDIT IS COMPLETE — `docs/qa/ROLE-AUDIT.md` (10 of 10 phases; **189 findings — 50 fixed, 139 open** as of QA-FIX.12a; **every CRITICAL is fixed — 0 open, highest open severity is HIGH at 26**)
+### ✅ THE ROLE-BY-ROLE QA AUDIT IS COMPLETE — `docs/qa/ROLE-AUDIT.md` (10 of 10 phases; **190 findings — 52 fixed, 138 open** as of QA-FIX.12b; **every CRITICAL is fixed — 0 open, highest open severity is HIGH at 25**)
 
 **Phase 1 (reception / front-desk) is DONE** (`06a3f78`): 18 findings — 1 CRITICAL, 3 HIGH, 8 MEDIUM,
 6 LOW — every page **driven in a real browser** via Playwright MCP. Findings are **recorded, not
@@ -539,6 +539,34 @@ Re-driven with no staff session, the same surfaces recorded *"Patient (self)"* �
 one exported CSV. Nothing goes unrecorded, so it is not a family-4 defect; it is graded **MEDIUM on
 reachability with the argument for HIGH stated**, and the honest fix (resolve the actor from the guard that
 authorised THIS request) is a decision across every audited surface and needs its own gate.
+
+**QA-FIX.12b (`<pending>`, D-227) is done, and it CLOSES FAMILY 7 — `P4-H2` — AND `P4-H1` WITH IT.**
+**The finding's stated cause was not the cause.** `P4-H2` blamed the per-action `DB::transaction`; actions
+in an offline outbox are independent and deduped by `client_uuid`, so a batch-level transaction would throw
+away good care because one action was malformed and would fight the ledger's idempotency. **The unit of
+atomicity is the ACTION and always was — what was missing is that a FAILING action must ANSWER.**
+`process()` now records an escape as a `rejected` ledger row **outside** that action's rolled-back
+transaction, so every action in a batch yields exactly one result.
+**Driven live before and after** with a real Sanctum token: the finding's exact batch gave **HTTP 500, no
+`results`, `visit_notes` 36 → 37** with the good note already `accepted`; afterwards **HTTP 200** with both
+results and the same single note committed. **The commit was never the problem — the denial of it was.**
+**`P4-H1` closes with it, and that is a property of the client rather than a hope:** both its 500s are the
+same escape, and its jam is `nurse-pwa/src/api.ts` removing nothing on a non-OK response, while the same
+file already removes **every** returned `client_uuid` whatever its status. A complete envelope therefore
+drains the outbox **with no client change**, pinned by a set-equality test and by a test on that exact line.
+**So family 2 now stands at four, not five** — `P1-H2`, `P3-H2`, `P9-H1`, `P10-H4`.
+**A guard that could never fire was written, caught by mutation, and removed.** The first version re-threw
+`HttpException`; deleting that arm left all nine tests green, because both token-level 403s are raised in
+`nurseResources()` before the per-action map and `resourceFor()`'s throw needs a collection that has already
+been ruled out. Removed rather than kept (D-176) — the QA-FIX.11a lesson applied again.
+**`QF12b-H1` IS OPEN AND NAMES THE TRADE-OFF THIS FIX MAKES.** Browser-driving the real PWA showed a
+rejected action is deleted from the device with **nothing said** (`App.vue:79` discards the results and
+clears the error): a note written BEFORE the check-in is rejected `visit_not_found` and **LOST**, while the
+same note written after it is saved. So for the throwing case this gate converts *"jams for ever, loudly"*
+into *"is dropped, quietly"*. **It was still the right call** — the jam blocked every action on the device
+indefinitely, destroying strictly more care, and the quiet drop was already the behaviour for the far more
+common ordinary rejections. Surfacing rejections in the PWA is **family 3's shape, not family 7's**, and is
+left open with its own id.
 
 
 **PHASE 10 ADDENDUM (same day) — `P10-C3` (CRITICAL): the agent approve gate has a SECOND, UNGATED door.**

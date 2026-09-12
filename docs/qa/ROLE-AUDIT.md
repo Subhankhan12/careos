@@ -58,6 +58,7 @@ missing · `LOW` cosmetic / polish.
 | ⚠️ **SUPERSEDED AGAIN — CURRENT as of QA-FIX.11b** | | | | | |
 | **Total recorded** (+ `QF11a-M1`) | **24** | **46** | **85** | **32** | **187** |
 | **Total recorded** (+ `QF12a-H1`, + `QF12a-M1`; rows above are superseded, not corrected) | **24** | **47** | **86** | **32** | **189** |
+| **Total recorded** (+ `QF12b-H1`; rows above are superseded, not corrected) | **24** | **48** | **86** | **32** | **190** |
 | of which **FIXED** | **24** | **17** | 4 | 1 | **46** |
 | of which **OPEN** | **0** | **29** | **81** | **31** | **141** |
 
@@ -2105,6 +2106,33 @@ with zero cookies.
 
 #### `P4-H1` — `/api/nurse/sync` returns 500 on two reachable inputs, and one bad action jams the queue for ever
 
+> ✅ **FIXED — QA-FIX.12b, commit `<pending>` (D-227), closed by the SAME one-line invariant as `P4-H2`:
+> every action yields exactly one result.** Both of this finding's 500s are one escape from `process()`,
+> and its jam is the client refusing to drain a response that never arrived.
+> **BOTH INPUTS DRIVEN LIVE, BEFORE AND AFTER.** Before: `check_in` missing `client_visit_uuid` →
+> **HTTP 500** `Undefined array key "client_visit_uuid"` (`NurseSyncService.php:298` — the undefensive
+> read three lines after the defensive one, exactly as recorded); `check_in` on a visit that is no longer
+> scheduled → **HTTP 500** `Only scheduled visits can be checked in.` (`VisitService.php:76`).
+> After: both **HTTP 200** with `status: rejected`, `code: action_failed`, and a ledger row each.
+> **THE JAM DISSOLVES WITH NO CLIENT CHANGE, AND THAT IS A PROPERTY OF THE CLIENT RATHER THAN A HOPE.**
+> `nurse-pwa/src/api.ts` removes **every** `client_uuid` present in `results` — accepted or rejected — and
+> removed nothing only because a 500 produced no `results` at all. A test asserts set equality between the
+> uuids sent and the uuids returned, and a second test pins that exact line of `api.ts`, so the argument
+> cannot rot silently.
+> **AND THE REJECTION IS LEDGERED, WHICH IS WHAT MAKES IT PERMANENT.** Without a ledger row the poison
+> action would be re-attempted on every sync — the jam again, one layer down. A replay test asserts the
+> second identical batch returns byte-identical results and writes nothing twice.
+> **THIS CLOSES ONE OF FAMILY 2's FIVE.** `P4-H1` was listed under *"Operations with no way back, or that
+> mislead"* in the reconciliation's open-HIGH table; it is closed here, by family 7's fix, so that family
+> stands at **four** — `P1-H2`, `P3-H2`, `P9-H1`, `P10-H4`.
+> **A NEW FINDING CAME OUT OF VERIFYING THIS ONE (`QF12b-H1`), AND IT NAMES A TRADE-OFF THIS FIX MAKES.**
+> Driving the real PWA showed that a rejected action is deleted from the device with **nothing said** —
+> `App.vue:79` discards the results and clears the error. So for the throwing case this gate converts
+> *"jams for ever, loudly"* into *"is dropped, quietly"*. It was still the right call (the jam blocked
+> **every** action on the device, destroying strictly more care, and the quiet drop was already the
+> behaviour for ordinary rejections) — but the sentence is recorded rather than avoided, and surfacing
+> rejections in the PWA is left open with its own id.
+
 - **Role:** `nurse` · **Route:** `POST /api/nurse/sync`
 - Two crash paths, both driven:
 
@@ -2128,6 +2156,34 @@ with zero cookies.
 - **Why HIGH:** a poison pill in a field device's care queue, reachable from ordinary input.
 
 #### `P4-H2` — A crashed sync batch commits part of itself while telling the device everything failed
+
+> ✅ **FIXED — QA-FIX.12b, commit `<pending>` (D-227). AND THE FINDING'S STATED CAUSE WAS NOT THE CAUSE.**
+> This finding names the per-action `DB::transaction` as the problem. **It is not.** Actions in an offline
+> outbox are independent and deduped by `client_uuid`, so a batch-level transaction would throw away good
+> care because one action was malformed, and would fight the idempotency the ledger already provides.
+> **The unit of atomicity is the ACTION, and that was always right. What was missing is that a failing
+> action must still ANSWER.**
+> **THE FIX:** `process()` now catches an escape and records it as a `rejected` ledger row with
+> `CODE_ACTION_FAILED`, **outside** the action's own (rolled-back) transaction. Every action in a batch
+> therefore yields exactly one result.
+> **DRIVEN LIVE, BEFORE AND AFTER, with a real Sanctum `nurse:day-pack` token against the running app.**
+> Before — this finding's exact batch `[valid visit_note, check_in missing client_visit_uuid]`:
+> **HTTP 500**, `has results array: NO`, `visit_notes` **36 → 37**, good note ledger row **`accepted`**,
+> bad check_in ledger row **ABSENT**. The finding's measurement reproduced exactly.
+> After: **HTTP 200**, `has results array: YES`,
+> `[{"client_uuid":"…good-note…","status":"accepted"},{"client_uuid":"…bad-checkin…","status":"rejected","code":"action_failed"}]`,
+> `DELTA visit_notes = 1`, `DELTA ledger = 2`.
+> **THE COMMIT WAS NEVER THE PROBLEM — THE DENIAL OF IT WAS.** The good note should be durable; that is
+> what a per-action boundary means. What was wrong is that the response said otherwise. Both halves are
+> asserted, so a "fix" that discarded the note would not pass either.
+> **A STATED LIMIT ON THE ATOMICITY CLAIM.** It is a claim about the DATABASE. `visitAttachment()` calls
+> `Storage::disk('local')->put()` inside the transaction and a filesystem write does not roll back, so a
+> later failure in that action would leave an unreferenced blob. Validation runs before the write, so it
+> is narrow — but the honest sentence is "atomic in the database", not "atomic".
+> **Guarded by** nine tests in `tests/Feature/Qa/SyncBatchAnswersEveryActionTest.php`, mutation-checked
+> three ways. The rollback test uses a deliberately discriminating fixture — an action that WRITES the
+> execution `Visit` and only then throws — because the obvious one throws before any write and would pass
+> with no transaction at all.
 
 - **Role:** `nurse` · **Route:** `POST /api/nurse/sync` · **This is cross-phase pattern 6's second instance.**
 - **Steps:** send one batch containing `[a valid visit_note, a check_in missing client_visit_uuid]`.
@@ -7457,6 +7513,55 @@ a negative must follow the calls before it reports one.
   honest remedy is to resolve the actor from **the guard that authorised THIS request** — the portal routes
   know they ran behind `portal-auth` — rather than from a global "whoever is logged in" lookup. That is a
   design decision across every audited surface, so it belongs in its own gate with its own tests.
+
+#### `QF12b-H1` — A nurse's written observation is silently discarded if the note is queued before the check-in
+
+- **Recorded by QA-FIX.12b while browser-verifying `P4-H2`. NOT fixed — recorded, per the standing rule
+  that a newly-found defect gets its own id rather than widening the part. The reasoning, and the
+  trade-off this gate's own fix makes, are stated below rather than glossed.**
+- **Role:** `nurse` · **Surface:** the Nurse PWA (`/nurse-pwa/`), driven in a real browser against the
+  running app.
+- **Driven, as a clean A/B — same client, same visit, same nurse, minutes apart:**
+
+  | what the nurse did | ledger result | the note |
+  |---|---|---|
+  | wrote the observation, **then** pressed Check in, then Sync | `rejected` · `visit_not_found` | **LOST** |
+  | pressed Check in first, **then** wrote the observation, then Sync | `accepted` | saved |
+
+  Verbatim, the first attempt: *"QA-FIX.12b browser drive: wound dressing changed, patient comfortable."*
+  The PWA reported **"Pending offline actions: 0"**, no error, and the Attendance control flipped to
+  **"Check out"** — every visible signal said the sync had succeeded.
+- **Two causes, and the damage needs both.**
+  1. **The ordering is unguarded.** The visit-note box and the Check in button sit on the same screen with
+     no ordering constraint, and the note is queued against a `visit_id` that does not exist until the
+     check-in has been *accepted by the server*. Actions are processed in `sequence` order, so a note
+     queued first is evaluated first and `visitNote()` correctly returns `visit_not_found`. Writing the
+     observation on arrival and checking in afterwards is ordinary use, not a contrived order.
+  2. **The client never shows a rejection.** `nurse-pwa/src/App.vue:79` is `await syncOutboxWithRetry();`
+     — the return value is **discarded**, and the same block then sets `errorKey.value = null`. Meanwhile
+     `api.ts` removes every `client_uuid` that comes back, *whatever its status*. So a rejected action is
+     deleted from the device and nothing is said.
+- **Why HIGH.** Authored clinical care is destroyed with no notice to its author and no way to recover it —
+  the outbox entry is gone. It is narrower than `P4-C3` (which deleted the whole queue) because it takes
+  one action at a time, but it shares the property that made `P4-C3` CRITICAL: **the nurse cannot tell.**
+- **It is PRE-EXISTING and was NOT introduced by QA-FIX.12b.** `visit_not_found` rejections already
+  returned 200 and were already removed by the client before this gate; the finding is reachable on
+  `main` as it stood. What this gate did was *find* it, by driving the real client rather than the API.
+- **THE TRADE-OFF QA-FIX.12b'S OWN FIX MAKES, STATED PLAINLY.** Before this gate, an action that THREW
+  produced a 500 and the outbox jammed — nothing drained, and the offending action stayed on the device.
+  After it, that action is answered `rejected` and the client deletes it. For the throwing case the fix
+  therefore converts *"jams for ever, loudly"* into *"is dropped, quietly"*.
+  **It was still the right call, and here is the argument rather than an assertion:** the jam blocked
+  **every** action on the device indefinitely, including the notes and vitals that would otherwise have
+  saved, so it destroyed strictly more care than it preserved; and the quiet-drop path was already the
+  behaviour for every ordinary rejection (`visit_not_found`, `schedule_changed_server_wins`), which are
+  far more common than throws. The fix makes the rare case behave like the common one. **What makes both
+  acceptable is surfacing rejections in the PWA, and that is this finding.**
+- **The remedy is a UI change and belongs in its own gate** — it is family 3's shape (a refusal that
+  reaches nobody), not family 7's. `syncOutboxWithRetry()` already RETURNS the results; the screen has to
+  render them, and the ordering case additionally wants either a guard on the note control until the visit
+  is checked in, or a note queued against the planned visit. Deciding between those is design work, so it
+  is recorded and left open rather than half-done.
 
 ---
 
