@@ -6,9 +6,20 @@ import AppLayout from '@/Layouts/AppLayout.vue';
 import Button from '@/Components/Button.vue';
 import Card from '@/Components/Card.vue';
 import Input from '@/Components/Input.vue';
+import { formatDateTime } from '@/lib/date';
 
 const { t } = useI18n();
 const page = usePage();
+
+/*
+ * `P4-H4` (QA-FIX.12c, D-228) — the dispatch board printed the visit window raw, i.e. UTC:
+ * `2026-09-06 05:30:00 - 06:30:00` for a visit that happens at 07:30 Zurich. A coordinator dispatching
+ * a round was reading a time two hours before the appointment. It now reads the practice's clock.
+ */
+const dtLocale = computed(() => (page.props.locale as string) || 'en');
+const tz = computed(() => (page.props.timezone as string) || 'UTC');
+const dtTime = (value: string | null | undefined): string =>
+    formatDateTime(value, tz.value, dtLocale.value, { hour: '2-digit', minute: '2-digit', hour12: false });
 
 type Visit = {
     id: string;
@@ -123,7 +134,7 @@ function unassign(visitId: string): void {
                         <div v-for="visit in unassignedVisits" :key="visit.id" class="rounded-md border border-line bg-surface px-3 py-3">
                             <div class="font-medium text-ink">{{ visit.patient }}</div>
                             <div class="mt-1 text-sm text-ink-muted">
-                                {{ visit.window_start_at }} - {{ visit.window_end_at }}
+                                {{ dtTime(visit.window_start_at) }} - {{ dtTime(visit.window_end_at) }}
                             </div>
                             <div class="mt-1 text-xs text-ink-muted">
                                 {{ t('nursing.dispatch.requiredQualification') }}: {{ visit.required_qualification ?? t('nursing.dispatch.none') }}
@@ -153,7 +164,7 @@ function unassign(visitId: string): void {
                             <div v-for="visit in lane.visits" :key="visit.id" class="rounded-md border border-line bg-surface px-3 py-3">
                                 <div class="font-medium text-ink">{{ visit.patient }}</div>
                                 <div class="mt-1 text-sm text-ink-muted">
-                                    {{ visit.window_start_at }} - {{ visit.window_end_at }}
+                                    {{ dtTime(visit.window_start_at) }} - {{ dtTime(visit.window_end_at) }}
                                 </div>
                                 <div class="mt-3 max-w-36">
                                     <Button type="button" variant="secondary" @click="unassign(visit.id)">

@@ -18,6 +18,7 @@ import {
 } from './visitActions';
 import type { DayPack, TaskSummary, VisitSummary } from './types';
 import { buildVitalsHistoryRows } from './vitalsDisplay';
+import { formatVisitWindow } from './visitTime';
 
 const { t } = useI18n();
 const email = ref('');
@@ -52,6 +53,14 @@ const rawVitals = reactive({
 
 const today = new Date().toISOString().slice(0, 10);
 let stopIdle: (() => void) | null = null;
+
+/*
+ * `P4-H4` (QA-FIX.12c, D-228) — the round reads the PRACTICE clock, from the zone the day pack now
+ * carries. The device clock is deliberately not the fallback: a nurse may cross a border or carry a
+ * phone set wrong, and the round is planned in the practice's clock.
+ */
+const visitWindow = (visit: VisitSummary): string =>
+    formatVisitWindow(visit.window_start_at, visit.window_end_at, dayPack.value?.timezone);
 
 const selectedVisit = computed<VisitSummary | null>(() =>
     dayPack.value?.visits.find((visit) => visit.id === selectedVisitId.value) ?? null,
@@ -299,7 +308,7 @@ onUnmounted(() => {
                         @click="selectedVisitId = visit.id"
                     >
                         <strong>{{ visit.patient.name }}</strong>
-                        <span>{{ visit.window_start_at }} - {{ visit.window_end_at }}</span>
+                        <span>{{ visitWindow(visit) }}</span>
                     </button>
                     <p v-if="(dayPack?.visits.length ?? 0) === 0">{{ t('visits.empty') }}</p>
                 </nav>

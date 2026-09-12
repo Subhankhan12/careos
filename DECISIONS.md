@@ -5410,3 +5410,85 @@ references the old ID.
   was semantically identical because `HttpException extends \RuntimeException`. The applier now refuses to
   report a result unless the mutant both changes the file and compiles.
   See [[Nursing]], [[Platform]], D-176, D-202, D-205, [[LOG]].
+
+- **D-228 — One declared display zone, the PRACTICE's, consumed from the prop D-192 already shared; and
+  `P6-H3`'s recorded remedy is WRONG on the evidence, so the board states the fact instead of refusing the
+  time (QA-FIX.12c, closing `P2-H3`, `P4-H4`, `P6-H3`).**
+  **THE SERVER HALF ALREADY EXISTED AND NOTHING CONSUMED IT.** D-192 removed the process-wide timezone
+  mutation and resolved the display side explicitly: `DisplayTimezone::forCurrentTenant()` feeds a
+  `timezone` prop that `HandleInertiaRequests` shares on **every** page. D-192 then recorded, accurately,
+  that *"no frontend component consumes the shared `timezone` prop for rendering today"* — and that was
+  still true when this gate opened. So each clinical surface had invented its own clock and the audit
+  found **three, none of them the practice's**: the raw UTC string printed verbatim; a `Date` formatted
+  with no zone, i.e. the **VIEWER's machine** in US format; and the ISO separator swapped for a space with
+  sixteen characters sliced off, which *looks* like a formatted local time and is not one. **This part
+  builds the missing half — one formatter — and consumes the prop.**
+  **`formatDateTime()` IS THE SIBLING OF A HELPER THAT ALREADY EXISTED.** `resources/js/lib/date.ts` has
+  carried `formatDateOnly` since D-091 and says in its own header that *"Timestamped (datetime) values are
+  NOT handled here"*. That sentence was the gap. The new function takes an explicit IANA zone and hands it
+  to `Intl`, so **DST is the zone database's problem and never arithmetic** — asserted by a test that the
+  same 17:04Z reads 19:04 in Zurich in September and 18:04 in January.
+  **IT REFUSES A DATE-ONLY VALUE RATHER THAN SHIFTING IT.** `new Date('2026-03-12')` is UTC midnight, so
+  converting it to a zone yields `01:00` on the 12th — or the 11th in a zone behind UTC. That is exactly
+  the class D-091 exists to prevent, so a date-only string is returned raw and D-091 keeps its subject.
+  **AND AN UNKNOWN ZONE RETURNS THE RAW VALUE, NOT THE VIEWER'S CLOCK** — wrong-looking rather than
+  wrong-and-convincing (D-176). The same rule governs the PWA, where the device clock is **deliberately
+  not** the fallback: a nurse may cross a border or carry a phone set wrong, and the round is planned in
+  the practice's clock.
+  **THE PWA GETS NO INERTIA PROPS, SO THE ZONE TRAVELS IN THE DAY PACK.** `DayPackService` now emits
+  `timezone` from the same resolver the web side uses, so the two cannot drift. It rides **inside** the
+  pack rather than being fetched separately because the pack is cached and used offline — the zone must be
+  present with no network, beside the times it explains. An older cached pack has no such field, and the
+  client renders the raw value rather than guessing.
+  **`P6-H3` IS NOT A VALIDATION DEFECT, AND THE RECORD SAID IT WAS.** The reconciliation's own row reads
+  *"`P6-H3` also needs a past-date validation, the D-194 shape"*. **That does not transfer, and the
+  evidence is in the product:** `DemoHospitalSeeder` schedules a surgical case in the PAST and then
+  transitions it to `completed`/`post_op`, and **nine existing tests** schedule cases at fixed past dates.
+  Documenting an operation that already happened is a legitimate use of that path, and a past-start
+  refusal would break retrospective documentation — it would also have broken the seeder and those tests,
+  which is how the mistake would have surfaced anyway, too late. **D-194 refuses a past BOOKING because an
+  appointment is a forward commitment; a surgical case is also a documentation artefact.**
+  **SO THE BOARD SAYS THE TIME HAS PASSED INSTEAD.** `scheduled_time_passed` is true only when the case is
+  still `scheduled` AND its time is behind the SERVER clock — a recorded fact, computed server-side for
+  the same reason the times themselves no longer come from the device. A case that has moved on to
+  `pre_op` is **not** marked: a past date there is the record of when it happened, and marking it would
+  make the signal meaningless (D-169 — state a recorded fact, and only where it means something). The
+  marker carries no colour, no tint and no severity word. **A test pins that a past `scheduled_at` is
+  still ACCEPTED**, so if a later gate adds the refusal it must face the trade-off deliberately rather
+  than by accident.
+  **THE WHOLE PATTERN WAS NOT UNDERTAKEN, AND THE REMAINDER IS COUNTED.** Six pages were adopted — the
+  ones `P2-H3` and `P4-H4` name. Repo-wide, **44 pages** construct a `Date` and **16** call a `toLocale*`
+  formatter; those outside the two findings are untouched and remain open as the standing per-widget
+  display item D-192 named. Fixing them is mechanical now that the helper and the prop are wired, but it
+  is a sweep, not this gate.
+  **THE FIRST VERSION OF THE HELPER WAS WRONG BY NINE HOURS, AND ONLY A BROWSER COULD SEE IT.** Driven on
+  the live chart, a vital stored at `09:20` UTC rendered as **`18:20`** in Zurich instead of `11:20`. Cause:
+  CareOS payloads serialise with Carbon's `toDateTimeString()`, which emits `2026-08-03 09:20:00` — **no
+  `Z` and no offset** — and `new Date()` parses such a string as the **VIEWER's local time**. On a UTC-7
+  machine it became `16:20Z` and was then converted again into Zurich: **the viewer's zone applied twice,
+  once silently on the way in.** Every unit test had used a `Z`-suffixed input, so sixteen green assertions
+  proved nothing about the payloads the application actually sends. `formatDateTime` now labels a naive
+  datetime as UTC before parsing — correct because storage is UTC from every path (D-192) — and a value
+  that already carries a zone is untouched. The same normalisation was applied to the PWA helper even
+  though the day pack sends an offset today, so the trap cannot recur there. **The lesson is the gate's own
+  RULE 1: the browser is not a formality. A helper can be unit-green and nine hours wrong.**
+  **AND CORRECTING THE DISPLAY EXPOSED A WRITE DEFECT THAT THE OLD DISPLAY HAD CONCEALED (`QF12c-H1`).**
+  `SurgicalCaseController::store()` parses the form's `datetime-local` with `Carbon::parse()`, i.e. in the
+  application default zone (UTC), while the wall clock a surgeon types is the **practice's**. Typing
+  `08:00` now shows `09:00` back. **It was always wrong**: before this part the board printed raw UTC, so
+  the screen agreed with the typist while the stored instant was an offset away — the same mechanism D-192
+  described, a display hiding a storage defect. Recorded, **not fixed**: no controller in CareOS parses in
+  a tenant zone today, so the remedy would invent the input-boundary pattern AND change write semantics on
+  a clinical record — the class D-192 spent a CRITICAL on and D-193 then refused to rewrite. One form, one
+  `Carbon::parse`; small enough to do properly in its own gate, where the meaning of existing rows can be
+  decided.
+  **MY OWN COMMENTS TRIPPED THE ABSENCE TEST, AND THE PROSE WAS REWORDED RATHER THAN THE CHECK RELAXED** —
+  the PC.P3 lesson repeating: quoting the old idiom verbatim in an explanatory comment put it back in the
+  raw source the scan reads. The scan stays at full strictness.
+  **Guarded by** eight tests in `tests/Feature/Qa/PracticeClockTest.php`, six in `resources/js/lib/date.test.ts`
+  and nine in `nurse-pwa/tests/visitTime.test.ts`, mutation-checked five ways, each reverting to a
+  re-verified diff fingerprint: restoring a viewer-clock idiom reddens only the absence test; dropping the
+  pack's timezone reddens only the two day-pack tests; forcing `scheduled_time_passed` false reddens only
+  the marking test; dropping the date-only guard reddens only that test; and ignoring the given zone
+  reddens the four zone tests. See [[Clinical]], [[Dental]], [[Nursing]], [[Surgery]], [[Platform]],
+  D-091, D-169, D-176, D-192, D-194, [[LOG]].

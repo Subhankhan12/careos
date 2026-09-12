@@ -1,5 +1,7 @@
 export interface DayPack {
     date: string;
+    /** The PRACTICE zone (`P4-H4`, D-228). Optional: a pack cached before this field existed has none. */
+    timezone?: string | null;
     nurse: {
         id: number;
         name: string;

@@ -1,13 +1,25 @@
 <script setup lang="ts">
-import { Head, Link, router } from '@inertiajs/vue3';
+import { Head, Link, router, usePage } from '@inertiajs/vue3';
 import { computed, reactive, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import SoapEditor from '@/Components/SoapEditor.vue';
 import VersionHistory from '@/Components/VersionHistory.vue';
 import SignOffBar from '@/Components/Clinical/SignOffBar.vue';
+import { formatDateTime } from '@/lib/date';
 
 const { t } = useI18n();
+const page = usePage();
+
+/*
+ * `P2-H3` (QA-FIX.12c, D-228) — the note editor showed THREE clocks at one instant and none was the
+ * practice's: the version list printed raw UTC, "Draft saved" printed the VIEWER's machine zone in US
+ * 12-hour format, and the correct Zurich time appeared nowhere. Both record times now read the
+ * practice's clock, from the `timezone` prop D-192 has been sharing all along.
+ */
+const dtLocale = computed(() => (page.props.locale as string) || 'en');
+const tz = computed(() => (page.props.timezone as string) || 'UTC');
+const dt = (value: string | null | undefined): string => formatDateTime(value, tz.value, dtLocale.value);
 
 const props = defineProps<{
     note: {
@@ -174,7 +186,7 @@ watch(
                         <p class="mb-3 text-xs font-semibold uppercase tracking-wide text-ink-subtle">{{ t('clinical.note.encounter') }}</p>
                         <dl class="space-y-2 text-sm">
                             <div class="flex justify-between gap-3"><dt class="text-ink-muted">{{ t('clinical.note.encType') }}</dt><dd class="font-medium text-ink">{{ encounter.type }}</dd></div>
-                            <div class="flex justify-between gap-3"><dt class="text-ink-muted">{{ t('clinical.note.encStarted') }}</dt><dd class="text-ink">{{ encounter.started_at }}</dd></div>
+                            <div class="flex justify-between gap-3"><dt class="text-ink-muted">{{ t('clinical.note.encStarted') }}</dt><dd class="text-ink">{{ dt(encounter.started_at) }}</dd></div>
                             <div class="flex items-center justify-between gap-3"><dt class="text-ink-muted">{{ t('clinical.note.encStatus') }}</dt><dd><span class="rounded-full bg-euca-50 px-2 py-0.5 text-xs font-semibold text-euca-800">{{ encounter.status }}</span></dd></div>
                             <div v-if="template" class="flex justify-between gap-3"><dt class="text-ink-muted">{{ t('clinical.note.template') }}</dt><dd class="text-ink">{{ template.name }}</dd></div>
                         </dl>
@@ -305,7 +317,7 @@ watch(
                 <p class="mt-2 text-sm text-ink-muted">{{ t('clinical.note.signConfirm') }} {{ t('clinical.note.signModalBody') }}</p>
                 <dl class="mt-4 space-y-2 rounded-xl border border-line bg-surface-2 p-4 text-sm">
                     <div class="flex justify-between gap-3"><dt class="text-ink-muted">{{ t('clinical.note.patient') }}</dt><dd class="font-medium text-ink">{{ patient.name }} · {{ patient.mrn }}</dd></div>
-                    <div class="flex justify-between gap-3"><dt class="text-ink-muted">{{ t('clinical.note.encounter') }}</dt><dd class="font-medium text-ink">{{ encounter.type }} · {{ encounter.started_at }}</dd></div>
+                    <div class="flex justify-between gap-3"><dt class="text-ink-muted">{{ t('clinical.note.encounter') }}</dt><dd class="font-medium text-ink">{{ encounter.type }} · {{ dt(encounter.started_at) }}</dd></div>
                     <div class="flex justify-between gap-3"><dt class="text-ink-muted">{{ t('clinical.note.required') }}</dt><dd class="font-medium text-ink">{{ t('clinical.note.requiredCount', { filled: requiredCount.filled, total: requiredCount.total }) }}</dd></div>
                 </dl>
                 <label class="mt-4 block text-sm font-medium text-ink">

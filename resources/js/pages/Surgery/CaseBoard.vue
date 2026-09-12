@@ -1,15 +1,16 @@
 <script setup lang="ts">
-import { Head, Link, router } from '@inertiajs/vue3';
-import { reactive } from 'vue';
+import { Head, Link, router, usePage } from '@inertiajs/vue3';
+import { computed, reactive } from 'vue';
 import { useI18n } from 'vue-i18n';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import RefusalNotice from '@/Components/RefusalNotice.vue';
+import { formatDateTime } from '@/lib/date';
 
 // Surgical case board (SURGERY.G2) — PRESENTATIONAL. The OR worklist + a lean "schedule a case" form. From a
 // case, the detail page drives the legal-only lifecycle. Record-not-judge: nothing here computes a risk.
 const { t } = useI18n();
 
-type Case = { id: string; patient: string; surgeon: string | null; procedure: string; status: string; scheduled_at: string; show_url: string };
+type Case = { id: string; patient: string; surgeon: string | null; procedure: string; status: string; scheduled_at: string; scheduled_time_passed: boolean; show_url: string };
 type Option = { id: string; name: string };
 
 const props = defineProps<{
@@ -26,8 +27,24 @@ function submit(): void {
     router.post(props.actions.store_url, { ...form }, { preserveScroll: true, onSuccess: () => Object.assign(form, blank) });
 }
 
+/*
+ * `P6-H3` / `P2-H3` (QA-FIX.12c, D-228). This used to swap the ISO separator for a space and slice 16 characters — raw UTC with
+ * the T swapped for a space, which LOOKS like a formatted local time and is not one. The OR list reads
+ * the practice's clock.
+ */
+const page = usePage();
+const dtLocale = computed(() => (page.props.locale as string) || 'en');
+const tz = computed(() => (page.props.timezone as string) || 'UTC');
+
 function fmt(iso: string): string {
-    return iso ? iso.replace('T', ' ').slice(0, 16) : '';
+    return formatDateTime(iso, tz.value, dtLocale.value, {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false,
+    }, '');
 }
 </script>
 
@@ -81,6 +98,7 @@ function fmt(iso: string): string {
                         <div class="min-w-0">
                             <p class="text-sm font-semibold text-ink">{{ c.patient }} <span class="text-ink-muted">· {{ c.procedure }}</span></p>
                             <p class="text-xs text-ink-muted">{{ fmt(c.scheduled_at) }}<template v-if="c.surgeon"> · {{ c.surgeon }}</template></p>
+                        <p v-if="c.scheduled_time_passed" class="text-xs text-ink-muted">{{ t('surgery.board.timePassed') }}</p>
                         </div>
                         <div class="flex shrink-0 items-center gap-3">
                             <span class="rounded-full bg-white/40 px-2.5 py-0.5 text-xs font-semibold text-ink-muted">{{ t(`surgery.status.${c.status}`) }}</span>

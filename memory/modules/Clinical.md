@@ -568,3 +568,21 @@ It now has a NARROW catch (never `Throwable`) returning `back()->withErrors(['or
 pages render no error bag at all**, so the refusal reaches them and is invisible. Recorded as **`QF11a-M1`**,
 not fixed: Clinical has never been enumerated for this family the way Lab, Radiology and Hospital were, and
 a fix should start by enumerating it. The precedent (`RefusalNotice`, D-210) applies unchanged.
+
+
+## Clinical times render in the practice's zone (QA-FIX.12c, `P2-H3`, D-228)
+
+`Chart.vue` and `NoteEditor.vue` render every recorded instant through `formatDateTime(value, tz, locale)`
+from `@/lib/date`, with `tz` read from the **`timezone` Inertia prop** — the one D-192 has shared on every
+page since QA-FIX.1a and which, as D-192 itself recorded, nothing consumed.
+
+**The chart's month grouping takes the zone too.** It grouped encounters with `Intl` and no zone, i.e. by
+the VIEWER's month, so an encounter near a month boundary could land in the wrong group.
+
+**Three wrong clocks existed and two of them looked right:** raw UTC printed verbatim; a `Date` formatted
+with no zone (the viewer's machine, US format); and the ISO separator swapped for a space with sixteen
+characters sliced. The last two are the dangerous ones — they look like formatted local times. All three
+are pinned as an ABSENCE in `tests/Feature/Qa/PracticeClockTest.php`.
+
+**`formatDateTime` refuses a date-only value** rather than shifting it (D-091 still owns those), and an
+unknown zone returns the raw value rather than the viewer's clock (D-176).

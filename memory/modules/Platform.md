@@ -637,3 +637,17 @@ is nobody.
 mutation replacing `catch (HttpException)` with `catch (\RuntimeException)` was semantically identical and
 proved nothing. Worth remembering whenever a narrow catch is mutation-checked: pick a mutation that changes
 BEHAVIOUR, and verify the mutant both differs and compiles before reading its result.
+
+
+## The `timezone` prop is now load-bearing (QA-FIX.12c, D-228)
+
+`HandleInertiaRequests` has shared `timezone` from `DisplayTimezone::forCurrentTenant()` since D-192, and
+D-192 recorded that nothing consumed it. **Six pages consume it now**, plus the nurse day pack, so removing
+or renaming the prop is no longer invisible — a test asserts the share line itself.
+
+**`resources/js/lib/date.ts` is the one place that turns an instant into text.** `formatDateOnly` (D-091)
+for date-only values, `formatDateTime` for instants; the latter refuses a date-only string rather than
+shifting it, and returns the raw value for an unknown zone rather than falling back to the viewer.
+
+**Not swept:** repo-wide **44 pages** construct a `Date` and **16** call a `toLocale*` formatter. Only the
+six named by `P2-H3`/`P4-H4` were adopted; the rest remain the standing per-widget display item D-192 named.

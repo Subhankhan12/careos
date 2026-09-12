@@ -45,6 +45,21 @@ class SurgicalCaseController
                     'procedure' => $case->procedure_description,
                     'status' => $case->status,
                     'scheduled_at' => $case->scheduled_at->toIso8601String(),
+                    /*
+                     * `P6-H3` (QA-FIX.12c, D-228) — A RECORDED FACT, NOT A JUDGMENT, AND NOT A REFUSAL.
+                     *
+                     * A case can be scheduled in the past and the board then shows it among the upcoming
+                     * work; ordered by `scheduled_at` DESC, a mistyped year sinks a live case to the
+                     * bottom. The finding's suggested remedy — refuse a past `scheduled_at`, the D-194
+                     * shape — does NOT transfer: the demo seeder itself schedules a case in the past and
+                     * then transitions it to completed, and nine existing tests do the same, because
+                     * documenting an operation that already happened is a legitimate use of this path. So
+                     * the time is not refused; the board SAYS the time has passed.
+                     *
+                     * Computed here rather than in the browser so it reads the SERVER clock — the same
+                     * reason the times themselves no longer come from the device.
+                     */
+                    'scheduled_time_passed' => $case->status === SurgicalCase::STATUS_SCHEDULED && $case->scheduled_at->isPast(),
                     'show_url' => route('surgery.cases.show', $case->id),
                 ])->all(),
             'patients' => Patient::query()->orderBy('last_name')->limit(200)->get()

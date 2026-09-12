@@ -59,6 +59,7 @@ missing · `LOW` cosmetic / polish.
 | **Total recorded** (+ `QF11a-M1`) | **24** | **46** | **85** | **32** | **187** |
 | **Total recorded** (+ `QF12a-H1`, + `QF12a-M1`; rows above are superseded, not corrected) | **24** | **47** | **86** | **32** | **189** |
 | **Total recorded** (+ `QF12b-H1`; rows above are superseded, not corrected) | **24** | **48** | **86** | **32** | **190** |
+| **Total recorded** (+ `QF12c-H1`; rows above are superseded, not corrected) | **24** | **49** | **86** | **32** | **191** |
 | of which **FIXED** | **24** | **17** | 4 | 1 | **46** |
 | of which **OPEN** | **0** | **29** | **81** | **31** | **141** |
 
@@ -874,6 +875,27 @@ slots (availability is weekdays 1–5) and manufacturing one would have meant ch
   server", now at its worst.
 
 #### `P2-H3` — Clinical timestamps are shown in **two wrong clocks**, never the practice's
+
+> ✅ **FIXED — QA-FIX.12c, commit `<pending>` (D-228).** The named clinical surfaces now render instants in
+> the **practice's** zone, through one shared helper fed by the `timezone` prop D-192 has been sharing on
+> every page since QA-FIX.1a — and which, as D-192 itself recorded, **nothing consumed**.
+> **THE THREE CLOCKS THIS FINDING MEASURED ARE NOW ONE**, and the two that looked most like a correct
+> answer were the dangerous ones: a `Date` formatted with no zone gives the **viewer's machine** in US
+> format (this finding read `9/5/2026, 9:51:12 AM` on a Zurich practice), and swapping the ISO separator
+> for a space gives raw UTC dressed as local time. Both are gone from these files, pinned as an ABSENCE.
+> **`formatDateTime()` IS THE SIBLING OF A HELPER THAT ALREADY EXISTED.** `resources/js/lib/date.ts` has
+> carried `formatDateOnly` since D-091 and stated in its own header that datetimes were out of scope —
+> that sentence was the gap. `Intl` does the conversion, so **DST is the zone database's problem**: the
+> same `17:04Z` reads **19:04** in Zurich in September and **18:04** in January, both asserted.
+> **IT REFUSES A DATE-ONLY VALUE RATHER THAN SHIFTING IT** (`2026-03-12` would otherwise render `01:00` on
+> the 12th, or the 11th in a zone behind UTC), and an **unknown zone returns the raw value rather than the
+> viewer's clock** — wrong-looking rather than wrong-and-convincing (D-176).
+> **ADOPTED ON SIX PAGES — the ones this finding and `P4-H4` NAME — AND THE REST IS COUNTED, NOT SWEPT.**
+> Repo-wide, **44 pages** construct a `Date` and **16** call a `toLocale*` formatter. Those outside the two
+> findings are untouched and remain the standing per-widget display item D-192 named. Mechanical now that
+> the helper and the prop are wired; a sweep, not this gate.
+> **MY OWN EXPLANATORY COMMENTS TRIPPED THE ABSENCE TEST** by quoting the old idioms verbatim — the PC.P3
+> lesson repeating. The prose was reworded; the raw-source scan stays at full strictness.
 
 - **Roles:** `doctor`, dentist · **Routes:** the chart, the note editor, dental tooth history,
   imaging, order results
@@ -2252,6 +2274,26 @@ with zero cookies.
 
 #### `P4-H4` — Every nursing time is rendered as raw UTC, so a field nurse reads their visit two hours early
 
+> ✅ **FIXED — QA-FIX.12c, commit `<pending>` (D-228), in two places, because the two surfaces get the
+> practice's zone by different routes.**
+> **THE DISPATCH BOARD** is an Inertia page and simply consumes the `timezone` prop: the visit window read
+> `2026-09-06 05:30:00 - 06:30:00` for a visit that happens at **07:30 Zurich**, and now reads the
+> practice's clock.
+> **THE NURSE PWA IS A SEPARATE APPLICATION AND RECEIVES NO INERTIA PROPS**, which is why all 32 of this
+> finding's timestamps were raw: the device had no way to know the practice's zone. `DayPackService` now
+> emits `timezone` from the **same resolver the web side uses**, so the two cannot drift apart, and it
+> rides **inside** the pack rather than being fetched separately **because the pack is cached and used
+> offline** — the zone must be there with no network, beside the times it explains.
+> **THE DEVICE CLOCK IS DELIBERATELY NOT THE FALLBACK.** A nurse may cross a border, or carry a phone set
+> to the wrong zone; the round is planned in the practice's clock. A pack cached before this field existed
+> carries no zone, and the screen shows the raw value rather than a confident rendering in a zone nobody
+> chose (D-176). Pinned by three separate assertions.
+> **THIS FINDING'S COMPOUNDING CLAIM IS NOW HALF-CLOSED, AND THE OTHER HALF WAS ALREADY DONE.** It noted
+> that the write side stored local-as-UTC (`P4-C4`) while the read side printed UTC-as-local, "two errors
+> in opposite directions and neither cancels". `P4-C4` was fixed by QA-FIX.4b; this closes the read side,
+> so both directions are now right rather than symmetrically wrong.
+> **VERIFIED IN BOTH BROWSERS** — the staff dispatch board and the built PWA at `/nurse-pwa/`.
+
 - **Roles:** `nurse` (PWA), `coordinator` (dispatch board) · **Cross-phase pattern 2, fourth phase.**
 - **What happened:** the visit window renders as **`2026-09-06T05:30:00+00:00 - 2026-09-06T06:30:00+00:00`**.
   The tenant is `Europe/Zurich`; the actual appointment is **07:30–08:30 local**. Of **32 timestamps**
@@ -3330,6 +3372,28 @@ by any of the four and would otherwise have gone undriven.
 > | Past-dated case (`P6-H3`) | **still stands** | Independently small: a past-start refusal in `SurgicalCaseService::schedule()`. It does **not** depend on the theatre work and would suit its own gate. |
 
 #### `P6-H3` — A surgical case can be scheduled six years in the past, and is then displayed as upcoming
+
+> ✅ **FIXED — QA-FIX.12c, commit `<pending>` (D-228) — BUT NOT THE WAY THE RECORD SAID, AND THE RECORD WAS
+> WRONG ON THE EVIDENCE.**
+> **THE RECOMMENDED REMEDY DOES NOT TRANSFER.** The reconciliation's family table says *"`P6-H3` also needs
+> a past-date validation, the D-194 shape"*. Checked against the product rather than accepted:
+> **`DemoHospitalSeeder` schedules a surgical case in the PAST and then transitions it to
+> `completed`/`post_op`**, and **nine existing tests** schedule cases at fixed past dates. Documenting an
+> operation that already happened is a legitimate use of this path, so a past-start refusal would break
+> retrospective documentation — and would have broken the seeder and those tests, which is how the mistake
+> would have surfaced anyway, too late. **D-194 refuses a past BOOKING because an appointment is a forward
+> commitment; a surgical case is also a documentation artefact.**
+> **SO THE BOARD STATES THE FACT INSTEAD OF REFUSING THE TIME.** `scheduled_time_passed` is true only when
+> a case is **still `scheduled`** and its time is behind the **server** clock — computed server-side for
+> the same reason the times themselves no longer come from the device. The list renders *"This scheduled
+> time has passed"* with **no colour, no tint and no severity word** (D-169).
+> **A CASE THAT HAS MOVED ON IS NOT MARKED.** A past date on a `pre_op` case is the record of when it
+> happened; marking those would make the signal meaningless. Asserted as its own test.
+> **AND A TEST PINS THAT A PAST `scheduled_at` IS STILL ACCEPTED**, so a later gate that adds the refusal
+> must face the trade-off deliberately rather than by accident.
+> **The time itself now reads the practice's clock too**, through the same helper as `P2-H3`: the board's
+> formatter used to swap the ISO separator for a space and slice sixteen characters — raw UTC that looks
+> like a local time.
 
 - **Role:** `surgeon` · **Route:** `POST /surgery/cases`
 - **Steps:** schedule *Simone Arnold · "QA6 past-time probe"* with **Scheduled at = 2020-01-01T08:00**.
@@ -7562,6 +7626,46 @@ a negative must follow the calls before it reports one.
   render them, and the ordering case additionally wants either a guard on the note control until the visit
   is checked in, or a note queued against the planned visit. Deciding between those is design work, so it
   is recorded and left open rather than half-done.
+
+#### `QF12c-H1` — The surgery scheduling form interprets the typed wall clock as UTC, so a case is stored an offset away from what the surgeon typed
+
+- **Recorded by QA-FIX.12c while browser-verifying `P6-H3`. NOT fixed — recorded, because the remedy would
+  be a WRITE-semantics change and a pattern that exists nowhere in the codebase yet.**
+- **Role:** `surgeon` / `org_admin` · **Route:** `POST /surgery/cases`
+- **Driven in the browser.** On a `Europe/Zurich` practice I scheduled *Simone Arnold · "QA12c past-time
+  probe"* with the form's `datetime-local` input set to **`2020-01-01T08:00`**. The board then rendered it
+  as **`01.01.2020, 09:00`**. One hour out in January (CET, UTC+1); **two hours out in summer** (CEST).
+- **Cause.** `SurgicalCaseController::store()` does `Carbon::parse($data['scheduled_at'])`, which parses in
+  the application default zone — UTC since D-192 removed the process-wide mutation. But a `datetime-local`
+  input carries a **naive wall clock**, and the wall clock a surgeon types is the **practice's**. So the
+  typed value is stored as though it were UTC and is therefore an offset away from what was meant.
+- **IT WAS ALWAYS WRONG. THE OLD DISPLAY CONCEALED IT BY BEING WRONG IN THE SAME DIRECTION.** Before
+  QA-FIX.12c the board printed the raw UTC string, so typing `08:00` showed `08:00` back and the surgeon
+  saw exactly what they typed — while the stored instant was really 10:00 in the practice's summer clock.
+  **The data was wrong and the screen agreed with the typist rather than with the record.** Correcting the
+  display makes the disagreement visible. That is a strictly better state, and it is the same mechanism
+  D-192 itself described: a display that hid a storage defect.
+- **Why HIGH.** An OR list is a forward-planning instrument, and this is the `P4-H4` reasoning: in earlier
+  phases this pattern produced a *confusing* value, here it produces an **operationally wrong** one — a
+  case scheduled two hours from where the surgeon put it. It is narrower than `P4-H4` because it is one
+  form rather than every time on a screen.
+- **Not fixed here, and the reason is not squeamishness.** The remedy is to parse the input in the tenant
+  zone. **No controller in CareOS does that today** — a repo-wide look found no `Carbon::parse` with an
+  explicit zone and no other controller turning a `datetime-local` into an instant at all (Reporting parses
+  date-only filters). So this would be **inventing the input-boundary pattern**, and it changes WRITE
+  semantics on a clinical record — precisely the class D-192 spent a CRITICAL learning to be careful with,
+  and precisely what D-193 then refused to rewrite retrospectively. It needs its own gate, with a decision
+  about existing rows (are they UTC-as-typed, or offset?) that this part is not equipped to make.
+- **What a fixing gate must decide, so it is decidable rather than vague:** (1) parse `datetime-local` in
+  the tenant zone at every such input, not just this one; (2) whether existing `scheduled_at` values are
+  left as they are (the D-193 posture) or corrected, and how a reader can tell which base a row used;
+  (3) whether the form should show the zone it is interpreting in, so the surgeon can see it.
+- **Scope, measured — and smaller than first stated.** A `datetime-local` input appears on **exactly one
+  page in the whole application**, `Surgery/CaseBoard.vue`, and `Carbon::parse` on a submitted datetime
+  appears **once**, here. (I first wrote that the theatre slot form had one too; it does not — the grep
+  returns a single file, and the overstatement is corrected rather than left standing.) **The blast radius
+  is one form**, which is the argument for fixing it properly in its own gate rather than piecemeal: the
+  cost is not the code, it is deciding what the already-stored values mean.
 
 ---
 

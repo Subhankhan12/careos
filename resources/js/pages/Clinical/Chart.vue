@@ -8,12 +8,22 @@ import AllergyRecordPanel from '@/Components/AllergyRecordPanel.vue';
 import Tabs from '@/Components/Tabs.vue';
 import Timeline from '@/Components/Timeline.vue';
 import VersionHistory from '@/Components/VersionHistory.vue';
-import { ageFromDateOnly } from '@/lib/date';
+import { ageFromDateOnly, formatDateTime } from '@/lib/date';
 import { vitalDisplayValue } from '@/lib/units';
 
 const { t } = useI18n();
 const page = usePage();
 const locale = computed(() => (page.props.locale as string) || 'en');
+
+/*
+ * `P2-H3` (QA-FIX.12c, D-228) — CLINICAL TIMES ARE SHOWN IN THE PRACTICE'S CLOCK.
+ *
+ * The chart used to print these columns raw, i.e. UTC: the audit read `2026-09-05 17:03:53` on a
+ * Europe/Zurich tenant whose wall clock said 19:03. The tenant's zone has been shared as the
+ * `timezone` prop since D-192 and nothing consumed it; this consumes it.
+ */
+const tz = computed(() => (page.props.timezone as string) || 'UTC');
+const dt = (value: string | null | undefined): string => formatDateTime(value, tz.value, locale.value);
 
 // Dental cross-link shows only for a dental-capable user (dental.chart) — the same gate as
 // the top-nav Dental entry (DENTAL.G9); non-dental staff never see a dead link.
@@ -131,7 +141,7 @@ const monthGroups = computed(() => {
         let key = e.started_at;
         if (!Number.isNaN(d.getTime())) {
             try {
-                key = new Intl.DateTimeFormat(locale.value, { month: 'long', year: 'numeric' }).format(d).toUpperCase();
+                key = new Intl.DateTimeFormat(locale.value, { month: 'long', year: 'numeric', timeZone: tz.value }).format(d).toUpperCase();
             } catch {
                 key = e.started_at;
             }
@@ -289,7 +299,7 @@ function transitionOrder(orderId: string, status: string): void {
                             <div class="flex flex-col justify-between gap-2 sm:flex-row">
                                 <div>
                                     <p class="font-semibold text-ink">{{ t('clinical.note.versionLabel', { version: note.version }) }}</p>
-                                    <p class="text-sm text-ink-muted">{{ note.author_name }} · {{ note.status }} · {{ note.signed_at || note.created_at || '—' }}</p>
+                                    <p class="text-sm text-ink-muted">{{ note.author_name }} · {{ note.status }} · {{ dt(note.signed_at || note.created_at) }}</p>
                                 </div>
                                 <Link :href="note.edit_url" class="text-sm font-semibold text-euca-700 transition hover:text-euca-800">{{ t('clinical.note.open') }} →</Link>
                             </div>
@@ -302,7 +312,7 @@ function transitionOrder(orderId: string, status: string): void {
                         <div v-for="problem in problems" :key="problem.id" class="flex items-start justify-between gap-3 rounded-xl border border-line bg-surface-2 p-4">
                             <div>
                                 <p class="font-semibold text-ink">{{ problem.description }}</p>
-                                <p class="text-sm text-ink-muted">{{ problem.code || '—' }} · {{ problem.recorded_at }}</p>
+                                <p class="text-sm text-ink-muted">{{ problem.code || '—' }} · {{ dt(problem.recorded_at) }}</p>
                             </div>
                             <span class="shrink-0 rounded-full bg-euca-50 px-2.5 py-0.5 text-xs font-semibold text-euca-800">{{ problem.status }}</span>
                         </div>
@@ -321,7 +331,7 @@ function transitionOrder(orderId: string, status: string): void {
                                     <tbody>
                                         <tr v-for="(point, index) in metric.points" :key="index" class="border-t border-line/60 first:border-t-0">
                                             <td class="py-1 pr-3 tabular-nums text-ink">{{ vitalDisplayValue(metric.key, point.value) }}</td>
-                                            <td class="py-1 pr-3 text-ink-muted">{{ point.recorded_at }}</td>
+                                            <td class="py-1 pr-3 text-ink-muted">{{ dt(point.recorded_at) }}</td>
                                             <td class="py-1 text-xs text-ink-muted">{{ t('clinical.chart.vitalsHistory.source.' + point.source) }}</td>
                                         </tr>
                                     </tbody>
@@ -333,7 +343,7 @@ function transitionOrder(orderId: string, status: string): void {
                         <div v-if="vitals.length > 0" class="space-y-3">
                             <p class="text-sm font-semibold text-ink">{{ t('clinical.chart.vitalsHistory.log') }}</p>
                             <div v-for="vital in vitals" :key="vital.id" class="rounded-xl border border-line bg-surface-2 p-4">
-                                <p class="font-semibold text-ink">{{ vital.recorded_at }}</p>
+                                <p class="font-semibold text-ink">{{ dt(vital.recorded_at) }}</p>
                                 <p class="text-sm tabular-nums text-ink-muted">{{ rawVital(vital) || '—' }}</p>
                             </div>
                         </div>
@@ -355,7 +365,7 @@ function transitionOrder(orderId: string, status: string): void {
                         <div v-for="document in documents" :key="document.id" class="flex items-center justify-between gap-3 rounded-xl border border-line bg-surface-2 p-4">
                             <div class="min-w-0">
                                 <p class="truncate font-semibold text-ink">{{ document.title }}</p>
-                                <p class="text-sm text-ink-muted">{{ document.category }} · {{ document.original_filename }} · {{ document.uploaded_at }}</p>
+                                <p class="text-sm text-ink-muted">{{ document.category }} · {{ document.original_filename }} · {{ dt(document.uploaded_at) }}</p>
                                 <span v-if="document.shared_with_patient" class="mt-1 inline-flex rounded-full bg-euca-50 px-2 py-0.5 text-xs font-medium text-euca-800">{{ t('clinical.chart.sharedWithPatient') }}</span>
                             </div>
                             <Link :href="document.download_url" class="shrink-0 text-sm font-semibold text-euca-700 transition hover:text-euca-800">{{ t('clinical.chart.download') }}</Link>
@@ -386,7 +396,7 @@ function transitionOrder(orderId: string, status: string): void {
                             <ul v-if="order.results.length" class="mt-2 space-y-1">
                                 <li v-for="r in order.results" :key="r.id" class="text-sm text-ink">
                                     <span class="font-mono tabular-nums">{{ r.value ?? (r.has_document ? t('clinical.orders.seeDocument') : '') }}</span>
-                                    <span class="ml-2 text-xs text-ink-muted">{{ r.entered_at }}</span>
+                                    <span class="ml-2 text-xs text-ink-muted">{{ dt(r.entered_at) }}</span>
                                 </li>
                             </ul>
                             <p v-if="order.reviewed_at" class="mt-2 text-xs font-medium text-euca-700">{{ t('clinical.orders.reviewedAt', { at: order.reviewed_at }) }}</p>

@@ -86,7 +86,7 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
 
 ## STATUS: BUILD COMPLETE · DEPLOY-READY 🟢 GO · THE BUILDABLE PARITY PROGRAMME IS COMPLETE — ONE TRACK REMAINS: **DEPLOYMENT + PARTNERSHIPS**
 
-### ✅ THE ROLE-BY-ROLE QA AUDIT IS COMPLETE — `docs/qa/ROLE-AUDIT.md` (10 of 10 phases; **190 findings — 52 fixed, 138 open** as of QA-FIX.12b; **every CRITICAL is fixed — 0 open, highest open severity is HIGH at 25**)
+### ✅ THE ROLE-BY-ROLE QA AUDIT IS COMPLETE — `docs/qa/ROLE-AUDIT.md` (10 of 10 phases; **191 findings — 55 fixed, 136 open** as of QA-FIX.12c; **every CRITICAL is fixed — 0 open, highest open severity is HIGH at 23**)
 
 **Phase 1 (reception / front-desk) is DONE** (`06a3f78`): 18 findings — 1 CRITICAL, 3 HIGH, 8 MEDIUM,
 6 LOW — every page **driven in a real browser** via Playwright MCP. Findings are **recorded, not
@@ -567,6 +567,34 @@ into *"is dropped, quietly"*. **It was still the right call** — the jam blocke
 indefinitely, destroying strictly more care, and the quiet drop was already the behaviour for the far more
 common ordinary rejections. Surfacing rejections in the PWA is **family 3's shape, not family 7's**, and is
 left open with its own id.
+
+**QA-FIX.12c (`<pending>`, D-228) is done, and it CLOSES FAMILY 5: `P2-H3`, `P4-H4` and `P6-H3` are FIXED.**
+**The server half already existed and nothing consumed it**, so this was an adoption plus one missing
+helper. D-192 shares the tenant's zone as the `timezone` prop on every page and recorded that *"no
+frontend component consumes [it] for rendering today"* — verified still true at the start of this gate.
+Each clinical surface had invented its own clock and there were **three**, none of them the practice's:
+raw UTC verbatim; a `Date` formatted with **no zone** (the VIEWER's machine, read by the audit as
+`9/5/2026, 9:51:12 AM` on a Zurich practice); and the ISO separator swapped for a space with sixteen
+characters sliced. **The last two are the dangerous ones — they look like formatted local times.**
+`formatDateTime()` is the sibling of `formatDateOnly` (D-091) in the same file, whose header had said
+datetimes were out of scope. `Intl` does the conversion, so **DST is the zone database's problem**. It
+**refuses a date-only value** rather than shifting it, and an **unknown zone returns the raw value** rather
+than the viewer's clock (D-176).
+**`P4-H4` needed two routes.** The dispatch board consumes the prop. **The nurse PWA is a separate app with
+no Inertia props**, so `DayPackService` now emits `timezone` from the same resolver — riding **inside** the
+cached pack because it must be available offline. **The device clock is deliberately not the fallback.**
+**`P6-H3`'S RECORDED REMEDY WAS WRONG ON THE EVIDENCE, and this is the kind of correction the programme
+exists to make.** It was filed as needing a past-date validation, the D-194 shape. **`DemoHospitalSeeder`
+schedules a surgical case in the PAST and transitions it to completed, and nine existing tests schedule at
+fixed past dates** — retrospective documentation is a legitimate use of that path, and refusing it would
+have broken the seeder and those tests. D-194 refuses a past BOOKING because an appointment is a forward
+commitment; a surgical case is also a documentation artefact. **So the board STATES the fact** —
+`scheduled_time_passed`, true only for a case still `scheduled` whose time is behind the server clock,
+rendered with no colour or severity word (D-169) — and **a test pins that a past date is still accepted**.
+**THE WHOLE PATTERN WAS NOT UNDERTAKEN AND THE REMAINDER IS COUNTED:** six pages adopted, the ones the
+findings name; repo-wide **44 pages** construct a `Date` and **16** call a `toLocale*` formatter. Those
+remain the standing per-widget display item D-192 named — mechanical now that the helper and the prop are
+wired, but a sweep, not a gate.
 
 
 **PHASE 10 ADDENDUM (same day) — `P10-C3` (CRITICAL): the agent approve gate has a SECOND, UNGATED door.**

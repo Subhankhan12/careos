@@ -528,3 +528,20 @@ rejected action vanishes from the device silently. Browser-driven A/B: a note wr
 is rejected `visit_not_found` and **LOST**; the same note written after it is saved. Pre-existing, not
 caused by this gate — but this gate's fix routes throwing actions into that same quiet path, which is the
 trade-off stated in D-227.
+
+
+## The practice's zone travels inside the day pack (QA-FIX.12c, `P4-H4`, D-228)
+
+`DayPackService::forNurse()` emits `timezone` from `DisplayTimezone::forCurrentTenant()` — the **same
+resolver the web side uses**, so the two cannot drift. The nurse PWA is a separate application that
+receives no Inertia props, which is why all 32 of the finding's timestamps were raw UTC: a nurse read
+`05:30` for a visit that happens at 07:30 in Zurich.
+
+**It rides INSIDE the pack rather than being fetched separately because the pack is cached and used
+offline** — the zone must be available with no network, beside the times it explains.
+
+`nurse-pwa/src/visitTime.ts` renders it. **The device clock is deliberately NOT the fallback**: a nurse may
+cross a border or carry a phone set wrong, and the round is planned in the practice's clock. A pack cached
+before this field existed has no zone, and the screen shows the raw value rather than guessing.
+
+`Nursing/Dispatch.vue` is an Inertia page and simply consumes the prop.

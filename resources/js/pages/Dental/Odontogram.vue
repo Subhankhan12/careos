@@ -7,10 +7,12 @@ import DentalSectionNav from '@/Components/DentalSectionNav.vue';
 import ToothArch from '@/Components/Dental/ToothArch.vue';
 import PatientClinicalHeader from '@/Components/Clinical/PatientClinicalHeader.vue';
 import { colour } from '@/Components/Dental/toothConditionColour';
-import { ageFromDateOnly, formatDateOnly } from '@/lib/date';
+import { ageFromDateOnly, formatDateOnly, formatDateTime } from '@/lib/date';
 
 const { t } = useI18n();
 const page = usePage();
+const dtLocale = computed(() => (page.props.locale as string) || 'en');
+const tz = computed(() => (page.props.timezone as string) || 'UTC');
 
 interface Record {
     id: string;
@@ -152,7 +154,12 @@ function submitPerform(): void {
 }
 
 function dateTime(iso: string): string {
-    return new Date(iso).toLocaleString();
+    /*
+     * `P2-H3` (QA-FIX.12c, D-228). This used to build a Date and format it with no zone — i.e. the VIEWER's machine
+     * zone, which the audit read as `9/5/2026, 9:51:12 AM` on a Europe/Zurich practice. Tooth history
+     * is a clinical record; it reads the practice's clock.
+     */
+    return formatDateTime(iso, tz.value, dtLocale.value);
 }
 </script>
 

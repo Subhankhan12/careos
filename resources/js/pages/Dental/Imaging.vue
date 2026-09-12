@@ -7,9 +7,21 @@ import DentalSectionNav from '@/Components/DentalSectionNav.vue';
 import PatientClinicalHeader from '@/Components/Clinical/PatientClinicalHeader.vue';
 import Button from '@/Components/Button.vue';
 import Card from '@/Components/Card.vue';
+import { formatDateTime } from '@/lib/date';
 
 const { t } = useI18n();
 const page = usePage();
+
+/*
+ * `P2-H3` (QA-FIX.12c, D-228) — these three renders used `new Date(...).toLocale*()`, i.e. the
+ * VIEWER's machine zone in US format. A dental image is a clinical record: it reads the practice's
+ * clock, from the `timezone` prop.
+ */
+const dtLocale = computed(() => (page.props.locale as string) || 'en');
+const tz = computed(() => (page.props.timezone as string) || 'UTC');
+const dt = (value: string | null | undefined): string => formatDateTime(value, tz.value, dtLocale.value);
+const dtDay = (value: string | null | undefined): string =>
+    formatDateTime(value, tz.value, dtLocale.value, { day: '2-digit', month: '2-digit', year: 'numeric' });
 
 interface Reading {
     id: string;
@@ -234,7 +246,7 @@ function saveReading(): void {
                         <img :src="img.file_url" :alt="img.image_type" class="h-14 w-14 shrink-0 rounded object-cover" />
                         <span class="min-w-0">
                             <span class="block truncate text-sm font-medium text-ink">{{ t(`imaging.types.${img.image_type}`) }}<span v-if="img.tooth" class="text-ink-subtle"> · {{ img.tooth }}</span></span>
-                            <span class="block text-xs text-ink-subtle">{{ new Date(img.captured_at).toLocaleDateString() }}</span>
+                            <span class="block text-xs text-ink-subtle">{{ dtDay(img.captured_at) }}</span>
                             <span v-if="img.uploaded_by_name" class="block truncate text-xs text-ink-subtle">{{ t('imaging.library.capturedBy', { name: img.uploaded_by_name }) }}</span>
                             <span class="block truncate text-[0.65rem] text-ink-subtle">{{ img.original_filename }}<span v-if="img.size_bytes"> · {{ fileSize(img.size_bytes) }}</span></span>
                         </span>
@@ -246,7 +258,7 @@ function saveReading(): void {
                     <div class="flex flex-wrap items-center justify-between gap-2">
                         <div>
                             <p class="font-semibold text-ink">{{ t(`imaging.types.${selected.image_type}`) }}<span v-if="selected.tooth" class="text-ink-subtle"> · {{ t('imaging.viewer.tooth') }} {{ selected.tooth }}</span></p>
-                            <p class="text-xs text-ink-subtle">{{ new Date(selected.captured_at).toLocaleString() }}<span v-if="selected.region"> · {{ selected.region }}</span></p>
+                            <p class="text-xs text-ink-subtle">{{ dt(selected.captured_at) }}<span v-if="selected.region"> · {{ selected.region }}</span></p>
                         </div>
                         <div class="flex items-center gap-1">
                             <button type="button" class="rounded-lg border border-line px-2 py-1 text-sm text-ink" @click="zoomOut">−</button>
@@ -276,7 +288,7 @@ function saveReading(): void {
                         <div v-if="selected.readings.length" class="mt-2 space-y-2">
                             <div v-for="r in selected.readings" :key="r.id" class="rounded-xl border border-line p-3">
                                 <p class="whitespace-pre-line text-sm text-ink">{{ r.reading }}</p>
-                                <p class="mt-1 text-xs text-ink-subtle">{{ new Date(r.read_at).toLocaleString() }}<span v-if="r.read_by_name"> · {{ t('imaging.reading.by', { name: r.read_by_name }) }}</span><span v-if="r.reason"> · {{ t('imaging.reading.reason') }}: {{ r.reason }}</span></p>
+                                <p class="mt-1 text-xs text-ink-subtle">{{ dt(r.read_at) }}<span v-if="r.read_by_name"> · {{ t('imaging.reading.by', { name: r.read_by_name }) }}</span><span v-if="r.reason"> · {{ t('imaging.reading.reason') }}: {{ r.reason }}</span></p>
                             </div>
                         </div>
                         <p v-else class="mt-1 text-sm text-ink-muted">{{ t('imaging.reading.empty') }}</p>

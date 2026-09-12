@@ -2,6 +2,7 @@
 
 namespace Modules\Nursing\Services;
 
+use App\Services\DisplayTimezone;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Gate;
 use Modules\Clinical\Models\Allergy;
@@ -34,6 +35,7 @@ class DayPackService
     public function __construct(
         private readonly TenantContext $tenantContext,
         private readonly VitalsHistoryService $vitalsHistory,
+        private readonly DisplayTimezone $displayTimezone,
     ) {}
 
     /**
@@ -95,6 +97,18 @@ class DayPackService
         return [
             'date' => $date->toDateString(),
             'tenant_id' => $this->tenantContext->id(),
+            /*
+             * `P4-H4` (QA-FIX.12c, D-228) — THE PRACTICE'S ZONE TRAVELS WITH THE DAY PACK.
+             *
+             * Every time in this payload is a UTC instant (D-192), and the PWA is a separate app that
+             * receives no Inertia props — so it had no way to know the practice's zone and rendered the
+             * raw ISO instead: a nurse read `05:30` for a visit that happens at 07:30 in Zurich. The
+             * same resolver the web side uses answers here, so the two cannot drift apart.
+             *
+             * It rides in the pack rather than being fetched separately because the pack is CACHED and
+             * used offline: the zone must be available with no network, beside the times it explains.
+             */
+            'timezone' => $this->displayTimezone->forCurrentTenant(),
             'nurse' => [
                 'id' => $nurse->id,
                 'name' => $nurse->name,

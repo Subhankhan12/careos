@@ -366,7 +366,8 @@
             "schedule": "Schedule case",
             "heading": "Cases",
             "empty": "No surgical cases yet.",
-            "open": "Open"
+            "open": "Open",
+            "timePassed": "This scheduled time has passed"
         },
         "case": {
             "eyebrow": "Surgery · Case",

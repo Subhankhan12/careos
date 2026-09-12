@@ -580,3 +580,21 @@ said "the server refuses correctly", which is untrue of the two 500s.
 
 **NOTED, NOT FIXED:** the insufficient-stock message names the item by **ULID**, not name. It is the
 service's own message rendered verbatim (D-152) and it is accurate, but it reads poorly.
+
+
+## A past surgical time is STATED, never refused (QA-FIX.12c, `P6-H3`, D-228)
+
+`SurgicalCaseController::index()` emits `scheduled_time_passed` — true only when a case is **still
+`scheduled`** and its time is behind the **server** clock. The board renders *"This scheduled time has
+passed"* with no colour, tint or severity word (D-169).
+
+**THE RECORDED REMEDY WAS WRONG AND THE EVIDENCE IS IN THE PRODUCT.** `P6-H3` was filed as needing a
+past-date validation, the D-194 shape. **`DemoHospitalSeeder` schedules a case in the PAST and transitions
+it to completed**, and nine existing tests schedule at fixed past dates: documenting an operation that
+already happened is a legitimate use of `schedule()`. A past-start refusal would break retrospective
+documentation. D-194 refuses a past BOOKING because an appointment is a forward commitment; a surgical
+case is also a documentation artefact.
+
+**A case that has MOVED ON is not marked** — a past date on a `pre_op` case is the record of when it
+happened. **A test pins that a past `scheduled_at` is still ACCEPTED**, so a later gate adding the refusal
+must face the trade-off deliberately.

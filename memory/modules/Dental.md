@@ -651,3 +651,11 @@ programme established about it are worth keeping:
 - **The fence here is unchanged and was re-asserted by the wider programme:** no DMFT/dmft, no finding count,
   no severity ramp, no caries/pathology detection, no overlay — and the comment-stripped, non-alphanumeric-
   stripped scans that enforce it are the origin of the repo's **comment-stripping rule**.
+
+
+## Tooth history and imaging read the practice's clock (QA-FIX.12c, `P2-H3`, D-228)
+
+`Odontogram.vue`'s `dateTime()` and `Imaging.vue`'s three renders used a `Date` formatted with no zone —
+the VIEWER's machine, which the audit read as `9/5/2026, 9:51:12 AM` on a Europe/Zurich practice. Both now
+use `formatDateTime` with the `timezone` prop. A dental image and a tooth's history are clinical records;
+they read the practice's clock.
