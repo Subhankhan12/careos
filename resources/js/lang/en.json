@@ -1606,7 +1606,9 @@
             "branch": "Branch",
             "service": "Service",
             "patient": "Patient",
-            "notes": "Notes"
+            "notes": "Notes",
+            "selectPatient": "Select a patient…",
+            "selectService": "Select a service…"
         },
         "actions": {
             "arrive": "Arrive",
@@ -2530,7 +2532,7 @@
         "actions": {
             "title": "Actions",
             "issue": "Issue invoice",
-            "download": "Download PDF",
+            "download": "Download invoice (text)",
             "creditNote": "Issue credit note",
             "creditReason": "Reason for credit note",
             "creditReasonPlaceholder": "Why is this invoice being credited?",
@@ -2755,7 +2757,7 @@
             "openChart": "Open patient chart",
             "oldestLine": "Oldest invoice {days} days overdue",
             "overdueOf": "{amount} overdue",
-            "invoicePdf": "Download invoice PDF",
+            "invoicePdf": "Download invoice (text)",
             "accountStatus": {
                 "current": "Current",
                 "overdue": "Overdue",

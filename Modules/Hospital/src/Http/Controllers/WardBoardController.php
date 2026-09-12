@@ -5,6 +5,7 @@ namespace Modules\Hospital\Http\Controllers;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
 use Modules\Hospital\Exceptions\BedStatusTransitionException;
@@ -151,7 +152,16 @@ class WardBoardController
         abort_unless($actor instanceof User, 403);
 
         $data = $request->validate([
-            'status' => ['required', 'string', 'max:40'],
+            /*
+             * `P9-H1` (QA-FIX.12d, D-229) — the endpoint names the statuses it accepts.
+             *
+             * This was `max:40`, i.e. any string, with the UI as the only thing narrowing it (`WardBoard.vue`
+             * offers no button on an occupied bed). That is pattern 1 inverted: elsewhere the UI over-offers
+             * what the server refuses; here the UI WAS the refusal. The load-bearing guard is in
+             * `BedService::setStatus`, which a direct call meets with nothing else answering first (D-183);
+             * this turns an unknown string into a 422 instead of an exception from the service.
+             */
+            'status' => ['required', 'string', Rule::in(Bed::STATUSES)],
             'reason' => ['nullable', 'string', 'max:500'],
         ]);
 

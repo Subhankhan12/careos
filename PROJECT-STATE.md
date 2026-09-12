@@ -86,7 +86,7 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
 
 ## STATUS: BUILD COMPLETE · DEPLOY-READY 🟢 GO · THE BUILDABLE PARITY PROGRAMME IS COMPLETE — ONE TRACK REMAINS: **DEPLOYMENT + PARTNERSHIPS**
 
-### ✅ THE ROLE-BY-ROLE QA AUDIT IS COMPLETE — `docs/qa/ROLE-AUDIT.md` (10 of 10 phases; **191 findings — 55 fixed, 136 open** as of QA-FIX.12c; **every CRITICAL is fixed — 0 open, highest open severity is HIGH at 23**)
+### ✅ THE ROLE-BY-ROLE QA AUDIT IS COMPLETE — `docs/qa/ROLE-AUDIT.md` (10 of 10 phases; **191 findings — 58 fixed, 133 open** as of QA-FIX.12d; **every CRITICAL is fixed — 0 open, highest open severity is HIGH at 20**)
 
 **Phase 1 (reception / front-desk) is DONE** (`06a3f78`): 18 findings — 1 CRITICAL, 3 HIGH, 8 MEDIUM,
 6 LOW — every page **driven in a real browser** via Playwright MCP. Findings are **recorded, not
@@ -595,6 +595,36 @@ rendered with no colour or severity word (D-169) — and **a test pins that a pa
 findings name; repo-wide **44 pages** construct a `Date` and **16** call a `toLocale*` formatter. Those
 remain the standing per-widget display item D-192 named — mechanical now that the helper and the prop are
 wired, but a sweep, not a gate.
+
+**QA-FIX.12d (`<pending>`, D-229) is done, and it CLOSES FAMILY 2 apart from one deliberately-open half:
+`P1-H2`, `P10-H4` and `P9-H1` are FIXED, `P3-H2` is PARTLY.** The classification the gate asked for decided
+what each fix is, and they are not one kind of thing.
+**`P1-H2` — MISLEADING, two defects compounding.** The wizard always sent one blank `identifiers` row and
+one blank `coverages` row; their fields are `required_with:<collection>` and `ConvertEmptyStringsToNull`
+turns `''` into `null`, so the always-present rows **always** failed — and the Step-3 inputs had **no
+`:error` binding at all**, so the page said nothing. Both halves fixed, `RefusalNotice` adopted (the keys
+are PATHS, which a notice naming known keys would miss), and a partially filled row is still refused.
+**The filter was extracted to `resources/js/lib/forms.ts` because a mutation proved the test could not tell
+a working filter from a neutered one.**
+**`P10-H4` — MISLEADING, a pure adoption of D-211.** Both quick-book selects start empty with a disabled
+placeholder; `patient_id` stays `required` server-side, D-211's own rule. Third time this shape was found,
+second time fixed — the day board survived QA-FIX.7a only because it was never measured for it.
+**`P9-H1` — WEDGING, and the gate's rule followed exactly: PREVENTION IS A FIX, RECOVERY IS A FEATURE.**
+`occupied → cleaning` is still legal — it is how a turnover begins. `BedService::setStatus()` now refuses
+when an `admitted` stay occupies the bed, inside the same locked transaction as the write; `release()` and
+`claim()` are untouched, so discharge and transfer still work, and a test **discharges the patient after
+the attempt** rather than only asserting the refusal. The endpoint is the second layer (`Rule::in`), not
+the first. **RECOVERY IS NOT OFFERED AND A TEST PINS ITS ABSENCE** — a bed wedged before this fix stays
+wedged, and a way back is a designed capability with its own authorisation and audit questions.
+**Phase 9's deliberate choice not to drive it live is respected, and the fix is what makes driving it
+safe.**
+**`P3-H2` — PARTLY, on purpose (the `P10-M1` posture).** The files ARE plain text and still are; what is
+fixed is that nothing pretends otherwise. The forged `%PDF-1.4` line is gone from the invoice renderer
+**and** the dunning letter (the finding named both; the second was found by grepping the repo for the
+literal, not by re-reading the finding), the paths are `.txt`, both download surfaces serve `text/plain`.
+**A strict improvement, not a removed capability: before, the download could be opened by nothing.**
+**The real renderer is REFUSED** — CareOS has no PDF library, so that is a new dependency plus a laid-out
+template, and a test asserts none was added so a later "quick win" cannot reintroduce a forged header.
 
 
 **PHASE 10 ADDENDUM (same day) — `P10-C3` (CRITICAL): the agent approve gate has a SECOND, UNGATED door.**

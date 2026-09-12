@@ -86,8 +86,14 @@ class PortalInvoiceController
         abort_if($contents === null, 404);
 
         return response($contents, 200, [
-            'Content-Type' => 'application/pdf',
-            'Content-Disposition' => 'attachment; filename="'.$record->series.'-'.$record->number.'.pdf"',
+            /*
+             * `P3-H2` (QA-FIX.12d, D-229) — SERVED AS WHAT IT IS. This claimed `application/pdf` over a
+             * plain-text body with no PDF structure, so the download could not be opened by any reader.
+             * Naming it `text/plain` makes the same bytes openable; a real PDF is a feature, recorded as
+             * still missing rather than faked (D-176).
+             */
+            'Content-Type' => 'text/plain; charset=utf-8',
+            'Content-Disposition' => 'attachment; filename="'.$record->series.'-'.$record->number.'.txt"',
             'X-Content-Type-Options' => 'nosniff',
         ]);
     }

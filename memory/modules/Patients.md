@@ -463,3 +463,25 @@ by adoption rather than by design.
 **The mutation that proves it matters:** giving any of those four sites a bespoke action leaves "is audited"
 GREEN and turns "reaches the patient's log" RED — QA-FIX.10a's own correction (D-221), carried forward and
 demonstrated rather than claimed.
+
+
+## Registration no longer fails silently (QA-FIX.12d, `P1-H2`, D-229)
+
+Two defects compounded and neither alone explains the silence. **(1)** The wizard always shipped one blank
+`identifiers` row and one blank `coverages` row so its optional inputs had something to bind to; those
+fields are `required_with:<collection>` and `ConvertEmptyStringsToNull` turns `''` into `null`, so the
+always-present rows **always** failed. **(2)** The Step-3 inputs had **no `:error` binding at all**, so even
+a correctly-keyed message had nowhere to appear.
+
+`dropBlankRows` (`resources/js/lib/forms.ts`) removes a row only when the user typed nothing into it; the
+four bindings are added by FIELD PATH; and the page adopts `RefusalNotice`, which matters here because
+these keys are paths (`coverages.0.member_id`) that a notice naming known keys would miss. **A partially
+filled row is still refused** — visibly.
+
+**`dropBlankRows`'s key list is deliberately narrow, and that is the property that hid the defect:** the
+coverages row ships with `coverage_type: 'self_pay'` and `priority: 1` already set, so "is any field
+non-empty?" answers YES for a row nobody opened. Mutation-checked by widening the list.
+
+**It was extracted because a mutation proved the test could not see the difference.** Inline, the only
+assertion was that the component contained a transform — a neutered filter satisfied it, and the
+request-level test posts empty arrays directly so it never exercises the client at all.

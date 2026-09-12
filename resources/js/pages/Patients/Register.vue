@@ -3,9 +3,11 @@ import { Head, Link, useForm } from '@inertiajs/vue3';
 import { computed, reactive, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import AppLayout from '@/Layouts/AppLayout.vue';
+import RefusalNotice from '@/Components/RefusalNotice.vue';
 import Button from '@/Components/Button.vue';
 import Input from '@/Components/Input.vue';
 import StepNav from '@/Components/StepNav.vue';
+import { dropBlankRows } from '@/lib/forms';
 
 const { t, te } = useI18n();
 
@@ -140,8 +142,31 @@ const reviewRows = computed(() => [
     },
 ]);
 
+/*
+ * `P1-H2` (QA-FIX.12d, D-229) — DO NOT SUBMIT ROWS NOBODY FILLED IN.
+ *
+ * The form always carried one `identifiers` row and one `coverages` row so the optional step had fields
+ * to bind to. Their server rules are `required_with:*`, and Laravel's `ConvertEmptyStringsToNull`
+ * turns `''` into `null` — so the always-present rows ALWAYS failed validation, on every registration
+ * that left the optional step blank. Combined with the missing `:error` bindings below, the page simply
+ * returned to Step 4 and said nothing at all.
+ *
+ * `dropBlankRows` removes a row only when the user typed nothing into it, so the form state the user can
+ * see is untouched and a partially-filled row is still sent — and still refused, now visibly. It lives in
+ * `@/lib/forms` and is unit-tested there, because a mutation showed that asserting the component merely
+ * CONTAINED a transform could not tell a working filter from a neutered one.
+ *
+ * Only the fields the USER fills are considered: the coverages row ships with `coverage_type` and
+ * `priority` already set, so "is any field non-empty?" would have answered YES for a row nobody opened.
+ */
 function submit(): void {
-    form.post(props.storeUrl);
+    form
+        .transform((data) => ({
+            ...data,
+            identifiers: dropBlankRows(data.identifiers as Array<Record<string, unknown>>, ['system', 'value']),
+            coverages: dropBlankRows(data.coverages as Array<Record<string, unknown>>, ['payer_name', 'member_id']),
+        }))
+        .post(props.storeUrl);
 }
 </script>
 
@@ -156,6 +181,14 @@ function submit(): void {
                 <h1 class="mt-1 text-2xl font-semibold tracking-tight text-ink">{{ t('patients.register.title') }}</h1>
                 <p class="mt-1 text-sm text-ink-muted">{{ t('patients.register.subtitle') }}</p>
             </div>
+
+            <!--
+              `P1-H2` (QA-FIX.12d, D-229) — the page now RENDERS its refusals. Adopted verbatim (D-210/D-213):
+              `RefusalNotice` reads the WHOLE error bag, which matters here because the blocking messages
+              were keyed by FIELD PATH (`coverages.0.member_id`) and a notice naming known keys would have
+              shown nothing.
+            -->
+            <RefusalNotice />
 
             <StepNav :steps="steps" :current="currentStep" @select="currentStep = $event" />
 
@@ -252,13 +285,13 @@ function submit(): void {
                     <div class="grid gap-6 md:grid-cols-2">
                         <div class="space-y-4">
                             <h3 class="text-sm font-semibold text-ink">{{ t('patients.register.identifiers') }}</h3>
-                            <Input id="identifier_system" v-model="form.identifiers[0].system" :label="t('patients.fields.identifierSystem')" />
-                            <Input id="identifier_value" v-model="form.identifiers[0].value" :label="t('patients.fields.identifierValue')" />
+                            <Input id="identifier_system" v-model="form.identifiers[0].system" :label="t('patients.fields.identifierSystem')" :error="form.errors['identifiers.0.system']" />
+                            <Input id="identifier_value" v-model="form.identifiers[0].value" :label="t('patients.fields.identifierValue')" :error="form.errors['identifiers.0.value']" />
                         </div>
                         <div class="space-y-4">
                             <h3 class="text-sm font-semibold text-ink">{{ t('patients.register.coverages') }}</h3>
-                            <Input id="payer_name" v-model="form.coverages[0].payer_name" :label="t('patients.fields.payer')" />
-                            <Input id="member_id" v-model="form.coverages[0].member_id" :label="t('patients.fields.memberId')" />
+                            <Input id="payer_name" v-model="form.coverages[0].payer_name" :label="t('patients.fields.payer')" :error="form.errors['coverages.0.payer_name']" />
+                            <Input id="member_id" v-model="form.coverages[0].member_id" :label="t('patients.fields.memberId')" :error="form.errors['coverages.0.member_id']" />
                             <Input id="plan" v-model="form.coverages[0].plan" :label="t('patients.fields.plan')" />
                         </div>
                     </div>

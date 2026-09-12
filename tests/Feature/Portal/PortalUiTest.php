@@ -323,11 +323,13 @@ test('a patient sees only their own invoices and downloads write read audit rows
             ->where('invoices.0.id', $ownInvoice->id)
             ->where('invoices.0.open_balance_minor', 1000));
 
-    // Own PDF downloads and is read-logged; the other patient's is unreachable.
+    // Own invoice file downloads and is read-logged; the other patient's is unreachable.
+    // `P3-H2` (QA-FIX.12d, D-229): served as the TEXT it is — it was never a PDF, and claiming otherwise
+    // meant the patient downloaded a file nothing could open.
     g5AsPortal($this, $fx)
         ->get(route('portal.invoices.download', $ownInvoice->id))
         ->assertOk()
-        ->assertHeader('Content-Type', 'application/pdf');
+        ->assertHeader('Content-Type', 'text/plain; charset=utf-8');
 
     expect(g5ReadRows($fx['tenant']->id, $fx['patient']->id, 'invoices')->count())->toBe(1);
 

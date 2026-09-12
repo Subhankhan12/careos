@@ -11,6 +11,7 @@ use Modules\Hospital\Events\BedStatusChanged;
 use Modules\Hospital\Exceptions\BedNotAvailableException;
 use Modules\Hospital\Exceptions\BedStatusTransitionException;
 use Modules\Hospital\Models\Bed;
+use Modules\Hospital\Models\Stay;
 use Modules\Hospital\Models\Ward;
 use Modules\Platform\Exceptions\CrossTenantReferenceException;
 use Modules\Platform\Models\User;
@@ -87,6 +88,36 @@ class BedService
 
         $from = DB::transaction(function () use ($bed, $to): string {
             $current = $this->lockBedStatus($bed->tenant_id, $bed->id);
+
+            /*
+             * `P9-H1` (QA-FIX.12d, D-229) — A HOUSEKEEPING STATUS CHANGE MAY NOT MOVE A BED OUT FROM
+             * UNDER AN ADMITTED PATIENT.
+             *
+             * `occupied -> cleaning` is legal in `Bed::TRANSITIONS` and stays legal — it is how a turnover
+             * begins. The defect was that nothing here looked at the STAY, so a `bed.manage` holder could
+             * apply it while the patient was still in the bed, and `release()` — which both
+             * `AdmissionService::transfer` and `::discharge` call — then refuses forever because it
+             * requires the bed to still be `occupied`. The stay could be neither discharged nor
+             * transferred, and nothing in the product writes `occupied` again except `claim()`, which
+             * needs `free` and belongs to a different admission. **A wedge with no way back.**
+             *
+             * PREVENTION ONLY. This refuses the move that creates the wedge; it does not offer a way out
+             * of one that already exists. Recovery is a separate, deliberate capability and is recorded
+             * rather than improvised here.
+             *
+             * Inside the same locked transaction as the status write, so a concurrent admission cannot
+             * slip a stay in between the check and the update.
+             *
+             * `release()` and `claim()` are unaffected: neither goes through `setStatus()`.
+             */
+            $occupant = Stay::query()
+                ->where('current_bed_id', $bed->id)
+                ->where('status', Stay::STATUS_ADMITTED)
+                ->first();
+
+            if ($occupant instanceof Stay) {
+                throw BedStatusTransitionException::occupiedByStay($bed->id, $occupant->id);
+            }
 
             if (! Bed::canTransition($current, $to)) {
                 throw BedStatusTransitionException::illegal($bed->id, $current, $to);

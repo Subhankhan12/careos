@@ -349,6 +349,28 @@ patient pairs for dedupe testing.
 
 #### `P1-H2` — Patient registration **fails silently** unless four unmarked fields are filled
 
+> ✅ **FIXED — QA-FIX.12d, commit `<pending>` (D-229). BOTH compounding defects, because neither alone
+> explains the silence.**
+> **(1) THE FORM STOPPED SENDING ROWS NOBODY FILLED IN.** The wizard always shipped one blank `identifiers`
+> row and one blank `coverages` row so its optional inputs had something to bind to. Those fields are
+> `required_with:<collection>`, and `ConvertEmptyStringsToNull` turns `''` into `null` — so the
+> always-present rows **always** failed, on every registration that left the optional step alone.
+> `dropBlankRows` removes a row only when the user typed nothing into it.
+> **(2) THE STEP-3 INPUTS NOW HAVE `:error` BINDINGS.** They had none, so even a correctly-keyed message had
+> nowhere to appear. All four are bound by FIELD PATH, and the page additionally adopts `RefusalNotice`
+> (D-210/D-213) — which matters here precisely because these keys are paths
+> (`coverages.0.member_id`) that a notice naming known keys would miss.
+> **A PARTIALLY-FILLED ROW IS STILL REFUSED**, now visibly. The fix is not "accept anything": a row the user
+> began and did not finish still fails, and now says which field.
+> **THE FILTER WAS EXTRACTED BECAUSE A MUTATION PROVED THE TEST COULD NOT SEE THE DIFFERENCE.** It began
+> inline, asserted only by `toContain` on the transform's text; a mutation that kept that text and neutered
+> the filtering **survived**, and the request-level test could not catch it either because it posts empty
+> arrays directly and never exercises the client transform. `dropBlankRows` now lives in
+> `resources/js/lib/forms.ts` with seven behavioural tests, and neutering it reddens four of them.
+> **ITS KEY LIST IS DELIBERATELY NARROW, and that is the property that made this defect invisible:** the
+> coverages row ships with `coverage_type: 'self_pay'` and `priority: 1` already set, so "is any field
+> non-empty?" would answer YES for a row nobody opened. Mutation-checked by widening the list.
+
 - **Role:** `admissions_clerk` (the role that *can* register)
 - **Page/route:** `/patients/register` → `POST /patients`
 - **What I did:** Filled only the fields the wizard marks `required` (first name, last name, DOB,
@@ -1459,6 +1481,36 @@ Route sweeps were run in-session: **29 routes** for `billing`, 12 for `pharmacis
 >   `QA-FIX.3a` (`348d41c`), which stopped refused writes from leaving payments behind.
 
 #### `P3-H2` — "PDF" invoices and dunning letters are plain-text files
+
+> ⚠️ **PARTLY FIXED — QA-FIX.12d, commit `<pending>` (D-229). THE CLAIM IS WITHDRAWN; THE CAPABILITY IS
+> STILL MISSING AND IS COUNTED AS OPEN.**
+> **Graded PARTLY, not FIXED, on purpose.** This finding's title is that the files ARE plain text, and they
+> still are. What is fixed is that nothing pretends otherwise any more. The `P10-M1` posture applied: the
+> half that is an honesty defect is closed, the half that is a missing feature stays open and stays counted.
+> **This is the clearest unbacked presence in the programme (D-176):** a file whose first bytes announced a
+> format it did not have. Every marker this finding checked for is still absent, because the file was never
+> a PDF — it is text, and it now says so. The forged `%PDF-1.4` line is gone, the first line reads
+> *"CareOS EU-Generic VAT invoice (plain text — not a PDF)"*, the stored path is `.txt`, and **both**
+> download surfaces — staff (`billing_invoice_download`) and portal (`portal_invoice_download`) — serve
+> `text/plain; charset=utf-8` with a `.txt` filename. The UI labels say *"Download invoice (text)"*.
+> **THE DUNNING LETTER CARRIED THE IDENTICAL FORGERY, AND I MISSED IT ON THE FIRST PASS.** This finding says
+> "and every dunning letter written by a reminder", and `DunningLetterRenderer` had the same literal
+> `%PDF-1.4` first line over the same plain text. It was found by grepping the repo for the literal rather
+> than by re-reading the finding — which is the argument for sweeping for a pattern instead of fixing the
+> instance the title names. A reminder is a document sent to a patient about money they owe. Both renderers
+> are corrected, and a repo-wide grep for the literal now finds it in no renderer at all.
+> **THIS IS A STRICT IMPROVEMENT, NOT A REMOVED CAPABILITY.** Before, the download could be opened by
+> **nothing**; the same bytes now open in any text viewer. Nobody loses a working PDF, because there was
+> never one.
+> **RENDERING A REAL PDF IS A FEATURE AND IS NOT BUILT HERE.** CareOS has **no PDF library** — verified, and
+> a test asserts none was added — so a genuine PDF means a new dependency plus a laid-out invoice template.
+> That is not a fix, and faking it better would be the same defect with more effort.
+> **WHAT A FIXING GATE NEEDS, so it is decidable rather than vague:** a PDF library; an invoice template
+> carrying the fields this renderer already computes correctly (the figures were never the complaint); and a
+> decision about the `.txt` invoices already stored and already downloaded.
+> **THE CONTENT WAS ALWAYS RIGHT AND STILL IS** — a positive control asserts the seller VAT id, the invoice
+> number and the currency are still rendered, so the suite cannot be satisfied by a renderer that outputs
+> nothing.
 
 - **Role:** `billing` · **Routes:** `/billing/invoices/{id}/pdf` ("Download PDF"), and every dunning
   letter written by a reminder
@@ -5671,6 +5723,36 @@ controls the two phase roles cannot reach: `lena.studer@klinik-bergblick.test` (
 
 #### `P9-H1` — A bed manager can move an OCCUPIED bed to `cleaning` and permanently wedge the admitted patient
 
+> ✅ **PREVENTED — QA-FIX.12d, commit `<pending>` (D-229). THE WEDGE CANNOT BE CREATED. RECOVERY FROM ONE
+> THAT ALREADY EXISTS IS A FEATURE AND IS DELIBERATELY NOT BUILT.**
+> **`occupied → cleaning` IS STILL LEGAL, and had to be** — it is how a turnover begins once the patient has
+> left. The defect was never the transition; it was that **nothing looked at the STAY**.
+> `BedService::setStatus()` now refuses when an `admitted` stay occupies the bed, **inside the same locked
+> transaction as the status write**, so a concurrent admission cannot slip between the check and the update.
+> `release()` and `claim()` are untouched — neither goes through `setStatus()`, which is why discharge and
+> transfer still work.
+> **THE CONSEQUENCE IS ASSERTED, NOT JUST THE REFUSAL.** A test attempts the wedge and then **discharges the
+> patient successfully** — the thing that used to be impossible for ever. Refusing one call would be a
+> weaker claim than showing the stay is still recoverable.
+> **THE SECOND LAYER, AND WHY IT IS NOT REDUNDANT (D-183).** The endpoint validated `status` as `max:40` —
+> any string — with `WardBoard.vue`'s missing button as the only narrowing. **This finding's own phrase for
+> that is exact: pattern 1 inverted, the UI IS the refusal.** It now validates `Rule::in(Bed::STATUSES)`, so
+> an unknown string is a 422; the load-bearing guard stays in the service where a direct call meets it with
+> nothing else answering first.
+> **RECOVERY IS NOT OFFERED, AND A TEST PINS ITS ABSENCE.** `claim()` remains the only writer of `occupied`
+> and still requires `free`, so a bed wedged before this fix **stays wedged**. A way back — a re-occupy
+> primitive, or a repair action on the board — carries its own authorisation and audit questions and is a
+> designed capability, not a line in a fix gate. If a later gate adds one, that test must be changed on
+> purpose rather than drift.
+> **PHASE 9's DELIBERATE CHOICE NOT TO DRIVE THIS LIVE IS RESPECTED — and the fix is what makes driving it
+> safe.** The finding was established from code across four cited call sites because executing it would have
+> stranded the demo tenant's only admitted patient. The wedge is exercised against an isolated
+> `RefreshDatabase` fixture; the live drive attempts the move on the demo tenant **only after** the guard
+> exists, where it refuses and changes nothing.
+> **THE TEST THAT PINNED THIS AS CORRECT DID NOT NEED CHANGING**, which is worth stating:
+> `WardBedManagementTest` claims beds with **no stay**, so the status machine's own tests are untouched by a
+> guard keyed on an admitted stay. The whole file stays green.
+
 - **Role:** `bed_manager` (`bed.manage`) · **Route:** `POST /hospital/beds/{bed}/status`
 - **The transition is legal and the service never looks at the stay.** `Bed::TRANSITIONS` includes
   `STATUS_OCCUPIED => [STATUS_CLEANING]` (`Bed.php:65-70`). `BedService::setStatus` rejects only
@@ -6557,6 +6639,19 @@ Server clock `2026-09-09 01:13 UTC`, tenant display zone `Europe/Zurich`, audit 
   resource ids captured before the cancellation. The human one-click path cannot.
 
 #### `P10-H4` — The day-board Quick-book modal pre-selects the first patient, with no placeholder
+
+> ✅ **FIXED — QA-FIX.12d, commit `<pending>` (D-229), as a pure ADOPTION of D-211.** Both quick-book
+> selects now start **empty** with a disabled placeholder — *"Select a patient…"*, *"Select a service…"* —
+> so a state in which nothing is chosen exists, which is exactly what this finding said did not.
+> **THE SERVICE SELECT WAS FIXED TOO, for a stated reason.** A service is not a person, so this is not
+> D-195's substitution — but it is still an answer nobody gave, pre-filled on the same modal.
+> **NO SERVER GATE WAS WEAKENED TO ALLOW THE EMPTY DEFAULT** — D-211's own rule. `patient_id` remains
+> `required` in `DayBoardActionController`, asserted by a test, so an empty submission meets a refusal
+> rather than silently booking the first patient.
+> **THIS IS THE THIRD TIME THIS SHAPE HAS BEEN FOUND AND THE SECOND TIME IT HAS BEEN FIXED.** QA-FIX.7a
+> removed it from ED triage and inpatient admission (`P7-C1`, `P7-C2`); the day board survived because it
+> was never measured for it. That is the argument for measuring a pattern everywhere it could occur rather
+> than where it was first seen.
 
 - **Role:** any `appointment.manage` holder · **Route:** `POST /scheduling/day-board/quick-book`
 - **Driven:** opening Quick-book, the patient `<select>` holds **15 options** and is already set to

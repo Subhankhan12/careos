@@ -362,7 +362,7 @@ test('AR aging renders factual buckets from the reporting service and is RBAC ga
         ->assertForbidden();
 });
 
-test('invoice PDF downloads privately with nosniff and drafts have no PDF', function () {
+test('the invoice file downloads privately with nosniff, as the TEXT it is, and drafts have none', function () {
     Storage::fake('local');
     $fx = w6Fixture();
     $invoice = w6Issue($fx, w6Charge($fx, w6Item($fx['catalog']), $fx['actor']));
@@ -370,7 +370,13 @@ test('invoice PDF downloads privately with nosniff and drafts have no PDF', func
     $this->actingAs($fx['actor'])
         ->get(route('billing.invoices.download', $invoice->id))
         ->assertOk()
-        ->assertHeader('Content-Type', 'application/pdf')
+        /*
+         * `P3-H2` (QA-FIX.12d, D-229) — this asserted `application/pdf` over a body that was never a PDF:
+         * plain text whose first line was the literal string `%PDF-1.4`, openable by no reader. The claim
+         * is withdrawn, so the assertion follows the truth. THIS TEST'S SUBJECT IS UNCHANGED — private,
+         * nosniff, no file on a draft, and RBAC — and every one of those is still asserted below.
+         */
+        ->assertHeader('Content-Type', 'text/plain; charset=utf-8')
         ->assertHeader('X-Content-Type-Options', 'nosniff');
 
     // A draft (no number / no PDF) cannot be downloaded.

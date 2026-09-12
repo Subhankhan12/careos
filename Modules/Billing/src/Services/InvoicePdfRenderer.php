@@ -21,7 +21,7 @@ class InvoicePdfRenderer
             ->get();
 
         $path = sprintf(
-            'tenants/%s/billing/invoices/%s-%s.pdf',
+            'tenants/%s/billing/invoices/%s-%s.txt',
             $invoice->tenant_id,
             $invoice->series,
             $invoice->number,
@@ -32,9 +32,19 @@ class InvoicePdfRenderer
             ->map(fn ($lines): int => (int) $lines->sum('line_vat_minor'))
             ->sortKeys();
 
+        /*
+         * `P3-H2` (QA-FIX.12d, D-229) — THE FORGED HEADER IS GONE. This file is plain text and now says
+         * so. It used to begin with the literal string `%PDF-1.4` while containing no object structure at
+         * all — no `obj`, no `xref`, no `trailer`, no `stream`, no `%%EOF` — so no PDF reader could open
+         * it. That is the clearest unbacked presence in the programme (D-176): a file pretending, in its
+         * first bytes, to be a format it is not.
+         *
+         * RENDERING A REAL PDF IS A FEATURE AND IS DELIBERATELY NOT DONE HERE — CareOS has no PDF library
+         * and adding one plus a laid-out invoice template is not a fix. The claim is withdrawn; the
+         * capability is recorded as still missing.
+         */
         $lines = [
-            '%PDF-1.4',
-            'CareOS EU-Generic VAT invoice',
+            'CareOS EU-Generic VAT invoice (plain text — not a PDF)',
             'Seller: '.(string) $this->settings->get('billing.seller_name', 'CareOS tenant'),
             'Seller VAT ID: '.(string) $this->settings->get('billing.seller_vat_id', 'not-configured'),
             'Invoice: '.$invoice->series.'-'.$invoice->number,

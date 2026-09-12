@@ -524,3 +524,26 @@ already mapped to its patient, so nothing was built and the action stays `read`.
 **Only OCCUPIED beds are audited** — an empty ward discloses nobody and writes nothing (D-184).
 **The cost, stated:** one serialised audit append per admitted patient per board render, on the per-tenant
 `FOR UPDATE` chain lock.
+
+
+## A patient's bed cannot be moved out from under them — prevention only (QA-FIX.12d, `P9-H1`, D-229)
+
+`BedService::setStatus()` refuses when an `admitted` stay occupies the bed, **inside the same locked
+transaction as the status write**, so a concurrent admission cannot slip between the check and the update.
+`occupied → cleaning` is still legal and had to be — it is how a turnover begins once the patient has left.
+The defect was that nothing looked at the STAY.
+
+`release()` and `claim()` are untouched: neither goes through `setStatus()`, which is why discharge and
+transfer still work. A test asserts the stay can still be **discharged** after the attempt, not merely that
+one call refuses.
+
+**The endpoint is the second layer, not the first.** `status` was validated `max:40` — any string — with
+`WardBoard.vue`'s missing button as the only narrowing (**pattern 1 inverted: the UI WAS the refusal**). It
+now uses `Rule::in(Bed::STATUSES)`; the load-bearing guard stays in the service (D-183).
+
+**RECOVERY IS NOT OFFERED AND A TEST PINS ITS ABSENCE.** `claim()` remains the only writer of `occupied`
+and still requires `free`, so a bed wedged before this fix stays wedged. A way back is a designed
+capability with its own authorisation and audit questions — a feature, not a line in a fix gate.
+
+**`WardBedManagementTest` needed no change** — it claims beds with **no stay**, so the status machine's own
+tests are unaffected by a guard keyed on an admitted stay. Worth knowing before touching either.

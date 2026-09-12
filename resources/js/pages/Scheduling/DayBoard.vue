@@ -180,9 +180,18 @@ function declineOffer(offerId: string): void {
 }
 
 // --- quick book --------------------------------------------------------------
+/*
+ * `P10-H4` (QA-FIX.12d, D-229) — NOTHING IS PRE-PICKED. The modal used to open with the first patient
+ * of an unfiltered list already selected and no placeholder, so no state existed in which nothing was
+ * chosen: a staff member who picked a slot and pressed Book without touching the field booked an
+ * appointment for whoever sorts first. That is D-211's shape — the same default QA-FIX.7a removed from
+ * ED triage and inpatient admission — reappearing on the day board, which was never measured for it.
+ * The service is emptied for the same reason: a service is not a person, but it is still an answer
+ * nobody gave.
+ */
 const quick = reactive({
-    service_id: props.services[0]?.id ?? '',
-    patient_id: props.patients[0]?.id ?? '',
+    service_id: '',
+    patient_id: '',
     starts_at: '',
     resource_ids: [] as string[],
     notes: '',
@@ -544,12 +553,14 @@ const legend = [
                     <label class="block">
                         <span class="mb-1.5 block text-sm font-medium text-ink">{{ t('scheduling.fields.service') }}</span>
                         <select v-model="quick.service_id" class="block w-full rounded-xl border border-line bg-surface-2 px-3.5 py-2.5 text-sm text-ink focus:border-euca-600 focus:outline-none focus:ring-2 focus:ring-euca-500/30">
+                            <option value="" disabled>{{ t('scheduling.fields.selectService') }}</option>
                             <option v-for="service in services" :key="service.id" :value="service.id">{{ service.name }}</option>
                         </select>
                     </label>
                     <label class="block">
                         <span class="mb-1.5 block text-sm font-medium text-ink">{{ t('scheduling.fields.patient') }}</span>
                         <select v-model="quick.patient_id" class="block w-full rounded-xl border border-line bg-surface-2 px-3.5 py-2.5 text-sm text-ink focus:border-euca-600 focus:outline-none focus:ring-2 focus:ring-euca-500/30">
+                            <option value="" disabled>{{ t('scheduling.fields.selectPatient') }}</option>
                             <option v-for="patient in patients" :key="patient.id" :value="patient.id">{{ patient.name }} {{ patient.mrn }}</option>
                         </select>
                     </label>

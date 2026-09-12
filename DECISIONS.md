@@ -5492,3 +5492,80 @@ references the old ID.
   the marking test; dropping the date-only guard reddens only that test; and ignoring the given zone
   reddens the four zone tests. See [[Clinical]], [[Dental]], [[Nursing]], [[Surgery]], [[Platform]],
   D-091, D-169, D-176, D-192, D-194, [[LOG]].
+
+- **D-229 — Family 2 classified before it was touched: two MISLEADING defects fixed, one WEDGE prevented
+  but NOT made recoverable, and one forged file header withdrawn while the feature behind it is refused
+  (QA-FIX.12d, closing `P1-H2`, `P3-H2`, `P9-H1`, `P10-H4`).**
+  **THE CLASSIFICATION WAS THE WORK, AND IT DECIDED WHAT EACH FIX IS.** Family 2 is "operations with no way
+  back, or that mislead" — four findings after `P4-H1` closed in QA-FIX.12b — and they are not one kind of
+  thing:
+  **`P1-H2` — MISLEADING, and TWO defects compounding, which is why neither alone explains it.** The wizard
+  always shipped one blank `identifiers` row and one blank `coverages` row so its optional inputs had
+  something to bind to; those fields are `required_with:<collection>` server-side, and
+  `ConvertEmptyStringsToNull` turns `''` into `null` — so **the always-present rows always failed**, on
+  every registration that left the optional step alone. And the Step-3 inputs had **no `:error` binding at
+  all**, so even a correctly-keyed message had nowhere to appear. The page returned to Step 4 and said
+  nothing. Fixed on both halves: `dropBlankRows` removes a row only when the user typed nothing into it,
+  the four bindings are added by FIELD PATH, and the page adopts `RefusalNotice` (D-210/D-213) — which
+  matters here precisely because these keys are paths (`coverages.0.member_id`) that a notice naming known
+  keys would miss. **A partially-filled row is still refused**, now visibly; the fix is not "accept
+  anything".
+  **THE HELPER WAS EXTRACTED BECAUSE A MUTATION PROVED THE TEST COULD NOT SEE THE DIFFERENCE.** The filter
+  began inline, asserted only by `toContain('.transform((data) => ({')`. A mutation that kept that string
+  and neutered the filtering **survived** — and the request-level test could not catch it either, because
+  it posts empty arrays directly and so never exercises the client transform. `dropBlankRows` now lives in
+  `resources/js/lib/forms.ts` with seven behavioural tests, and neutering it reddens four of them.
+  **Its key list is deliberately narrow**: the coverages row ships with `coverage_type: 'self_pay'` and
+  `priority: 1` already set, so "is any field non-empty?" would answer YES for a row nobody opened — the
+  property that made this defect invisible, now its own test and its own mutation.
+  **`P10-H4` — MISLEADING, and a pure adoption of D-211.** Quick-book opened with the first patient of an
+  unfiltered list already selected and no placeholder, so **no state existed in which nothing was chosen**:
+  pick a slot, press Book, and the appointment belongs to whoever sorts first. QA-FIX.7a removed exactly
+  this default from ED triage and inpatient admission; the day board was never measured for it. Both
+  selects now start empty with a disabled placeholder, and **no server gate was weakened to allow it** —
+  `patient_id` stays `required`, D-211's own rule.
+  **`P9-H1` — WEDGING, AND THE GATE'S RULE IS FOLLOWED EXACTLY: PREVENTION IS A FIX, RECOVERY IS A
+  FEATURE.** `occupied → cleaning` is legal in `Bed::TRANSITIONS` and **stays legal** — it is how a turnover
+  begins once the patient has left. The defect was that nothing looked at the STAY, so a `bed.manage`
+  holder could apply it while the patient was still in the bed; `release()`, which both
+  `AdmissionService::transfer` and `::discharge` call, then refuses forever because it requires the bed to
+  be `occupied`, and nothing in the product writes `occupied` again except `claim()`, which needs `free`
+  and belongs to a different admission. **`setStatus()` now refuses when an admitted stay occupies the
+  bed**, inside the same locked transaction as the status write so a concurrent admission cannot slip
+  between check and update. `release()` and `claim()` are untouched — neither goes through `setStatus()`.
+  **RECOVERY IS NOT OFFERED AND A TEST PINS ITS ABSENCE.** A bed wedged before this fix stays wedged;
+  `claim()` remains the only writer of `occupied` and still requires `free`. Inventing a way back — a
+  re-occupy primitive, or a repair action on the board — is a designed capability with its own audit and
+  authorisation questions, and it is recorded rather than improvised inside a fix gate.
+  **THE SECOND LAYER, AND WHY IT IS NOT REDUNDANT (D-183/D-194's shape).** The endpoint validated `status`
+  as `max:40` — any string — with the UI as the only narrowing: `WardBoard.vue` offers no button on an
+  occupied bed. **That is pattern 1 inverted** — everywhere else the UI over-offers what the server
+  refuses; here the UI WAS the refusal. It now validates `Rule::in(Bed::STATUSES)`, so an unknown string is
+  a 422 rather than an exception from the service, while the load-bearing guard stays in the service where
+  a direct call meets it with nothing else answering first.
+  **PHASE 9's DELIBERATE CHOICE NOT TO DRIVE THIS LIVE IS RESPECTED, AND THE FIX IS WHAT MAKES DRIVING IT
+  SAFE.** Phase 9 recorded the finding from code across four cited call sites rather than executing it,
+  because executing it would have stranded the demo tenant's only admitted patient with no product path
+  back. The wedge is exercised here against an isolated `RefreshDatabase` fixture, and the live drive
+  attempts the move on the demo tenant only **after** the guard exists — where it refuses and changes
+  nothing.
+  **`P3-H2` — A MISLEADING CLAIM OVER A MISSING FEATURE, and the two halves get opposite answers.** The
+  invoice "PDF" was a plain-text file whose first line was the literal string `%PDF-1.4`, with no `obj`,
+  no `xref`, no `trailer`, no `stream` and no `%%EOF` — **no reader could open it**. That is the clearest
+  unbacked presence in the programme (D-176): a file pretending, in its first bytes, to be a format it is
+  not. **The claim is withdrawn** — the forged header is gone, the first line says plainly that it is text,
+  the stored path and both download surfaces use `.txt`, and the content type is `text/plain`. **This is a
+  strict improvement, not a removed capability:** the same bytes are now openable, where before they were
+  openable by nothing.
+  **AND THE REAL RENDERER IS REFUSED.** CareOS has **no PDF library**, so a genuine PDF means a new
+  dependency plus a laid-out invoice template — a feature, not a fix. A test asserts no PDF library was
+  added, so a later "quick win" cannot reintroduce a forged header instead of the real thing. What a
+  fixing gate needs is stated: a library, a template, and a decision about the invoices already stored.
+  **Guarded by** fourteen tests in `tests/Feature/Qa/MisleadingAndWedgingTest.php` and seven in
+  `resources/js/lib/forms.test.ts`, mutation-checked six ways, each reverting to a re-verified diff
+  fingerprint: removing the stay guard reddens the two wedge tests and leaves the turnover control green;
+  restoring the forged header, re-claiming `application/pdf`, restoring the pre-selected patient, neutering
+  `dropBlankRows` and widening its key list each redden only their own subject. **The pre-existing
+  `WardBedManagementTest` stays green** — it claims beds with no stay, so the status machine's own tests are
+  untouched by a guard keyed on an admitted stay. See [[Hospital]], [[Billing]], [[Patients]],
+  [[Scheduling]], D-174, D-176, D-183, D-194, D-210, D-211, D-213, [[LOG]].

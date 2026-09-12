@@ -676,3 +676,25 @@ row):
 audited download in the product is a `read` row with an export surface, and `PatientAccessReport` reaches a
 patient's log by `action = 'read' AND patient_id = ?` — a bespoke action produces a well-formed,
 hash-chained row that no patient can ever see. That mistake was made and caught inside this gate.
+
+
+## The invoice and dunning "PDF" no longer forge a header (QA-FIX.12d, `P3-H2`, D-229 — PARTLY)
+
+Both renderers emitted plain text whose first line was the literal string `%PDF-1.4`, with no `obj`, no
+`xref`, no `trailer`, no `stream` and no `%%EOF` — **no reader could open either file.** The forged line is
+gone from `InvoicePdfRenderer` **and** `DunningLetterRenderer` (the finding named "every dunning letter
+written by a reminder"; a repo-wide grep for the literal was what found it), the stored paths are `.txt`,
+and both download surfaces — staff `billing_invoice_download` and portal `portal_invoice_download` — serve
+`text/plain; charset=utf-8` with a `.txt` filename. The UI says *"Download invoice (text)"*.
+
+**This was a strict improvement, not a removed capability:** before, the download could be opened by
+nothing.
+
+**STILL MISSING, DELIBERATELY: a real PDF.** CareOS has **no PDF library**, so that means a new dependency
+plus a laid-out template — a feature. A test asserts no PDF library was added, so a later "quick win"
+cannot reintroduce a forged header instead of the real thing. A fixing gate needs: a library, a template
+carrying the fields the renderer already computes correctly (**the figures were never the complaint**), and
+a decision about the `.txt` files already stored and downloaded.
+
+**`pdf_path` (the column), `has_pdf` and `pdf_url` keep their names** — renaming a column is a migration and
+was out of scope. Internally inconsistent, externally honest; stated rather than hidden.

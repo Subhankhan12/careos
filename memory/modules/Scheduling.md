@@ -579,3 +579,18 @@ both go through `WaitlistOfferService`, which creates a real `waitlist_offers` r
 own accept, so they were never affected.
 
 **A stranded entry is findable:** `status = 'offered'` with no open/accepted row in `waitlist_offers`.
+
+
+## Quick-book pre-selects nobody (QA-FIX.12d, `P10-H4`, D-229)
+
+Both day-board quick-book selects start **empty** with a disabled placeholder. They used to open with the
+first patient of an unfiltered list already chosen and no placeholder, so **no state existed in which
+nothing was selected**: pick a slot, press Book, and the appointment belongs to whoever sorts first.
+
+A pure adoption of **D-211** — QA-FIX.7a removed exactly this default from ED triage and inpatient
+admission; the day board survived only because it was never measured for it. The service select was
+emptied too: a service is not a person, so this is not D-195's substitution, but it is still an answer
+nobody gave.
+
+**No server gate was weakened to allow the empty default** (D-211's own rule): `patient_id` stays
+`required` in `DayBoardActionController`, asserted by a test.
