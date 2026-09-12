@@ -6555,6 +6555,39 @@ Server clock `2026-09-09 01:13 UTC`, tenant display zone `Europe/Zurich`, audit 
 
 #### `P10-H1` — Every failed tool execution writes a permanent "approved" row to the AI ledger, for an action that was never approved into effect
 
+> ✅ **FIXED — QA-FIX.12e, commit `<pending>` (D-230). Two lines of ordering, and nothing else.**
+> `ApprovalQueue::approve()` now records `approved` **after** `execute()` returns, beside the `executed`
+> row, once the action carries `approved_at`/`executed_at`. A failed execution therefore leaves **no
+> ledger row at all** — matching the action's own `status`, which stayed `pending` throughout.
+> **THE METHOD ALREADY CONTRADICTED ITSELF, WHICH IS WHY THIS IS A DEFECT AND NOT A DESIGN CHOICE.** The
+> `approved` **event** fires only on success, and `approved_at` is only stamped on success. The ledger row
+> was the single voice claiming otherwise — and the action's `status` contradicted it directly.
+> **THIS FINDING'S OWN CONTRAST IS THE PRECEDENT, AND IT IS NOW THE RULE.** The re-authorisation gate sits
+> above the recorder and leaves nothing when it refuses — *"The same guard order applied to execution would
+> leave nothing either."* It does now, so `approve()` has one rule instead of two.
+> **NOTHING WAS LOST BY MOVING IT.** A fence refusal still writes its own terminal `fence_refused` row with
+> the fence's own message and sets the terminal status; any other failure re-throws and the reviewer is
+> shown it (D-224, which closed `P10-H2`); and the action stays `pending` so it can be acted on again. On
+> success both rows are still written, in order — asserted, so "fix by never recording an approval" fails.
+> **HISTORICAL ROWS ARE NOT REWRITTEN (D-193/D-197).** `ai_interactions` is append-only; a bulk correction
+> is exactly the capability such a ledger exists to deny, and no row carries a marker saying which side of
+> this fix it was written on. Rows written before it stand. **What changes is that no new false one is
+> created** — including the numbers this finding measured: the "APPROVED · 30D" tile and the governance
+> table's approved/executed columns can no longer drift apart on a failure.
+> **MUTATION-CHECKED TWO WAYS, AND THEY ARE CAUGHT BY DIFFERENT HALVES OF THE SUITE.** Restoring the defect
+> reddens the ordering test, all three failure tests and the equality test **while leaving the positive
+> control green** — which is precisely why this survived: *it is invisible on the success path*. The lazy
+> alternative (never record an approval) leaves the failure tests trivially green and reddens the positive
+> control instead. Either half alone would have accepted one of the two wrong answers.
+> **ONE EXISTING TEST PINNED THIS AS CORRECT AND IS CORRECTED, NOT DELETED.**
+> `DemoGovernanceDataTest`'s fence-refusal test asserted `approved = 1` and reasoned from the
+> approved+`fence_refused` pair. It now asserts `approved = 0`, and the reasoning is **stronger**: the
+> fence's own message and the `fence_refused` row still separate a real refusal from a hand-set status, and
+> the absence of an approval is now itself the correct signal.
+> **Driven through the REAL path.** The tests register a genuine `AiTool` and go through
+> `propose()` → `approve()`, because the defect is the order of two writes *inside* `approve()` and a
+> double that skipped it would prove nothing. The ordering is additionally pinned **comment-stripped**.
+
 - **Role:** `org_admin` · **Route:** `POST /governance/approvals/{id}/approve`
 - **Driven three times, three different failure modes**, each leaving the same residue:
   1. the booking conflict of `P10-C2` (action stayed `pending`);

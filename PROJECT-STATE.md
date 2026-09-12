@@ -86,7 +86,7 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
 
 ## STATUS: BUILD COMPLETE · DEPLOY-READY 🟢 GO · THE BUILDABLE PARITY PROGRAMME IS COMPLETE — ONE TRACK REMAINS: **DEPLOYMENT + PARTNERSHIPS**
 
-### ✅ THE ROLE-BY-ROLE QA AUDIT IS COMPLETE — `docs/qa/ROLE-AUDIT.md` (10 of 10 phases; **191 findings — 58 fixed, 133 open** as of QA-FIX.12d; **every CRITICAL is fixed — 0 open, highest open severity is HIGH at 20**)
+### ✅ THE ROLE-BY-ROLE QA AUDIT IS COMPLETE — `docs/qa/ROLE-AUDIT.md` (10 of 10 phases; **191 findings — 59 fixed, 132 open** as of QA-FIX.12e; **every CRITICAL is fixed — 0 open, highest open severity is HIGH at 19**)
 
 **Phase 1 (reception / front-desk) is DONE** (`06a3f78`): 18 findings — 1 CRITICAL, 3 HIGH, 8 MEDIUM,
 6 LOW — every page **driven in a real browser** via Playwright MCP. Findings are **recorded, not
@@ -625,6 +625,35 @@ literal, not by re-reading the finding), the paths are `.txt`, both download sur
 **A strict improvement, not a removed capability: before, the download could be opened by nothing.**
 **The real renderer is REFUSED** — CareOS has no PDF library, so that is a new dependency plus a laid-out
 template, and a test asserts none was added so a later "quick win" cannot reintroduce a forged header.
+
+**QA-FIX.12e (`<pending>`, D-230) is done, and it CLOSES `P10-H1` — QA-FIX.12 IS COMPLETE.**
+`ApprovalQueue::approve()` recorded `approved` BEFORE calling the tool, so every failed execution left a
+permanent approval for an action that stayed `pending`: four ledger rows for one clinical action, two of
+them approvals that never happened, and the governance table reading **approved 9 · executed 4**. The
+recorder now sits after `execute()`. **The method already contradicted itself** — the `approved` event and
+`approved_at` were both success-only — and **the precedent was in the same method**: the re-authorisation
+gate above it already leaves nothing when it refuses. Historical rows stand (D-193/D-197); what changes is
+that no new false one is created. Mutation-checked two ways that are caught by **different halves** of the
+suite: restoring the defect leaves the positive control green (which is why it survived — it is invisible
+on the success path), and "never record an approval" reddens the positive control instead.
+
+### QA-FIX.12 — COMPLETE (five parts, five commits, all CI-green)
+
+| part | subject | commit |
+|---|---|---|
+| 12a | family 4 — unrecorded disclosure (`P9-H2`, `P10-H5`, `QF10a-H1`) | `3c5fed1` |
+| 12b | family 7 — the partial write (`P4-H2`, and `P4-H1` with it) | `9b48dae` |
+| 12c | family 5 — display/locale (`P2-H3`, `P4-H4`, `P6-H3`) | `2e76387` |
+| 12d | family 2 — misleading / wedging (`P1-H2`, `P10-H4`, `P9-H1`; `P3-H2` partly) | `6df47ed` |
+| 12e | `P10-H1` — the AI ledger's false approvals | `<pending>` |
+
+**Families 2, 4, 5 and 7 are closed.** Four things were recorded and deliberately LEFT OPEN with stated
+reasons rather than half-built: `QF12a-M1` (a live staff session steals attribution for a patient's own
+portal reads), `QF12b-H1` (a rejected sync action is deleted from the device silently), `QF12c-H1` (the
+surgery form parses its typed wall clock as UTC), and `P3-H2`'s missing real PDF renderer. Two stops were
+taken on principle: **recovery from an already-wedged bed** (`P9-H1`) and **rendering a genuine PDF**
+(`P3-H2`) — both features, both refused inside a fix gate, both with what a fixing gate would need written
+down.
 
 
 **PHASE 10 ADDENDUM (same day) — `P10-C3` (CRITICAL): the agent approve gate has a SECOND, UNGATED door.**

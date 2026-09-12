@@ -1,6 +1,7 @@
 <?php
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Modules\AiCore\Models\AgentAction;
 use Modules\Comms\Models\Thread;
 use Modules\Platform\Models\Permission;
@@ -144,22 +145,40 @@ it('still lets the surface owner send, with no ai.manage anywhere in sight', fun
     $thread = iagThread($tenant, $owner);
     $action = iagPending($tenant, $owner, 'comms.draft_reply', $thread->id);
 
-    // THE POSITIVE CONTROL (D-174): the fix must not turn the inbox into an org_admin-only surface.
-    // Not 403 proves the route gate let this user through; not 404 proves the scoped lookup matched
-    // their own kind of draft; and the ledger's `approved` row is written by the service AFTER both
-    // gates, so its presence is proof of passage whatever the tool then does with the draft. Not 500
-    // because this route used to answer a refusal by crashing.
+    /*
+     * THE POSITIVE CONTROL (D-174): the fix must not turn the inbox into an org_admin-only surface.
+     * Not 403 proves the route gate let this user through; not 404 proves the scoped lookup matched
+     * their own kind of draft; not 500 because this route used to answer a refusal by crashing.
+     *
+     * `P10-H1` (QA-FIX.12e, D-230) — PROOF OF PASSAGE MOVED, AND IT IS NOW STRONGER.
+     *
+     * This used to prove passage with the ledger's `approved` row — which worked only because
+     * `approve()` recorded the approval BEFORE calling the tool, so the row appeared whether or not
+     * anything was approved into effect. That is precisely the defect `P10-H1` records, and the row is
+     * now written only on success, so a refused draft leaves none.
+     *
+     * The refusal MESSAGE proves more than the row ever did. `'Inbox drafts exist only for patient
+     * threads.'` is thrown by `InboxDraftEngine` — the TOOL's own engine — so it can only exist if the
+     * request cleared both gates AND the tool actually ran. The old assertion proved the service was
+     * entered; this one proves the tool executed. (This fixture's thread is INTERNAL, which is the
+     * refusal it meets; the gates are what this test is about, not the thread type.)
+     */
     $response = $this->actingAs($owner)->post(route('comms.inbox.send-draft'), ['action_id' => $action->id]);
-
-    $reachedTheService = DB::table('ai_interactions')
-        ->where('output_ref', $action->id)
-        ->where('outcome', 'approved')
-        ->exists();
 
     expect($response->status())->not->toBe(403)
         ->and($response->status())->not->toBe(404)
-        ->and($response->status())->not->toBe(500)
-        ->and($reachedTheService)->toBeTrue();
+        ->and($response->status())->not->toBe(500);
+
+    $response->assertSessionHasErrors();
+
+    $reachedTheTool = collect(session('errors')?->all() ?? [])
+        ->contains(fn (string $m): bool => str_contains($m, 'Inbox drafts exist only for patient threads.'));
+
+    expect($reachedTheTool)->toBeTrue();
+
+    // And nothing was approved into effect, which is the other half of `P10-H1`.
+    expect($action->fresh()->status)->toBe(AgentAction::STATUS_PENDING)
+        ->and(DB::table('ai_interactions')->where('output_ref', $action->id)->count())->toBe(0);
 });
 
 it('does not reach a clinical action from the inbox surface', function () {

@@ -5569,3 +5569,48 @@ references the old ID.
   `WardBedManagementTest` stays green** — it claims beds with no stay, so the status machine's own tests are
   untouched by a guard keyed on an admitted stay. See [[Hospital]], [[Billing]], [[Patients]],
   [[Scheduling]], D-174, D-176, D-183, D-194, D-210, D-211, D-213, [[LOG]].
+
+- **D-230 — The AI ledger says `approved` only when the action was approved INTO EFFECT; the recorder moves
+  below `execute()`, and historical rows are not rewritten (QA-FIX.12e, closing `P10-H1`).**
+  **THE DEFECT WAS TWO LINES OF ORDERING AND NOTHING ELSE.** `ApprovalQueue::approve()` called
+  `recorder->record(… 'approved' …)` **before** `try { $tool->execute(…) }`, and nothing compensated on
+  failure. Every failed execution therefore left a permanent `approved` row for an action that stayed
+  `pending`. Phase 10 drove it three ways — a booking conflict, the tool's own fence, and a duplicate edit
+  — and counted **four rows for one clinical action, of which two approvals never happened**.
+  **IT MOVED NUMBERS PEOPLE READ.** The queue's "APPROVED · 30D" tile went 50% → 60% → 57% across those
+  attempts, "AVG REVIEW · 30D" 0 → 2.4 → 4.5 min, and the governance AI-usage table ended at
+  **approved 9 · executed 4** — a five-row gap no screen explained. A governance ledger that overstates
+  approvals is worse than one that is merely incomplete: it is evidence, and it was wrong in the direction
+  that flatters the system.
+  **THE METHOD ALREADY CONTRADICTED ITSELF, WHICH IS WHY THIS IS A DEFECT AND NOT A DESIGN CHOICE.** The
+  `approved` **event** fires only after a successful execution, and `agent_actions.approved_at` is only
+  stamped there too. The ledger row was the single voice claiming otherwise, and the action's own `status`
+  — still `pending` — contradicted it directly.
+  **AND THE PRECEDENT WAS ALREADY IN THE SAME METHOD.** The re-authorisation gate sits ABOVE the recorder,
+  and when it refuses it leaves **nothing**: status `pending`, `reviewed_by` NULL, zero `ai_interactions`
+  rows. The finding named this itself as the contrast that proves the point. A failed execution now
+  behaves identically, so `approve()` has one rule rather than two.
+  **NOTHING IS LOST BY MOVING IT.** A fence refusal still writes its own terminal `fence_refused` row
+  carrying the fence's own message (and sets the terminal status); any other failure re-throws to the
+  caller, which surfaces it to the reviewer (D-224); and the action stays `pending` so it can be acted on
+  again. On success both rows are still written, in order, after the status and timestamps are stamped.
+  **HISTORICAL ROWS STAND — D-193/D-197's POSTURE, APPLIED AGAIN.** `ai_interactions` is append-only. Rows
+  written before this fix are left exactly as they are: a bulk correction over an append-only ledger is
+  precisely the capability such a ledger exists to deny, and no row carries a marker saying which side of
+  the fix it was written on. What changes is that **no new false row is created**.
+  **THE TWO MUTATIONS ARE CAUGHT BY DIFFERENT HALVES OF THE SUITE, AND NEITHER HALF ALONE WOULD DO.**
+  Restoring the defect (record above the try) reddens the structural ordering test, all three failure
+  tests and the equality test — **while leaving the positive control GREEN**, which is exactly why the
+  defect survived: it is invisible on the success path. The lazy alternative fix (never record an approval
+  at all) leaves those three failure tests trivially green and reddens the **positive control** and the
+  equality test instead. A suite with only one half would have accepted one of the two wrong answers.
+  **ONE EXISTING TEST PINNED THE DEFECT AS CORRECT AND IS CORRECTED, NOT DELETED.**
+  `DemoGovernanceDataTest`'s fence-refusal test asserted `approved = 1` and argued from the
+  approved+`fence_refused` PAIR as proof the fence really fired. It now asserts `approved = 0`, and its
+  reasoning is **stronger**: the fence's own message plus a `fence_refused` row still distinguish a real
+  refusal from a hand-set status, and the absence of an approval is now itself the correct signal.
+  **Guarded by** six tests in `tests/Feature/Qa/ApprovedOnlyWhenApprovedTest.php`, driven through the REAL
+  `propose()` → `approve()` path with a genuinely registered `AiTool` rather than a mocked queue — the
+  defect is the order of two writes *inside* `approve()`, and a double that skipped that method would prove
+  nothing about it. The ordering is additionally pinned **comment-stripped**, so an explanatory comment
+  quoting the old order cannot satisfy it. See [[AiCore]], D-193, D-197, D-218, D-224, [[LOG]].

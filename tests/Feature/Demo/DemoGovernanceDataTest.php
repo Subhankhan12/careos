@@ -191,9 +191,16 @@ test('the FENCE-REFUSED action traversed the fence — it was not status-set', f
      * THE PROOF THAT THE FENCE FIRED, rather than a column being written:
      *  - the reason is the FENCE's own message from FenceRefusalException, not seeder prose;
      *  - there is no result and no executed_at, because execute() threw before returning;
-     *  - the ledger carries an `approved` row FOLLOWED BY a `fence_refused` one — approve() records
-     *    the approval first and the refusal only when the tool throws. A hand-set status would have
-     *    neither row, and no code path produces that pair except a real refusal at approve time.
+     *  - the ledger carries a `fence_refused` row, which ONLY `recordFenceRefusal()` writes and which
+     *    a hand-set status could not produce.
+     *
+     * AND NO `approved` ROW, WHICH IS THE POINT OF `P10-H1` (QA-FIX.12e, D-230). This assertion used to
+     * read `approved = 1`, and its reasoning used the approved+fence_refused PAIR as the proof — because
+     * `approve()` recorded the approval before calling the tool, so every failed execution left a
+     * permanent `approved` row for an action that was never approved into effect. The row is now written
+     * only after `execute()` returns, so a refused action has none. **The proof is stronger, not weaker:**
+     * the fence's own message and a `fence_refused` row still distinguish a real refusal from a hand-set
+     * status, and the absence of an `approved` row is now itself the correct signal.
      */
     expect($action->rejection_reason)->toBe('This draft handed off to a human; there is nothing to send.')
         ->and($action->fence_refused_at)->not->toBeNull()
@@ -201,7 +208,7 @@ test('the FENCE-REFUSED action traversed the fence — it was not status-set', f
         ->and($action->executed_at)->toBeNull();
 
     $ledger = govLedgerFor($action);
-    expect($ledger['approved'] ?? 0)->toBe(1)
+    expect($ledger['approved'] ?? 0)->toBe(0)
         ->and($ledger['fence_refused'] ?? 0)->toBe(1)
         ->and($ledger['executed'] ?? 0)->toBe(0);
 

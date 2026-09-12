@@ -184,19 +184,23 @@ it('leaves NOTHING behind when the booking is refused — the patient stays wait
         ->and(Appointment::query()->firstOrFail()->id)->toBe($taken->id);
 
     /*
-     * WHAT DOES SURVIVE, NAMED RATHER THAN COUNTED — and it is NOT this finding.
+     * NOW NOTHING SURVIVES AT ALL — AND THIS TEST WAS WRITTEN TO FAIL WHEN THAT BECAME TRUE.
      *
-     * Exactly one row is appended by a refused approval: `ai_interaction.approved`, written by
-     * `ApprovalQueue::approve()` BEFORE it calls the tool, and therefore outside the transaction this
-     * fix introduces. That stale approval row is `P10-H1` — a separate HIGH, still open, deliberately
-     * NOT fixed in this gate. Asserting it by NAME rather than asserting a bare count means this test
-     * says which residue is expected and which is the bug: if the offer flip or its `waitlist.offered`
-     * row ever came back, the set below would grow and this fails.
+     * It used to expect exactly one appended row, `ai_interaction.approved`, and said so by NAME while
+     * recording why: `ApprovalQueue::approve()` wrote that row BEFORE calling the tool, so a refused
+     * booking left a permanent approval behind. It named that residue as `P10-H1` — "a separate HIGH,
+     * still open, deliberately NOT fixed in this gate".
+     *
+     * `P10-H1` is fixed in QA-FIX.12e (D-230): the recorder moved below `execute()`, so a refused
+     * approval appends nothing. The expectation flips from one named row to an EMPTY set, which is the
+     * strongest form of this test's own claim — "leaves NOTHING behind" is now literally true. The
+     * naming discipline is kept: if the offer flip, its `waitlist.offered` row, or a stale approval ever
+     * came back, this set would grow and this fails.
      */
     $appended = DB::table('audit_events')->orderByDesc('occurred_at')->limit(20)->pluck('action')
         ->take(DB::table('audit_events')->count() - $before)->values()->all();
 
-    expect($appended)->toBe(['ai_interaction.approved'])
+    expect($appended)->toBe([])
         ->and(app(AuditService::class)->verifyChain($fx['tenant']->id)['ok'])->toBeTrue();
 });
 

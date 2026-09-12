@@ -670,3 +670,27 @@ The catch is **NARROW** and names exactly the four real types that can escape:
 a new domain type, add it here and to that test.
 
 `Governance/ApprovalQueue.vue` now renders `RefusalNotice`, so the approve refusal is finally on screen.
+
+
+## The ledger says `approved` only when the action was approved INTO EFFECT (QA-FIX.12e, `P10-H1`, D-230)
+
+`ApprovalQueue::approve()` records the `approved` row **after** `execute()` returns, beside `executed`,
+once `approved_at`/`executed_at` are stamped. It used to record it **before** the `try`, so every failed
+execution left a permanent `approved` row for an action that stayed `pending` — Phase 10 counted four rows
+for one clinical action, two of which were approvals that never happened, and the queue's tiles moved with
+them (APPROVED · 30D 50% → 60% → 57%; the governance table read approved 9 · executed 4).
+
+**The method already contradicted itself:** the `approved` EVENT fires only on success and `approved_at` is
+only stamped on success. The ledger row was the one voice claiming otherwise.
+
+**The precedent was in the same method:** the re-authorisation gate sits above the recorder and leaves
+nothing when it refuses. A failed execution now matches it — one rule instead of two.
+
+**Nothing was lost.** A fence refusal still writes its terminal `fence_refused` row with the fence's own
+message; any other failure re-throws and the reviewer sees it (D-224); the action stays `pending`.
+
+**Historical rows stand (D-193/D-197)** — `ai_interactions` is append-only, and no row carries a marker
+saying which side of the fix it was written on. What changed is that no new false row is created.
+
+**If you touch `approve()`: the ordering is pinned comment-stripped**, and the positive control asserts a
+successful approve still writes `approved` THEN `executed` — so "never record an approval" is not a fix.

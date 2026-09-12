@@ -85,20 +85,29 @@ class ApprovalQueue
         $payload = $editedPayload ?? $action->input_payload;
         $prompt = $this->prompts->get($action->feature);
 
-        $this->recorder->record(
-            $action->feature,
-            $action->agent,
-            'internal',
-            'tool-runtime',
-            '1',
-            $prompt->hash(),
-            'approved',
-            toolCalls: [['tool' => $action->tool_key]],
-            outputRef: $action->id,
-            approverId: (string) $reviewer->getKey(),
-            metadata: $humanEdited ? ['human_edited' => true] : null,
-        );
-
+        /*
+         * `P10-H1` (QA-FIX.12e, D-230) — THE `approved` ROW IS WRITTEN ONLY ONCE THE ACTION IS ACTUALLY
+         * APPROVED INTO EFFECT, WHICH MEANS AFTER `execute()` RETURNS.
+         *
+         * It used to be written HERE, before the try — so every failed execution left a permanent
+         * `approved` row for an action that stayed `pending`. Driven three ways in Phase 10 (a booking
+         * conflict, a fence refusal, a duplicate edit), the clinical action ended with FOUR ledger rows
+         * of which TWO approvals never happened, and the queue's own tiles moved with them: "APPROVED ·
+         * 30D" 50% → 60% → 57%, and the governance table read approved 9 · executed 4 — a five-row gap
+         * no screen explained.
+         *
+         * THE ORDERING WAS ALREADY INCONSISTENT INSIDE THIS METHOD, which is what shows it is a defect
+         * rather than a decision: the `approved` EVENT below fires only on success, and the action's own
+         * `approved_at` column is only stamped on success. The ledger was the one voice saying otherwise.
+         *
+         * AND THE PRECEDENT IS THIS METHOD'S OWN RE-AUTHORISATION GATE, which sits above and leaves
+         * NOTHING when it refuses — `agent_actions.status` stays `pending`, `reviewed_by` stays NULL,
+         * and zero `ai_interactions` rows are written. A failed execution now behaves the same way.
+         *
+         * Nothing is lost by moving it. A fence refusal still records its own terminal `fence_refused`
+         * row with the fence's own reason; any other failure re-throws to the caller, which surfaces it
+         * (D-224), and the action stays `pending` so the reviewer can act again.
+         */
         try {
             $result = $tool->execute($payload, $reviewer);
         } catch (FenceRefusalException $e) {
@@ -126,6 +135,23 @@ class ApprovalQueue
             'edited_payload' => $editedPayload,
             'result' => $result,
         ])->save();
+
+        // `P10-H1` (QA-FIX.12e, D-230) — both rows are written here, after the execution succeeded and the
+        // action carries `approved_at`/`executed_at`, in the order a reader expects. The pair is still a
+        // pair on success; what changed is that a FAILURE no longer leaves the first half of it behind.
+        $this->recorder->record(
+            $action->feature,
+            $action->agent,
+            'internal',
+            'tool-runtime',
+            '1',
+            $prompt->hash(),
+            'approved',
+            toolCalls: [['tool' => $action->tool_key]],
+            outputRef: $action->id,
+            approverId: (string) $reviewer->getKey(),
+            metadata: $humanEdited ? ['human_edited' => true] : null,
+        );
 
         $this->recorder->record(
             $action->feature,
