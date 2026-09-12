@@ -5614,3 +5614,37 @@ references the old ID.
   defect is the order of two writes *inside* `approve()`, and a double that skipped that method would prove
   nothing about it. The ordering is additionally pinned **comment-stripped**, so an explanatory comment
   quoting the old order cannot satisfy it. See [[AiCore]], D-193, D-197, D-218, D-224, [[LOG]].
+
+- **D-231 — `RefusalNotice` is ADOPTED on Clinical, and the enumeration that adoption required is the
+  gate's real output.** QA-FIX.13b, commit `<pending>`. `QF11a-M1` recorded that `Clinical/Chart.vue` and
+  `Clinical/OrdersReview.vue` render no error bag, so the refusal QA-FIX.11a routed to them is invisible.
+  The fix is two imports and two tags — D-210's component, unmodified, re-adopted for the fourth time
+  (D-213, QA-FIX.11a, now this).
+  **THE REPLACE-OR-DUPLICATE CHECK CAME FIRST, BECAUSE IT DECIDES WHETHER THIS IS AN ADOPTION AT ALL.**
+  `P10-M1` is still only PARTLY fixed because 6 of its 24 pages already render errors their own way, and
+  each of those is a design decision, not an adoption. Measured at HEAD before any edit: both Clinical pages
+  return **0** for `grep -cE '\berrors\b'`, **0** `RefusalNotice` imports, and **0** inline error/alert
+  markup of any kind. Nothing to replace, nothing to duplicate. **A page that already renders errors must
+  NOT simply receive a second renderer** — that is the rule this check exists to enforce, and it is written
+  here so the next adopter runs it rather than assuming.
+  **THE FINDING ASKED FOR AN ENUMERATION AND THE ENUMERATION IS WHERE THE VALUE WAS.** `QF11a-M1` said
+  plainly that Clinical had never been surveyed. `OrdersReview.vue` has one write control; `Chart.vue` has
+  six. Walking all seven produced two new findings — `QF13b-H1` (the AI summary panel is unreachable: its
+  only entry point renders only inside `v-if="aiSummary"`, and `aiSummary` exists only after a successful
+  draft through that same button) and `QF13b-H2` (three sibling order endpoints still answer a domain
+  refusal with HTTP 500). **Both are RECORDED, NOT FIXED** — the standing rule since QA-FIX.9a, and the
+  same rule that created `QF11a-M1`.
+  **`QF13b-H2` IS THE HONEST LIMIT OF THIS DECISION.** `RefusalNotice` renders an error BAG; an HTTP 500
+  never produces one. So this adoption makes the *caught* refusal and every validation failure visible, and
+  does nothing for three endpoints in the same controller. Saying that plainly is the point: `QF11a-M1`
+  closes, Clinical's refusal problem does not. The remedy for `QF13b-H2` already exists three lines away in
+  the same file (D-224's narrow catch on `review`) and is a FIX, not a feature.
+  **`QF13b-H1` IS A FEATURE AND THIS GATE STOPPED ON IT, WITH A SPECIFICATION.** The button is not miswired,
+  it is unreachable; restoring it means giving the panel an entry point that does not depend on its own
+  output, plus a decided date range for a tool named `summarize_since_last_visit`. That is product work, and
+  building it inside a fix gate is what `474cefe` and QA-FIX.12d both refused to do.
+  **VERIFIED IN THE BROWSER, BOTH DIRECTIONS.** The refusal renders as `role="alert"` carrying the server's
+  own sentence verbatim on both pages; a clean load renders zero alerts and a successful review leaves the
+  bag `[]` (D-174/D-176). Six mutants were killed across the two test layers, including two that deleted the
+  rendered tag while leaving the explanatory comment that names it — the assertions run on comment-stripped
+  source precisely so that comment cannot satisfy them.

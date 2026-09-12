@@ -349,7 +349,7 @@ patient pairs for dedupe testing.
 
 #### `P1-H2` — Patient registration **fails silently** unless four unmarked fields are filled
 
-> ✅ **FIXED — QA-FIX.12d, commit `<pending>` (D-229). BOTH compounding defects, because neither alone
+> ✅ **FIXED — QA-FIX.12d, commit `6df47ed` (D-229). BOTH compounding defects, because neither alone
 > explains the silence.**
 > **(1) THE FORM STOPPED SENDING ROWS NOBODY FILLED IN.** The wizard always shipped one blank `identifiers`
 > row and one blank `coverages` row so its optional inputs had something to bind to. Those fields are
@@ -898,7 +898,7 @@ slots (availability is weekdays 1–5) and manufacturing one would have meant ch
 
 #### `P2-H3` — Clinical timestamps are shown in **two wrong clocks**, never the practice's
 
-> ✅ **FIXED — QA-FIX.12c, commit `<pending>` (D-228).** The named clinical surfaces now render instants in
+> ✅ **FIXED — QA-FIX.12c, commit `2e76387` (D-228).** The named clinical surfaces now render instants in
 > the **practice's** zone, through one shared helper fed by the `timezone` prop D-192 has been sharing on
 > every page since QA-FIX.1a — and which, as D-192 itself recorded, **nothing consumed**.
 > **THE THREE CLOCKS THIS FINDING MEASURED ARE NOW ONE**, and the two that looked most like a correct
@@ -1482,7 +1482,7 @@ Route sweeps were run in-session: **29 routes** for `billing`, 12 for `pharmacis
 
 #### `P3-H2` — "PDF" invoices and dunning letters are plain-text files
 
-> ⚠️ **PARTLY FIXED — QA-FIX.12d, commit `<pending>` (D-229). THE CLAIM IS WITHDRAWN; THE CAPABILITY IS
+> ⚠️ **PARTLY FIXED — QA-FIX.12d, commit `6df47ed` (D-229). THE CLAIM IS WITHDRAWN; THE CAPABILITY IS
 > STILL MISSING AND IS COUNTED AS OPEN.**
 > **Graded PARTLY, not FIXED, on purpose.** This finding's title is that the files ARE plain text, and they
 > still are. What is fixed is that nothing pretends otherwise any more. The `P10-M1` posture applied: the
@@ -2180,7 +2180,7 @@ with zero cookies.
 
 #### `P4-H1` — `/api/nurse/sync` returns 500 on two reachable inputs, and one bad action jams the queue for ever
 
-> ✅ **FIXED — QA-FIX.12b, commit `<pending>` (D-227), closed by the SAME one-line invariant as `P4-H2`:
+> ✅ **FIXED — QA-FIX.12b, commit `9b48dae` (D-227), closed by the SAME one-line invariant as `P4-H2`:
 > every action yields exactly one result.** Both of this finding's 500s are one escape from `process()`,
 > and its jam is the client refusing to drain a response that never arrived.
 > **BOTH INPUTS DRIVEN LIVE, BEFORE AND AFTER.** Before: `check_in` missing `client_visit_uuid` →
@@ -2231,7 +2231,7 @@ with zero cookies.
 
 #### `P4-H2` — A crashed sync batch commits part of itself while telling the device everything failed
 
-> ✅ **FIXED — QA-FIX.12b, commit `<pending>` (D-227). AND THE FINDING'S STATED CAUSE WAS NOT THE CAUSE.**
+> ✅ **FIXED — QA-FIX.12b, commit `9b48dae` (D-227). AND THE FINDING'S STATED CAUSE WAS NOT THE CAUSE.**
 > This finding names the per-action `DB::transaction` as the problem. **It is not.** Actions in an offline
 > outbox are independent and deduped by `client_uuid`, so a batch-level transaction would throw away good
 > care because one action was malformed, and would fight the idempotency the ledger already provides.
@@ -2326,7 +2326,7 @@ with zero cookies.
 
 #### `P4-H4` — Every nursing time is rendered as raw UTC, so a field nurse reads their visit two hours early
 
-> ✅ **FIXED — QA-FIX.12c, commit `<pending>` (D-228), in two places, because the two surfaces get the
+> ✅ **FIXED — QA-FIX.12c, commit `2e76387` (D-228), in two places, because the two surfaces get the
 > practice's zone by different routes.**
 > **THE DISPATCH BOARD** is an Inertia page and simply consumes the `timezone` prop: the visit window read
 > `2026-09-06 05:30:00 - 06:30:00` for a visit that happens at **07:30 Zurich**, and now reads the
@@ -3425,7 +3425,7 @@ by any of the four and would otherwise have gone undriven.
 
 #### `P6-H3` — A surgical case can be scheduled six years in the past, and is then displayed as upcoming
 
-> ✅ **FIXED — QA-FIX.12c, commit `<pending>` (D-228) — BUT NOT THE WAY THE RECORD SAID, AND THE RECORD WAS
+> ✅ **FIXED — QA-FIX.12c, commit `2e76387` (D-228) — BUT NOT THE WAY THE RECORD SAID, AND THE RECORD WAS
 > WRONG ON THE EVIDENCE.**
 > **THE RECOMMENDED REMEDY DOES NOT TRANSFER.** The reconciliation's family table says *"`P6-H3` also needs
 > a past-date validation, the D-194 shape"*. Checked against the product rather than accepted:
@@ -5723,7 +5723,7 @@ controls the two phase roles cannot reach: `lena.studer@klinik-bergblick.test` (
 
 #### `P9-H1` — A bed manager can move an OCCUPIED bed to `cleaning` and permanently wedge the admitted patient
 
-> ✅ **PREVENTED — QA-FIX.12d, commit `<pending>` (D-229). THE WEDGE CANNOT BE CREATED. RECOVERY FROM ONE
+> ✅ **PREVENTED — QA-FIX.12d, commit `6df47ed` (D-229). THE WEDGE CANNOT BE CREATED. RECOVERY FROM ONE
 > THAT ALREADY EXISTS IS A FEATURE AND IS DELIBERATELY NOT BUILT.**
 > **`occupied → cleaning` IS STILL LEGAL, and had to be** — it is how a turnover begins once the patient has
 > left. The defect was never the transition; it was that **nothing looked at the STAY**.
@@ -5779,7 +5779,7 @@ controls the two phase roles cannot reach: `lena.studer@klinik-bergblick.test` (
 
 #### `P9-H2` — The ward board discloses every admitted patient and writes no read row
 
-> ✅ **FIXED — QA-FIX.12a, commit `<pending>` (D-226).** `WardBoardController::show` now calls
+> ✅ **FIXED — QA-FIX.12a, commit `3c5fed1` (D-226).** `WardBoardController::show` now calls
 > `$disclosed->auditRead(['surface' => 'ward_board'])` once per ACTIVE STAY, through the path `Stay`
 > already had — `LogsReads` plus an `auditPatientId()` that already mapped to the occupant. **Nothing was
 > designed:** the action stays `read`, which `PatientAccessReport::DISCLOSURE_ACTIONS` already contains, so
@@ -6555,7 +6555,7 @@ Server clock `2026-09-09 01:13 UTC`, tenant display zone `Europe/Zurich`, audit 
 
 #### `P10-H1` — Every failed tool execution writes a permanent "approved" row to the AI ledger, for an action that was never approved into effect
 
-> ✅ **FIXED — QA-FIX.12e, commit `<pending>` (D-230). Two lines of ordering, and nothing else.**
+> ✅ **FIXED — QA-FIX.12e, commit `2b4ec48` (D-230). Two lines of ordering, and nothing else.**
 > `ApprovalQueue::approve()` now records `approved` **after** `execute()` returns, beside the `executed`
 > row, once the action carries `approved_at`/`executed_at`. A failed execution therefore leaves **no
 > ledger row at all** — matching the action's own `status`, which stayed `pending` throughout.
@@ -6673,7 +6673,7 @@ Server clock `2026-09-09 01:13 UTC`, tenant display zone `Europe/Zurich`, audit 
 
 #### `P10-H4` — The day-board Quick-book modal pre-selects the first patient, with no placeholder
 
-> ✅ **FIXED — QA-FIX.12d, commit `<pending>` (D-229), as a pure ADOPTION of D-211.** Both quick-book
+> ✅ **FIXED — QA-FIX.12d, commit `6df47ed` (D-229), as a pure ADOPTION of D-211.** Both quick-book
 > selects now start **empty** with a disabled placeholder — *"Select a patient…"*, *"Select a service…"* —
 > so a state in which nothing is chosen exists, which is exactly what this finding said did not.
 > **THE SERVICE SELECT WAS FIXED TOO, for a stated reason.** A service is not a person, so this is not
@@ -6702,7 +6702,7 @@ Server clock `2026-09-09 01:13 UTC`, tenant display zone `Europe/Zurich`, audit 
 
 #### `P10-H5` — Two portal surfaces disclose the patient's own data and write no read row
 
-> ✅ **FIXED — QA-FIX.12a, commit `<pending>` (D-226).** Two one-line additions on the EXISTING path.
+> ✅ **FIXED — QA-FIX.12a, commit `3c5fed1` (D-226).** Two one-line additions on the EXISTING path.
 > `PortalMessageController::index` calls `$patient->auditRead(['surface' => 'portal_messages'])`;
 > `PortalTelehealthController::index` resolves the patient from `$account->patient_id` and calls
 > `auditRead(['surface' => 'portal_telehealth'])`. Both now carry the same comment the other six portal
@@ -7526,7 +7526,7 @@ a negative must follow the calls before it reports one.
 
 #### `QF10a-H1` — The nurse day-pack streams a home-visit photo or signature with no audit row of any kind
 
-> ✅ **FIXED — QA-FIX.12a, commit `<pending>` (D-226) — BUT THIS FINDING'S PREMISE WAS HALF WRONG, AND
+> ✅ **FIXED — QA-FIX.12a, commit `3c5fed1` (D-226) — BUT THIS FINDING'S PREMISE WAS HALF WRONG, AND
 > SAYING SO IS THE POINT.**
 > **THE ROUTE RETURNED HTTP 500 FOR EVERY CALLER AND HAD SINCE IT SHIPPED.** Driven live against the dev
 > server with a valid Sanctum `nurse:day-pack` token, as the nurse who owns the visit, against a real
@@ -7918,6 +7918,36 @@ rather than widened into — the standing rule since QA-FIX.9a.
 
 #### `QF11a-M1` — Clinical's own pages render no error bag either, and QA-FIX.11a has now routed a real refusal to two of them
 
+> ✅ **FIXED — QA-FIX.13b, commit `<pending>` (D-231), as a pure ADOPTION of D-210/D-213.** Two imports and
+> two tags. No new component, no new mechanism, no restyle, no reword.
+> **THE DECISIVE CHECK FIRST, BECAUSE IT COULD HAVE STOPPED THE PART.** `P10-M1` is PARTLY fixed precisely
+> because 6 of its 24 pages already render errors their own way, which makes each one a replace-or-duplicate
+> DESIGN decision rather than an adoption. Measured here before touching anything, at HEAD: `Chart.vue`
+> **0/0/0** and `OrdersReview.vue` **0/0/0** for `grep -cE '\berrors\b'` / `RefusalNotice` / any inline
+> error-or-alert markup. Neither page renders a refusal in ANY form, so there is nothing to replace and
+> nothing to duplicate — the adoption was unblocked, and this is recorded so the next gate does not have to
+> re-measure it.
+> **THE FINDING SAID CLINICAL HAD NEVER BEEN ENUMERATED, SO THIS GATE ENUMERATED IT.** `OrdersReview.vue`
+> has exactly ONE write control. `Chart.vue` has **SIX** (summary draft, summary insert, place order, record
+> result, review order, transition order) — the finding's own scope note called itself "the third consumer of
+> one endpoint, not a survey of Clinical", and that was right.
+> **WHAT IS NOW VISIBLE, DRIVEN IN THE BROWSER.** The `clinical.orders.review` domain refusal QA-FIX.11a
+> routed here renders verbatim as `role="alert"` — *"Only a resulted order can be marked reviewed."* — on
+> BOTH pages. Reproduced the way the finding describes it: a worklist left open while another clinician
+> reviewed the row (driven through `OrderService::markReviewed()`, the real path, not a status write).
+> Before: the page reloaded, the stale row silently vanished, and nothing was said.
+> **BOTH ERROR SHAPES LAND, WHICH IS WHY THE COMPONENT READS THE WHOLE BAG.** `withErrors` keys by DOMAIN
+> (`order`); `$request->validate()` keys by FIELD (`clinical_note`). Both are pinned by test. A component
+> that named keys would render one and drop the other.
+> **THE POSITIVE CONTROL IS IN THE BROWSER TOO (D-174/D-176):** a clean chart load renders
+> `[role="alert"]` **0 times**, and a successful review leaves the bag `[]`. The adoption cannot manufacture
+> a refusal that did not happen.
+> **TWO NEW FINDINGS WERE RECORDED RATHER THAN WIDENED INTO** — the standing rule since QA-FIX.9a. Enumerating
+> `Chart.vue` exposed `QF13b-H1` (the AI summary panel cannot be reached at all) and `QF13b-H2` (three sibling
+> order endpoints still answer a domain refusal with HTTP 500, and a 500 never reaches this component). Both
+> are below. **Neither is fixed here, and `QF13b-H2` is the reason this finding closes without closing
+> Clinical's refusal problem.**
+
 - **Surfaces:** `resources/js/pages/Clinical/Chart.vue` and `resources/js/pages/Clinical/OrdersReview.vue`
 - **Measured:** `grep -cE '\berrors\b'` returns **0** on both, and neither imports `RefusalNotice`. They are
   the same `P6-C3` shape as Surgery, ED, Lab, Radiology and Hospital were.
@@ -7956,3 +7986,70 @@ name and touches no write.
 |---|---|---|---|---|
 | `P9-H6` | HIGH | ✅ **FIXED** | QA-FIX.11b | `18786eb` |
 | `P8-H3` | HIGH | ✅ **FIXED** | QA-FIX.11b | `18786eb` |
+
+---
+
+## QA-FIX.13b — ADDENDUM: two new findings, recorded not fixed
+
+Adopting `RefusalNotice` on `Clinical/Chart.vue` required enumerating its controls, because the component
+only helps where a refusal actually reaches the page. The enumeration found two defects the record did not
+have. They are recorded here rather than widened into — the standing rule since QA-FIX.9a, and the same rule
+that produced `QF11a-M1` itself.
+
+### HIGH (QA-FIX.13b addendum)
+
+#### `QF13b-H1` — The AI clinical summary cannot be reached at all: its only entry point renders only after it has already been used
+
+- **Surface:** `resources/js/pages/Clinical/Chart.vue` · **Route:** `POST /clinical/chart/{patient}/summary-draft`
+- **The deadlock, traced end to end.** `aiSummary` is non-null only when the session holds
+  `clinical_summary_draft` (`ClinicalChartController.php:391`). That key is written in exactly ONE place —
+  `ClinicalSummaryDraftController.php:58`, on a SUCCESSFUL draft. The only code in the product that posts to
+  that endpoint is `Chart.vue`'s `requestSummary()` (`:179`). And its button (`:268`) is inside
+  `v-if="aiSummary"` (`:258`). **No summary → no button → no POST → no summary.** Verified by grep: no other
+  caller of `summary_draft_url` exists anywhere in `resources/js`.
+- **Driven live** (`klinik-bergblick`, Dr. Martin Keller, Karin Weber's chart — 3 encounters, 3 notes,
+  3 orders): the chart's buttons are the 8 tabs and 3 encounter filters. **There is no "Refresh summary"
+  control, and no summary panel, anywhere on the page.**
+- **And the one caller is separately broken.** `requestSummary()` posts `{}`, while the endpoint requires
+  `from` (`required|date`) and `to` (`required|date|after_or_equal:from`) — `ClinicalSummaryDraftController.php:20-22`.
+  So even if the button were reachable it would fail validation on every click. **This matters for
+  sequencing:** QA-FIX.13b's adoption means a validation refusal is now VISIBLE, so fixing the reachability
+  without also sending a range would show *"The from field is required."* to a clinician.
+- **Severity HIGH, and the reason is the family, not the blast radius.** Nothing is written wrongly and no
+  data is at risk. This is `P7-H1`'s exact shape — a built, permission-gated capability (`note.write`) with
+  no reachable entry point — which family 1 covers and which the programme grades HIGH.
+- **FEATURE, not a fix, and this gate STOPPED on it.** There is no "restore the button" change: the panel
+  needs an entry point that does not depend on its own output, plus a decided date range. The tool is named
+  `clinical.summarize_since_last_visit` and windows the record with `whereBetween` (`ClinicalSummaryTool.php:73-79`),
+  so "since last visit" is the intended window — but which encounter counts as the last visit, and what the
+  control offers when there is no prior encounter, are product decisions. **What a fixing gate needs:** a
+  reachable control outside `v-if="aiSummary"`; a decided range with a stated rule for the no-prior-encounter
+  case; and a decision whether the panel is offered for patients with an empty record at all (D-176).
+
+#### `QF13b-H2` — Three sibling order endpoints still answer a domain refusal with HTTP 500
+
+- **Surfaces:** `Chart.vue` (place order · record result · transition order) · **Routes:**
+  `POST /clinical/orders`, `POST /clinical/orders/result`, `POST /clinical/orders/transition`
+- **Measured.** `OrderService` throws `InvalidArgumentException` at **six** reachable points
+  (`:64` `:69` `:98` `:102` `:127` `:134` `:171`). Exactly ONE is caught: `markReviewed()`'s, by
+  `OrderController::review` (`:76-93`), which QA-FIX.11a added. `place()`, `result()` and `transition()`
+  catch nothing.
+- **Driven live, from the browser, on the seeded demo tenant:** `POST /clinical/orders/result` for an order
+  already in `reviewed` returned **HTTP 500**, the error page carrying *"An order in status reviewed cannot
+  be resulted."* — reached by a stale chart, the same way `P8-H1` and `P10-H2` were reached.
+- **This is why `QF11a-M1` closing does not close Clinical's refusal problem.** `RefusalNotice` renders an
+  error BAG; a 500 never produces one. The component is now on the page and cannot help here.
+- **Severity HIGH: this is `P8-H1`/`P10-H2`'s shape exactly**, and both were graded HIGH. `P10-H2`'s banner
+  states the remedy — widen the catch — and QA-FIX.11a proved it on `review` in the same controller.
+- **Precedent: D-224 (QA-FIX.11a, `51017e2`), unchanged and in the same file.** A narrow catch per method,
+  never `Throwable`, keying by domain. This is an adoption of a remedy that already exists three lines away,
+  and it is a FIX, not a feature — it was left out of QA-FIX.13b only because that part's brief was the
+  component adoption, and widening a part into its neighbours is what this rule exists to prevent.
+
+### Fix-status rows added by this gate
+
+| ID | Severity | Status | Gate | Commit |
+|---|---|---|---|---|
+| `QF11a-M1` | MEDIUM | ✅ **FIXED** | QA-FIX.13b | `<pending>` |
+| `QF13b-H1` | HIGH | 📋 recorded, not fixed (**FEATURE — stopped with a specification**) | — | — |
+| `QF13b-H2` | HIGH | 📋 recorded, not fixed (**FIX — precedent D-224 exists**) | — | — |

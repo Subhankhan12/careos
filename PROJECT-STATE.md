@@ -86,7 +86,12 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
 
 ## STATUS: BUILD COMPLETE · DEPLOY-READY 🟢 GO · THE BUILDABLE PARITY PROGRAMME IS COMPLETE — ONE TRACK REMAINS: **DEPLOYMENT + PARTNERSHIPS**
 
-### ✅ THE ROLE-BY-ROLE QA AUDIT IS COMPLETE — `docs/qa/ROLE-AUDIT.md` (10 of 10 phases; **191 findings — 59 fixed, 132 open** as of QA-FIX.12e; **every CRITICAL is fixed — 0 open, highest open severity is HIGH at 19**)
+### ✅ THE ROLE-BY-ROLE QA AUDIT IS COMPLETE — `docs/qa/ROLE-AUDIT.md` (10 of 10 phases; **193 findings — 60 fixed, 133 open** as of QA-FIX.13b; **every CRITICAL is fixed — 0 open, highest open severity is HIGH at 21**)
+
+**The live itemised list is `docs/OPEN-WORK.md`** — every open finding one per row with family, precedent
+and a FIX-or-FEATURE verdict, plus the open product decisions, the deferred work and the deployment track.
+It is regenerated from `ROLE-AUDIT.md` rather than hand-maintained, and it is the file to read before
+scoping any fix gate.
 
 **Phase 1 (reception / front-desk) is DONE** (`06a3f78`): 18 findings — 1 CRITICAL, 3 HIGH, 8 MEDIUM,
 6 LOW — every page **driven in a real browser** via Playwright MCP. Findings are **recorded, not
@@ -505,7 +510,7 @@ where each defect lives:** `P9-H6` from the **CLI** (a browser step would have n
 stored `created_by = Dr. Anke Berg`; `P8-H3` in the **browser** on all four pages, against a finding that
 recorded a name scan returning nothing.
 
-**QA-FIX.12a (`<pending>`, D-226) is done, and it CLOSES FAMILY 4: `P9-H2`, `P10-H5` and `QF10a-H1` are
+**QA-FIX.12a (`3c5fed1`, D-226) is done, and it CLOSES FAMILY 4: `P9-H2`, `P10-H5` and `QF10a-H1` are
 FIXED — and it recorded TWO new findings on the way.** Family 4 is "PHI is shown or leaves, and nothing
 records it", and **nothing was designed**: D-221/D-222 had already settled the shape, so every fix is
 `auditRead()` on a model that already has `LogsReads`, and **`PatientAccessReport::DISCLOSURE_ACTIONS` is
@@ -540,7 +545,7 @@ one exported CSV. Nothing goes unrecorded, so it is not a family-4 defect; it is
 reachability with the argument for HIGH stated**, and the honest fix (resolve the actor from the guard that
 authorised THIS request) is a decision across every audited surface and needs its own gate.
 
-**QA-FIX.12b (`<pending>`, D-227) is done, and it CLOSES FAMILY 7 — `P4-H2` — AND `P4-H1` WITH IT.**
+**QA-FIX.12b (`9b48dae`, D-227) is done, and it CLOSES FAMILY 7 — `P4-H2` — AND `P4-H1` WITH IT.**
 **The finding's stated cause was not the cause.** `P4-H2` blamed the per-action `DB::transaction`; actions
 in an offline outbox are independent and deduped by `client_uuid`, so a batch-level transaction would throw
 away good care because one action was malformed and would fight the ledger's idempotency. **The unit of
@@ -568,7 +573,7 @@ indefinitely, destroying strictly more care, and the quiet drop was already the 
 common ordinary rejections. Surfacing rejections in the PWA is **family 3's shape, not family 7's**, and is
 left open with its own id.
 
-**QA-FIX.12c (`<pending>`, D-228) is done, and it CLOSES FAMILY 5: `P2-H3`, `P4-H4` and `P6-H3` are FIXED.**
+**QA-FIX.12c (`2e76387`, D-228) is done, and it CLOSES FAMILY 5: `P2-H3`, `P4-H4` and `P6-H3` are FIXED.**
 **The server half already existed and nothing consumed it**, so this was an adoption plus one missing
 helper. D-192 shares the tenant's zone as the `timezone` prop on every page and recorded that *"no
 frontend component consumes [it] for rendering today"* — verified still true at the start of this gate.
@@ -596,7 +601,7 @@ findings name; repo-wide **44 pages** construct a `Date` and **16** call a `toLo
 remain the standing per-widget display item D-192 named — mechanical now that the helper and the prop are
 wired, but a sweep, not a gate.
 
-**QA-FIX.12d (`<pending>`, D-229) is done, and it CLOSES FAMILY 2 apart from one deliberately-open half:
+**QA-FIX.12d (`6df47ed`, D-229) is done, and it CLOSES FAMILY 2 apart from one deliberately-open half:
 `P1-H2`, `P10-H4` and `P9-H1` are FIXED, `P3-H2` is PARTLY.** The classification the gate asked for decided
 what each fix is, and they are not one kind of thing.
 **`P1-H2` — MISLEADING, two defects compounding.** The wizard always sent one blank `identifiers` row and
@@ -626,7 +631,7 @@ literal, not by re-reading the finding), the paths are `.txt`, both download sur
 **The real renderer is REFUSED** — CareOS has no PDF library, so that is a new dependency plus a laid-out
 template, and a test asserts none was added so a later "quick win" cannot reintroduce a forged header.
 
-**QA-FIX.12e (`<pending>`, D-230) is done, and it CLOSES `P10-H1` — QA-FIX.12 IS COMPLETE.**
+**QA-FIX.12e (`2b4ec48`, D-230) is done, and it CLOSES `P10-H1` — QA-FIX.12 IS COMPLETE.**
 `ApprovalQueue::approve()` recorded `approved` BEFORE calling the tool, so every failed execution left a
 permanent approval for an action that stayed `pending`: four ledger rows for one clinical action, two of
 them approvals that never happened, and the governance table reading **approved 9 · executed 4**. The
@@ -645,7 +650,7 @@ on the success path), and "never record an approval" reddens the positive contro
 | 12b | family 7 — the partial write (`P4-H2`, and `P4-H1` with it) | `9b48dae` |
 | 12c | family 5 — display/locale (`P2-H3`, `P4-H4`, `P6-H3`) | `2e76387` |
 | 12d | family 2 — misleading / wedging (`P1-H2`, `P10-H4`, `P9-H1`; `P3-H2` partly) | `6df47ed` |
-| 12e | `P10-H1` — the AI ledger's false approvals | `<pending>` |
+| 12e | `P10-H1` — the AI ledger's false approvals | `2b4ec48` |
 
 **Families 2, 4, 5 and 7 are closed.** Four things were recorded and deliberately LEFT OPEN with stated
 reasons rather than half-built: `QF12a-M1` (a live staff session steals attribution for a patient's own
@@ -655,6 +660,35 @@ taken on principle: **recovery from an already-wedged bed** (`P9-H1`) and **rend
 (`P3-H2`) — both features, both refused inside a fix gate, both with what a fixing gate would need written
 down.
 
+
+### QA-FIX.13 — ONE PART SHIPPED; THREE PARTS STOPPED BECAUSE THEIR PREMISES WERE ALREADY FALSE
+
+**QA-FIX.13b (`<pending>`, D-231) CLOSES `QF11a-M1`** — the two Clinical pages render their refusals. A
+pure adoption of `RefusalNotice` (D-210/D-213), two imports and two tags, verified in the browser.
+
+**THE OTHER THREE PARTS WERE STOPPED ON EVIDENCE, NOT SKIPPED.** The gate was scoped from a pre-gate-12
+snapshot, and this is the second time a stale table has produced phantom work (see `docs/OPEN-WORK.md`
+discrepancy 1 — the top-of-file fix-status table still stops at QA-FIX.10c):
+
+| part | as briefed | what is actually true at HEAD |
+|---|---|---|
+| 0 | add a FIXED banner to `P7-C4` | **`P7-C4` does not exist** — not in the artifact, the repo, or git history. Phase 7 has three CRITICALs. And **all 24 CRITICALs already carry both a banner and a table row**, so "0 open CRITICAL" was already true in both mechanisms. |
+| 1 | audit the nurse-attachment stream (`QF10a-H1`) | **Already FIXED** — QA-FIX.12a `3c5fed1` (D-226). `NurseVisitAttachmentController.php:70` writes the `auditRead()` row. A second call would write two rows per download. |
+| 3 | stop `NurseSyncService` stamping row timestamps from the device (`P10-H2`, 11 sites) | **The defect does not exist.** `created_at`/`updated_at` appear **zero** times in that file and never have (`git log --all -S`). All 11 device-timestamp sites write DOMAIN columns only, already UTC-normalised by QA-FIX.4b. Separately, `P10-H2` is a different finding, FIXED by QA-FIX.11a `51017e2`. |
+
+**Part 4 (the remaining cheap HIGH fixes) was not reached.** The brief said the register classifies "7 of
+the 17 open HIGHs as FIXES"; the register actually shows **11 pure FIX + 1 mixed out of 19** (now 21).
+
+**TWO NEW FINDINGS, RECORDED NOT WIDENED INTO** (the QA-FIX.9a rule), both from enumerating
+`Clinical/Chart.vue` in order to adopt one component on it:
+- **`QF13b-H1` (HIGH) — the AI clinical summary is unreachable.** Its only entry point renders inside
+  `v-if="aiSummary"`, and `aiSummary` exists only after a successful draft through that same button. No
+  summary → no button → no POST → no summary. Confirmed live: no summary panel on a real chart.
+  **FEATURE — stopped with a specification.**
+- **`QF13b-H2` (HIGH) — three sibling order endpoints answer a domain refusal with HTTP 500.** `place`,
+  `result` and `transition` catch nothing; only `review` was given a narrow catch by QA-FIX.11a. Driven
+  live: `POST /clinical/orders/result` on a reviewed order → **HTTP 500**. **FIX — precedent D-224 is three
+  lines away in the same controller.**
 
 **PHASE 10 ADDENDUM (same day) — `P10-C3` (CRITICAL): the agent approve gate has a SECOND, UNGATED door.**
 Found after the phase was committed, by a second adversarial pass over the same scope, and **verified

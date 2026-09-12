@@ -1,9 +1,9 @@
 # OPEN-WORK.md — the itemised open-work register
 
-**As of `2b4ec48` (QA-FIX.12e), 2026-09-12. Read-only: producing this register changed no application
-code and fixed nothing.**
+**As of QA-FIX.13b, 2026-09-12.** First written at `de57a7c` against `2b4ec48`; refreshed by QA-FIX.13b,
+which closed `QF11a-M1` and recorded two new findings.
 
-This is every piece of open work CareOS has, in one place: the 132 open QA findings itemised one per row,
+This is every piece of open work CareOS has, in one place: the 133 open QA findings itemised one per row,
 plus the product decisions, the deliberately deferred work, the partner-gated work and the deployment
 track. It is derived from `docs/qa/ROLE-AUDIT.md` (the authoritative append-only QA record), `DEFERRED.md`,
 `DECISIONS.md` and `PROJECT-STATE.md`.
@@ -24,16 +24,20 @@ line, totals row, or `PROJECT-STATE.md` figure was trusted as input.
 
 | | Count |
 |---|---|
-| Distinct finding ids in the artifact | **191** (185 `P*` + 6 `QF*`) |
-| Findings with a record of their own | **191 / 191** — none orphaned |
-| Per phase | P1 18 · P2 19 · P3 15 · P4 23 · P5 14 · P6 20 · P7 17 · P8 17 · P9 25 · P10 17 (+6 gate-raised) |
-| Resolved | **59** |
-| **Open** | **132** — C **0** · H **19** · M **82** · L **31** |
+| Distinct finding ids in the artifact | **193** (185 `P*` + 8 `QF*`) |
+| Findings with a record of their own | **193 / 193** — none orphaned |
+| Per phase | P1 18 · P2 19 · P3 15 · P4 23 · P5 14 · P6 20 · P7 17 · P8 17 · P9 25 · P10 17 (+8 gate-raised) |
+| Resolved | **60** |
+| **Open** | **133** — C **0** · H **21** · M **81** · L **31** |
 | Of the open, PARTLY FIXED | 2 — `P3-H2`, `P10-M1` |
 
-That reconciles exactly with `PROJECT-STATE.md`'s *"191 findings — 59 fixed, 132 open"*, but only after
-three discrepancies in the artifact are resolved. All three are defects in the artifact's own bookkeeping,
-not in the underlying work.
+**What QA-FIX.13b changed:** `QF11a-M1` closed (MEDIUM −1), and two new findings were recorded rather than
+widened into — `QF13b-H1` and `QF13b-H2`, both HIGH (HIGH +2). 191 → 193 recorded, 59 → 60 resolved,
+132 → 133 open. **The open HIGH count went UP, and that is the honest outcome of enumerating a surface
+nobody had enumerated**: `QF11a-M1` itself said Clinical had never been surveyed.
+
+The totals reconcile with `PROJECT-STATE.md` only after three discrepancies in the artifact are resolved.
+All three are defects in the artifact's own bookkeeping, not in the underlying work.
 
 **Discrepancy 1 — the `## Fix status` table (line 78) is STALE.** It stops at QA-FIX.10c. Thirteen
 findings fixed by gates 11 and 12 appear nowhere in it and are recorded only by a banner on their own
@@ -54,10 +58,16 @@ resolution banner was appended and it is in no fix-status table. It is the one f
 mechanisms miss. **This is my own omission in QA-FIX.12a.** Counting it as fixed is what makes the
 artifact yield 59/132; counting it by banner alone yields 58/133.
 
-**How the 59 resolve:** 48 records carry a `✅ FIXED` banner · 9 more are fixed by the table only
-(discrepancy 2) · `QF12a-H1` is fixed with neither (discrepancy 3) · `P9-H1` is `🛑 PREVENTED` by
-QA-FIX.12d, and prevention was the gate's stated definition of a fix for a wedging defect. The two
-`⚠️ PARTLY FIXED` findings — `P3-H2` and `P10-M1` — are counted **open**, as their own banners instruct.
+**How the 60 resolve:** 49 records carry a `✅ FIXED` banner (48, plus `QF11a-M1` from QA-FIX.13b) · 9 more
+are fixed by the table only (discrepancy 2) · `QF12a-H1` is fixed with neither (discrepancy 3) · `P9-H1` is
+`✅ PREVENTED` by QA-FIX.12d, and prevention was the gate's stated definition of a fix for a wedging defect.
+The two `⚠️ PARTLY FIXED` findings — `P3-H2` and `P10-M1` — are counted **open**, as their own banners
+instruct.
+
+> **Correction to this register's first edition (`de57a7c`).** It described `P9-H1`'s banner as
+> `🛑 PREVENTED`; the artifact reads `✅ PREVENTED`. The verdict was right, the emoji quoted was not —
+> corrected here, and a reminder that this file is a derived view: for exact banner text, read
+> `ROLE-AUDIT.md`.
 
 > **Recommended housekeeping (not done here — this task is read-only):** append banners to the ten
 > unbannered-but-fixed records and bring the top-of-file `## Fix status` table up to gate 12, so a reader
@@ -82,18 +92,18 @@ It states family membership **for HIGH findings only**. Therefore:
 
 | Family | Open | H | M | L |
 |---|---|---|---|---|
-| **1** — unreachable capabilities & missing nav | **54** | 16† | 31 | 7 |
+| **1** — unreachable capabilities & missing nav | **55** | 17 (16†) | 31 | 7 |
 | **2** — operations that mislead, or that cannot be undone | **22** | 2 (1†) | 16 | 4 |
-| **3** — invisible refusals | **5** | 0 | 3 (1†) | 2 |
+| **3** — invisible refusals | **5** | 1 | 2 (1†) | 2 |
 | **4** — unrecorded disclosure | **3** | 0 | 2 | 1 |
 | **5** — display / locale divergence | **32** | 1 | 20 | 11 |
 | **6** — attribution recorded but not surfaced | **5** | 0 | 3 | 2 |
 | **7** — partial writes outside a transaction | **2** | 0 | 2 | 0 |
 | **outside the seven** | **9** | 0 | 5 | 4 |
-| **Total** | **132** | **19** | **82** | **31** |
+| **Total** | **133** | **21** | **81** | **31** |
 
 **Families 1 and 5 are two-thirds of everything open.** That is the scheduling fact this register exists
-to surface: 86 of 132 findings are *"a capability you cannot reach"* or *"a value rendered wrongly"*.
+to surface: 87 of 133 findings are *"a capability you cannot reach"* or *"a value rendered wrongly"*.
 
 **FIX or FEATURE** follows the QA-FIX.12d classification: a **FIX** changes code that already exists to
 stop it misleading, losing or refusing wrongly; a **FEATURE** builds a capability that is not there. The
@@ -103,21 +113,21 @@ feature inside a fix gate, and this register keeps that line visible so the next
 ---
 ## 1. Open HIGHs, by family — 19
 
-**No open HIGH blocks deployment.** The artifact's standing verdict, unchanged by gate 12: none of them
-loses data, falsifies a clinical or financial record, or breaches authorisation. They are defects of
+**No open HIGH blocks deployment.** The artifact's standing verdict, unchanged by gates 12 and 13: none of
+them loses data, falsifies a clinical or financial record, or breaches authorisation. They are defects of
 reach, visibility, attribution-display and locale.
 
-**Family 1 is 16 of the 19 and it is NOT one job.** **Six of its sixteen are FEATURE work** — `P2-H4`
-`P3-H3` `P5-H3` `P6-H2` `P7-H1` `P7-H3`, where the capability does not exist and no amount of RBAC wiring
-creates it — and a seventh, `P9-H5`, is half of each. The other nine are genuinely wiring, all against the
-one D-214 precedent. The artifact's own instruction stands: **triage each before scheduling.** Families 3,
-4, 6 and 7 have no open HIGH left at all.
+**Family 1 is 17 of the 21 and it is NOT one job.** **Seven of its seventeen are FEATURE work** — `P2-H4`
+`P3-H3` `P5-H3` `P6-H2` `P7-H1` `P7-H3` and now `QF13b-H1`, where the capability does not exist or cannot
+be reached and no amount of RBAC wiring creates it — and an eighth, `P9-H5`, is half of each. The other
+nine are genuinely wiring, all against the one D-214 precedent. The artifact's own instruction stands:
+**triage each before scheduling.** Families 4, 6 and 7 have no open HIGH at all.
 
-**Across the whole 132: 119 are FIX, 11 are FEATURE, and 2 are part of each** (`P9-H5`, `P10-M1`). The 13
+**Across the whole 133: 119 are FIX, 12 are FEATURE, and 2 are part of each** (`P9-H5`, `P10-M1`). The 14
 FEATURE-bearing findings are the ones a fix gate must **stop** on rather than build through — the
-`474cefe` and QA-FIX.12d precedent.
+`474cefe`, QA-FIX.12d and QA-FIX.13b precedent.
 
-### Family 1 — unreachable capabilities & missing nav — 16 open HIGH
+### Family 1 — unreachable capabilities & missing nav — 17 open HIGH
 
 | ID | Sev | Phase | Role / module | What is open | Route or `file:line` | Family | Precedent | FIX / FEATURE |
 |---|---|---|---|---|---|---|---|---|
@@ -137,6 +147,7 @@ FEATURE-bearing findings are the ones a fix gate must **stop** on rather than bu
 | `P8-H5` | H | P8 | Lab + Radiology | Both billing surfaces are gated on a permission no role in this group holds *(RBAC mismatch)* | `billing.manage (permission)` | 1† | D-214 (QA-FIX.7d, `c999181`) | **FIX** |
 | `P9-H4` | H | P9 | him_records | document.view gates nothing; clinical documents are gated by patient.view *(permission gates nothing)* | `GET /clinical/documents/{d}` | 1† | D-214 (QA-FIX.7d, `c999181`) | **FIX** |
 | `P9-H5` | H | P9 | him_records | The records role cannot do records work: it is refused the only release action and cannot record consent *(RBAC mismatch)* | `POST /clinical/documents/{d}/share, POST /patients/{p}/consents` | 1† | D-214 for the release half | **FIX (release) · FEATURE (consent capture)** |
+| `QF13b-H1` | H | QF13b | resources/js/pages/Clinical/Chart.vue | The AI clinical summary cannot be reached at all: its only entry point renders only after it has already been used *(capability unreachable (bootstrap deadlock))* | `POST /clinical/chart/{patient}/summary-draft` | 1 | none — the panel has no entry point outside its own output | **FEATURE** |
 
 ### Family 2 — operations that mislead, or that cannot be undone — 2 open HIGH
 
@@ -144,6 +155,12 @@ FEATURE-bearing findings are the ones a fix gate must **stop** on rather than bu
 |---|---|---|---|---|---|---|---|---|
 | `QF12b-H1` | H | QA-FIX.12b | nurse · Nurse PWA | A nurse's written observation is silently discarded if the note is queued before the check-in *(silent discard)* | `nurse-pwa/src/App.vue:79` | 2 | D-227 (QA-FIX.12b, `9b48dae`) fixed the server half of the same batch | **FIX** |
 | `P3-H2` | H | P3 | billing · Billing | "PDF" invoices and dunning letters are plain-text files *(PARTLY FIXED — honesty half closed, capability half open)* | `/billing/invoices/{id}/pdf` | 2† | D-229 (QA-FIX.12d, `6df47ed`) withdrew the claim; D-176 no unbacked presence | **FEATURE** |
+
+### Family 3 — invisible refusals — 1 open HIGH
+
+| ID | Sev | Phase | Role / module | What is open | Route or `file:line` | Family | Precedent | FIX / FEATURE |
+|---|---|---|---|---|---|---|---|---|
+| `QF13b-H2` | H | QF13b | Chart.vue (place order | Three sibling order endpoints still answer a domain refusal with HTTP 500 *(domain refusal escapes as HTTP 500)* | `Chart.vue` | 3 | D-224 (QA-FIX.11a, `51017e2`) — the narrow catch, three lines away in the same controller | **FIX** |
 
 ### Family 5 — display / locale divergence — 1 open HIGH
 
@@ -227,12 +244,11 @@ all severities:
 | `P9-M7` | M | P9 | Bed management + medical records | Nothing binds bed occupancy to a stay, and the board silently hides the second patient *(the board hides a patient)* | `2026_07_26_000003_create_stays_table.php:22-48` | 2 | D-229 (QA-FIX.12d, `6df47ed`) guarded the adjacent occupied-bed transition | **FIX** |
 | `P9-M9` | M | P9 | Bed management + medical records | "Invoice this stay" 500s on any tenant that has not run the demo seeder *(unhandled failure on a shipped surface)* | `BedBillingController.php:32` | 2 | none | **FIX** |
 
-### Family 3 — invisible refusals — 3 open MEDIUM
+### Family 3 — invisible refusals — 2 open MEDIUM
 
 | ID | Sev | Phase | Role / module | What is open | Route or `file:line` | Family | Precedent | FIX / FEATURE |
 |---|---|---|---|---|---|---|---|---|
 | `P3-M4` | M | P3 | Billing / finance | "Send reminders" gives no feedback and writes no audit row *(no feedback + unrecorded action)* | `billing.payment_plan_created (permission)` | 3 | D-210/D-213 `RefusalNotice` | **FIX** |
-| `QF11a-M1` | M | QA-FIX.11a | resources/js/pages/Clinical/Chart.vue and… · Clinical (UI) | Clinical's own pages render no error bag either, and QA-FIX.11a has now routed a real refusal to two of them *(invisible refusal)* | `resources/js/pages/Clinical/Chart.vue` | 3 | D-210/D-213 `RefusalNotice` — adoption, unchanged | **FIX** |
 | `P10-M1` | M | P10 | Admin / governance + patient portal | Admin, governance and portal render almost no refusals: 13 withErrors sites, 3 of 24 pages that could show one *(PARTLY FIXED — approval queue only; 24 pages open)* | `Governance/ApprovalQueue.vue` | 3† | D-210/D-213 `RefusalNotice` — already at 12+ call sites | **FIX (adoption) · FEATURE (per-page design)** |
 
 ### Family 4 — unrecorded disclosure — 2 open MEDIUM
@@ -363,21 +379,28 @@ all severities:
 | `P4-L2` | L | P4 | Nursing / Spitex + Nurse PWA · Api | 500 responses from /api/nurse/sync return the full Laravel stack trace (exception *(error disclosure)* | `/api/nurse/sync` | — | none | **FIX** |
 | `P5-L2` | L | P5 | Pharmacy | Enoxaparin is in the formulary, priced and prescribed, but has no stock row. It appears *(seed / data inconsistency)* | — | — | none | **FIX** |
 
-## 4. Findings raised BY the fix gates — 6 recorded, 4 open
+## 4. Findings raised BY the fix gates — 8 recorded, 5 open
 
-Six findings were recorded **by the fix gates themselves** rather than by a QA phase — the standing rule
-since QA-FIX.9a is to record what a gate notices outside its own scope and **not widen into it**. Two are
-fixed, four are open. They are listed again here because they are easy to lose: they belong to no phase,
-so a phase-ordered read of the artifact never reaches them.
+Eight findings were recorded **by the fix gates themselves** rather than by a QA phase — the standing rule
+since QA-FIX.9a is to record what a gate notices outside its own scope and **not widen into it**. Three are
+fixed, five are open. They are listed again here because they are easy to lose: they belong to no phase, so
+a phase-ordered read of the artifact never reaches them.
+
+**This group now accounts for 5 of the 133 open findings, and 3 of the 21 open HIGHs.** It is the fastest-
+growing group in the register, which is what a rule that forbids widening produces: each gate closes its
+own target and leaves a written note where it had to look. `QF13b-H1` and `QF13b-H2` both came out of
+QA-FIX.13b enumerating `Clinical/Chart.vue` in order to adopt one component on it.
 
 | ID | Sev | Raised by | Status | What is open | Route or `file:line` | Family | Precedent | FIX / FEATURE |
 |---|---|---|---|---|---|---|---|---|
 | `QF10a-H1` | H | QA-FIX.10a | ✅ fixed — QA-FIX.12a `3c5fed1` | The nurse day-pack streams a home-visit photo or signature with no audit row of any kind | `GET /api/nurse/attachments/{attachment}/download` | 4 | D-221/D-222, D-226 | — |
-| `QF11a-M1` | M | QA-FIX.11a | 📋 **open** | Clinical's own pages render no error bag either, and QA-FIX.11a has now routed a real refusal to two of them | `resources/js/pages/Clinical/Chart.vue` | 3 | D-210/D-213 `RefusalNotice` — adoption, unchanged | **FIX** |
+| `QF11a-M1` | M | QA-FIX.11a | ✅ fixed — QA-FIX.13b (D-231) | Clinical's own pages render no error bag either, and QA-FIX.11a has now routed a real refusal to two of them | `Chart.vue` | 3 | D-210/D-213 `RefusalNotice` — a pure adoption | — |
 | `QF12a-H1` | H | QA-FIX.12a | ✅ fixed — QA-FIX.12a `3c5fed1` (**no banner — discrepancy 3**) | The nurse day-pack attachment route has never worked: implicit model binding of a tenant-owned row 500s for every caller | `GET /api/nurse/attachments/{attachment}/download` | 4 | D-221/D-222, D-226 | — |
 | `QF12a-M1` | M | QA-FIX.12a | 📋 **open** | A live staff session in the same browser steals attribution for the patient's own portal reads | — | 4 | D-226 (QA-FIX.12a, `3c5fed1`) recorded it; `P10-L1` is the same defect | **FIX** |
 | `QF12b-H1` | H | QA-FIX.12b | 📋 **open** | A nurse's written observation is silently discarded if the note is queued before the check-in | `nurse-pwa/src/App.vue:79` | 2 | D-227 (QA-FIX.12b, `9b48dae`) fixed the server half of the same batch | **FIX** |
 | `QF12c-H1` | H | QA-FIX.12c | 📋 **open** | The surgery scheduling form interprets the typed wall clock as UTC, so a case is stored an offset away from what the surgeon typed | `POST /surgery/cases` | 5 | D-228 (QA-FIX.12c, `2e76387`) — `formatDateTime` + naive-instant normalisation | **FIX** |
+| `QF13b-H1` | H | QF13b | 📋 **open** | The AI clinical summary cannot be reached at all: its only entry point renders only after it has already been used | `POST /clinical/chart/{patient}/summary-draft` | 1 | none — the panel has no entry point outside its own output | **FEATURE** |
+| `QF13b-H2` | H | QF13b | 📋 **open** | Three sibling order endpoints still answer a domain refusal with HTTP 500 | `Chart.vue` | 3 | D-224 (QA-FIX.11a, `51017e2`) — the narrow catch, three lines away in the same controller | **FIX** |
 
 ## 5. Open product decisions awaiting the owner — 14
 

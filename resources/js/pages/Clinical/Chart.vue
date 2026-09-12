@@ -5,6 +5,7 @@ import { useI18n } from 'vue-i18n';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import AllergyBanner from '@/Components/AllergyBanner.vue';
 import AllergyRecordPanel from '@/Components/AllergyRecordPanel.vue';
+import RefusalNotice from '@/Components/RefusalNotice.vue';
 import Tabs from '@/Components/Tabs.vue';
 import Timeline from '@/Components/Timeline.vue';
 import VersionHistory from '@/Components/VersionHistory.vue';
@@ -202,6 +203,28 @@ function transitionOrder(orderId: string, status: string): void {
     <AppLayout>
         <Head :title="t('clinical.chart.title')" />
         <div class="space-y-5">
+            <!--
+                QF11a-M1 (QA-FIX.13) — THIS CHART RENDERED NO REFUSAL OF ANY KIND.
+
+                Measured before the fix: `grep -cE '\berrors\b'` returned 0 on this file, and it imported
+                no RefusalNotice — the same `P6-C3` shape as Surgery, ED, Lab, Radiology and Hospital.
+                The chart has SIX write controls (summary draft, summary insert, place order, record
+                result, review order, transition order) and every refusal any of them made was silent:
+                the page reloaded and nothing appeared.
+
+                WHAT THIS NOW SHOWS, enumerated rather than assumed — the finding recorded that Clinical
+                had never been enumerated, so this gate enumerated it:
+                  - the `clinical.orders.review` domain refusal QA-FIX.11a routed here
+                    (`withErrors(['order' => 'Only a resulted order can be marked reviewed.'])`);
+                  - every `$request->validate()` failure on place / result / transition, keyed BY FIELD.
+                The component reads the WHOLE bag on purpose (D-210), which is why both shapes land.
+
+                WHAT IT DOES NOT FIX, recorded as its own finding rather than widened into: three sibling
+                order endpoints still throw an UNCAUGHT InvalidArgumentException (HTTP 500), and a 500
+                never reaches this component. Adoption only — no new mechanism, no restyle, no reword.
+            -->
+            <RefusalNotice />
+
             <!-- The screen's one deep-eucalyptus tile: the patient band. -->
             <div class="euca-tile-dark relative overflow-hidden p-6">
                 <div class="relative flex flex-col gap-4 md:flex-row md:items-start md:justify-between">

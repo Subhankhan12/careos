@@ -586,3 +586,28 @@ are pinned as an ABSENCE in `tests/Feature/Qa/PracticeClockTest.php`.
 
 **`formatDateTime` refuses a date-only value** rather than shifting it (D-091 still owns those), and an
 unknown zone returns the raw value rather than the viewer's clock (D-176).
+
+## Refusals on Clinical's own pages — QA-FIX.13b (`QF11a-M1`, D-231)
+
+**`Chart.vue` and `OrdersReview.vue` now render `RefusalNotice`.** Pure adoption of D-210/D-213 — two
+imports, two tags, component unmodified. Before this, both measured **0/0/0** (`grep -cE '\berrors\b'` /
+`RefusalNotice` / any inline error markup): every refusal they received was silent.
+
+**Run the replace-or-duplicate check before adopting on any further page.** `P10-M1` is stuck at PARTLY
+fixed because 6 of its 24 pages already render errors their own way, and a second renderer on such a page
+is a design decision, not an adoption. Both Clinical pages were clean, which is why this one was cheap.
+
+**`Chart.vue` HAS SIX WRITE CONTROLS, not one** — summary draft, summary insert, place order, record
+result, review order, transition order. The finding covered only the review refusal; the enumeration is
+what found the rest, and it is worth redoing before any further work here.
+
+**TWO OPEN HIGHS LIVE ON THIS PAGE, both recorded by QA-FIX.13b:**
+- **`QF13b-H1` — the AI summary panel is UNREACHABLE.** `aiSummary` comes only from the flash that a
+  *successful* draft writes (`ClinicalChartController.php:391` ← `ClinicalSummaryDraftController.php:58`);
+  the only POST to that endpoint is `Chart.vue:179`; and its button (`:268`) renders only inside
+  `v-if="aiSummary"` (`:258`). **No summary → no button → no POST → no summary.** Its one caller also posts
+  `{}` to an endpoint requiring `from`+`to`. **FEATURE — do not "just fix the button".**
+- **`QF13b-H2` — `place`/`result`/`transition` answer a domain refusal with HTTP 500.** `OrderService`
+  throws `InvalidArgumentException` at six reachable points; only `markReviewed()`'s is caught, by
+  `OrderController::review` (QA-FIX.11a). **`RefusalNotice` cannot help here — a 500 produces no error
+  bag.** The remedy is D-224's narrow catch, three lines away in the same file. FIX, not a feature.

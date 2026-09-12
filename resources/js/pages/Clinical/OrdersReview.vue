@@ -2,6 +2,7 @@
 import { Head, Link, useForm } from '@inertiajs/vue3';
 import { useI18n } from 'vue-i18n';
 import AppLayout from '@/Layouts/AppLayout.vue';
+import RefusalNotice from '@/Components/RefusalNotice.vue';
 
 const { t } = useI18n();
 
@@ -29,6 +30,18 @@ function review(orderId: string): void {
     <AppLayout>
         <Head :title="t('clinical.ordersReview.title')" />
         <div class="space-y-5">
+            <!--
+                QF11a-M1 (QA-FIX.13) — THE REFUSAL THIS PAGE'S ONLY CONTROL CAN MAKE IS NOW VISIBLE.
+
+                This page's sole write posts to the REUSED `clinical.orders.review` endpoint. QA-FIX.11a
+                gave that endpoint a narrow catch so a non-`resulted` order refuses with a 302 + an error
+                bag instead of an HTTP 500 — which fixed `Lab/Review.vue`, and simultaneously made the
+                same refusal reachable and INVISIBLE here, because this page rendered no error bag at all
+                (measured: `grep -cE '\berrors\b'` returned 0). Adoption only (D-210/D-213): no new
+                mechanism, no restyle, no reword — the component renders the server's own sentence.
+            -->
+            <RefusalNotice />
+
             <div class="flex flex-wrap items-start justify-between gap-3">
                 <div>
                     <p class="text-xs font-semibold uppercase tracking-[0.14em] text-ink-subtle">{{ t('clinical.ordersReview.eyebrow') }}</p>
