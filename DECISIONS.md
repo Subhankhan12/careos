@@ -5616,7 +5616,7 @@ references the old ID.
   quoting the old order cannot satisfy it. See [[AiCore]], D-193, D-197, D-218, D-224, [[LOG]].
 
 - **D-231 — `RefusalNotice` is ADOPTED on Clinical, and the enumeration that adoption required is the
-  gate's real output.** QA-FIX.13b, commit `<pending>`. `QF11a-M1` recorded that `Clinical/Chart.vue` and
+  gate's real output.** QA-FIX.13b, commit `c1c0010`. `QF11a-M1` recorded that `Clinical/Chart.vue` and
   `Clinical/OrdersReview.vue` render no error bag, so the refusal QA-FIX.11a routed to them is invisible.
   The fix is two imports and two tags — D-210's component, unmodified, re-adopted for the fourth time
   (D-213, QA-FIX.11a, now this).

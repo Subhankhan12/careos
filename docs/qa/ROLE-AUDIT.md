@@ -7918,7 +7918,7 @@ rather than widened into — the standing rule since QA-FIX.9a.
 
 #### `QF11a-M1` — Clinical's own pages render no error bag either, and QA-FIX.11a has now routed a real refusal to two of them
 
-> ✅ **FIXED — QA-FIX.13b, commit `<pending>` (D-231), as a pure ADOPTION of D-210/D-213.** Two imports and
+> ✅ **FIXED — QA-FIX.13b, commit `c1c0010` (D-231), as a pure ADOPTION of D-210/D-213.** Two imports and
 > two tags. No new component, no new mechanism, no restyle, no reword.
 > **THE DECISIVE CHECK FIRST, BECAUSE IT COULD HAVE STOPPED THE PART.** `P10-M1` is PARTLY fixed precisely
 > because 6 of its 24 pages already render errors their own way, which makes each one a replace-or-duplicate
@@ -8050,6 +8050,6 @@ that produced `QF11a-M1` itself.
 
 | ID | Severity | Status | Gate | Commit |
 |---|---|---|---|---|
-| `QF11a-M1` | MEDIUM | ✅ **FIXED** | QA-FIX.13b | `<pending>` |
+| `QF11a-M1` | MEDIUM | ✅ **FIXED** | QA-FIX.13b | `c1c0010` |
 | `QF13b-H1` | HIGH | 📋 recorded, not fixed (**FEATURE — stopped with a specification**) | — | — |
 | `QF13b-H2` | HIGH | 📋 recorded, not fixed (**FIX — precedent D-224 exists**) | — | — |

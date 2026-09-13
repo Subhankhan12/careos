@@ -663,7 +663,7 @@ down.
 
 ### QA-FIX.13 — ONE PART SHIPPED; THREE PARTS STOPPED BECAUSE THEIR PREMISES WERE ALREADY FALSE
 
-**QA-FIX.13b (`<pending>`, D-231) CLOSES `QF11a-M1`** — the two Clinical pages render their refusals. A
+**QA-FIX.13b (`c1c0010`, D-231) CLOSES `QF11a-M1`** — the two Clinical pages render their refusals. A
 pure adoption of `RefusalNotice` (D-210/D-213), two imports and two tags, verified in the browser.
 
 **THE OTHER THREE PARTS WERE STOPPED ON EVIDENCE, NOT SKIPPED.** The gate was scoped from a pre-gate-12
