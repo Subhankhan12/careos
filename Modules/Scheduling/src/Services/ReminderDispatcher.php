@@ -69,9 +69,29 @@ class ReminderDispatcher
                         continue;
                     }
 
+                    /*
+                     * THE QUEUE IS THE ONE HORIZON CONSUMES (DEPLOY-FIX.1b).
+                     *
+                     * This used to say `->onQueue('reminders')` — the ONLY `onQueue()` in the codebase —
+                     * while `config/horizon.php`'s sole supervisor consumes `['default']` in every
+                     * environment. Measured with Redis up: redis `reminders` = 1, redis `default` = 0,
+                     * nothing consuming. **No appointment reminder has ever been delivered by a worker.**
+                     *
+                     * The separate queue was INCIDENTAL, not designed: P0C.G5 (`8208484`) added this job,
+                     * this dispatcher, the channel and the notification and never touched the Horizon
+                     * config, and no comment or commit message anywhere argues for isolating it. The job
+                     * is the same shape as `SendNotificationJob`, which has always run on `default`.
+                     * Adding 'reminders' to the supervisor instead would have preserved an isolation
+                     * nobody chose, and with `maxProcesses: 1` in the defaults it would have introduced a
+                     * starvation question that `balance: 'auto'` only partly answers.
+                     *
+                     * `onConnection('redis')` STAYS, deliberately. It pins the reminder to the connection
+                     * Horizon watches, so reminders keep working even on a host that left
+                     * `QUEUE_CONNECTION=database` — the single most common deploy misconfiguration, and one
+                     * the deploy checklist calls out as a silent failure.
+                     */
                     SendAppointmentReminderJob::dispatch($reminder->tenant_id, $reminder->id)
-                        ->onConnection('redis')
-                        ->onQueue('reminders');
+                        ->onConnection('redis');
                     $count++;
                 }
             }

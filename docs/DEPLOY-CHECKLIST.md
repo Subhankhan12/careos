@@ -19,16 +19,24 @@ These cost an afternoon each because the app reports success.
 |---|---|---|---|
 | 1 | `QUEUE_CONNECTION=database` (the code default) | Horizon dashboard looks healthy and processes nothing. Jobs pile into the MySQL `jobs` table | Step 12 |
 | 2 | `MAIL_MAILER=log` (the code default) | Every message is accepted with **no exception** and written to `storage/logs/laravel.log`. Password resets, invites, reminders, dunning and the **email-only** operator owner-approval all vanish | Step 13 |
-| 3 | **🔴 `reminders` queue has no consumer — OPEN DEFECT, not a config error** | Appointment reminders never send **even with `QUEUE_CONNECTION=redis` set correctly** | Step 12b |
+| 3 | ~~`reminders` queue has no consumer~~ — **FIXED (DEPLOY-FIX.1b)** | *was:* appointment reminders never sent, in **any** configuration | Step 12b |
 
-> **⚠️ Trap 3 is a live code defect found by this dry run and NOT yet fixed.**
-> `Modules/Scheduling/src/Services/ReminderDispatcher.php:72-74` dispatches `->onQueue('reminders')`. It is the
-> **only `onQueue()` in the entire codebase.** `config/horizon.php`'s sole supervisor consumes
-> `'queue' => ['default']`. **Measured:** with `QUEUE_CONNECTION=redis`, redis `reminders` = 1 job, redis
-> `default` = 0, Horizon consuming `["default"]`. The job waits forever.
-> **Remedy (one line, not applied here — this was a read-only task):** in `config/horizon.php`, make the
-> supervisor's queue `['default', 'reminders']`. Do this **before** go-live or accept that no appointment
-> reminder will ever be delivered.
+> **✅ Trap 3 was a live code defect found by this dry run, and it is now FIXED (DEPLOY-FIX.1b, D-233).**
+> `ReminderDispatcher` dispatched `->onQueue('reminders')` — the **only `onQueue()` in the entire codebase**
+> — while `config/horizon.php`'s sole supervisor consumes `'queue' => ['default']`. **Measured before:**
+> redis `reminders` = 1, redis `default` = 0, Horizon consuming `["default"]`; the job waited forever.
+> **THE FIX WENT THE OTHER WAY FROM THE ONE THIS CHECKLIST FIRST SUGGESTED.** It first proposed adding
+> `'reminders'` to the supervisor. The gate found the separate queue was **incidental, not designed** —
+> `P0C.G5` (`8208484`) added the job, dispatcher, channel and notification and never touched the Horizon
+> config, and the job is the same shape as `SendNotificationJob`, which has always run on `default`. So the
+> dispatcher stopped naming a queue instead. `->onConnection('redis')` is **kept deliberately**, so
+> reminders still reach Horizon on a host that left `QUEUE_CONNECTION=database` (trap 1).
+> **Measured after:** `default` = 1, `reminders` = 0, and a worker on the supervisor's queue drains it to 0
+> with its side effect recorded. A structural test now fails if **any** job targets a queue no configured
+> supervisor consumes — asserted against `config/horizon.php` itself.
+> **Why nothing caught it:** `RedisHorizonTest`'s round-trip invents its own queue name and hands it to
+> `queue:work --queue=…`, so it never reads the Horizon config. An infrastructure test must read the
+> configuration the product will actually run under.
 
 ---
 
@@ -185,11 +193,21 @@ and reports nothing wrong. `horizon:status` returns **`Horizon is inactive.`** w
 which is the *only* loud signal you get.
 **If wrong:** every notification and reminder queues forever.
 
-### 12b. 🔴 Apply the `reminders` queue fix — see §0 trap 3 🖥️
+### 12b. ✅ Reminders reach a consumed queue — FIXED, nothing to apply
+**No action needed on a current checkout.** DEPLOY-FIX.1b removed the `->onQueue('reminders')` that no
+supervisor consumed. Verify it is present in the code you are deploying:
 ```bash
-grep -A3 "supervisor-1" config/horizon.php     # queue must include 'reminders'
+# NB: this file carries a comment that explains the old queue, so a bare
+# `grep onQueue` on it DOES match -- on that comment, not on live code.
+# Filter comment lines out so the check means what it says:
+grep -n "onQueue\|onConnection" Modules/Scheduling/src/Services/ReminderDispatcher.php | grep -v '\*'
 ```
-**If skipped:** appointment reminders never send, with a correct-looking config and a healthy Horizon.
+**Expected:** exactly one line -- `->onConnection('redis');` -- and no `onQueue` line at all.
+**If you are deploying a checkout from before that fix:** appointment reminders will never send, in any
+configuration, with a correct-looking config and a healthy Horizon dashboard. See §0 trap 3.
+**A standing rule for later work:** any new `->onQueue(...)` must name a queue that appears in a
+supervisor's queue list in `config/horizon.php`. `tests/Feature/Qa/RemindersReachAConsumedQueueTest.php`
+enforces this across `app/` and `Modules/` and will fail the build otherwise.
 
 ### 13. ⚠️ Mail — the second silent trap 🖥️ *(mechanism ✅ verified here)*
 ```bash

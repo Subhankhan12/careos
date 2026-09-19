@@ -661,6 +661,33 @@ taken on principle: **recovery from an already-wedged bed** (`P9-H1`) and **rend
 down.
 
 
+### DEPLOY-FIX.1b — appointment reminders reach a consumed queue (D-233)
+
+**No appointment reminder had ever been delivered by a worker.** `ReminderDispatcher` dispatched
+`->onQueue('reminders')` — the **only** `onQueue()` in the codebase — while `config/horizon.php`'s sole
+supervisor consumes `['default']` in every environment. Measured before: redis `reminders` = 1,
+`default` = 0, nothing consuming. After: `default` = 1, `reminders` = 0, and a worker drains it to 0.
+
+**The fix went the OPPOSITE way to the obvious one.** Adding `'reminders'` to the supervisor would have
+worked, but the separate queue was **incidental, not designed**: `P0C.G5` (`8208484`) added the job,
+dispatcher, channel and notification and never touched the Horizon config, and the job is the same shape as
+`SendNotificationJob`, which has always run on `default`. So the dispatcher stopped naming a queue.
+**`->onConnection('redis')` is kept deliberately** — reminders then survive a host that left
+`QUEUE_CONNECTION=database`, the commonest deploy misconfiguration.
+
+**No other job was affected, and that is now enforced.** Three `ShouldQueue` classes, exactly one
+`onQueue()`. A structural test asserts against `config/horizon.php` itself that no job targets a queue no
+supervisor consumes.
+
+**Why nothing caught it for so long:** `RedisHorizonTest`'s round-trip invents its own queue name and hands
+it to `queue:work --queue=…`, so it never reads the Horizon config. **An infrastructure test must read the
+configuration the product will actually run under, not one it makes up.**
+
+**A test of mine failed its own mutation check first.** The connection test originally dispatched the job
+itself with `->onConnection('redis')` and asserted it carried `redis` — asserting what the test had just
+set, so deleting the dispatcher's pin left it green. Both queue tests now drive the real
+`appointments:dispatch-reminders` command; the mutant then reddened. QA-FIX.5a's lesson in a new costume.
+
 ### DEPLOY-FIX.1a — a freshly provisioned tenant has a usable day-board (D-232)
 
 **The provisioning dry run (`5dac745`) found that `/scheduling/day-board` returned HTTP 404 for a brand-new

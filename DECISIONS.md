@@ -5691,3 +5691,43 @@ references the old ID.
   runbook could not have known is that skipping it produced a 404 rather than an empty screen. The
   checklist is corrected in the same commit. See [[D-214]] (a link a role cannot open is not rendered),
   [[D-176]] (no unbacked presence).
+
+- **D-233 — The reminder goes on the queue Horizon actually consumes, and the separate queue was
+  incidental rather than designed.** DEPLOY-FIX.1b, commit `<pending>`.
+  **THE DEFECT.** `ReminderDispatcher` dispatched `->onQueue('reminders')` — the **only** `onQueue()` in the
+  entire codebase — while `config/horizon.php`'s single supervisor consumes `['default']` in `defaults` and
+  in every environment override. Measured with Redis up: redis `reminders` = 1, redis `default` = 0, nothing
+  consuming. **No appointment reminder has ever been delivered by a worker.**
+  **THE DIRECTION OF THE FIX, AND WHY IT IS NOT THE OTHER ONE.** Two changes would work: add `'reminders'`
+  to the supervisor's queue list, or stop naming a queue. The second is right because **the isolation was
+  never chosen**: `P0C.G5` (`8208484`) added the job, the dispatcher, the channel and the notification and
+  **never touched the Horizon config**, and no comment or commit message anywhere argues for separating it.
+  The job is the same shape as `SendNotificationJob` — a transaction, consent checks, one channel send —
+  and that job has always run on `default`. Adding the queue would have preserved an isolation nobody
+  designed, and with `maxProcesses: 1` in the defaults it raises a starvation question that
+  `balance: 'auto'` only partly answers. Dropping it leaves one queue and one consumer, which is also what
+  makes the structural guard below simple enough to be worth having.
+  **`onConnection('redis')` STAYS, AND THAT IS DELIBERATE.** It pins the reminder to the connection Horizon
+  watches, so reminders keep working on a host that left `QUEUE_CONNECTION=database` — the commonest deploy
+  misconfiguration, and one `docs/DEPLOY-CHECKLIST.md` lists as a SILENT failure. Removing it would make the
+  fix depend on an operator getting a second thing right.
+  **NO OTHER JOB IS AFFECTED, AND THAT IS NOW ENFORCED.** Three classes implement `ShouldQueue`
+  (`SendNotificationJob`, `SendAppointmentReminderJob`, `QueueSanityJob`); exactly one `onQueue()` existed
+  and it was this one. A structural test scans every `onQueue()` in `app/` and `Modules/` — comment-stripped,
+  because the explanatory comment names the old queue — and fails if any targets a queue no configured
+  supervisor consumes. **It asserts against `config/horizon.php` itself, not a name the test chose.**
+  **WHY NOTHING CAUGHT THIS FOR SO LONG.** `tests/Feature/Infrastructure/RedisHorizonTest.php` has a
+  round-trip test that proves Redis works — but it INVENTS a random queue name and hands it straight to
+  `queue:work --queue=$queue`. A test that supplies the queue it then drains can never detect a supervisor
+  mismatch. That is the general lesson: **an infrastructure test must read the configuration the product
+  will actually run under, not one it makes up.**
+  **A TEST OF MINE FAILED ITS OWN MUTATION CHECK, AND THE FIX IS RECORDED HERE BECAUSE THE SHAPE RECURS.**
+  The first version of the connection test called
+  `SendAppointmentReminderJob::dispatch(...)->onConnection('redis')` itself and then asserted the job
+  carried `redis` — it asserted what the test had just set, so deleting the dispatcher's own pin left it
+  green (`drop-connection-pin` SURVIVED, 4 passed). Both queue tests now drive the real
+  `appointments:dispatch-reminders` command against a genuinely-due appointment; the mutant then reddened.
+  This is QA-FIX.5a's lesson in a new costume: **assert the thing, not something adjacent to it.**
+  **VERIFIED END TO END, NOT MERELY ENQUEUED.** Before: `default=0`, `reminders=1`. After: `default=1`,
+  `reminders=0`, and a worker on the supervisor's queue drained it to `0` with its side effect recorded.
+  See [[D-232]] (the sibling deploy fix), [[D-182]] (a test must fail before the fix).

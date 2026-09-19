@@ -618,3 +618,22 @@ the action URLs are supplied in both.
 
 **Creating the first branch from the CLI: `tenant:add-branch`** (see `memory/modules/Platform.md`). It
 takes the TENANT's timezone, not UTC.
+
+## Appointment reminders reach a consumed queue — DEPLOY-FIX.1b (D-233)
+
+**`ReminderDispatcher` no longer names a queue.** It dispatched `->onQueue('reminders')` — the only
+`onQueue()` in the codebase — while `config/horizon.php`'s sole supervisor consumes `['default']` in every
+environment. **No appointment reminder had ever been delivered by a worker.** Measured before: redis
+`reminders` = 1, `default` = 0. After: `default` = 1, `reminders` = 0, and a worker drains it.
+
+**`->onConnection('redis')` is KEPT on purpose.** It pins the reminder to the connection Horizon watches,
+so reminders survive a host that left `QUEUE_CONNECTION=database` — the commonest deploy misconfiguration.
+**Do not remove it** as "consistency with other jobs"; a mutation deleting it reddens.
+
+**Before adding ANY `->onQueue(...)` anywhere:** the queue must appear in a supervisor's queue list in
+`config/horizon.php`. `tests/Feature/Qa/RemindersReachAConsumedQueueTest.php` enforces this structurally
+across `app/` and `Modules/`.
+
+**Why no test caught the original defect:** `RedisHorizonTest`'s round-trip invents its own queue name and
+passes it to `queue:work --queue=…`, so it never reads the Horizon config. An infrastructure test must read
+the configuration the product runs under, not one it makes up.
