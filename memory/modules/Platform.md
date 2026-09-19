@@ -651,3 +651,28 @@ shifting it, and returns the raw value for an unknown zone rather than falling b
 
 **Not swept:** repo-wide **44 pages** construct a `Date` and **16** call a `toLocale*` formatter. Only the
 six named by `P2-H3`/`P4-H4` were adopted; the rest remain the standing per-widget display item D-192 named.
+
+## `tenant:add-branch` — DEPLOY-FIX.1a (D-232)
+
+**The third provisioning command**, after `tenant:create` and `tenant:add-admin`:
+
+```
+php artisan tenant:add-branch <slug> --name="Hauptstandort" --code=HAUPT [--timezone=] [--phone=]
+```
+
+**Why a sibling command and not a flag on `tenant:create`:** `tenant:create` knows no branch CODE, and
+`code` is NOT NULL + unique per tenant — a flag would have had to invent a customer-visible identifier.
+
+**It is NOT bootstrap-only.** Unlike `tenant:add-admin` (which steps aside once an org_admin exists), a
+practice legitimately opens further sites, so this stays usable.
+
+**Two invariants it deliberately does NOT re-implement:**
+- **exactly-one-primary** — `Branch::booted()` makes the first branch of a tenant primary on EVERY
+  creation path. The command never passes `is_primary`. That field IS fillable and `BranchService::create`
+  passes its payload straight through, so passing it would be the one way to create a second primary.
+- **the audited create** — it calls `BranchService::create()`, never `Branch::create()` directly.
+
+**The timezone default is load-bearing.** `Branch::$attributes` defaults `timezone` to `'UTC'`; the branch
+timezone is what the booking engine reads. The command defaults it from the tenant's `timezone` setting
+(written by `tenant:create`). **The admin UI still defaults its select to UTC** — that trap is not closed
+on the UI path.

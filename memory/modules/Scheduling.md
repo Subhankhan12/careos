@@ -594,3 +594,27 @@ nobody gave.
 
 **No server gate was weakened to allow the empty default** (D-211's own rule): `patient_id` stays
 `required` in `DayBoardActionController`, asserted by a test.
+
+## The day-board with no active branch — DEPLOY-FIX.1a (D-232)
+
+**`DayBoardController` no longer `firstOrFail()`s on the branch lookup.** Zero active branches used to be
+an HTTP 404 on reception's home screen. It now renders the board with `filters.branch_id = null` and empty
+collections, and the page shows its "No branch configured yet" empty state.
+
+**TWO tenants reach that state, and the second is the one people forget:**
+- a freshly provisioned one (`tenant:create` + `tenant:add-admin` leave zero branches);
+- **a MATURE one** — `BranchController::deactivate` refuses only when FUTURE APPOINTMENTS exist, so a
+  practice with a quiet calendar can deactivate its only site and get the identical 404.
+
+**The empty states are an ORDERED chain and must stay that way:** `v-if="filters.branch_id === null"` then
+`v-else-if="resources.length === 0"`. A tenant with no branch also has no resources, so an unordered pair
+would tell them to set up rooms when their actual problem is that they have no site. A test pins the order.
+
+**Both states gate their call to action on the SAME `canSetupResources` computed** (`admin.manage`), so a
+role that cannot open `/admin/branches` is never offered the link (D-214).
+
+**`emptyBoard()` and `actionUrls()`** were extracted so the populated and empty payloads cannot drift —
+the action URLs are supplied in both.
+
+**Creating the first branch from the CLI: `tenant:add-branch`** (see `memory/modules/Platform.md`). It
+takes the TENANT's timezone, not UTC.

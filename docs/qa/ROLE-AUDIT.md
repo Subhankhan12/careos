@@ -8053,3 +8053,50 @@ that produced `QF11a-M1` itself.
 | `QF11a-M1` | MEDIUM | ✅ **FIXED** | QA-FIX.13b | `c1c0010` |
 | `QF13b-H1` | HIGH | 📋 recorded, not fixed (**FEATURE — stopped with a specification**) | — | — |
 | `QF13b-H2` | HIGH | 📋 recorded, not fixed (**FIX — precedent D-224 exists**) | — | — |
+
+---
+
+## DEPLOY-FIX.1a — ADDENDUM: two sibling `firstOrFail()` surfaces, recorded not fixed
+
+Fixing the day-board's no-branch 404 required finding every surface with the same shape. Two others have it.
+They are recorded here rather than widened into — the standing rule since QA-FIX.9a.
+
+### MEDIUM (DEPLOY-FIX.1a addendum)
+
+#### `QF13c-M1` — The availability screen 404s for a tenant with no active branch, exactly as the day-board did
+
+- **Surface:** `Modules/Scheduling/src/Http/Controllers/AvailabilityController.php:61-65` · **Route:**
+  `GET /scheduling/availability`
+- **Measured:** the same `Branch::query()->where('active', true)->…->firstOrFail()` the day-board used, so
+  the same two tenants reach a 404 — a freshly provisioned one, and a mature one that deactivated its only
+  site (`BranchController::deactivate` refuses only when FUTURE appointments exist).
+- **Not the same severity as the day-board's, and that is why it is MEDIUM.** The day-board is reception's
+  home screen and the first thing a new customer opens; availability is an administrative surface reached
+  deliberately. Nothing is written wrongly either way.
+- **Its authorisation ORDER is already correct:** `Gate::authorize` runs at `:59`, before the lookup — so
+  this one leaks nothing, unlike `QF13c-M2` below.
+- **Precedent:** the day-board's own fix (D-232) — render the page's empty state instead of failing the
+  lookup. An adoption, not a design.
+
+#### `QF13c-M2` — The dispatch board resolves its branch BEFORE authorising, so an unauthorised caller gets 404 vs 403
+
+- **Surface:** `Modules/Nursing/src/Http/Controllers/DispatchBoardController.php:20-28` · **Route:**
+  `GET /nursing/dispatch`
+- **Measured:** `firstOrFail()` at `:24-26` runs **before** `Gate::authorize('dispatch.manage', …)` at
+  `:28`. A caller who may not open the dispatch board therefore receives **404 when the tenant has no
+  branch** and **403 when it has one** — the response distinguishes a state they are not authorised to
+  learn. Small, but it is an authorisation-ordering defect, not a cosmetic one.
+- **A second divergence in the same query:** unlike the day-board and the availability screen, this lookup
+  does **not** filter `active = true`, so it can resolve a DEACTIVATED branch and render a board for a site
+  the practice has closed.
+- **Severity MEDIUM:** the disclosure is one bit (does this tenant have any branch), and the inactive-branch
+  case shows real rows rather than wrong ones.
+- **Precedent:** `Gate` first, then resolve — the ordering every other board in the module already uses;
+  plus D-232 for the empty state once the ordering is right.
+
+### Fix-status rows added by this gate
+
+| ID | Severity | Status | Gate | Commit |
+|---|---|---|---|---|
+| `QF13c-M1` | MEDIUM | 📋 recorded, not fixed | — | — |
+| `QF13c-M2` | MEDIUM | 📋 recorded, not fixed | — | — |

@@ -33,7 +33,26 @@ class DayBoardController
             ->where('active', true)
             ->when($request->query('branch_id'), fn ($query, $branchId) => $query->whereKey($branchId))
             ->orderBy('name')
-            ->firstOrFail();
+            ->first();
+
+        /*
+         * NO ACTIVE BRANCH IS A STATE, NOT AN ERROR (DEPLOY-FIX.1a).
+         *
+         * This was `firstOrFail()`, so a tenant with no active branch got an HTTP 404 on the reception
+         * home screen. Two real tenants reach that state:
+         *   - a FRESHLY PROVISIONED one — `tenant:create` + `tenant:add-admin` leave zero branches, and
+         *     the provisioning dry run hit exactly this 404 on the first login of a new customer;
+         *   - a MATURE one — `BranchController::deactivate` refuses only when FUTURE APPOINTMENTS exist,
+         *     so a practice with a quiet calendar can deactivate its only branch and land here too.
+         *
+         * The page already answers "no resources" with an honest empty state whose call to action is
+         * gated on `admin.manage`; "no branch" is the same shape one step earlier, so it renders the same
+         * way rather than inventing a mechanism. The board's own collections are empty because there is
+         * genuinely nothing to show — not because a lookup failed.
+         */
+        if (! $branch instanceof Branch) {
+            return Inertia::render('Scheduling/DayBoard', $this->emptyBoard($date));
+        }
 
         $services = Service::query()
             ->where('active', true)
@@ -101,20 +120,57 @@ class DayBoardController
             'counts' => $this->dayCounts($branch->id, $date),
             // A plain ratio of recorded minutes per lane. No tint, no ranking, no "best lane".
             'utilisation' => $this->utilisation($branch->id, $date),
-            'actions' => [
-                'transitionUrl' => route('scheduling.day-board.transition'),
-                'quickBookUrl' => route('scheduling.day-board.quick-book'),
-                'slotsUrl' => route('scheduling.day-board.slots'),
-                'openEncounterUrl' => route('scheduling.day-board.open-encounter'),
-                'waitlistCandidatesUrl' => route('scheduling.waitlist.candidates'),
-                'waitlistOfferUrl' => route('scheduling.waitlist.offer'),
-                'waitlistAcceptUrl' => route('scheduling.waitlist.accept'),
-                'waitlistDeclineUrl' => route('scheduling.waitlist.decline'),
-                'seriesPreviewUrl' => route('scheduling.series.preview'),
-                'seriesStoreUrl' => route('scheduling.series.store'),
-                'seriesEndUrl' => route('scheduling.series.end'),
-            ],
+            'actions' => $this->actionUrls(),
         ]);
+    }
+
+    /**
+     * The board's payload when the tenant has no active branch.
+     *
+     * Every collection is empty because it genuinely is — there is no branch to scope it to. The action
+     * URLs are still supplied so the page's own wiring stays intact; none of them is reachable from the
+     * empty state, which offers only the branch-setup call to action (and that only to `admin.manage`).
+     *
+     * @return array<string, mixed>
+     */
+    private function emptyBoard(string $date): array
+    {
+        return [
+            'filters' => ['date' => $date, 'branch_id' => null],
+            'branches' => [],
+            'resources' => [],
+            'appointments' => [],
+            'services' => [],
+            'patients' => [],
+            'slotPreview' => [],
+            'waitlistOffers' => [],
+            'activeSeries' => [],
+            'counts' => ['total' => 0, 'waiting' => 0, 'inProgress' => 0, 'completed' => 0, 'online' => 0],
+            'utilisation' => [],
+            'actions' => $this->actionUrls(),
+        ];
+    }
+
+    /**
+     * The board's action endpoints. Extracted so the empty payload and the populated one cannot drift.
+     *
+     * @return array<string, string>
+     */
+    private function actionUrls(): array
+    {
+        return [
+            'transitionUrl' => route('scheduling.day-board.transition'),
+            'quickBookUrl' => route('scheduling.day-board.quick-book'),
+            'slotsUrl' => route('scheduling.day-board.slots'),
+            'openEncounterUrl' => route('scheduling.day-board.open-encounter'),
+            'waitlistCandidatesUrl' => route('scheduling.waitlist.candidates'),
+            'waitlistOfferUrl' => route('scheduling.waitlist.offer'),
+            'waitlistAcceptUrl' => route('scheduling.waitlist.accept'),
+            'waitlistDeclineUrl' => route('scheduling.waitlist.decline'),
+            'seriesPreviewUrl' => route('scheduling.series.preview'),
+            'seriesStoreUrl' => route('scheduling.series.store'),
+            'seriesEndUrl' => route('scheduling.series.end'),
+        ];
     }
 
     /**

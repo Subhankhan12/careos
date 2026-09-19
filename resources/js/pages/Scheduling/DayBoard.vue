@@ -17,7 +17,10 @@ const canSetupResources = computed(
 );
 
 const props = defineProps<{
-    filters: { date: string; branch_id: string };
+    // `branch_id` is null when the tenant has no ACTIVE branch — a freshly provisioned tenant, or a
+    // mature one that deactivated its last site. The board renders its no-branch empty state then
+    // (DEPLOY-FIX.1a); before that it was an HTTP 404 on the reception home screen.
+    filters: { date: string; branch_id: string | null };
     branches: Array<{ id: string; name: string }>;
     resources: Array<{ id: string; name: string; type: string }>;
     // `actions` is the SERVER's answer for this appointment's true status (SCHED.P1); the board
@@ -305,9 +308,26 @@ const legend = [
                 </div>
             </div>
 
+            <!--
+                NO ACTIVE BRANCH — one step earlier than "no resources" (DEPLOY-FIX.1a).
+
+                Reached by a freshly provisioned tenant (tenant:create leaves zero branches) and by a
+                mature one that deactivated its only site. This used to be an HTTP 404 on the reception
+                home screen. The call to action is gated on `admin.manage` by the SAME `canSetupResources`
+                computed the resources empty state already uses, so a role that cannot open
+                `/admin/branches` is not offered a link it would 403 on (D-214).
+            -->
+            <EmptyState
+                v-if="filters.branch_id === null"
+                :title="t('scheduling.dayBoard.emptyBranchTitle')"
+                :message="t('scheduling.dayBoard.emptyBranchMessage')"
+                :action-label="canSetupResources ? t('scheduling.dayBoard.emptyBranchAction') : undefined"
+                :action-href="canSetupResources ? '/admin/branches' : undefined"
+            />
+
             <!-- New/empty tenant: a resource-less day-board reads as "broken" — guide the setup (POLISH.3). -->
             <EmptyState
-                v-if="resources.length === 0"
+                v-else-if="resources.length === 0"
                 :title="t('scheduling.dayBoard.emptyResourcesTitle')"
                 :message="t('scheduling.dayBoard.emptyResourcesMessage')"
                 :action-label="canSetupResources ? t('scheduling.dayBoard.emptyResourcesAction') : undefined"

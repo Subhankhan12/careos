@@ -5648,3 +5648,46 @@ references the old ID.
   bag `[]` (D-174/D-176). Six mutants were killed across the two test layers, including two that deleted the
   rendered tag while leaving the explanatory comment that names it — the assertions run on comment-stripped
   source precisely so that comment cannot satisfy them.
+
+- **D-232 — A tenant with no active branch is a STATE, and the first branch is created by a command that
+  mirrors `tenant:add-admin`.** DEPLOY-FIX.1a, commit `<pending>`. Two independent changes behind one
+  finding, and separating them is the decision.
+  **THE 404 WAS NOT A PROVISIONING BUG, AND THAT IS WHY IT IS FIXED ON ITS OWN MERITS.**
+  `DayBoardController` resolved its branch with `firstOrFail()`, so zero active branches produced an HTTP
+  404 on reception's home screen. A freshly provisioned tenant reaches that state — but so does a MATURE
+  one: `BranchController::deactivate` refuses only when FUTURE APPOINTMENTS exist, so a practice with a
+  quiet calendar can deactivate its only site and land on the identical 404 years after onboarding. A
+  provisioning-only fix would have left that second path open.
+  **IT RENDERS THE PAGE'S OWN EXISTING EMPTY STATE, NOT A NEW MECHANISM.** The board already answers "no
+  resources" with `EmptyState` whose call to action is gated on `admin.manage` via `canSetupResources`.
+  "No branch" is the same shape one step earlier, so it reuses that component and that computed — a role
+  without `admin.manage` gets the state with NO link it would 403 on (D-214), and the two states are an
+  ordered `v-if` / `v-else-if` chain because a tenant with no branch also has no resources and must not be
+  told the wrong thing first. A test pins that ordering.
+  **THE COMMAND IS A SIBLING OF `tenant:add-admin`, NOT A FLAG ON `tenant:create`.** `tenant:create` knows
+  no branch CODE, and `code` is NOT NULL and unique per tenant — a `--branch-name` flag would have had to
+  invent a customer-visible identifier, which the gate forbade. A branch is also the same CATEGORY as the
+  first administrator: something that must exist before the product is usable and that no in-app flow can
+  create until somebody is already inside. Unlike `tenant:add-admin`, it is NOT bootstrap-only: a practice
+  legitimately opens a second site.
+  **IT GOES THROUGH `BranchService::create()` AND RE-IMPLEMENTS NOTHING.** `Branch::booted()` already makes
+  the first branch of a tenant primary on every creation path, so the command deliberately does not pass
+  `is_primary` at all — that field is fillable and `BranchService::create` passes its payload straight
+  through, so a command that set it would be the one way to produce two primaries. A mutation that adds
+  `'is_primary' => true` reddens.
+  **THE TIMEZONE COMES FROM THE TENANT, AND THAT IS A BEHAVIOUR FIX, NOT A COSMETIC ONE.**
+  `Branch::$attributes` defaults `timezone` to `'UTC'`, and the provisioning dry run created a
+  Europe/Zurich practice a UTC branch without anyone noticing. The BRANCH timezone is what the booking
+  engine reads. The command defaults it from the tenant's own `timezone` setting — the one `tenant:create`
+  already wrote — and the test fixture is deliberately non-UTC, because a UTC fixture would pass against
+  the very default this exists to override (D-174).
+  **WHAT IS STILL MISSING FROM A FRESH TENANT, STATED PLAINLY.** After this, a tenant has a branch and a
+  day-board that renders. It still has **0 services, 0 resources and 0 staff_profiles**. None of those
+  404s — each surface renders an honest empty state — but **nothing can be booked until a resource exists
+  AND has availability rows**, and the availability editor is a documented deferred gap (the runbook says
+  to seed it programmatically). So this closes the crash, not the whole onboarding.
+  **CORRECTION CARRIED BY THIS DECISION.** `docs/DEPLOY-CHECKLIST.md` (`5dac745`) said the runbook "never
+  says" to create a branch. That was wrong — `DEPLOY-RUNBOOK.md:501-503` and `:556` both say to. What the
+  runbook could not have known is that skipping it produced a 404 rather than an empty screen. The
+  checklist is corrected in the same commit. See [[D-214]] (a link a role cannot open is not rendered),
+  [[D-176]] (no unbacked presence).

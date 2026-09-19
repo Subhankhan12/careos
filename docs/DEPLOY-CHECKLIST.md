@@ -73,6 +73,19 @@ npm ci && npm run build      # and npm run build:pwa if the nurse PWA is served
 **Expected:** `public/build/manifest.json` exists.
 **If skipped:** every authenticated page 500s on a missing Vite manifest. `public/build` is **not** committed.
 
+### 6b. If you run the test suite on the server, raise PHPStan timeout first
+```bash
+grep -A2 "parallel" phpstan.neon     # processTimeout defaults to 600s
+```
+**Measured on the dev box:** `composer check` aborted with *"Internal error: Child process timed out
+after 600.0 seconds ... while communicating with parallel worker"* at 9% of 871 files, ending in
+**"Result is incomplete because of severe errors"**. Run alone on a quiet machine the same analysis
+returned **`[OK] No errors`**, so this is CONTENTION, not a code defect. The danger is that the run
+*looks* like a failure and its exit code is unreliable either way (RULE 3: read the log text).
+**If you hit it:** add `parallel: processTimeout: 1200` to `phpstan.neon`, or run the analysis when
+nothing else is competing. **Do not interpret it as a code error** — check whether any actual error
+lines were printed before the internal error, and re-run before concluding anything.
+
 ### 7. Permissions, nginx, TLS 🖥️
 Runbook §5, §8, §9.
 
@@ -218,15 +231,35 @@ the code expired during a slow request. **If enrolment appears to do nothing, th
 one immediately.** Confirm success by checking `users.two_factor_confirmed_at` is no longer `NULL`.
 **If skipped:** 2FA is mandatory and has **no skip path** — the admin cannot reach the app at all.
 
-### 16. 🔴 CREATE THE FIRST BRANCH — otherwise the day board 404s ✅ VERIFIED HERE
-**There is no artisan command for this. It must be done in the UI:** `Admin → Branches → Add branch`
-(`/admin/branches`), a 3-step wizard (Identity → Address → Review → **Create branch**).
-**Measured:** a tenant straight out of step 12 has **0 branches, 0 services, 0 resources, 0 staff_profiles**.
-`DayBoardController` resolves its branch with `Branch::…->firstOrFail()`, so **`/scheduling/day-board`
-returns HTTP 404** until a branch exists. After creating one it returns 200.
-**⚠️ The branch timezone select defaults to `UTC`, not the tenant's timezone.** Set it to the practice's zone
-explicitly — the tenant's `--timezone` does **not** flow into it.
-**If skipped:** the practice's main screen is a 404 on day one.
+### 16. CREATE THE FIRST BRANCH ✅ VERIFIED HERE
+```bash
+php artisan tenant:add-branch praxis-example --name="Hauptstandort" --code=HAUPT
+```
+**Expected:**
+```
+Branch created for Praxis Example
+  id        01m2ctfkd741k7j3h9efaw91rh
+  name      Hauptstandort
+  code      HAUPT
+  timezone  Europe/Zurich  (from the tenant setting)
+  primary   yes
+```
+`--timezone` overrides it; omitted, it takes **the tenant's own timezone**, not UTC. The first branch of a
+tenant is automatically its primary site (`Branch::booted()` owns that invariant on every creation path).
+The command is not bootstrap-only — use it again for a second site.
+**Or in the UI:** `Admin → Branches → Add branch` (`/admin/branches`), a 3-step wizard.
+**⚠️ In the UI the timezone select defaults to `UTC`, not the tenant's timezone** — set it explicitly there.
+The command does not have this trap.
+**If skipped:** the day-board renders its "No branch configured yet" empty state rather than a board. That
+is honest, but the practice cannot schedule anything until a branch exists.
+
+> **CORRECTION to this checklist's first edition (`5dac745`).** It said *"There is no artisan command for
+> this… and the runbook never says so."* The first half was true then and is now fixed by
+> `tenant:add-branch` (DEPLOY-FIX.1a). **The second half was simply wrong**, and it is withdrawn: the
+> runbook DOES tell the operator to create branches — `DEPLOY-RUNBOOK.md:501-503` (*"set the practice
+> profile … branches, opening hours, timezone … in the app"*, then *"Set up their branch(es) + resources"*)
+> and again in the summary sequence at `:556`. What the runbook did not say — and could not have known —
+> was that skipping it produced an **HTTP 404** rather than an empty screen. That 404 is now fixed too.
 
 ### 17. Create bookable resources and services ✅ *(gap observed here)*
 With a branch but no resources, the day board loads and says, honestly:

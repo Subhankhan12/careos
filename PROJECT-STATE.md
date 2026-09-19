@@ -661,6 +661,28 @@ taken on principle: **recovery from an already-wedged bed** (`P9-H1`) and **rend
 down.
 
 
+### DEPLOY-FIX.1a — a freshly provisioned tenant has a usable day-board (D-232)
+
+**The provisioning dry run (`5dac745`) found that `/scheduling/day-board` returned HTTP 404 for a brand-new
+customer.** Two independent changes close it:
+
+1. **The 404 is gone.** `DayBoardController` used `firstOrFail()` on its branch lookup; it now renders the
+   board's own `EmptyState` ("No branch configured yet") with the call to action gated on `admin.manage`.
+   **This was not merely a provisioning bug:** `BranchController::deactivate` refuses only when FUTURE
+   appointments exist, so a MATURE tenant that deactivates its only site hit the identical 404.
+2. **`tenant:add-branch`** — the third provisioning command, mirroring `tenant:add-admin`. It goes through
+   `BranchService::create()`, never passes `is_primary` (the model hook owns that invariant), and takes
+   **the tenant's timezone rather than UTC** — the dry run's second trap.
+
+**WHAT A FRESH TENANT STILL LACKS, STATED PLAINLY:** 0 services, 0 resources, 0 staff_profiles. None of
+those 404 — each renders an honest empty state — but **nothing can be booked until a resource exists AND
+has availability rows**, and the availability editor is a documented deferred gap (seed it programmatically,
+per the runbook). This closes the crash, not the whole onboarding.
+
+**CORRECTION:** `docs/DEPLOY-CHECKLIST.md` claimed the runbook "never says" to create a branch. It does —
+`DEPLOY-RUNBOOK.md:501-503` and `:556`. What it could not have known is that skipping it produced a 404.
+The checklist is corrected in the same commit.
+
 ### QA-FIX.13 — ONE PART SHIPPED; THREE PARTS STOPPED BECAUSE THEIR PREMISES WERE ALREADY FALSE
 
 **QA-FIX.13b (`c1c0010`, D-231) CLOSES `QF11a-M1`** — the two Clinical pages render their refusals. A
