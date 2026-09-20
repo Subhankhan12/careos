@@ -661,6 +661,32 @@ taken on principle: **recovery from an already-wedged bed** (`P9-H1`) and **rend
 down.
 
 
+### SERVER DEPLOYMENT PACK — `docs/deploy/` (D-234)
+
+Eleven artifacts for a single fresh Ubuntu LTS VPS, derived from this repo rather than from a Laravel
+template: `README.md` (index + all corrections), `01-system-requirements.md`, `04-provisioning.md`,
+`05-smoke-test.md`, `06-capture-protocol.md`, `nginx-careos.conf`, `careos-horizon.service`,
+`careos-scheduler.cron`, `careos-logrotate.conf`, `careos-php.ini`, `release.sh`.
+
+**Derived, because the manifests do not say.** `composer.json` declares no `ext-*` requirements and
+`package.json` has no `engines`, so the extension set came from `composer.lock`'s prod `require` blocks
+and the Node floor (22) from `package-lock.json`.
+
+**22 corrections found against the four deploy documents**, 13 folded into `DEPLOY-CHECKLIST.md` and
+marked `[PACK]`. The three that would break a deploy: `ext-zip` is required (the runbook calls it unused);
+`pcntl`/`posix` are in none of the four docs yet are hard Horizon requires; and the runbook's nginx block
+cannot serve the Nurse PWA the same runbook tells you to smoke-test. The most expensive: "availability has
+no admin screen — seed programmatically", wrong in four places since `cc0ed68` shipped
+`/scheduling/availability`.
+
+**OPEN, recorded not fixed:** `/scheduling/availability` returns 404 for a tenant with no active branch
+(`AvailabilityController.php:61-65` uses `firstOrFail()`) — the same defect class `DEPLOY-FIX.1a` closed on
+the day-board, reachable when a practice deactivates its only site. Candidate for the next fix gate.
+
+**Still unverified, and marked as such throughout the pack:** everything server-only. The nginx block has
+not been through `nginx -t`, the systemd unit has not been started, and no Ubuntu host exists to test on.
+The pack is derived and internally checked, not driven.
+
 ### DEPLOY-FIX.1b — appointment reminders reach a consumed queue (D-233)
 
 **No appointment reminder had ever been delivered by a worker.** `ReminderDispatcher` dispatched

@@ -9,6 +9,12 @@ what breaks if it is skipped. Steps are marked:
 This supplements `docs/DEPLOY-RUNBOOK.md` (which has the full commands and file contents). The runbook tells
 you *how*; this tells you *in what order, and how to know it worked*.
 
+> **📦 The artifacts live in [`docs/deploy/`](deploy/README.md) — the SERVER DEPLOYMENT PACK.**
+> Real config files (nginx, a systemd unit for Horizon, the scheduler cron, logrotate, `php.ini`), a
+> re-runnable `release.sh`, the derived system requirements with citations, and the smoke test. That pack
+> also carries **22 corrections** it found against these four documents; the ones that change an ordered
+> step below are already folded in and marked **`[PACK]`**.
+
 ---
 
 ## 0. Read this first — three things that fail SILENTLY
@@ -18,7 +24,7 @@ These cost an afternoon each because the app reports success.
 | # | Trap | Symptom | Check |
 |---|---|---|---|
 | 1 | `QUEUE_CONNECTION=database` (the code default) | Horizon dashboard looks healthy and processes nothing. Jobs pile into the MySQL `jobs` table | Step 12 |
-| 2 | `MAIL_MAILER=log` (the code default) | Every message is accepted with **no exception** and written to `storage/logs/laravel.log`. Password resets, invites, reminders, dunning and the **email-only** operator owner-approval all vanish | Step 13 |
+| 2 | `MAIL_MAILER=log` (the code default) | Every message is accepted with **no exception**. Password resets, invites, reminders and dunning all vanish — and under the shipped `LOG_LEVEL=warning` they are **not even logged** (see `[PACK]` note at step 13) | Step 13 |
 | 3 | ~~`reminders` queue has no consumer~~ — **FIXED (DEPLOY-FIX.1b)** | *was:* appointment reminders never sent, in **any** configuration | Step 12b |
 
 > **✅ Trap 3 was a live code defect found by this dry run, and it is now FIXED (DEPLOY-FIX.1b, D-233).**
@@ -43,8 +49,22 @@ These cost an afternoon each because the app reports success.
 ## Phase A — the host (🖥️ SERVER-ONLY, none of this is verifiable on a dev box)
 
 ### 1. Provision the host and packages 🖥️
-`docs/DEPLOY-RUNBOOK.md` §3. Ubuntu, PHP 8.2 (`php8.2-fpm php8.2-cli php8.2-mysql php8.2-redis
-php8.2-mbstring …`), MySQL 8, redis-server, nginx, supervisor, certbot, Node.
+`docs/DEPLOY-RUNBOOK.md` §3 — but use **[`docs/deploy/01-system-requirements.md`](deploy/01-system-requirements.md)**
+for the package list, which is derived from `composer.lock` rather than from a summary.
+
+**`[PACK]` Three corrections to the runbook's list, all of which break a deploy:**
+- **`php8.2-zip` is REQUIRED**, not optional. `DEPLOY-RUNBOOK.md:58-59` says `zip` is "NOT used by any
+  current code path"; `app/Http/Controllers/GovernanceLedgerExportController.php:92` calls `new \ZipArchive`
+  on the live route at `routes/web.php:742`.
+- **`pcntl` and `posix` are hard requires of `laravel/horizon`** and appear in **none** of the four
+  documents. Without them `php artisan horizon` exits at startup and nothing queued ever runs.
+- **Node must be 22.** This line used to say only "Node"; Ubuntu's own repo ships below the floor declared
+  by `@intlify/*` in `package-lock.json` (`">= 22"`), which CI also pins.
+
+MySQL must be **8.0.16 or newer** — nine `CHECK` constraints are only *enforced* from that version and
+migrate silently inert below it. Create the database `utf8mb4` / `utf8mb4_unicode_ci` and set
+`default-time-zone='+00:00'`; the reasons are in the pack (`audit_events` is raw DDL and inherits the
+database default).
 **If skipped:** nothing runs.
 
 ### 2. ⚠️ VERIFY THE REDIS EXTENSION — the step this checklist adds 🖥️
@@ -76,22 +96,37 @@ unreadable.
 
 ### 6. Build the frontend ON the server 🖥️
 ```bash
-npm ci && npm run build      # and npm run build:pwa if the nurse PWA is served
+npm ci && npm run build && npm run build:pwa
 ```
-**Expected:** `public/build/manifest.json` exists.
-**If skipped:** every authenticated page 500s on a missing Vite manifest. `public/build` is **not** committed.
+**Expected:** `public/build/manifest.json` **and** `public/nurse-pwa/index.html` + `public/nurse-pwa/sw.js`.
+**If skipped:** every authenticated page 500s on a missing Vite manifest.
+
+**`[PACK]` `build:pwa` is MANDATORY, not conditional.** This step used to read "*and `npm run build:pwa` if
+the nurse PWA is served*". The main build can never emit the PWA — it has its own config
+(`nurse-pwa/vite.config.ts`) — and `.gitignore:5-6` ignores **both** `/public/build` and
+`/public/nurse-pwa`, so **neither** arrives with `git pull`. `DEPLOY-RUNBOOK.md:14` and `:127` already
+de-hedged it; this checklist was the stale one.
 
 ### 6b. If you run the test suite on the server, raise PHPStan timeout first
 ```bash
-grep -A2 "parallel" phpstan.neon     # processTimeout defaults to 600s
+grep -n "parallel" phpstan.neon      # expect: NO output, exit 1
 ```
+**`[PACK]` Corrected:** this grep returns **nothing**. `phpstan.neon` is ten lines and has no `parallel`
+key at all — the 600s figure is a PHPStan **built-in default**, so no grep of this repo can ever show it.
+The previous wording implied the value was configured here.
 **Measured on the dev box:** `composer check` aborted with *"Internal error: Child process timed out
 after 600.0 seconds ... while communicating with parallel worker"* at 9% of 871 files, ending in
 **"Result is incomplete because of severe errors"**. Run alone on a quiet machine the same analysis
 returned **`[OK] No errors`**, so this is CONTENTION, not a code defect. The danger is that the run
 *looks* like a failure and its exit code is unreliable either way (RULE 3: read the log text).
-**If you hit it:** add `parallel: processTimeout: 1200` to `phpstan.neon`, or run the analysis when
-nothing else is competing. **Do not interpret it as a code error** — check whether any actual error
+**If you hit it:** raise the timeout — note this is **nested under `parameters:`**, and the flat form
+`parallel: processTimeout: 1200` that this step used to give is not valid NEON:
+```neon
+parameters:
+    parallel:
+        processTimeout: 1200.0
+```
+Or run the analysis when nothing else is competing. **Do not interpret it as a code error** — check whether any actual error
 lines were printed before the internal error, and re-run before concluding anything.
 
 ### 7. Permissions, nginx, TLS 🖥️
@@ -173,6 +208,7 @@ php artisan tenant:add-admin praxis-example \
 ```
 Administrator created for Praxis Example
   login     admin@praxis-example.test
+  name      Dr. Example
   role      org_admin (all branches)
   TEMPORARY PASSWORD (shown once — deliver it out of band, then have them change it):
       0bZ54#as2A[.gX#r
@@ -220,11 +256,34 @@ intact, nothing delivered.
 **Measured with a broken SMTP host:** `Symfony\Component\Mailer\Exception\TransportException` — i.e. a
 *misconfigured* SMTP fails **loudly**. **`log` is dangerous precisely because it is the only setting that
 fails silently.**
-**If wrong:** password reset (AUTH-SEC.2), staff invites, appointment reminders, dunning, portal messages and
-the **email-only** Operator Mode owner-approval all vanish into the log.
+**If wrong:** password reset (AUTH-SEC.2), staff invites, appointment reminders, dunning and portal messages
+all vanish.
+
+> **`[PACK]` Two corrections to this step.**
+>
+> **1. Under the shipped production `.env` the message is not logged either — it disappears entirely.**
+> Laravel's log transport writes at **debug** level (`LogTransport::send()` calls `$this->logger->debug()`),
+> while `docs/DEPLOY-ENV.production.template:41` and `DEPLOY-RUNBOOK.md:150` both set `LOG_LEVEL=warning`.
+> A debug record at warning level is discarded. The "3 entries, subjects intact" measurement above was taken
+> on a dev box at debug level and does **not** reproduce on a by-the-book install. This makes the trap
+> *harder* to diagnose than this step used to claim, not easier — there is no trace at all.
+>
+> **2. Drop the "email-only Operator Mode owner-approval" from the consequences.** It cannot be triggered on
+> a live server: `app/Services/OperatorGrantService.php` has no HTTP route, controller or command — its only
+> references outside itself are three test files. `DEPLOY-READINESS-CHECK.md:172-174` already says so
+> ("Operator Mode has no HTTP surface"), contradicting its own `:91`. The other five consequences are real.
+>
+> **To test mail, trigger a PASSWORD RESET — not a reminder.** `DEPLOY-RUNBOOK.md:431` suggests a reminder;
+> `SendAppointmentReminderJob.php:70-71` skips silently unless the patient holds `comms.email` consent and
+> has an email contact row, so a reminder that never arrives is indistinguishable from a broken mailer.
 
 ### 14. Start Horizon and the scheduler 🖥️
-Supervisor program for `php artisan horizon` (runbook §7), plus one cron line:
+**`[PACK]`** Use either the runbook's Supervisor program (§7) **or** the pack's systemd unit
+[`docs/deploy/careos-horizon.service`](deploy/careos-horizon.service) — **one or the other, never both**, or
+two masters fight over the same queues. The pack chooses systemd because Supervisor cannot express a
+dependency on `redis-server`, so on reboot it can start Horizon before Redis is listening.
+The scheduler cron, with all nine commands documented, is
+[`docs/deploy/careos-scheduler.cron`](deploy/careos-scheduler.cron):
 ```
 * * * * * cd /var/www/careos && php artisan schedule:run >> /dev/null 2>&1
 ```
@@ -261,7 +320,14 @@ Branch created for Praxis Example
   code      HAUPT
   timezone  Europe/Zurich  (from the tenant setting)
   primary   yes
+
+This is the tenant's FIRST branch, so it is their primary site and the day-board
+now has somewhere to render. Next: add bookable resources (rooms/chairs) in the app
+under Admin → Branches — a resource needs availability before it can be booked.
 ```
+**`[PACK]`** The last three lines are printed only for a tenant's **first** branch
+(`AddTenantBranchCommand.php:131-133`) and were missing from this block, so the output looked wrong when it
+was right.
 `--timezone` overrides it; omitted, it takes **the tenant's own timezone**, not UTC. The first branch of a
 tenant is automatically its primary site (`Branch::booted()` owns that invariant on every creation path).
 The command is not bootstrap-only — use it again for a second site.
@@ -284,6 +350,19 @@ With a branch but no resources, the day board loads and says, honestly:
 > *"No bookable resources yet. Rooms and chairs are set up under Admin → Branches. A resource needs its
 > availability…"*
 **If skipped:** nothing can be booked.
+
+**`[PACK]` Availability DOES have an admin screen — four places in the other two documents say it does
+not.** `DEPLOY-RUNBOOK.md:19`, `:503`, `:556` and `DEPLOY-READINESS-CHECK.md:352-353` all instruct the
+operator to "seed availability programmatically" because "there is no admin UI for it". There is:
+**`/scheduling/availability`** (Scheduling → Availability), `routes/web.php:199-208`, gated on
+`appointment.manage`, covering practitioner/room/chair/device and reading the same `AvailabilityService`
+the slot finder uses. It shipped with `SCHED.P3` (`cc0ed68`), an ancestor of HEAD. Do not write a seeder
+for it.
+
+**⚠️ Known gap (not fixed by the pack):** `/scheduling/availability` returns **404** for a tenant with no
+active branch — `AvailabilityController.php:61-65` still uses `firstOrFail()`, the exact pattern
+`DEPLOY-FIX.1a` replaced on the day-board with an honest empty state. Off the happy path here (the branch
+is created first), but reachable the moment a practice deactivates its only site.
 
 ### 18. Smoke-test the tenant ✅ VERIFIED HERE
 - `/scheduling/day-board` → 200, rendered in the tenant's locale (verified: German for `--locale=de`).
@@ -332,7 +411,13 @@ P0P.G6 CSV tool. Runbook §11.
 > the seeders not being wired into `DatabaseSeeder`.
 
 **QA-FIX.9b (`4e610b0`) added a real guard**: each of the four demo seeders refuses to run outside an
-allow-list of environments. `DatabaseSeeder` still calls only the two catalog seeders, so **both** protections
+allow-list of exactly `['local', 'testing']`
+(`database/seeders/Concerns/RefusesOutsideDevelopment.php:40`) — it **throws**, it does not warn.
+
+**`[PACK]` There is an unguarded FIFTH seeder.** `database/seeders/SimulatedBillingMonthSeeder.php` has
+neither the trait nor any environment check, and it creates a full fake tenant (`simulated-june-clinic`)
+with users, patients, invoices, payments and dunning. It resolves under `db:seed --class=` on a customer
+box. The safe rule is the blunt one: **never run any `--class=` seeder on a customer host.** `DatabaseSeeder` still calls only the two catalog seeders, so **both** protections
 now hold: `db:seed --force` is safe in production, and a demo seeder invoked explicitly on a production host
 **refuses by its own guard** rather than relying on nobody typing `--class=Demo…`.
 
@@ -367,13 +452,23 @@ php artisan about                       # redact secrets before sharing
 php artisan migrate:status | tail -20
 
 # 3. the logs, at the moment of failure
-tail -n 200 storage/logs/laravel.log
+tail -n 200 $(ls -t storage/logs/laravel*.log | head -1)   # GLOB: see [PACK] note below
 sudo supervisorctl status
 sudo journalctl -u nginx --since "10 min ago" | tail -50
 
 # 4. the env keys that matter, secrets redacted
 grep -E '^(APP_ENV|APP_DEBUG|APP_URL|DB_CONNECTION|DB_HOST|DB_DATABASE|QUEUE_CONNECTION|CACHE_STORE|SESSION_DRIVER|REDIS_CLIENT|REDIS_HOST|MAIL_MAILER|MAIL_HOST)=' .env
 ```
+**`[PACK]` Two corrections to this protocol.**
+- The log filename is a **glob**, not `laravel.log`. `docs/DEPLOY-ENV.production.template:40` ships
+  `LOG_STACK=daily`, which makes Monolog write `laravel-YYYY-MM-DD.log` — so the old fixed filename read a
+  file that does not exist on a template-configured box.
+- **Add the nginx error log.** A 502/504 leaves nothing at all in the Laravel log, because PHP never got far
+  enough to write one: `sudo tail -n 50 /var/log/nginx/careos-error.log`.
+
+The fuller protocol, with the queue/schedule/database add-ons and a table of known candidates, is
+[`docs/deploy/06-capture-protocol.md`](deploy/06-capture-protocol.md).
+
 **Write it up before fixing it.** The whole cost of this item is that it was fixed-or-abandoned once without a
 record, so the second occurrence starts from zero again.
 

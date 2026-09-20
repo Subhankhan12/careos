@@ -1,0 +1,75 @@
+# DESTINATION: /etc/systemd/system/careos-horizon.service
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now careos-horizon
+#   sudo systemctl status careos-horizon        # expect: active (running)
+#
+# ---------------------------------------------------------------------------------------------
+# WHY systemd RATHER THAN SUPERVISOR
+#
+# docs/DEPLOY-RUNBOOK.md:312-330 specifies a Supervisor program and DEPLOY-CHECKLIST.md step 14
+# repeats it. That configuration is not wrong and still works. This pack ships a systemd unit
+# instead, for three reasons:
+#
+#   1. DEPENDENCY ORDERING — the one Supervisor genuinely cannot express. Horizon is useless
+#      without Redis, and on reboot Supervisor may start it before redis-server is listening,
+#      producing a crash-restart loop with a misleading connection error. `After=` and
+#      `Requires=` below make the ordering explicit.
+#   2. NO EXTRA PACKAGE. The target is one fresh Ubuntu LTS box that already runs nginx, MySQL
+#      and Redis under systemd. Adding Supervisor means a second process manager, a second log
+#      location and a second set of commands for one daemon.
+#   3. ONE CONTROL PLANE. `systemctl status` and `journalctl -u` work the same for Horizon as
+#      for everything else on the box.
+#
+# If you prefer Supervisor, the runbook's program block is still valid — use one or the other,
+# never both, or two masters will fight over the same queues.
+#
+# Forge/Ploi: both manage Horizon as a supervised daemon for you. Do not install this unit
+# there; just confirm their daemon runs `php artisan horizon` and nothing else.
+# ---------------------------------------------------------------------------------------------
+
+[Unit]
+Description=CareOS Horizon queue supervisor
+Documentation=file:///var/www/careos/docs/deploy/README.md
+After=network.target mysql.service redis-server.service
+Requires=redis-server.service
+
+[Service]
+Type=simple
+User=www-data
+Group=www-data
+WorkingDirectory=/var/www/careos
+
+# `php artisan horizon` is the correct daemon — ONE master process that fans out its own
+# workers according to config/horizon.php. Do NOT substitute `queue:work`, and do NOT run more
+# than one instance: config/horizon.php:215-222 already scales to maxProcesses 10 in production
+# (the `defaults` block at :199-213 is 1; `environments.production` raises it).
+#
+# Horizon consumes exactly one queue — config/horizon.php:202 `'queue' => ['default']` — on the
+# redis connection (:201). DEPLOY-FIX.1b (73d8ed9) removed the last ->onQueue() in the codebase
+# so that every dispatched job lands on 'default'. If you ever add a supervisor here, it must
+# match config/horizon.php or tests/Feature/Qa/RemindersReachAConsumedQueueTest.php will fail.
+ExecStart=/usr/bin/php /var/www/careos/artisan horizon
+
+Restart=always
+RestartSec=5
+
+# Horizon traps SIGTERM and drains gracefully. config/horizon.php:173 sets
+# 'fast_termination' => false, so the master waits for in-flight workers before exiting, and
+# the worker job timeout is 60s (config/horizon.php:210). 120s gives that a full cycle plus
+# headroom before systemd escalates to SIGKILL.
+#
+# NOTE: the runbook's Supervisor block uses stopwaitsecs=3600. Nothing in the code supports an
+# hour — the evidenced ceiling is the 60s worker timeout. 3600 is a doc-only figure.
+KillSignal=SIGTERM
+TimeoutStopSec=120
+
+# Horizon writes through the app's own logging stack (config/logging.php), so its records land
+# in storage/logs/ like everything else and are rotated by Monolog. Anything the process emits
+# on stdout/stderr goes to journald, which rotates itself. This is why the systemd unit needs
+# no logrotate rule while the Supervisor setup does — see docs/deploy/careos-logrotate.conf.
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=careos-horizon
+
+[Install]
+WantedBy=multi-user.target

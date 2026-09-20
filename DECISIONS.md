@@ -5731,3 +5731,23 @@ references the old ID.
   **VERIFIED END TO END, NOT MERELY ENQUEUED.** Before: `default=0`, `reminders=1`. After: `default=1`,
   `reminders=0`, and a worker on the supervisor's queue drained it to `0` with its side effect recorded.
   See [[D-232]] (the sibling deploy fix), [[D-182]] (a test must fail before the fix).
+- **D-234 — The deployment pack ships real artifacts, and settles three things the four deploy
+  documents left open or got wrong.** `docs/deploy/` carries copy-pasteable configs (nginx, a systemd
+  unit, the scheduler cron, logrotate, `php.ini`), a re-runnable `release.sh`, derived system
+  requirements with citations, provisioning, a smoke test and the capture protocol.
+  **(1) systemd, not Supervisor, for Horizon.** The runbook's Supervisor program is not wrong and stays
+  valid, but Supervisor cannot express a dependency on `redis-server`, so on reboot it can start Horizon
+  before Redis is listening and crash-loop with a misleading error. systemd already runs nginx/MySQL/Redis
+  on the target box. Use one or the other, never both. `TimeoutStopSec=120` is derived from the 60s worker
+  timeout at `config/horizon.php:210`; the runbook's `stopwaitsecs=3600` has no basis in code.
+  **(2) `REDIS_CLIENT=predis`, against the env template's `phpredis`.** `docs/DEPLOY-ENV.production.template:58`
+  ships phpredis while `DEPLOY-CHECKLIST.md:355` names that exact combination its own #1 predicted
+  production failure. With phpredis selected and the extension absent, `config/app.php` registers no
+  `aliases`, so the framework's friendly LogicException is unreachable and PHP fatals with
+  `Class "Redis" not found` on the FIRST request. Dev and CI both run predis, so the phpredis branch is
+  exercised by nothing anywhere. predis needs no extension and is already a composer require.
+  **(3) Ship a `php.ini`.** No deploy doc set a single ini value, and stock `upload_max_filesize=2M`
+  silently breaks the documented 10 MiB upload path (`max:10240` in two controllers) with the misleading
+  message "A file is required" — nginx accepts the body at 25M and PHP discards it.
+  Supersedes nothing; corrects `D-` nothing. The pack records 22 doc corrections; the ones that change an
+  ordered step are folded into `docs/DEPLOY-CHECKLIST.md` and marked `[PACK]`.

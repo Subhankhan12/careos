@@ -1,0 +1,107 @@
+# DESTINATION: the www-data crontab
+#   sudo crontab -u www-data -e          # paste the ONE uncommented line below
+#   sudo crontab -u www-data -l          # verify it is installed
+#
+# Run it as www-data — the same user as PHP-FPM and the Horizon unit — so that every log and
+# cache file the scheduled commands touch keeps one owner. A scheduler running as root or as
+# your SSH user will create root-owned files in storage/logs and the web worker then cannot
+# write to them.
+#
+# ONE cron line drives ALL NINE scheduled commands. Laravel's scheduler is a single dispatcher:
+# cron wakes `schedule:run` every minute and it decides what is due.
+
+* * * * * cd /var/www/careos && php artisan schedule:run >> /dev/null 2>&1
+
+# ---------------------------------------------------------------------------------------------
+# PATH WARNING. Three documents (DEPLOY-RUNBOOK.md:363, DEPLOY-CHECKLIST.md:229,
+# DEPLOY-READINESS-CHECK.md:156) say /var/www/careos. The code comment at routes/console.php:23
+# says `cd /srv/careos` and is the outlier. Copying that one produces a cron line that cd's
+# into a directory which does not exist, so the whole line is a silent no-op — cron reports
+# nothing and every scheduled command below simply never runs. Use the path where you actually
+# installed the app, and verify with the "DID IT FIRE" check at the bottom.
+# ---------------------------------------------------------------------------------------------
+#
+# THE NINE SCHEDULED COMMANDS — read off routes/console.php at 73d8ed9.
+# Every one is ->withoutOverlapping() and ->onOneServer(). None uses ->runInBackground(), so
+# they execute sequentially inside the schedule:run process.
+#
+#  cadence        command                             what it does / WHAT STOPS WITHOUT THE CRON
+#  -------------- ----------------------------------- --------------------------------------------
+#  daily 01:30    audit:verify-chains                 Walks each ACTIVE tenant's append-only audit
+#                 (routes/console.php:107-110)        hash chain and prints `CHAIN:OK <slug> (<n>
+#                                                     events)` per tenant. WITHOUT IT: tampering or
+#                                                     corruption of the PHI audit ledger is never
+#                                                     detected. This is the compliance backstop.
+#
+#  daily 02:10    credentials:refresh-status          Recomputes staff credential/licence status
+#                 (routes/console.php:44-47)          (valid / expiring / expired). WITHOUT IT:
+#                                                     expired clinical licences keep reading as
+#                                                     valid and nobody is warned.
+#
+#  daily 02:20    nursing:materialize-visits          Materialises Spitex/home-care visits from
+#                 (routes/console.php:51-54)          recurring plans over a rolling 8-week horizon.
+#                                                     WITHOUT IT: the dispatcher board empties out
+#                                                     as the existing horizon is consumed — planned
+#                                                     visits simply stop appearing.
+#
+#  daily 02:30    clinical:evaluate-recalls           Evaluates recall due dates. WITHOUT IT: no
+#                 (routes/console.php:57-60)          patient recall ever becomes due, so recall
+#                                                     letters and lists stay empty.
+#
+#  daily 05:30    hospital:accrue-bed-days            Captures each active inpatient stay's per-diem
+#                 (routes/console.php:65-68)          bed-day charge through the billing engine
+#                                                     (idempotent). Deliberately BEFORE the billing
+#                                                     sweeps so the day's bed-days are in first.
+#                                                     WITHOUT IT: inpatient billing silently
+#                                                     UNDER-CHARGES, every day, with no error.
+#
+#  daily 06:00    billing:dunning-run                 Generates dunning letters. WITHOUT IT: overdue
+#                 (routes/console.php:72-75)          invoices are never chased.
+#
+#  daily 06:30    billing:reconcile                   Reconciliation sweep; raises and clears the
+#                 (routes/console.php:81-84)          reconcile alarm. WITHOUT IT: a billing
+#                                                     discrepancy never raises its alarm, so the
+#                                                     figures drift unnoticed.
+#
+#  every 15 min   appointments:dispatch-reminders     ENQUEUES due appointment reminders. It does
+#                 (routes/console.php:89-92)          not send them — it dispatches
+#                                                     SendAppointmentReminderJob onto redis
+#                                                     (Modules/Scheduling/src/Services/
+#                                                     ReminderDispatcher.php:93-94). The actual send
+#                                                     happens in the queued job, so REMINDERS NEED
+#                                                     BOTH THIS CRON AND A RUNNING HORIZON.
+#                                                     WITHOUT IT: no patient is ever reminded.
+#
+#  every 5 min    scheduling:expire-waitlist-offers   Expires stale waitlist offers. WITHOUT IT:
+#                 (routes/console.php:97-100)         offers never time out, so slots stay held by
+#                                                     patients who never responded.
+#
+# ---------------------------------------------------------------------------------------------
+# TWO THINGS THAT ARE **NOT** SCHEDULED — operator decisions, not oversights to fix blindly
+# ---------------------------------------------------------------------------------------------
+#
+# 1. audit:ensure-partitions is NOT registered anywhere. DEFERRED.md:156-157 records it as the
+#    one scheduler item never wired. The two deploy docs disagree about how much that matters:
+#    DEPLOY-CHECKLIST.md:234-235 calls it a go-live gate ("add the line before go-live") while
+#    DEPLOY-READINESS-CHECK.md:334 marks it "*(Optional, S1)*". Neither supplies a cron line.
+#    It DEGRADES rather than fails — a p_max catch-all partition absorbs rows past the last
+#    defined partition — so nothing breaks; the audit table just stops being neatly partitioned.
+#    If you want it, add a SECOND crontab line (monthly, well clear of the 01:30 chain check):
+#
+#      17 3 1 * * cd /var/www/careos && php artisan audit:ensure-partitions >> /dev/null 2>&1
+#
+# 2. horizon:snapshot is NOT registered either, although config/horizon.php:148-158 configures
+#    metrics retention that assumes it ("trim_snapshots"). Consequence: the Horizon dashboard's
+#    Metrics tab never populates. Nothing else is affected. To enable it:
+#
+#      */5 * * * * cd /var/www/careos && php artisan horizon:snapshot >> /dev/null 2>&1
+#
+# ---------------------------------------------------------------------------------------------
+# DID IT FIRE? — a missing or wrong cron line is SILENT. Nothing errors; things just never
+# happen. There is no live heartbeat, so check it deliberately after install:
+#
+#   php artisan schedule:list      # shows all nine with their next due time
+#   sudo crontab -u www-data -l    # the line is actually installed
+#
+# Then wait five minutes and confirm a side effect — the every-5-minute waitlist sweep is the
+# fastest signal. Do NOT rely on storage/logs alone: the schedule line discards all output.
