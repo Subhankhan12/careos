@@ -81,8 +81,9 @@ its own rule:**
   decision. Read a banner before re-investigating anything.
 - **Nothing is rewritten.** Corrections are appended as dated blocks or correction banners — see the
   `P10-M6` correction and the *"STATE AS OF THIS RECONCILIATION"* block at the end of the file.
-- **186 findings · 41 fixed · 145 open — 0 CRITICAL · 34 HIGH · 80 MEDIUM · 31 LOW.** Counts verified by
-  counting the artifact. **Counting `####` headings gives 157 and is WRONG** — Phases 1, 4 and 5 record some
+- **195 findings · 61 resolved · 134 open — 0 CRITICAL · 21 HIGH · 82 MEDIUM · 31 LOW.** These are the full
+  ID/status re-parse recorded in `docs/OPEN-WORK.md` at `4a4d8af` (artifact state through `2a39c2e`), not a
+  hand-adjusted summary. **Counting `####` headings gives 157 and is WRONG** — Phases 1, 4 and 5 record some
   MEDIUM/LOW findings in condensed grouped form. Count distinct IDs.
 
 **WHAT ZERO OPEN CRITICALS MEANS, and what it does not.** **No known defect remains that loses data,
@@ -138,13 +139,17 @@ Full text in `DECISIONS.md`, which runs **D-001 → D-223** with **no gaps and n
   *choice*, the fixture must make the two choices give **different** answers. Make fixtures awkward: uneven
   amounts, distinct names, three items rather than one. *Appeared six times.*
 
-### The comment-stripping rule — this bit FIVE times
+### The comment-stripping rule — this bit SIX times
 
 **Any scan for a forbidden token must strip comments first, because the file explaining why the token is
 forbidden will contain it.** A structural scan reddened on its own explanatory comment in **QA-FIX.6a**, twice
 in **QA-FIX.7b** (the D-170 equivalence-table scan and the `'~'` sentinel guard), and twice more in
-**QA-FIX.8a** — five times. The rule: **strip comments before scanning, or target the code expression rather
-than the character**, and add a D-174 positive control proving the strip did not hollow the scan out.
+**QA-FIX.8a** (the Lab and Radiology billing-page structural scans). The **sixth** was the deploy-document
+grep in `DEPLOY-CHECKLIST.md` step 12b, whose explanatory comment made a raw search report the wrong state.
+The six are therefore: QA-FIX.6a; QA-FIX.7b's D-170 table; QA-FIX.7b's `'~'` sentinel; QA-FIX.8a's Lab scan;
+QA-FIX.8a's Radiology scan; and DEPLOY-FIX.1a's deploy-document scan. The rule: **strip comments before
+scanning, or target the code expression rather than the character**, and add a D-174 positive control proving
+the strip did not hollow the scan out.
 
 Its corollary, and the reason every fix gate in this repo now does it: **a mutation must be verified applied
 by a COMMENT-STRIPPED grep before the test runs.** Three false confirmations were caught that way, two of them
@@ -241,8 +246,9 @@ agree about what the role can do).
 2. **`PROJECT-STATE.md`** — authoritative "where we are" snapshot (BUILD COMPLETE · eight verticals · all hospital
    phases · focus = deploy + partnerships · latest commit + suite counts).
 3. **`docs/qa/ROLE-AUDIT.md`** — **the authoritative QA record, and the largest artifact in the repo.** Ten
-   phases of role-by-role browser driving; **186 findings, 41 fixed, 145 open (0 CRITICAL · 34 HIGH · 80
-   MEDIUM · 31 LOW)**. **Append-only by its own rule:** a fixed finding is never removed — it keeps its ID,
+   phases of role-by-role browser driving; **195 findings, 61 resolved, 134 open (0 CRITICAL · 21 HIGH · 82
+   MEDIUM · 31 LOW)**, from the full ID/status re-parse recorded in `docs/OPEN-WORK.md` at `4a4d8af` (artifact
+   state through `2a39c2e`). **Append-only by its own rule:** a fixed finding is never removed — it keeps its ID,
    evidence and reproduction and gains a **FIXED banner**. **Read the banner before re-investigating
    anything.** Start at the fix-status table near the top, then the *"STATE AS OF THIS RECONCILIATION"*
    block at the very end, which supersedes the stale counts in the programme-closing summary.
@@ -368,7 +374,7 @@ factory TOTP secret is the fixed **`JBSWY3DPEHPK3PXP`** — derive the current O
 
 ## 3. THE FENCES — the product's safety case, and what ten phases of driving proved
 
-**Ten phases of adversarial driving eroded NO FENCE.** Every one of the 186 findings was a defect of
+**Ten phases of adversarial driving eroded NO FENCE.** Every one of the 195 findings was a defect of
 **presentation, navigation, attribution, a partial write, a recording gap or authorisation** — never of the
 engines or the fences. Nothing computed a clinical judgment, no acuity was derived, no severity was styled, no
 money was computed page-side, no agent ceiling was exceeded, and no append-only record was mutated. `P5-C1`

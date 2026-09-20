@@ -3,12 +3,13 @@
 Short, factual snapshot of where the project stands. Updated at consolidations and after gates
 (per the MEMORY PROTOCOL in AGENTS.md).
 
-> ## 🏁 RECONCILIATION — 2026-09-10, commit `805930e`. READ THIS BLOCK FIRST; everything below it is history.
+> ## 🏁 RECONCILIATION — 2026-09-10, commit `805930e`; QA counts re-derived at `4a4d8af`. READ THIS BLOCK FIRST; everything below it is history.
 >
 > **WHERE THE PROJECT STANDS, in five facts:**
 >
 > 1. **THE BUILD IS COMPLETE AND AUDITED.** The **eight verticals** on one multi-tenant platform, plus the
->    offline Nurse PWA. Inventory in `docs/ONBOARDING.md` §5. ⚠️ **A PRE-EXISTING COUNTING CONTRADICTION,
+>    offline Nurse PWA. Inventory in `docs/ONBOARDING.md` §5. ⚠️ **OPEN PRODUCT QUESTION — the vertical-count
+>    naming is undecided:** **A PRE-EXISTING COUNTING CONTRADICTION,
 >    FLAGGED HERE RATHER THAN SILENTLY RENUMBERED:** the repo says "eight verticals" in at least four places
 >    but **enumerates NINE lanes** — clinic · dental · home-care (Spitex) · inpatient/ADT · pharmacy · lab
 >    (LIS) · radiology (RIS) · surgery/OR · ED. Which of the nine is not counted as its own vertical is not
@@ -22,9 +23,9 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
 >    backend is **inert: zero HTTP routes, no UI**. It is not unfinished by accident; **do not "finish" it.**
 > 4. **THE TEN-PHASE ROLE-BY-ROLE QA PROGRAMME IS COMPLETE, WITH ZERO OPEN CRITICALS.** Ten audit phases
 >    drove every role in a real browser; ten fix gates across 29 code-changing parts closed the top of the
->    list. `docs/qa/ROLE-AUDIT.md` is the authoritative record — **186 findings, 41 fixed, 145 open: 0
->    CRITICAL, 34 HIGH, 80 MEDIUM, 31 LOW.** Counts verified by counting the artifact, not by trusting a
->    summary; see that file's appended *"STATE AS OF THIS RECONCILIATION"* block.
+>    list. `docs/qa/ROLE-AUDIT.md` is the authoritative record — **195 findings, 61 resolved, 134 open: 0
+>    CRITICAL, 21 HIGH, 82 MEDIUM, 31 LOW.** These are the full ID/status re-parse recorded in
+>    `docs/OPEN-WORK.md` at `4a4d8af` (artifact state through `2a39c2e`), not a hand-adjusted summary.
 > 5. **TWO TRACKS REMAIN: (a) DEPLOYMENT — the highest-value work and the only one actually queued — and
 >    (b) the prioritised open HIGH/MEDIUM list in `DEFERRED.md`.** Nothing else is queued. Wait for a pasted
 >    gate.
@@ -36,12 +37,9 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
 > contribute to the zero. **No finding was withdrawn, and none was merged away**; every ID still carries its
 > evidence and its reproduction under a FIXED banner.
 >
-> **THE 34 OPEN HIGHs ARE A DIFFERENT CLASS OF DEFECT** and none of them blocks deployment. They are defects
-> of **reach** (a permission with no surface, a module with no nav entry — 16 of the 34), **visibility** (a
-> refusal the user never sees — 4), **recording** (PHI shown or exported with no audit row — 3), **locale and
-> display** (3), **attribution not surfaced** (2), **one partial write** (`P4-H2`, the last open member of the
-> six create-then-associate instances), and five operations that mislead or cannot be undone. Grouped, with
-> the precedent fix for each family, in `DEFERRED.md`.
+> **THE 21 OPEN HIGHs ARE A DIFFERENT CLASS OF DEFECT** and none of them blocks deployment. Their live,
+> itemised classification is the re-derived `docs/OPEN-WORK.md` register at `4a4d8af`; do not reuse the
+> historical family totals below this reconciliation block.
 >
 > **THE FENCES HELD.** Ten phases of adversarial driving eroded **no fence** — nothing computed a clinical
 > judgment, no acuity was derived, no severity was styled, no money was computed page-side, no agent ceiling
@@ -86,7 +84,7 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
 
 ## STATUS: BUILD COMPLETE · DEPLOY-READY 🟢 GO · THE BUILDABLE PARITY PROGRAMME IS COMPLETE — ONE TRACK REMAINS: **DEPLOYMENT + PARTNERSHIPS**
 
-### ✅ THE ROLE-BY-ROLE QA AUDIT IS COMPLETE — `docs/qa/ROLE-AUDIT.md` (10 of 10 phases; **193 findings — 60 fixed, 133 open** as of QA-FIX.13b; **every CRITICAL is fixed — 0 open, highest open severity is HIGH at 21**)
+### ✅ THE ROLE-BY-ROLE QA AUDIT IS COMPLETE — `docs/qa/ROLE-AUDIT.md` (10 of 10 phases; **195 findings — 61 resolved, 134 open** from the full ID/status re-parse recorded at `4a4d8af`, artifact state through `2a39c2e`; **every CRITICAL is fixed — 0 open, highest open severity is HIGH at 21**)
 
 **The live itemised list is `docs/OPEN-WORK.md`** — every open finding one per row with family, precedent
 and a FIX-or-FEATURE verdict, plus the open product decisions, the deferred work and the deployment track.

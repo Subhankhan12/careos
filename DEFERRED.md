@@ -2,12 +2,13 @@
 
 Deliberately deferred work. Not forgotten — parked until the right phase.
 
-> **READ THIS FIRST — state as of `805930e`, 2026-09-10, after the ten-phase QA programme and its ten fix
+> **READ THIS FIRST — QA totals re-derived at `4a4d8af` (artifact state through `2a39c2e`), after the ten-phase QA programme and its ten fix
 > gates.** The BUILD is complete and audited. The **BUILDABLE WIREFRAME-PARITY PROGRAMME IS COMPLETE** (the
 > original nine pages + six domain batches). The **Operator Mode SECURITY CORE (G1–G3) is DONE**, which closed
 > a live super-admin containment gap. **The TEN-PHASE ROLE-BY-ROLE QA PROGRAMME IS COMPLETE with ZERO open
-> CRITICALs** — **187 findings, 46 fixed, 141 open (0 CRITICAL · 29 HIGH · 81 MEDIUM · 31 LOW)** as of
-> QA-FIX.11b, recorded permanently in `docs/qa/ROLE-AUDIT.md`.
+> CRITICALs** — **195 findings, 61 resolved, 134 open (0 CRITICAL · 21 HIGH · 82 MEDIUM · 31 LOW)**. These are
+> derived by the full ID/status re-parse of `docs/qa/ROLE-AUDIT.md` recorded in `docs/OPEN-WORK.md` at `4a4d8af`,
+> not by adjusting the QA-FIX.11b snapshot.
 >
 > **THERE IS NO BUILDABLE PARITY WORK LEFT AND NO VERTICAL LEFT TO BUILD. Do not invent a gate — wait for a
 > pasted one.**
@@ -17,13 +18,17 @@ Deliberately deferred work. Not forgotten — parked until the right phase.
 > | # | Track | State |
 > |---|---|---|
 > | **(a)** | **DEPLOYMENT to the paying customers** | **THE REAL NEXT VALUE — and still the only track that is actually queued.** Runbook + `.env` template + rehearsed onboarding ready; first-customer provisioning exists (`plans:seed` / `tenant:create` / `tenant:add-admin`, `b006d07`, D-165) — verdict **🟢 GO**, and the QA programme did not change that verdict: **no open finding loses data, falsifies a clinical or financial record, or breaches authorisation.** ⚠️ **An undiagnosed staging error is still parked and NO DETAIL ABOUT IT WAS EVER CAPTURED ANYWHERE.** Expect to reproduce it from scratch. |
-> | **(b)** | **The QA open list — 29 HIGH in five families + one loose finding** (was 34 in seven; families 3 and 6 closed by QA-FIX.11) | Grouped below by **what the fix has in common**, not by phase, because that is what makes them cheap together. Each family names the precedent that already exists in the codebase. |
+> | **(b)** | **The QA open list — 21 HIGH** | The live, derived itemisation is `docs/OPEN-WORK.md` at `4a4d8af`; do not use the historical QA-FIX.11 snapshot below as a current count. |
 > | **(c)** | **Certified-partner seams** | Business conversations, not gates. **Drug-safety** (`MedicationSafetyProvider` — display-only null object today) · **HL7/FHIR** (`LabConnectivity`, `ManualLabConnectivity` bound) · **PACS/DICOM + 3D scan** (`ImagingConnectivity`, `NullImagingConnectivity` bound) · **triage acuity** (`NullTriageAcuityProvider`) · **anaesthesia device-data** · **insurance/claims clearinghouse**. Each is a seam so a partner drops in; **never a homemade engine — that is a permanent non-goal, not a backlog item.** |
 > | **(d)** | **Operator Mode G4–G11** | **DELIBERATELY DEFERRED to post-first-customer (D-164)** — operator convenience UI. Backend **inert: zero HTTP routes**. Adds no safety property G1–G3 do not already enforce. **NOT unfinished by accident.** Plan: `docs/features/OPERATOR-MODE-MAP.md`. |
 > | **(e)** | **Open gaps the parity programme surfaced** | Real, small, each recorded where it was found — the tables further down. |
 > | **(f)** | **Declined screens (D-188)** | Not gaps. See the table below. |
 >
-> ### (b) THE QA OPEN LIST — 34 open HIGH, grouped by shared remedy
+> ### (b) HISTORICAL QA-FIX.11 SNAPSHOT — 34 open HIGH, grouped by shared remedy
+>
+> **Superseded for current counts.** This retained QA-FIX.11 snapshot explains the earlier family decisions;
+> the current 195 / 61 / 134, including 21 open HIGH, is the full ID/status re-parse in `docs/OPEN-WORK.md` at
+> `4a4d8af` (artifact state through `2a39c2e`).
 >
 > Verified by counting `docs/qa/ROLE-AUDIT.md` itself. **Take a family, not a phase.** Sizes are open HIGHs;
 > the 80 open MEDIUMs and 31 LOWs thicken families 1, 3 and 5 above all and introduce no new family.

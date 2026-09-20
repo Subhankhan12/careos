@@ -138,6 +138,7 @@ Carried into `DEPLOY-CHECKLIST.md` where they affect an ordered step.
 22. **`MAIL_ENCRYPTION=tls` in the runbook's paste-in block** is read by nothing — Laravel 12 uses
     `MAIL_SCHEME`, as the same runbook says at `:240`.
 
-**A known gap, not a doc error:** `/scheduling/availability` 404s for a tenant with no active branch —
-`AvailabilityController.php:61-65` still uses `firstOrFail()`, the pattern `DEPLOY-FIX.1a` replaced on the
-day-board. Off the happy path, reachable when a practice deactivates its only site. Recorded, not fixed here.
+**Closed deploy gap:** `DEPLOY-FIX.2` (`2a39c2e`, D-235) replaced the availability screen's no-active-branch
+`firstOrFail()` with its honest empty state. It covers both the fresh tenant and a mature practice that
+deactivates its only site. This pack's other “known” entries were re-checked against the repository in
+DOC-SYNC.1: they are either documented constraints or historical-document corrections, not open app defects.

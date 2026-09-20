@@ -23,8 +23,10 @@ Market packs:
 >
 > **THE QA PROGRAMME, AND WHY ITS RECORD MATTERS MORE THAN ITS NUMBER.** Ten audit phases drove every role in a
 > real browser; ten fix gates (QA-FIX.1 … QA-FIX.10, 29 code-changing parts) closed the top of the list.
-> **`docs/qa/ROLE-AUDIT.md` is the authoritative record: 186 findings, 41 fixed, 145 open — 0 CRITICAL, 34 HIGH,
-> 80 MEDIUM, 31 LOW.** It is **append-only by its own rule** — a fixed finding is **never removed**; it keeps its
+> **`docs/qa/ROLE-AUDIT.md` is the authoritative record: 195 findings, 61 resolved, 134 open — 0 CRITICAL, 21 HIGH,
+> 82 MEDIUM, 31 LOW.** These are the full ID/status re-parse recorded in `docs/OPEN-WORK.md` at `4a4d8af`
+> (artifact state through `2a39c2e`), not a hand-adjusted summary. It is **append-only by its own rule** — a
+> fixed finding is **never removed**; it keeps its
 > **ID, its evidence and its reproduction** and gains a **FIXED banner** naming the gate, commit and decision.
 > **Read the banner before re-investigating anything**, and never delete or rewrite a finding.
 >
@@ -45,7 +47,7 @@ Market packs:
 > `docs/ONBOARDING.md` §0b. Before writing a test here, know these: an absence assertion over an empty
 > collection is vacuously true (**D-174**); a refusal test must be one that would succeed without its guard
 > (**D-182**); a mutation that changes nothing proves nothing, so **grep-confirm it applied** (**D-187**); a
-> **comment-stripped** scan, because the file explaining why a token is forbidden contains it (this bit **five
+> **comment-stripped** scan, because the file explaining why a token is forbidden contains it (this bit **six
 > times**); **exit codes lie — read the log text** (`composer check` exited 0 with failures at least four
 > times); and **local-green ≠ CI-green** — verify via `commits/<sha>/check-runs`.
 >

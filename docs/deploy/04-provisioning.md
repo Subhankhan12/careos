@@ -250,17 +250,12 @@ Then set up resources and their availability:
 
 ---
 
-### ⚠️ A known gap worth carrying into the next fix gate
+### ✅ Closed no-branch availability gap
 
-`/scheduling/availability` **404s for a tenant with no active branch** —
-`Modules/Scheduling/src/Http/Controllers/AvailabilityController.php:61-65` resolves its branch with
-`->firstOrFail()`, which is precisely the pattern `DEPLOY-FIX.1a` replaced on the day-board with an honest
-empty state.
-
-The documented provisioning order creates the branch first, so this is off the happy path. It becomes
-reachable the moment a practice **deactivates its only site** — the second path `DEPLOY-FIX.1a` explicitly
-closed on the day-board, still open here. Not fixed by this pack (no app-code changes); recorded so it is
-not rediscovered from scratch.
+`DEPLOY-FIX.2` (`2a39c2e`, D-235) closed the sibling of the day-board's no-branch 404. The availability
+controller now authorises first, resolves an active branch with `first()`, and renders the page's honest empty
+state when none exists. Both the fresh-tenant and mature-tenant-after-deactivation paths are covered; this is
+not an outstanding provisioning defect.
 
 ---
 

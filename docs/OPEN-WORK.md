@@ -1,6 +1,7 @@
 # OPEN-WORK.md — the itemised open-work register
 
-**As of DEPLOY-FIX.2 (`2a39c2e`), 2026-09-20.** First written at `de57a7c` against `2b4ec48`; refreshed by
+**Full re-parse recorded at `4a4d8af`; underlying ROLE-AUDIT artifact state through DEPLOY-FIX.2 (`2a39c2e`),
+2026-09-20.** First written at `de57a7c` against `2b4ec48`; refreshed by
 QA-FIX.13b, and refreshed again here by a **full re-parse of the artifact** — not by adjusting the previous
 totals. The staleness banner the last refresh carried is removed because the numbers below are derived
 again, end to end.

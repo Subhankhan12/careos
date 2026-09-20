@@ -19,6 +19,14 @@ its wording says so explicitly.
 operation is broken or a permission is wrong · `MEDIUM` a workflow is degraded or a state is
 missing · `LOW` cosmetic / polish.
 
+> **CURRENT-COUNT NOTE (DOC-SYNC.1, `4a4d8af`; artifact state through `2a39c2e`).** This artifact is
+> append-only. Its top `## Fix status` table and historical reconciliation blocks are preserved evidence, not
+> a live tally. The current **195 findings / 61 resolved / 134 open (0 CRITICAL, 21 HIGH, 82 MEDIUM, 31 LOW)**
+> are in `docs/OPEN-WORK.md`, derived by a full ID/status re-parse of this artifact. Before attempting any
+> count, read that register's §0 counting traps: headings alone omit grouped IDs; status vocabulary includes
+> fixed, prevented and partly-fixed forms; grouped table rows can carry several IDs; and prose or negated
+> words such as “not fixed” are not status. Do not hand-adjust a prior total.
+
 ## Phases
 
 | # | Role group | Status |
