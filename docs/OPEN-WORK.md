@@ -3,6 +3,15 @@
 **As of QA-FIX.13b, 2026-09-12.** First written at `de57a7c` against `2b4ec48`; refreshed by QA-FIX.13b,
 which closed `QF11a-M1` and recorded two new findings.
 
+> **⚠️ THREE GATES HAVE LANDED SINCE THIS REGISTER WAS GENERATED, and only §4 below has been updated.**
+> `DEPLOY-FIX.1a` (`b8d5777`) recorded `QF13c-M1` and `QF13c-M2`; `DEPLOY-FIX.1b` (`73d8ed9`) recorded
+> none; `DEPLOY-FIX.2` closed `QF13c-M1`. Those two rows are now in §4.
+>
+> **The global totals in the heading and in §§1-3 are NOT recomputed** — they still read as of QA-FIX.13b.
+> Recomputing them by hand would mean asserting numbers I had not derived from the artifact, which is the
+> exact failure §0 exists to prevent. Net effect of the three gates on the open count: **+2 recorded, −1
+> closed = +1**. Re-derive from `docs/qa/ROLE-AUDIT.md` before quoting any total.
+
 This is every piece of open work CareOS has, in one place: the 133 open QA findings itemised one per row,
 plus the product decisions, the deliberately deferred work, the partner-gated work and the deployment
 track. It is derived from `docs/qa/ROLE-AUDIT.md` (the authoritative append-only QA record), `DEFERRED.md`,
@@ -379,17 +388,21 @@ all severities:
 | `P4-L2` | L | P4 | Nursing / Spitex + Nurse PWA · Api | 500 responses from /api/nurse/sync return the full Laravel stack trace (exception *(error disclosure)* | `/api/nurse/sync` | — | none | **FIX** |
 | `P5-L2` | L | P5 | Pharmacy | Enoxaparin is in the formulary, priced and prescribed, but has no stock row. It appears *(seed / data inconsistency)* | — | — | none | **FIX** |
 
-## 4. Findings raised BY the fix gates — 8 recorded, 5 open
+## 4. Findings raised BY the fix gates — 10 recorded, 6 open
 
-Eight findings were recorded **by the fix gates themselves** rather than by a QA phase — the standing rule
-since QA-FIX.9a is to record what a gate notices outside its own scope and **not widen into it**. Three are
-fixed, five are open. They are listed again here because they are easy to lose: they belong to no phase, so
+Ten findings were recorded **by the fix gates themselves** rather than by a QA phase — the standing rule
+since QA-FIX.9a is to record what a gate notices outside its own scope and **not widen into it**. Four are
+fixed, six are open. They are listed again here because they are easy to lose: they belong to no phase, so
 a phase-ordered read of the artifact never reaches them.
 
-**This group now accounts for 5 of the 133 open findings, and 3 of the 21 open HIGHs.** It is the fastest-
-growing group in the register, which is what a rule that forbids widening produces: each gate closes its
-own target and leaves a written note where it had to look. `QF13b-H1` and `QF13b-H2` both came out of
-QA-FIX.13b enumerating `Clinical/Chart.vue` in order to adopt one component on it.
+**This group is the fastest-growing in the register**, which is what a rule that forbids widening produces:
+each gate closes its own target and leaves a written note where it had to look. `QF13b-H1` and `QF13b-H2`
+both came out of QA-FIX.13b enumerating `Clinical/Chart.vue` in order to adopt one component on it;
+`QF13c-M1` and `QF13c-M2` both came out of `DEPLOY-FIX.1a` sweeping for every surface that shared the
+day-board's 404 shape.
+
+**`QF13c-M1` is the first of this group to be closed by a gate of its own** (`DEPLOY-FIX.2`), which is the
+rule working as intended rather than an exception to it: record it, then come back for it deliberately.
 
 | ID | Sev | Raised by | Status | What is open | Route or `file:line` | Family | Precedent | FIX / FEATURE |
 |---|---|---|---|---|---|---|---|---|
@@ -401,6 +414,8 @@ QA-FIX.13b enumerating `Clinical/Chart.vue` in order to adopt one component on i
 | `QF12c-H1` | H | QA-FIX.12c | 📋 **open** | The surgery scheduling form interprets the typed wall clock as UTC, so a case is stored an offset away from what the surgeon typed | `POST /surgery/cases` | 5 | D-228 (QA-FIX.12c, `2e76387`) — `formatDateTime` + naive-instant normalisation | **FIX** |
 | `QF13b-H1` | H | QF13b | 📋 **open** | The AI clinical summary cannot be reached at all: its only entry point renders only after it has already been used | `POST /clinical/chart/{patient}/summary-draft` | 1 | none — the panel has no entry point outside its own output | **FEATURE** |
 | `QF13b-H2` | H | QF13b | 📋 **open** | Three sibling order endpoints still answer a domain refusal with HTTP 500 | `Chart.vue` | 3 | D-224 (QA-FIX.11a, `51017e2`) — the narrow catch, three lines away in the same controller | **FIX** |
+| `QF13c-M1` | M | DEPLOY-FIX.1a | ✅ fixed — DEPLOY-FIX.2 (D-235) | The availability screen 404s for a tenant with no active branch, exactly as the day-board did | `GET /scheduling/availability` · `AvailabilityController.php:72` | 3 | D-232 (`b8d5777`) — a pure adoption of the day-board empty state | — |
+| `QF13c-M2` | M | DEPLOY-FIX.1a | 📋 **open** | The dispatch board resolves its branch BEFORE authorising (404 vs 403 leaks whether the tenant has a branch) and omits the `active` filter, so it can render a board for a CLOSED site | `GET /nursing/dispatch` · `DispatchBoardController.php:21` | 3 | `Gate` first then resolve — the ordering every other board already uses; plus D-232 for the empty state | **FIX** |
 
 ## 5. Open product decisions awaiting the owner — 14
 

@@ -1,11 +1,20 @@
 <script setup lang="ts">
-import { Head, router } from '@inertiajs/vue3';
-import { reactive, ref } from 'vue';
+import { Head, router, usePage } from '@inertiajs/vue3';
+import { computed, reactive, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import AppLayout from '@/Layouts/AppLayout.vue';
+import EmptyState from '@/Components/EmptyState.vue';
 import StatCard from '@/Components/StatCard.vue';
 
 const { t } = useI18n();
+const page = usePage();
+// Nav-gating for the empty-state "add a branch" link (the server Gate stays authoritative).
+// This page is gated on `appointment.manage`, but the link it offers goes to /admin/branches,
+// which is `admin.manage` — so the CTA is gated on the permission that can actually open the
+// target, not on the one that opened this page (D-214).
+const canSetupBranches = computed(
+    () => (page.props.auth as { user?: { permissions?: Record<string, boolean> } }).user?.permissions?.['admin.manage'] === true,
+);
 
 interface TemplateWindow {
     id: string;
@@ -38,7 +47,9 @@ interface ResourceRow {
 
 const props = defineProps<{
     resources: ResourceRow[];
-    filters: { branch_id: string; type: string | null; week: string };
+    // branch_id is NULL when the tenant has no active branch — the flag that distinguishes
+    // "no site yet" from "a site with nothing in it" (DEPLOY-FIX.2).
+    filters: { branch_id: string | null; type: string | null; week: string };
     branches: Array<{ id: string; name: string }>;
     resourceTypes: string[];
     week: { start: string; end: string };
@@ -201,6 +212,31 @@ function remove(): void {
                 <p class="mt-1 text-sm text-ink-muted">{{ t('availability.subtitle') }}</p>
             </div>
 
+            <!--
+                NO ACTIVE BRANCH — the first of this page's two empty states, and it must come FIRST.
+                Availability is configured per resource, and a resource belongs to a branch, so a tenant
+                with no branch also has no resources: checked the other way round, the page would tell
+                them to add a practitioner when what they actually need is a site (DEPLOY-FIX.2).
+
+                It replaces the whole body rather than sitting inside it, because with no branch every
+                block below is either meaningless (counts of nothing, a branch select with no options,
+                an editor that would post to a branch that does not exist) or an outright false claim —
+                the engine block would state that online bookings are suspended for a branch that is not
+                there (D-176).
+
+                The call to action is gated on `admin.manage` via canSetupBranches, so a scheduler who
+                may open THIS page but may not open /admin/branches is offered no link they would 403
+                on (D-214). They still get the explanation.
+            -->
+            <EmptyState
+                v-if="filters.branch_id === null"
+                :title="t('availability.emptyBranchTitle')"
+                :message="t('availability.emptyBranchMessage')"
+                :action-label="canSetupBranches ? t('availability.emptyBranchAction') : undefined"
+                :action-href="canSetupBranches ? '/admin/branches' : undefined"
+            />
+
+            <template v-else>
             <!-- Plain counts of rows that exist (D-166/D-174). -->
             <div class="grid gap-4 sm:grid-cols-3">
                 <StatCard :label="t('availability.counts.resources')" :value="String(counts.resources)" :hint="t('availability.counts.resourcesHint')" />
@@ -376,8 +412,13 @@ function remove(): void {
                     </button>
                 </div>
             </div>
+            </template>
 
-            <!-- What the design offers that this build refuses. -->
+            <!--
+                The refusals list stays OUTSIDE the v-else: it is a standing statement about what this
+                build does not do, not a claim about a branch, so it is as true on an empty screen as on
+                a populated one.
+            -->
             <div class="glass-card p-5">
                 <p class="text-sm font-semibold text-ink">{{ t('availability.omitted.title') }}</p>
                 <p class="mt-1 text-xs text-ink-muted">{{ t('availability.omitted.subtitle') }}</p>

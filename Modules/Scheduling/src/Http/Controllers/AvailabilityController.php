@@ -49,6 +49,17 @@ use Modules\Scheduling\Services\AvailableSlotFinder;
  */
 class AvailabilityController
 {
+    /**
+     * The resource types this page filters over.
+     *
+     * One list, read three times — the validated filter, the payload the page builds its select from,
+     * and the empty payload. These were duplicated literals; a fifth type added to one and not the other
+     * would have rendered a filter option that silently matched nothing.
+     *
+     * @var list<string>
+     */
+    private const RESOURCE_TYPES = ['practitioner', 'room', 'chair', 'device'];
+
     public function __construct(
         private readonly AvailabilityService $availability,
         private readonly AvailabilityWriter $writer,
@@ -62,11 +73,39 @@ class AvailabilityController
             ->where('active', true)
             ->when($request->query('branch_id'), fn ($query, $branchId) => $query->whereKey($branchId))
             ->orderBy('name')
-            ->firstOrFail();
+            ->first();
 
-        $type = in_array($request->query('type'), ['practitioner', 'room', 'chair', 'device'], true)
+        $type = in_array($request->query('type'), self::RESOURCE_TYPES, true)
             ? (string) $request->query('type')
             : null;
+
+        // The week the effective windows are previewed over — a real date range, not a guess.
+        $weekStart = CarbonImmutable::parse((string) $request->query('week', CarbonImmutable::now()->toDateString()))
+            ->startOfWeek();
+        $weekEnd = $weekStart->addDays(6);
+
+        /*
+         * NO ACTIVE BRANCH IS A STATE, NOT AN ERROR (DEPLOY-FIX.2).
+         *
+         * This was `firstOrFail()`, so a tenant with no active branch got an HTTP 404 on the screen that
+         * configures bookable hours. It is the identical defect `DEPLOY-FIX.1a` (`b8d5777`) closed on the
+         * day-board — recorded there as `QF13c-M1` and deliberately not widened into at the time — and the
+         * same two tenants reach the state:
+         *   - a FRESHLY PROVISIONED one — `tenant:create` + `tenant:add-admin` leave zero branches;
+         *   - a MATURE one — `BranchController::deactivate` refuses only when FUTURE APPOINTMENTS exist,
+         *     so a practice with a quiet calendar can deactivate its only site and land here years later.
+         *
+         * The guard sits after `$type` and `$weekStart` rather than immediately after the lookup, where
+         * the day-board's sits, because the empty payload carries both: the page still labels a real week,
+         * and a `?type=` the operator typed survives the empty render instead of being silently dropped.
+         * `$resources` moved below it because that query reads `$branch->id` and cannot run without one.
+         *
+         * `Gate::authorize` already ran above, so this changes no authorisation — a caller who may not
+         * manage appointments is refused before the branch is looked at, either way.
+         */
+        if (! $branch instanceof Branch) {
+            return Inertia::render('Scheduling/Availability', $this->emptyAvailability($type, $weekStart, $weekEnd));
+        }
 
         $resources = Resource::query()
             ->where('branch_id', $branch->id)
@@ -75,15 +114,10 @@ class AvailabilityController
             ->orderBy('name')
             ->get();
 
-        // The week the effective windows are previewed over — a real date range, not a guess.
-        $weekStart = CarbonImmutable::parse((string) $request->query('week', CarbonImmutable::now()->toDateString()))
-            ->startOfWeek();
-        $weekEnd = $weekStart->addDays(6);
-
         return Inertia::render('Scheduling/Availability', [
             'filters' => ['branch_id' => $branch->id, 'type' => $type, 'week' => $weekStart->toDateString()],
             'branches' => Branch::query()->where('active', true)->orderBy('name')->get(['id', 'name'])->all(),
-            'resourceTypes' => ['practitioner', 'room', 'chair', 'device'],
+            'resourceTypes' => self::RESOURCE_TYPES,
             'week' => ['start' => $weekStart->toDateString(), 'end' => $weekEnd->toDateString()],
             'resources' => $resources
                 ->map(fn (Resource $resource): array => $this->present($resource, $weekStart, $weekEnd))
@@ -106,13 +140,55 @@ class AvailabilityController
              * a page about hours must not let a reader think the hours are switched off.
              */
             'branchOnlineBookings' => (bool) $branch->accepts_online_bookings,
-            'actions' => [
-                'storeUrl' => route('scheduling.availability.store'),
-                'updateUrl' => route('scheduling.availability.update', ['availability' => '__ID__']),
-                'deleteUrl' => route('scheduling.availability.destroy', ['availability' => '__ID__']),
-                'impactUrl' => route('scheduling.availability.impact'),
-            ],
+            'actions' => $this->actionUrls(),
         ]);
+    }
+
+    /**
+     * The page's payload when the tenant has no active branch.
+     *
+     * Every collection is empty because it genuinely is — there is no branch to scope hours to. The two
+     * scalars deserve a word each, because a wrong default here would be an assertion rather than a blank:
+     *
+     *   • `branch_id` is NULL, not a string. It is the flag the page reads to tell "no branch at all"
+     *     apart from "a branch with no resources" — two different problems with two different answers,
+     *     and a tenant with no branch has no resources either, so an unordered pair would tell them to
+     *     add a room when what they need is a site.
+     *   • `branchOnlineBookings` is false, and the page must NOT render the online-bookings sentence in
+     *     this state. There is no branch, so neither "open" nor "suspended" is true of anything; saying
+     *     "suspended" would be an unbacked claim about a site that does not exist (D-176). The empty
+     *     branch state replaces that whole block rather than showing it with a manufactured value.
+     *
+     * @return array<string, mixed>
+     */
+    private function emptyAvailability(?string $type, CarbonImmutable $weekStart, CarbonImmutable $weekEnd): array
+    {
+        return [
+            'filters' => ['branch_id' => null, 'type' => $type, 'week' => $weekStart->toDateString()],
+            'branches' => [],
+            'resourceTypes' => self::RESOURCE_TYPES,
+            'week' => ['start' => $weekStart->toDateString(), 'end' => $weekEnd->toDateString()],
+            'resources' => [],
+            'counts' => ['resources' => 0, 'withoutTemplate' => 0, 'exceptions' => 0],
+            'branchOnlineBookings' => false,
+            'actions' => $this->actionUrls(),
+        ];
+    }
+
+    /**
+     * The page's action endpoints. Extracted so the empty payload and the populated one cannot drift —
+     * the same reason `DayBoardController::actionUrls()` exists (DEPLOY-FIX.1a).
+     *
+     * @return array<string, string>
+     */
+    private function actionUrls(): array
+    {
+        return [
+            'storeUrl' => route('scheduling.availability.store'),
+            'updateUrl' => route('scheduling.availability.update', ['availability' => '__ID__']),
+            'deleteUrl' => route('scheduling.availability.destroy', ['availability' => '__ID__']),
+            'impactUrl' => route('scheduling.availability.impact'),
+        ];
     }
 
     public function store(Request $request): RedirectResponse

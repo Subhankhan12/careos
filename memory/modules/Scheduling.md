@@ -637,3 +637,32 @@ across `app/` and `Modules/`.
 **Why no test caught the original defect:** `RedisHorizonTest`'s round-trip invents its own queue name and
 passes it to `queue:work --queue=…`, so it never reads the Horizon config. An infrastructure test must read
 the configuration the product runs under, not one it makes up.
+
+## The availability screen renders an empty state instead of 404ing — DEPLOY-FIX.2 (D-235)
+
+**`AvailabilityController` no longer uses `firstOrFail()` for "the current branch".** A tenant with zero
+ACTIVE branches got HTTP 404 on `/scheduling/availability`. It is now `first()` + a null guard returning
+`emptyAvailability()`, exactly as `DayBoardController` does — an ADOPTION of D-232, not a second shape.
+
+**Two tenants reach that state, and both have a test:** a freshly provisioned one (`tenant:create` +
+`tenant:add-admin` leave zero branches), and a MATURE one that deactivates its only site
+(`BranchController::deactivate` refuses only when FUTURE appointments exist). A provisioning-only fix
+would have left the second open.
+
+**The CTA is gated on `admin.manage`, NOT the `appointment.manage` that opens the page.** The link goes to
+`/admin/branches`. Gating it on the page's own permission would hand reception a link straight into a 403
+(D-214). Reception still sees the explanation — verified by test.
+
+**The empty state REPLACES the whole body, and that is deliberate.** With no branch, the engine block's
+"online bookings are open / suspended" sentence would be a claim about a site that does not exist (D-176).
+Do not "simplify" this by rendering the body with zeroed props — a Vue test pins the block's position.
+
+**The null guard sits AFTER `$type` and `$weekStart`, unlike the day-board's.** The empty payload carries a
+real week and any `?type=` the operator typed. Moving the guard up to sit immediately after the lookup is
+the tidier-looking edit and silently drops the filter; a test pins it.
+
+**Three singleton branch lookups exist in the whole app**, found by a comment-stripped sweep of all 125
+controllers: `DayBoardController` (fixed, `b8d5777`), this one (fixed), and
+`Modules/Nursing/.../DispatchBoardController:21` — **still open as `QF13c-M2`**, and NOT the same defect: it
+resolves the branch before authorising and omits `where('active', true)`. The other ~244 `firstOrFail()`
+calls in controllers are `whereKey($id)->firstOrFail()`, where 404 is the CORRECT fail-closed answer.

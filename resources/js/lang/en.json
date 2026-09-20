@@ -4195,6 +4195,9 @@
         ],
         "empty": "No resources at this branch.",
         "emptyHint": "Availability is set per resource — add a practitioner, room or chair first.",
+        "emptyBranchTitle": "No branch configured yet",
+        "emptyBranchMessage": "Availability is set per resource, and every resource belongs to a branch — this practice has no active branch yet. Add one under Admin → Branches, or ask an administrator to.",
+        "emptyBranchAction": "Add a branch",
         "omitted": {
             "title": "What this page does not do",
             "subtitle": "Things the design offers that this build refuses. We would rather name them than draw a control that guesses.",

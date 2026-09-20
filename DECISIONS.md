@@ -5751,3 +5751,29 @@ references the old ID.
   message "A file is required" — nginx accepts the body at 25M and PHP discards it.
   Supersedes nothing; corrects `D-` nothing. The pack records 22 doc corrections; the ones that change an
   ordered step are folded into `docs/DEPLOY-CHECKLIST.md` and marked `[PACK]`.
+- **D-235 — The availability screen answers "no active branch" the way the day-board does, and the
+  three places that share the shape are now settled.** `AvailabilityController` resolved the current
+  branch with `firstOrFail()`, so a tenant with zero active branches got HTTP 404 on the screen that
+  configures bookable hours — the defect `DEPLOY-FIX.1a` closed on the day-board and recorded here as
+  `QF13c-M1` rather than widened into. It is now `first()` plus a null guard that renders the page's own
+  empty state, with `emptyAvailability()` and `actionUrls()` extracted so the empty and populated
+  payloads cannot drift (the same reason `DayBoardController::actionUrls()` exists). Supersedes nothing;
+  it ADOPTS D-232 rather than inventing a second shape.
+  **Two things this page needed that the day-board did not.** (1) The call to action is gated on
+  `admin.manage`, not on the `appointment.manage` that opens the page: the link goes to
+  `/admin/branches`, so gating it on the page's own permission would offer reception a link straight
+  into a 403 (D-214). (2) With no branch, the engine block's "online bookings are open / suspended"
+  sentence would be a claim about a site that does not exist, so the empty state REPLACES that block
+  rather than rendering it from a manufactured `false` (D-176). A Vue test pins the block's position
+  structurally, because a props assertion cannot see a template.
+  **The null-guard sits after `$type` and `$weekStart`, not immediately after the lookup.** The
+  day-board guards straight after its lookup; here the empty payload carries a real week and a `?type=`
+  the operator typed, so the guard waits until both exist rather than silently dropping a filter. Pinned
+  by its own test, because moving it up is the tidier-looking edit and would break nothing else.
+  **`QF13c-M2` is NOT absorbed.** `DispatchBoardController` resolves its branch BEFORE authorising and
+  omits the `active` filter — an authorisation-ordering defect plus a second one in the same query, on a
+  surface this gate does not otherwise touch. It keeps its own gate (the QA-FIX.9a rule).
+  **A comment-stripped sweep of all 125 controllers found exactly three singleton branch lookups** —
+  the day-board (fixed), this one (fixed) and the dispatch board (open). The other ~244 `firstOrFail()`
+  calls are `whereKey($id)->firstOrFail()`, where a 404 is the CORRECT fail-closed answer and must not
+  be changed.

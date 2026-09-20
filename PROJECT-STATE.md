@@ -661,6 +661,32 @@ taken on principle: **recovery from an already-wedged bed** (`P9-H1`) and **rend
 down.
 
 
+### DEPLOY-FIX.2 — /scheduling/availability renders an empty state instead of 404ing (D-235)
+
+`QF13c-M1` is CLOSED. The availability screen resolved its branch with `firstOrFail()`, so a tenant with
+zero active branches got HTTP 404 on the screen that configures bookable hours — the defect
+`DEPLOY-FIX.1a` closed on the day-board and recorded here rather than widening into. Now `first()` + a null
+guard rendering the page's own empty state, with `emptyAvailability()` and `actionUrls()` extracted so the
+empty and populated payloads cannot drift.
+
+**Browser-verified on a scratch database (`careos_df2`), before and after.** With the pre-fix code restored
+the page was **HTTP 404 / "Page not found"**; with the fix it renders **"No branch configured yet"** at
+HTTP 200. Both the fresh-tenant path and the MATURE path were driven — the branch was deactivated through
+the real Admin → Branches UI, not by writing the column. Scratch DB dropped; the demo DB was never touched
+by it.
+
+**Tests:** 6 Pest / 78 assertions + 9 Vitest. Four mutants, all killed; `restore-firstOrFail` reddened 5 of
+the 6 Pest tests, which is the D-182 proof.
+
+**`QF13c-M2` is still OPEN and was deliberately not absorbed.** `DispatchBoardController` resolves its
+branch BEFORE authorising (404-vs-403 tells an unauthorised caller whether the tenant has a branch) and
+omits `where('active', true)` (it can render a board for a CLOSED site). Two defects, one of them
+security-shaped, on a surface this gate did not otherwise touch — it gets its own gate.
+
+**A sweep settled the shape**: exactly three singleton branch lookups exist across all 125 controllers, and
+all three are now accounted for. The other ~244 `firstOrFail()` calls are keyed lookups where 404 is
+correct.
+
 ### SERVER DEPLOYMENT PACK — `docs/deploy/` (D-234)
 
 Eleven artifacts for a single fresh Ubuntu LTS VPS, derived from this repo rather than from a Laravel

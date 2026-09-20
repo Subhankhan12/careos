@@ -8100,3 +8100,78 @@ They are recorded here rather than widened into — the standing rule since QA-F
 |---|---|---|---|---|
 | `QF13c-M1` | MEDIUM | 📋 recorded, not fixed | — | — |
 | `QF13c-M2` | MEDIUM | 📋 recorded, not fixed | — | — |
+
+---
+
+## DEPLOY-FIX.2 addendum — `QF13c-M1` CLOSED, `QF13c-M2` still open
+
+`QF13c-M1` was recorded by `DEPLOY-FIX.1a` rather than fixed, under the standing QA-FIX.9a rule: fixing one
+surface means finding every surface with the same shape, and recording the others instead of widening the
+gate. This gate closes it.
+
+### `QF13c-M1` — ✅ **FIXED** (DEPLOY-FIX.2)
+
+- **Fixed at:** `Modules/Scheduling/src/Http/Controllers/AvailabilityController.php` — the branch lookup is
+  `first()` with a null guard that renders the page's own empty state, mirroring `DayBoardController`
+  (D-232 → D-235).
+- **Both paths covered, not just the provisioning one.** The fresh-tenant case and the MATURE case (a
+  practice deactivating its only site) each have their own test, because a provisioning-only fix would have
+  left the second open — the same trap `DEPLOY-FIX.1a` called out.
+- **The call to action is gated on `admin.manage`, NOT on the `appointment.manage` that opens this page.**
+  The link goes to `/admin/branches`, so gating it on the page's own permission would have offered reception
+  a link straight into a 403 (D-214). Reception still gets the explanation.
+- **One thing this page needed that the day-board did not.** With no branch, the engine block's sentence
+  "online bookings are open / suspended" would be a claim about a site that does not exist, so the empty
+  state replaces that whole block rather than rendering it from a manufactured `false` (D-176). A Vue test
+  pins the block's position structurally.
+- **Verified:** 6 Pest tests / 78 assertions and 9 Vitest tests, plus a Playwright drive on a scratch
+  database. Four mutants, all killed — `restore-firstOrFail` reddened 5 of the 6 Pest tests, which is the
+  D-182 proof that these tests fail against pre-fix code. The one that stayed green under it is the
+  positive control, which creates a branch and therefore SHOULD be unaffected.
+
+### `QF13c-M2` — STILL OPEN, and deliberately not touched here
+
+`Modules/Nursing/src/Http/Controllers/DispatchBoardController.php:21-26` was re-verified at this gate and is
+unchanged. It is **not** the same defect, which is why this gate did not absorb it:
+
+- its `firstOrFail()` runs **before** `Gate::authorize('dispatch.manage', …)`, so fixing it is an
+  authorisation-ordering change, not an empty-state change. The availability screen never had this problem —
+  its `Gate::authorize` is the first statement in the method;
+- its lookup **omits `where('active', true)`**, so it can resolve a DEACTIVATED branch and render a board for
+  a site the practice has closed. That is a second, independent defect in the same query.
+
+Closing it means three changes, one of them security-shaped, on a surface this gate did not otherwise touch.
+It gets its own gate.
+
+### A sweep, so the shape is not rediscovered a third time
+
+Every controller under `app/Http/Controllers` and `Modules/*/src/Http/Controllers` (125 files) was scanned
+**comment-stripped**, for a `Branch::query()` chain ending in `first()`/`firstOrFail()` with no
+*unconditional* `whereKey()`. Exactly three exist, and they are the three already known:
+
+| Surface | Lookup | State |
+|---|---|---|
+| `DayBoardController:32` | `first()` | ✅ fixed by `DEPLOY-FIX.1a` (`b8d5777`) |
+| `AvailabilityController:72` | `first()` | ✅ fixed by this gate |
+| `DispatchBoardController:21` | `firstOrFail()`, **no `active` filter** | 📋 `QF13c-M2`, open |
+
+The other ~244 `firstOrFail()` calls in controllers are `whereKey($id)->firstOrFail()` — resolving one named
+record — where a 404 is the **correct** fail-closed answer and must not be changed.
+
+**Two traps worth recording, because both produced a wrong answer before being caught:**
+
+1. A raw `grep firstOrFail` reports `DayBoardController:41` as a live site. It is not — line 41 is inside the
+   comment `DEPLOY-FIX.1a` left explaining the fix. The same comment-versus-code trap that made
+   `DEPLOY-CHECKLIST.md` step 12b tell operators to expect no match from a grep that does match.
+2. A first pass of the sweep excluded any chain containing `whereKey(` and returned **zero** hits — including
+   the very defect being fixed. The `whereKey()` in these lookups sits **inside an optional
+   `when($request->query('branch_id'), …)` closure**, so it does not apply when no branch is named. The
+   filter has to distinguish a conditional `whereKey` from an unconditional one, or it hides exactly the
+   pattern it is looking for.
+
+### Fix-status rows updated by this gate
+
+| ID | Severity | Status | Gate | Commit |
+|---|---|---|---|---|
+| `QF13c-M1` | MEDIUM | ✅ **FIXED** | DEPLOY-FIX.2 | `<pending>` |
+| `QF13c-M2` | MEDIUM | 📋 recorded, not fixed | — | — |
