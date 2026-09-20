@@ -1,18 +1,11 @@
 # OPEN-WORK.md — the itemised open-work register
 
-**As of QA-FIX.13b, 2026-09-12.** First written at `de57a7c` against `2b4ec48`; refreshed by QA-FIX.13b,
-which closed `QF11a-M1` and recorded two new findings.
+**As of DEPLOY-FIX.2 (`2a39c2e`), 2026-09-20.** First written at `de57a7c` against `2b4ec48`; refreshed by
+QA-FIX.13b, and refreshed again here by a **full re-parse of the artifact** — not by adjusting the previous
+totals. The staleness banner the last refresh carried is removed because the numbers below are derived
+again, end to end.
 
-> **⚠️ THREE GATES HAVE LANDED SINCE THIS REGISTER WAS GENERATED, and only §4 below has been updated.**
-> `DEPLOY-FIX.1a` (`b8d5777`) recorded `QF13c-M1` and `QF13c-M2`; `DEPLOY-FIX.1b` (`73d8ed9`) recorded
-> none; `DEPLOY-FIX.2` closed `QF13c-M1`. Those two rows are now in §4.
->
-> **The global totals in the heading and in §§1-3 are NOT recomputed** — they still read as of QA-FIX.13b.
-> Recomputing them by hand would mean asserting numbers I had not derived from the artifact, which is the
-> exact failure §0 exists to prevent. Net effect of the three gates on the open count: **+2 recorded, −1
-> closed = +1**. Re-derive from `docs/qa/ROLE-AUDIT.md` before quoting any total.
-
-This is every piece of open work CareOS has, in one place: the 133 open QA findings itemised one per row,
+This is every piece of open work CareOS has, in one place: the 134 open QA findings itemised one per row,
 plus the product decisions, the deliberately deferred work, the partner-gated work and the deployment
 track. It is derived from `docs/qa/ROLE-AUDIT.md` (the authoritative append-only QA record), `DEFERRED.md`,
 `DECISIONS.md` and `PROJECT-STATE.md`.
@@ -33,17 +26,36 @@ line, totals row, or `PROJECT-STATE.md` figure was trusted as input.
 
 | | Count |
 |---|---|
-| Distinct finding ids in the artifact | **193** (185 `P*` + 8 `QF*`) |
-| Findings with a record of their own | **193 / 193** — none orphaned |
-| Per phase | P1 18 · P2 19 · P3 15 · P4 23 · P5 14 · P6 20 · P7 17 · P8 17 · P9 25 · P10 17 (+8 gate-raised) |
-| Resolved | **60** |
-| **Open** | **133** — C **0** · H **21** · M **81** · L **31** |
+| Distinct finding ids in the artifact | **195** (185 `P*` + 10 `QF*`) |
+| Findings with a record of their own | **195 / 195** — none orphaned |
+| Per phase | P1 18 · P2 19 · P3 15 · P4 23 · P5 14 · P6 20 · P7 17 · P8 17 · P9 25 · P10 17 (+10 gate-raised) |
+| Resolved | **61** |
+| **Open** | **134** — C **0** · H **21** · M **82** · L **31** |
 | Of the open, PARTLY FIXED | 2 — `P3-H2`, `P10-M1` |
 
 **What QA-FIX.13b changed:** `QF11a-M1` closed (MEDIUM −1), and two new findings were recorded rather than
 widened into — `QF13b-H1` and `QF13b-H2`, both HIGH (HIGH +2). 191 → 193 recorded, 59 → 60 resolved,
 132 → 133 open. **The open HIGH count went UP, and that is the honest outcome of enumerating a surface
 nobody had enumerated**: `QF11a-M1` itself said Clinical had never been surveyed.
+
+**What has changed since, re-derived at `2a39c2e`.** Six commits landed after QA-FIX.13b; only two moved a
+number, and `git log` on `docs/qa/ROLE-AUDIT.md` is what establishes that:
+
+| Commit | Effect on the count |
+|---|---|
+| `be9adc7` docs: feature triage map | **none** — it edited two lines, both backfilling `QF11a-M1`'s `<pending>` hash to `c1c0010`. No status changed. |
+| `5dac745` docs: deploy checklist + dry run | did not touch the artifact |
+| `b8d5777` DEPLOY-FIX.1a | **+2 recorded**: `QF13c-M1` and `QF13c-M2`, both MEDIUM, both open at the time |
+| `73d8ed9` DEPLOY-FIX.1b | did not touch the artifact |
+| `fb87e4e` server deployment pack | did not touch the artifact. Its findings are **doc corrections**, not QA findings; the one code gap it recorded was already `QF13c-M1` |
+| `2a39c2e` DEPLOY-FIX.2 | **+1 resolved**: `QF13c-M1` fixed |
+
+Net: 193 → **195** recorded · 60 → **61** resolved · 133 → **134** open · MEDIUM 81 → **82**. HIGH, LOW and
+CRITICAL are unchanged, and CRITICAL is still **0**.
+
+> **`QA-FIX.14` DOES NOT EXIST.** It was named as one of the gates to fold in. It appears nowhere in
+> `docs/qa/ROLE-AUDIT.md`, there is no `QF14*` id, and `git log --all` has no such commit. The gates that
+> actually landed are the six in the table above. The artifact wins.
 
 The totals reconcile with `PROJECT-STATE.md` only after three discrepancies in the artifact are resolved.
 All three are defects in the artifact's own bookkeeping, not in the underlying work.
@@ -67,11 +79,32 @@ resolution banner was appended and it is in no fix-status table. It is the one f
 mechanisms miss. **This is my own omission in QA-FIX.12a.** Counting it as fixed is what makes the
 artifact yield 59/132; counting it by banner alone yields 58/133.
 
-**How the 60 resolve:** 49 records carry a `✅ FIXED` banner (48, plus `QF11a-M1` from QA-FIX.13b) · 9 more
-are fixed by the table only (discrepancy 2) · `QF12a-H1` is fixed with neither (discrepancy 3) · `P9-H1` is
-`✅ PREVENTED` by QA-FIX.12d, and prevention was the gate's stated definition of a fix for a wedging defect.
-The two `⚠️ PARTLY FIXED` findings — `P3-H2` and `P10-M1` — are counted **open**, as their own banners
-instruct.
+**How the 61 resolve (re-derived at `2a39c2e`):** 50 records carry a `✅ FIXED` banner (49, plus `QF13c-M1`
+from DEPLOY-FIX.2) · 9 more are fixed by a table row only (discrepancy 2) · `QF12a-H1` is fixed with neither
+(discrepancy 3) · `P9-H1` is `✅ PREVENTED` by QA-FIX.12d, and prevention was that gate's stated definition
+of a fix for a wedging defect. The two `⚠️ PARTLY FIXED` findings — `P3-H2` and `P10-M1` — are counted
+**open**, as their own banners instruct.
+
+**Three things the re-parse had to get right, each of which produced a WRONG total first.** They are
+recorded because anyone re-deriving these numbers will hit them again:
+
+1. **"not fixed" contains "fixed".** Matching `/✅|FIXED/i` on a status cell counts
+   `📋 recorded, not fixed` as FIXED. Negation has to be classified first, or every deliberately-recorded
+   finding in §4 reads as closed.
+2. **Prose inside a record is not a status.** `P6-C2`'s block contains
+   `> **The team-write gap is NOT fixed by QA-FIX.6b**` — a sentence about a DIFFERENT gap. Reading it as a
+   banner marked a CRITICAL open when line 107 of the artifact records it FIXED, and would have reported
+   the first open CRITICAL since QA-FIX.10. A banner must be recognised by its leading glyph, not by
+   searching the block for a verb.
+3. **The resolution vocabulary is not just "FIXED".** Enumerated from the artifact, banners read
+   `✅ FIXED` (49), `✅ PREVENTED` (1, `P9-H1`), `✅ THE OVER-OFFER IS FIXED` (1), `⚠️ PARTLY FIXED` (2) —
+   plus five `⚠️ CORRECTION…` banners that are **not** status changes at all, and one scoped
+   `> **CLOSED:**` on `P10-M1` that closes one component while the finding stays PARTLY. Keying on the word
+   FIXED alone silently drops `P9-H1`, a genuinely closed HIGH.
+
+A further eight closures are invisible to any per-row regex: seven sit inside ONE grouped table row
+(`pattern 1 (`P1-H1`·`P2-H2`·`P3-M7`·`P4-H5`·`P5-H2`·`P6-H4`·`P7-H4`)`, line 112) and `P7-M5` shares a cell
+with `P8-H2` (line 115). A counter must read every id in a row's first cell, not assume one.
 
 > **Correction to this register's first edition (`de57a7c`).** It described `P9-H1`'s banner as
 > `🛑 PREVENTED`; the artifact reads `✅ PREVENTED`. The verdict was right, the emoji quoted was not —
@@ -103,16 +136,16 @@ It states family membership **for HIGH findings only**. Therefore:
 |---|---|---|---|---|
 | **1** — unreachable capabilities & missing nav | **55** | 17 (16†) | 31 | 7 |
 | **2** — operations that mislead, or that cannot be undone | **22** | 2 (1†) | 16 | 4 |
-| **3** — invisible refusals | **5** | 1 | 2 (1†) | 2 |
+| **3** — invisible refusals | **6** | 1 | 3 (1†) | 2 |
 | **4** — unrecorded disclosure | **3** | 0 | 2 | 1 |
 | **5** — display / locale divergence | **32** | 1 | 20 | 11 |
 | **6** — attribution recorded but not surfaced | **5** | 0 | 3 | 2 |
 | **7** — partial writes outside a transaction | **2** | 0 | 2 | 0 |
 | **outside the seven** | **9** | 0 | 5 | 4 |
-| **Total** | **133** | **21** | **81** | **31** |
+| **Total** | **134** | **21** | **82** | **31** |
 
 **Families 1 and 5 are two-thirds of everything open.** That is the scheduling fact this register exists
-to surface: 87 of 133 findings are *"a capability you cannot reach"* or *"a value rendered wrongly"*.
+to surface: 87 of 134 findings are *"a capability you cannot reach"* or *"a value rendered wrongly"*.
 
 **FIX or FEATURE** follows the QA-FIX.12d classification: a **FIX** changes code that already exists to
 stop it misleading, losing or refusing wrongly; a **FEATURE** builds a capability that is not there. The
@@ -120,7 +153,7 @@ distinction is load-bearing — QA-FIX.6 Part 4 (`474cefe`) and QA-FIX.12d both 
 feature inside a fix gate, and this register keeps that line visible so the next gate can too.
 
 ---
-## 1. Open HIGHs, by family — 19
+## 1. Open HIGHs, by family — 21
 
 **No open HIGH blocks deployment.** The artifact's standing verdict, unchanged by gates 12 and 13: none of
 them loses data, falsifies a clinical or financial record, or breaches authorisation. They are defects of
@@ -132,7 +165,7 @@ be reached and no amount of RBAC wiring creates it — and an eighth, `P9-H5`, i
 nine are genuinely wiring, all against the one D-214 precedent. The artifact's own instruction stands:
 **triage each before scheduling.** Families 4, 6 and 7 have no open HIGH at all.
 
-**Across the whole 133: 119 are FIX, 12 are FEATURE, and 2 are part of each** (`P9-H5`, `P10-M1`). The 14
+**Across the whole 134: 120 are FIX, 12 are FEATURE, and 2 are part of each** (`P9-H5`, `P10-M1`). The 14
 FEATURE-bearing findings are the ones a fix gate must **stop** on rather than build through — the
 `474cefe`, QA-FIX.12d and QA-FIX.13b precedent.
 
@@ -253,11 +286,12 @@ all severities:
 | `P9-M7` | M | P9 | Bed management + medical records | Nothing binds bed occupancy to a stay, and the board silently hides the second patient *(the board hides a patient)* | `2026_07_26_000003_create_stays_table.php:22-48` | 2 | D-229 (QA-FIX.12d, `6df47ed`) guarded the adjacent occupied-bed transition | **FIX** |
 | `P9-M9` | M | P9 | Bed management + medical records | "Invoice this stay" 500s on any tenant that has not run the demo seeder *(unhandled failure on a shipped surface)* | `BedBillingController.php:32` | 2 | none | **FIX** |
 
-### Family 3 — invisible refusals — 2 open MEDIUM
+### Family 3 — invisible refusals — 3 open MEDIUM
 
 | ID | Sev | Phase | Role / module | What is open | Route or `file:line` | Family | Precedent | FIX / FEATURE |
 |---|---|---|---|---|---|---|---|---|
 | `P3-M4` | M | P3 | Billing / finance | "Send reminders" gives no feedback and writes no audit row *(no feedback + unrecorded action)* | `billing.payment_plan_created (permission)` | 3 | D-210/D-213 `RefusalNotice` | **FIX** |
+| `QF13c-M2` | M | DEPLOY-FIX.1a | Nursing · dispatch board | The branch is resolved BEFORE authorising, so an unauthorised caller gets 404 when the tenant has no branch and 403 when it has one; the lookup also omits `active = true`, so it can render a board for a CLOSED site | `DispatchBoardController.php:21` · `GET /nursing/dispatch` | 3 | `Gate` first then resolve — the ordering every other board already uses; plus D-232/D-235 for the empty state | **FIX** |
 | `P10-M1` | M | P10 | Admin / governance + patient portal | Admin, governance and portal render almost no refusals: 13 withErrors sites, 3 of 24 pages that could show one *(PARTLY FIXED — approval queue only; 24 pages open)* | `Governance/ApprovalQueue.vue` | 3† | D-210/D-213 `RefusalNotice` — already at 12+ call sites | **FIX (adoption) · FEATURE (per-page design)** |
 
 ### Family 4 — unrecorded disclosure — 2 open MEDIUM
