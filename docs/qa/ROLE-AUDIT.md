@@ -8183,3 +8183,20 @@ record — where a 404 is the **correct** fail-closed answer and must not be cha
 |---|---|---|---|---|
 | `QF13c-M1` | MEDIUM | ✅ **FIXED** | DEPLOY-FIX.2 | `<pending>` |
 | `QF13c-M2` | MEDIUM | 📋 recorded, not fixed | — | — |
+
+## STEP-1 addendum — `QF13c-M2` CLOSED (D-236)
+
+### `QF13c-M2` — ✅ **FIXED** (STEP-1)
+
+- **Fixed at:** `Modules/Nursing/src/Http/Controllers/DispatchBoardController.php` —
+  `dispatch.manage` is authorised from the request before any branch lookup; selected and listed branches
+  are constrained to `active = true`; and zero active branches render the page's honest, contract-stable
+  empty payload through `first()` + null guard + shared `actionUrls()` (D-232/D-235).
+- **The disclosure proof bites:** an unauthorised nurse receives byte-for-byte identical HTTP 403 responses
+  for a tenant with an active branch and one with none. Restoring the former branch-before-Gate ordering
+  makes that oracle test red (D-182/D-185).
+- **No dead-end CTA:** the rendered branch-setup link is gated separately on `admin.manage` (D-214), so a
+  coordinator who may dispatch but may not administer branches sees the explanation without a link to a 403.
+- **Verified:** active and inactive branches coexist in the fixture; the closed branch is neither selected
+  nor listed. A mature tenant whose sole branch is deactivated receives HTTP 200 and the no-active-branch
+  state; an active branch still renders the populated dispatch board.

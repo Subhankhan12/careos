@@ -1,12 +1,12 @@
 # OPEN-WORK.md — the itemised open-work register
 
-**Full re-parse recorded at `4a4d8af`; underlying ROLE-AUDIT artifact state through DEPLOY-FIX.2 (`2a39c2e`),
-2026-09-20.** First written at `de57a7c` against `2b4ec48`; refreshed by
+**Full re-parse recorded at STEP-1 (`<pending>`); underlying ROLE-AUDIT artifact state through this gate,
+2026-09-21.** First written at `de57a7c` against `2b4ec48`; refreshed by
 QA-FIX.13b, and refreshed again here by a **full re-parse of the artifact** — not by adjusting the previous
 totals. The staleness banner the last refresh carried is removed because the numbers below are derived
 again, end to end.
 
-This is every piece of open work CareOS has, in one place: the 134 open QA findings itemised one per row,
+This is every piece of open work CareOS has, in one place: the 133 open QA findings itemised one per row,
 plus the product decisions, the deliberately deferred work, the partner-gated work and the deployment
 track. It is derived from `docs/qa/ROLE-AUDIT.md` (the authoritative append-only QA record), `DEFERRED.md`,
 `DECISIONS.md` and `PROJECT-STATE.md`.
@@ -30,8 +30,8 @@ line, totals row, or `PROJECT-STATE.md` figure was trusted as input.
 | Distinct finding ids in the artifact | **195** (185 `P*` + 10 `QF*`) |
 | Findings with a record of their own | **195 / 195** — none orphaned |
 | Per phase | P1 18 · P2 19 · P3 15 · P4 23 · P5 14 · P6 20 · P7 17 · P8 17 · P9 25 · P10 17 (+10 gate-raised) |
-| Resolved | **61** |
-| **Open** | **134** — C **0** · H **21** · M **82** · L **31** |
+| Resolved | **62** |
+| **Open** | **133** — C **0** · H **21** · M **81** · L **31** |
 | Of the open, PARTLY FIXED | 2 — `P3-H2`, `P10-M1` |
 
 **What QA-FIX.13b changed:** `QF11a-M1` closed (MEDIUM −1), and two new findings were recorded rather than
@@ -50,8 +50,9 @@ number, and `git log` on `docs/qa/ROLE-AUDIT.md` is what establishes that:
 | `73d8ed9` DEPLOY-FIX.1b | did not touch the artifact |
 | `fb87e4e` server deployment pack | did not touch the artifact. Its findings are **doc corrections**, not QA findings; the one code gap it recorded was already `QF13c-M1` |
 | `2a39c2e` DEPLOY-FIX.2 | **+1 resolved**: `QF13c-M1` fixed |
+| STEP-1 (`<pending>`) | **+1 resolved**: `QF13c-M2` fixed |
 
-Net: 193 → **195** recorded · 60 → **61** resolved · 133 → **134** open · MEDIUM 81 → **82**. HIGH, LOW and
+Net: 193 → **195** recorded · 60 → **62** resolved · 133 → **133** open · MEDIUM 81 → **81**. HIGH, LOW and
 CRITICAL are unchanged, and CRITICAL is still **0**.
 
 > **`QA-FIX.14` DOES NOT EXIST.** It was named as one of the gates to fold in. It appears nowhere in
@@ -80,8 +81,8 @@ resolution banner was appended and it is in no fix-status table. It is the one f
 mechanisms miss. **This is my own omission in QA-FIX.12a.** Counting it as fixed is what makes the
 artifact yield 59/132; counting it by banner alone yields 58/133.
 
-**How the 61 resolve (re-derived at `2a39c2e`):** 50 records carry a `✅ FIXED` banner (49, plus `QF13c-M1`
-from DEPLOY-FIX.2) · 9 more are fixed by a table row only (discrepancy 2) · `QF12a-H1` is fixed with neither
+**How the 62 resolve (re-derived at STEP-1):** 51 records carry a `✅ FIXED` banner (49, plus `QF13c-M1`
+from DEPLOY-FIX.2 and `QF13c-M2` from STEP-1) · 9 more are fixed by a table row only (discrepancy 2) · `QF12a-H1` is fixed with neither
 (discrepancy 3) · `P9-H1` is `✅ PREVENTED` by QA-FIX.12d, and prevention was that gate's stated definition
 of a fix for a wedging defect. The two `⚠️ PARTLY FIXED` findings — `P3-H2` and `P10-M1` — are counted
 **open**, as their own banners instruct.
@@ -292,7 +293,6 @@ all severities:
 | ID | Sev | Phase | Role / module | What is open | Route or `file:line` | Family | Precedent | FIX / FEATURE |
 |---|---|---|---|---|---|---|---|---|
 | `P3-M4` | M | P3 | Billing / finance | "Send reminders" gives no feedback and writes no audit row *(no feedback + unrecorded action)* | `billing.payment_plan_created (permission)` | 3 | D-210/D-213 `RefusalNotice` | **FIX** |
-| `QF13c-M2` | M | DEPLOY-FIX.1a | Nursing · dispatch board | The branch is resolved BEFORE authorising, so an unauthorised caller gets 404 when the tenant has no branch and 403 when it has one; the lookup also omits `active = true`, so it can render a board for a CLOSED site | `DispatchBoardController.php:21` · `GET /nursing/dispatch` | 3 | `Gate` first then resolve — the ordering every other board already uses; plus D-232/D-235 for the empty state | **FIX** |
 | `P10-M1` | M | P10 | Admin / governance + patient portal | Admin, governance and portal render almost no refusals: 13 withErrors sites, 3 of 24 pages that could show one *(PARTLY FIXED — approval queue only; 24 pages open)* | `Governance/ApprovalQueue.vue` | 3† | D-210/D-213 `RefusalNotice` — already at 12+ call sites | **FIX (adoption) · FEATURE (per-page design)** |
 
 ### Family 4 — unrecorded disclosure — 2 open MEDIUM
@@ -423,7 +423,7 @@ all severities:
 | `P4-L2` | L | P4 | Nursing / Spitex + Nurse PWA · Api | 500 responses from /api/nurse/sync return the full Laravel stack trace (exception *(error disclosure)* | `/api/nurse/sync` | — | none | **FIX** |
 | `P5-L2` | L | P5 | Pharmacy | Enoxaparin is in the formulary, priced and prescribed, but has no stock row. It appears *(seed / data inconsistency)* | — | — | none | **FIX** |
 
-## 4. Findings raised BY the fix gates — 10 recorded, 6 open
+## 4. Findings raised BY the fix gates — 10 recorded, 5 open
 
 Ten findings were recorded **by the fix gates themselves** rather than by a QA phase — the standing rule
 since QA-FIX.9a is to record what a gate notices outside its own scope and **not widen into it**. Four are
@@ -436,7 +436,7 @@ both came out of QA-FIX.13b enumerating `Clinical/Chart.vue` in order to adopt o
 `QF13c-M1` and `QF13c-M2` both came out of `DEPLOY-FIX.1a` sweeping for every surface that shared the
 day-board's 404 shape.
 
-**`QF13c-M1` is the first of this group to be closed by a gate of its own** (`DEPLOY-FIX.2`), which is the
+**`QF13c-M1` and `QF13c-M2` are closed by gates of their own** (`DEPLOY-FIX.2`, then STEP-1), which is the
 rule working as intended rather than an exception to it: record it, then come back for it deliberately.
 
 | ID | Sev | Raised by | Status | What is open | Route or `file:line` | Family | Precedent | FIX / FEATURE |
@@ -450,7 +450,7 @@ rule working as intended rather than an exception to it: record it, then come ba
 | `QF13b-H1` | H | QF13b | 📋 **open** | The AI clinical summary cannot be reached at all: its only entry point renders only after it has already been used | `POST /clinical/chart/{patient}/summary-draft` | 1 | none — the panel has no entry point outside its own output | **FEATURE** |
 | `QF13b-H2` | H | QF13b | 📋 **open** | Three sibling order endpoints still answer a domain refusal with HTTP 500 | `Chart.vue` | 3 | D-224 (QA-FIX.11a, `51017e2`) — the narrow catch, three lines away in the same controller | **FIX** |
 | `QF13c-M1` | M | DEPLOY-FIX.1a | ✅ fixed — DEPLOY-FIX.2 (D-235) | The availability screen 404s for a tenant with no active branch, exactly as the day-board did | `GET /scheduling/availability` · `AvailabilityController.php:72` | 3 | D-232 (`b8d5777`) — a pure adoption of the day-board empty state | — |
-| `QF13c-M2` | M | DEPLOY-FIX.1a | 📋 **open** | The dispatch board resolves its branch BEFORE authorising (404 vs 403 leaks whether the tenant has a branch) and omits the `active` filter, so it can render a board for a CLOSED site | `GET /nursing/dispatch` · `DispatchBoardController.php:21` | 3 | `Gate` first then resolve — the ordering every other board already uses; plus D-232 for the empty state | **FIX** |
+| `QF13c-M2` | M | DEPLOY-FIX.1a | ✅ fixed — STEP-1 (D-236, `<pending>`) | The dispatch board resolved its branch before authorising and omitted the active filter | `GET /nursing/dispatch` · `DispatchBoardController.php` | 3 | D-232/D-235 shape + D-185 indistinguishable refusal | — |
 
 ## 5. Open product decisions awaiting the owner — 14
 

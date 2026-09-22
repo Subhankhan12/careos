@@ -5777,3 +5777,12 @@ references the old ID.
   the day-board (fixed), this one (fixed) and the dispatch board (open). The other ~244 `firstOrFail()`
   calls are `whereKey($id)->firstOrFail()`, where a 404 is the CORRECT fail-closed answer and must not
   be changed.
+- **D-236 — Authorise a branch-scoped board before resolving a branch, and make its no-active-branch
+  state honest.** `DispatchBoardController` now checks `dispatch.manage` from the request before every
+  branch query, so a caller without that permission receives the same 403 whether the tenant has an active
+  branch or no branch at all (D-185). The lookup and selector both scope to `active = true`; a tenant with
+  zero active branches receives a contract-stable empty payload through the established `first()` + null
+  guard + shared `actionUrls()` pattern (D-232/D-235), rather than a 404 or a board for a closed site.
+  The branch-management CTA is independently gated by `admin.manage` (D-214): coordinators may dispatch
+  but are not directed to a route that would refuse them. This closes `QF13c-M2` in STEP-1; it does not
+  widen or alter the day-board or availability controllers.

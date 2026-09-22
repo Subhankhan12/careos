@@ -23,9 +23,9 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
 >    backend is **inert: zero HTTP routes, no UI**. It is not unfinished by accident; **do not "finish" it.**
 > 4. **THE TEN-PHASE ROLE-BY-ROLE QA PROGRAMME IS COMPLETE, WITH ZERO OPEN CRITICALS.** Ten audit phases
 >    drove every role in a real browser; ten fix gates across 29 code-changing parts closed the top of the
->    list. `docs/qa/ROLE-AUDIT.md` is the authoritative record — **195 findings, 61 resolved, 134 open: 0
->    CRITICAL, 21 HIGH, 82 MEDIUM, 31 LOW.** These are the full ID/status re-parse recorded in
->    `docs/OPEN-WORK.md` at `4a4d8af` (artifact state through `2a39c2e`), not a hand-adjusted summary.
+>    list. `docs/qa/ROLE-AUDIT.md` is the authoritative record — **195 findings, 62 resolved, 133 open: 0
+>    CRITICAL, 21 HIGH, 81 MEDIUM, 31 LOW.** These are the full ID/status re-parse recorded in
+>    `docs/OPEN-WORK.md` at STEP-1 (artifact state through this gate), not a hand-adjusted summary.
 > 5. **TWO TRACKS REMAIN: (a) DEPLOYMENT — the highest-value work and the only one actually queued — and
 >    (b) the prioritised open HIGH/MEDIUM list in `DEFERRED.md`.** Nothing else is queued. Wait for a pasted
 >    gate.
@@ -84,7 +84,7 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
 
 ## STATUS: BUILD COMPLETE · DEPLOY-READY 🟢 GO · THE BUILDABLE PARITY PROGRAMME IS COMPLETE — ONE TRACK REMAINS: **DEPLOYMENT + PARTNERSHIPS**
 
-### ✅ THE ROLE-BY-ROLE QA AUDIT IS COMPLETE — `docs/qa/ROLE-AUDIT.md` (10 of 10 phases; **195 findings — 61 resolved, 134 open** from the full ID/status re-parse recorded at `4a4d8af`, artifact state through `2a39c2e`; **every CRITICAL is fixed — 0 open, highest open severity is HIGH at 21**)
+### ✅ THE ROLE-BY-ROLE QA AUDIT IS COMPLETE — `docs/qa/ROLE-AUDIT.md` (10 of 10 phases; **195 findings — 62 resolved, 133 open** from the full ID/status re-parse recorded at STEP-1, artifact state through this gate; **every CRITICAL is fixed — 0 open, highest open severity is HIGH at 21**)
 
 **The live itemised list is `docs/OPEN-WORK.md`** — every open finding one per row with family, precedent
 and a FIX-or-FEATURE verdict, plus the open product decisions, the deferred work and the deployment track.
@@ -684,6 +684,17 @@ security-shaped, on a surface this gate did not otherwise touch — it gets its 
 **A sweep settled the shape**: exactly three singleton branch lookups exist across all 125 controllers, and
 all three are now accounted for. The other ~244 `firstOrFail()` calls are keyed lookups where 404 is
 correct.
+
+### STEP-1 — QF13c-M2 CLOSED (D-236)
+
+`QF13c-M2` is now fixed in its own gate, without widening DEPLOY-FIX.2. `DispatchBoardController`
+authorises `dispatch.manage` from the request before every branch lookup, scopes both the chosen branch and
+branch selector to `active = true`, and renders its own honest no-active-branch state through the same
+`first()` + null-guard + shared-`actionUrls()` shape as DayBoard and Availability. The setup CTA is separately
+gated on `admin.manage` (D-214). Browser driving proved the old active-branch-nurse 403 / no-branch-nurse 404
+oracle, then the fixed identical 403s; a coordinator saw the rendered zero-active-branch state with no dead-end
+setup link, and the active board rendered normally after reactivation. The full ID/status re-parse now reads
+**195 recorded, 62 resolved, 133 open (0 CRITICAL, 21 HIGH, 81 MEDIUM, 31 LOW)**.
 
 ### SERVER DEPLOYMENT PACK — `docs/deploy/` (D-234)
 

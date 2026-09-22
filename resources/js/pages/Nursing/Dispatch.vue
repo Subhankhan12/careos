@@ -5,6 +5,7 @@ import { useI18n } from 'vue-i18n';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import Button from '@/Components/Button.vue';
 import Card from '@/Components/Card.vue';
+import EmptyState from '@/Components/EmptyState.vue';
 import Input from '@/Components/Input.vue';
 import { formatDateTime } from '@/lib/date';
 
@@ -44,7 +45,7 @@ type NurseLane = {
 };
 
 const props = defineProps<{
-    filters: { date: string; branch_id: string };
+    filters: { date: string; branch_id: string | null };
     branches: Array<{ id: string; name: string }>;
     unassignedVisits: Visit[];
     nurseLanes: NurseLane[];
@@ -73,6 +74,11 @@ const canManageCompetencies = computed(
     () => (page.props.auth as { user?: { permissions?: Record<string, boolean> } }).user?.permissions?.['competency.manage'] === true,
 );
 
+// D-214: branch setup is admin.manage, which is deliberately narrower than dispatch.manage.
+const canSetupBranches = computed(
+    () => (page.props.auth as { user?: { permissions?: Record<string, boolean> } }).user?.permissions?.['admin.manage'] === true,
+);
+
 function reload(): void {
     router.get('/nursing/dispatch', filters, { preserveState: true, replace: true });
 }
@@ -95,7 +101,33 @@ function unassign(visitId: string): void {
     <AppLayout>
         <Head :title="t('nursing.dispatch.title')" />
 
-        <div class="space-y-6">
+        <!--
+            QF13c-M2 — no active branch is earlier than a branch with nothing to dispatch.
+
+            `filters.branch_id === null` means the server found no ACTIVE branch, not that it failed to
+            look. It replaces the board because a branch chooser, lanes and assignment forms would be
+            meaningless. The CTA is admin.manage-gated: a coordinator may open dispatch but must not be
+            pointed at /admin/branches, which would refuse them (D-214). Playwright verifies this rendered
+            state; the source test strips this comment before it checks the real markup.
+        -->
+        <EmptyState
+            v-if="filters.branch_id === null"
+            :title="t('nursing.dispatch.emptyBranchTitle')"
+            :message="t('nursing.dispatch.emptyBranchMessage')"
+            :action-label="canSetupBranches ? t('nursing.dispatch.emptyBranchAction') : undefined"
+            :action-href="canSetupBranches ? '/admin/branches' : undefined"
+        />
+
+        <!-- A real branch with no active nurse resources and no planned visits is a distinct state. -->
+        <EmptyState
+            v-else-if="nurseLanes.length === 0 && unassignedVisits.length === 0"
+            :title="t('nursing.dispatch.emptyBoardTitle')"
+            :message="t('nursing.dispatch.emptyBoardMessage')"
+            :action-label="canSetupBranches ? t('nursing.dispatch.emptyBoardAction') : undefined"
+            :action-href="canSetupBranches ? '/admin/branches' : undefined"
+        />
+
+        <div v-else class="space-y-6">
             <div class="flex flex-col justify-between gap-4 lg:flex-row lg:items-end">
                 <div>
                     <h1 class="text-2xl font-semibold text-ink">{{ t('nursing.dispatch.title') }}</h1>

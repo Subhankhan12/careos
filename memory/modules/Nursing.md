@@ -545,3 +545,14 @@ cross a border or carry a phone set wrong, and the round is planned in the pract
 before this field existed has no zone, and the screen shows the raw value rather than guessing.
 
 `Nursing/Dispatch.vue` is an Inertia page and simply consumes the prop.
+
+## STEP-1 — QF13c-M2 closed (D-236, `<pending>`)
+
+`DispatchBoardController` authorises `dispatch.manage` before resolving a branch, scopes the selected
+branch and branch selector to active sites, and returns the established `first()` + null-guard empty
+payload when a tenant has no active branch. `Nursing/Dispatch.vue` renders that state before the distinct
+active-but-empty board state; its `/admin/branches` CTA is visible only with `admin.manage`. The focused
+Pest proof includes identical unauthorised responses for active/no-branch tenants, inactive-branch
+exclusion, mature deactivation and an active positive control. The Vitest source check is comment-stripped;
+Playwright drove the rendered coordinator and nurse states on a scratch database. No clinical or scheduling
+engine behaviour changed.
