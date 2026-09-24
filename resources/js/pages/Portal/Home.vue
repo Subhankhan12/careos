@@ -3,10 +3,12 @@ import { Head, Link, usePage } from '@inertiajs/vue3';
 import { computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 import PortalLayout from '@/Layouts/PortalLayout.vue';
+import { formatDateTime } from '@/lib/date';
 
 const { t } = useI18n();
 const page = usePage();
 const locale = computed(() => (page.props.locale as string) || 'en');
+const timezone = computed(() => page.props.timezone as string);
 
 const props = defineProps<{
     nextAppointment: { id: string; service: string | null; starts_at: string; status: string } | null;
@@ -22,36 +24,30 @@ const props = defineProps<{
 }>();
 
 const today = computed(() => {
-    try {
-        return new Intl.DateTimeFormat(locale.value, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
-            .format(new Date())
-            .toUpperCase();
-    } catch {
-        return '';
-    }
+    return formatDateTime(
+        new Date().toISOString(),
+        timezone.value,
+        locale.value,
+        { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' },
+        '',
+    ).toUpperCase();
 });
 
 const greeting = computed(() => {
-    const h = new Date().getHours();
+    const h = Number(formatDateTime(new Date().toISOString(), timezone.value, 'en-CA', { hour: '2-digit', hour12: false }, ''));
     if (h < 12) return t('portal.home.greeting.morning');
     if (h < 18) return t('portal.home.greeting.afternoon');
     return t('portal.home.greeting.evening');
 });
 
 function formatWhen(value: string): string {
-    const d = new Date(value);
-    if (Number.isNaN(d.getTime())) return value;
-    try {
-        return new Intl.DateTimeFormat(locale.value, {
-            weekday: 'long',
-            day: 'numeric',
-            month: 'long',
-            hour: '2-digit',
-            minute: '2-digit',
-        }).format(d);
-    } catch {
-        return value;
-    }
+    return formatDateTime(value, timezone.value, locale.value, {
+        weekday: 'long',
+        day: 'numeric',
+        month: 'long',
+        hour: '2-digit',
+        minute: '2-digit',
+    }, value);
 }
 
 // PT.P2 — the server formats it; this page performs no money arithmetic, not even a divide.

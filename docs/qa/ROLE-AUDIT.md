@@ -8200,3 +8200,45 @@ record — where a 404 is the **correct** fail-closed answer and must not be cha
 - **Verified:** active and inactive branches coexist in the fixture; the closed branch is neither selected
   nor listed. A mature tenant whose sole branch is deactivated receives HTTP 200 and the no-active-branch
   state; an active branch still renders the populated dispatch board.
+
+---
+
+## STEP-2 addendum — practice-timezone display fixes (D-237)
+
+The original findings, evidence and reproduction above remain the historical audit record. The status rows
+below are the resolution record for this gate; `docs/OPEN-WORK.md` is re-parsed from the full artifact rather
+than inferred from this table.
+
+| ID | Severity | Status | Gate | Commit |
+|---|---|---|---|---|
+| `P1-M3` | MEDIUM | ✅ **FIXED** | STEP-2 | `<pending>` |
+| `P1-L2` | LOW | ✅ **FIXED** | STEP-2 | `<pending>` |
+| `P2-M3` | MEDIUM | ✅ **FIXED** | STEP-2 | `<pending>` |
+| `P3-M2` | MEDIUM | ✅ **FIXED** | STEP-2 | `<pending>` |
+| `P3-M3` | MEDIUM | ✅ **FIXED** | STEP-2 | `<pending>` |
+| `P4-L1` | LOW | ✅ **FIXED** | STEP-2 | `<pending>` |
+| `P5-M2` | MEDIUM | ✅ **FIXED** | STEP-2 | `<pending>` |
+| `P6-L1` | LOW | ✅ **FIXED** | STEP-2 | `<pending>` |
+| `P7-M3` | MEDIUM | ✅ **FIXED** | STEP-2 | `<pending>` |
+| `P7-L1` | LOW | ✅ **FIXED** | STEP-2 | `<pending>` |
+| `P8-M1` | MEDIUM | ✅ **FIXED** | STEP-2 | `<pending>` |
+| `P9-M1` | MEDIUM | ✅ **FIXED** | STEP-2 | `<pending>` |
+| `P9-M2` | MEDIUM | ⚠️ **PARTLY FIXED** | STEP-2 | `<pending>` |
+| `P9-M4` | MEDIUM | ✅ **FIXED** | STEP-2 | `<pending>` |
+| `P10-M2` | MEDIUM | ✅ **FIXED** | STEP-2 | `<pending>` |
+| `P10-M3` | MEDIUM | ✅ **FIXED** | STEP-2 | `<pending>` |
+
+**Count note (STEP-2).** Applying the §0 counting traps to the full ID/status re-parse yields **195**
+records, **77 resolved** and **118 open** — **0 CRITICAL, 21 HIGH, 70 MEDIUM, 27 LOW**. The historical top
+fix table remains intentionally unchanged; live totals are in `docs/OPEN-WORK.md`.
+
+**What closed.** Every named date/time surface now passes the tenant's explicit `timezone` and `locale` to
+`formatDateTime`, or uses `formatDateOnly` for a date-only fact. This includes the P2-M3 clinical-chart
+birth date, recorded/confirmed allergy dates, note history and saved-time feedback; it is not a
+Dental-only closure. `date.ts` retains its `'en'` default: STEP-2 corrected explicit call sites rather than
+changing that global contract.
+
+**`P9-M2` remains OPEN.** The stay chart now includes the recorded timestamp, in the practice's zone, but
+the original finding also requires a recorded unit and a direction. A direction must never be computed by
+CareOS (the clinical fence), and no recorded unit is available in the current payload. The improvement is
+therefore real but incomplete.

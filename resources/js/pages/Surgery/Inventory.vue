@@ -1,14 +1,18 @@
 <script setup lang="ts">
-import { Head, router } from '@inertiajs/vue3';
-import { reactive, ref } from 'vue';
+import { Head, router, usePage } from '@inertiajs/vue3';
+import { computed, reactive, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import RefusalNotice from '@/Components/RefusalNotice.vue';
+import { formatDateTime } from '@/lib/date';
 
 // Surgical inventory (SURGERY.G4) — PRESENTATIONAL. The item catalog + stock (below-threshold factual) +
 // receive/adjust + the lot/UDI recall lookup. Operational: "below stock" is a factual count; the recall
 // lookup returns records (which patients received a lot/UDI), never a device-safety verdict.
 const { t } = useI18n();
+const page = usePage();
+const timezone = computed(() => (page.props.timezone as string) || 'UTC');
+const locale = computed(() => (page.props.locale as string) || 'en');
 
 type Stock = { id: string; item: string | null; code: string | null; is_implant: boolean; on_hand: number; unit: string; below_threshold: boolean; adjust_url: string };
 type Item = { id: string; code: string; name: string; is_implant: boolean };
@@ -43,7 +47,7 @@ function search(): void {
     router.get(props.actions.recall_url, { lot: lot.value }, { preserveScroll: true, preserveState: true });
 }
 function fmt(iso: string): string {
-    return iso ? iso.replace('T', ' ').slice(0, 16) : '';
+    return formatDateTime(iso, timezone.value, locale.value, undefined, '');
 }
 </script>
 

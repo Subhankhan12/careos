@@ -1,14 +1,17 @@
 <script setup lang="ts">
-import { Head, Link, router } from '@inertiajs/vue3';
-import { reactive, ref } from 'vue';
+import { Head, Link, router, usePage } from '@inertiajs/vue3';
+import { computed, reactive, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import RefusalNotice from '@/Components/RefusalNotice.vue';
+import { formatDateTime } from '@/lib/date';
 
 // ED disposition + the ED→ADT handoff (ED.G5) — PRESENTATIONAL. The clinician records the DECISION (admit /
 // discharge / transfer); ADMIT reuses the existing admission flow to create an inpatient Stay. The system
 // computes/suggests NOTHING — nothing auto-decides the disposition (the electric fence).
 const { t, locale } = useI18n();
+const page = usePage();
+const timezone = computed(() => (page.props.timezone as string) || 'UTC');
 
 const props = defineProps<{
     visit: { id: string; patient: string; status: string; chief_complaint: string; disposition: string | null; dispositioned_at: string | null };
@@ -36,12 +39,7 @@ const choice = ref<'admit' | 'discharge' | 'transfer'>('discharge');
 const form = reactive({ note: '', bed_id: '', clinician_id: '' });
 
 function fmt(iso: string | null): string {
-    if (!iso) return '—';
-    try {
-        return new Intl.DateTimeFormat(locale.value, { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }).format(new Date(iso));
-    } catch {
-        return iso;
-    }
+    return formatDateTime(iso, timezone.value, locale.value);
 }
 
 function submit(): void {

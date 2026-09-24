@@ -1,14 +1,18 @@
 <script setup lang="ts">
-import { Head, router } from '@inertiajs/vue3';
+import { Head, router, usePage } from '@inertiajs/vue3';
 import { computed, reactive } from 'vue';
 import { useI18n } from 'vue-i18n';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import RefusalNotice from '@/Components/RefusalNotice.vue';
+import { formatDateTime } from '@/lib/date';
 
 // Imaging order entry (RAD.G2) — PRESENTATIONAL. An imaging order IS a Clinical Order (reused); this places one
 // + lists the patient's imaging orders with their lifecycle state. The priority is a RECORDED flag the clinician
 // sets — the screen records it; nothing computes a priority or ranks by urgency (the electric fence).
 const { t } = useI18n();
+const page = usePage();
+const timezone = computed(() => (page.props.timezone as string) || 'UTC');
+const locale = computed(() => (page.props.locale as string) || 'en');
 
 type RadiologyOrderRow = {
     id: string;
@@ -36,7 +40,7 @@ const form = reactive({ radiology_exam_id: props.exams[0]?.id ?? '', priority: '
 const selected = computed(() => props.exams.find((e) => e.id === form.radiology_exam_id));
 
 function fmt(iso: string | null): string {
-    return iso ? new Date(iso).toLocaleString() : '—';
+    return formatDateTime(iso, timezone.value, locale.value);
 }
 
 function place(): void {

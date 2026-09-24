@@ -1,15 +1,18 @@
 <script setup lang="ts">
-import { Head, Link, router } from '@inertiajs/vue3';
+import { Head, Link, router, usePage } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import RefusalNotice from '@/Components/RefusalNotice.vue';
+import { formatDateTime } from '@/lib/date';
 
 // The modality worklist (RAD.G3) — PRESENTATIONAL. The radiographer's "studies to acquire": imaging orders
 // awaiting acquisition, shown as FACTS (patient, exam, modality, body-part, the recorded priority, ordered-time).
 // Reuses the board/lab-review idiom. THE FENCE: no computed priority ranking — staff MAY sort by the recorded
 // flag or time (a fact). No image here — the DICOM path is the seam-stubbed RAD.G6.
 const { t, locale } = useI18n();
+const page = usePage();
+const timezone = computed(() => (page.props.timezone as string) || 'UTC');
 
 type WorklistRow = {
     radiology_order_id: string;
@@ -46,12 +49,7 @@ const sorted = computed<WorklistRow[]>(() => {
 });
 
 function fmt(iso: string | null): string {
-    if (!iso) return '—';
-    try {
-        return new Intl.DateTimeFormat(locale.value, { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }).format(new Date(iso));
-    } catch {
-        return iso;
-    }
+    return formatDateTime(iso, timezone.value, locale.value);
 }
 
 function acquire(row: WorklistRow): void {

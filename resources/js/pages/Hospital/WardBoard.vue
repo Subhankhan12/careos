@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { Head, router } from '@inertiajs/vue3';
+import { Head, router, usePage } from '@inertiajs/vue3';
 import { computed, reactive, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import RefusalNotice from '@/Components/RefusalNotice.vue';
+import { formatDateTime } from '@/lib/date';
 
 // The ward board (HOSPITAL.G3) — the live bed-occupancy cockpit. PRESENTATIONAL over the G1 bed
 // model + G2 ADT domain (P0D.GU): it renders service data and dispatches the EXISTING ADT/bed
@@ -14,6 +15,8 @@ import RefusalNotice from '@/Components/RefusalNotice.vue';
 // and a plain occupancy count. The status COLOUR is the housekeeping state (free/occupied/cleaning/
 // blocked), NEVER a clinical acuity/severity/risk. No judgment is computed or rendered.
 const { t, locale } = useI18n();
+const page = usePage();
+const timezone = computed(() => page.props.timezone as string);
 
 type Occupant = {
     stay_id: string;
@@ -87,11 +90,7 @@ function elapsed(iso: string): string {
     return t('hospital.board.losMinutes', { minutes: mins });
 }
 function admittedDate(iso: string): string {
-    try {
-        return new Intl.DateTimeFormat(locale.value, { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }).format(new Date(iso));
-    } catch {
-        return iso;
-    }
+    return formatDateTime(iso, timezone.value, locale.value);
 }
 
 // The legal manual bed-status targets per current status (mirrors the server's Bed::TRANSITIONS,

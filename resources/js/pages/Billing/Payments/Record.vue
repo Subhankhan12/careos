@@ -1,10 +1,13 @@
 <script setup lang="ts">
-import { Head, Link, useForm } from '@inertiajs/vue3';
+import { Head, Link, useForm, usePage } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import AppLayout from '@/Layouts/AppLayout.vue';
+import { formatDateTime } from '@/lib/date';
 
 const { t, te } = useI18n();
+const page = usePage();
+const timezone = computed(() => page.props.timezone as string);
 
 type TargetInvoice = {
     id: string;
@@ -41,7 +44,13 @@ function toMinor(value: string): number {
     return Number.isFinite(n) ? Math.round(n * 100) : 0;
 }
 
-const today = new Date().toISOString().slice(0, 10);
+const today = formatDateTime(
+    new Date().toISOString(),
+    timezone.value,
+    'en-CA',
+    { year: 'numeric', month: '2-digit', day: '2-digit' },
+    '',
+);
 const allocate = ref(props.invoice !== null);
 
 const form = useForm({

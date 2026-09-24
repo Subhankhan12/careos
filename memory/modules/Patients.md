@@ -485,3 +485,7 @@ non-empty?" answers YES for a row nobody opened. Mutation-checked by widening th
 **It was extracted because a mutation proved the test could not see the difference.** Inline, the only
 assertion was that the component contained a transform — a neutered filter satisfied it, and the
 request-level test posts empty arrays directly so it never exercises the client at all.
+
+## STEP-2 — practice-time display
+
+`Patients/Show.vue` renders date-only birth dates and access-history instants through the shared tenant helpers; this closes the Patients surfaces of `P1-M3` and `P2-M3`.

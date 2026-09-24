@@ -1,13 +1,16 @@
 <script setup lang="ts">
-import { Head, router } from '@inertiajs/vue3';
-import { reactive } from 'vue';
+import { Head, router, usePage } from '@inertiajs/vue3';
+import { computed, reactive } from 'vue';
 import { useI18n } from 'vue-i18n';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import AllergyRecordPanel from '@/Components/AllergyRecordPanel.vue';
+import { formatDateTime } from '@/lib/date';
 
 // Dispensing (PHARMACY.G4) — PRESENTATIONAL. The patient's active orders (with on-hand) + dispensing
 // history; dispensing decrements stock (concurrency-safe, server-side). Operational facts only.
 const { t, locale } = useI18n();
+const page = usePage();
+const timezone = computed(() => (page.props.timezone as string) || 'UTC');
 
 type Order = { id: string; name: string; dose: string; on_hand: number | null; dispense_url: string };
 type DispenseRow = { id: string; name: string; quantity: number; dispensed_at: string; charged: boolean };
@@ -49,7 +52,7 @@ function dispense(order: Order): void {
 }
 
 function fmtTime(iso: string): string {
-    return new Intl.DateTimeFormat(locale.value, { dateStyle: 'short', timeStyle: 'short' }).format(new Date(iso));
+    return formatDateTime(iso, timezone.value, locale.value);
 }
 </script>
 

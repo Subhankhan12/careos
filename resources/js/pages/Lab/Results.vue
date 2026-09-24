@@ -1,15 +1,18 @@
 <script setup lang="ts">
-import { Head, router } from '@inertiajs/vue3';
-import { reactive, ref } from 'vue';
+import { Head, router, usePage } from '@inertiajs/vue3';
+import { computed, reactive, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import RefusalNotice from '@/Components/RefusalNotice.vue';
+import { formatDateTime } from '@/lib/date';
 
 // Manual result entry (LAB.G4) — PRESENTATIONAL. THE FENCE GATE. Enter a raw result value against a specimen
 // (REUSES the Clinical OrderResult); the reference range is DISPLAYED beside the value as recorded reference
 // data. The screen records the value + SHOWS the range — it computes NO abnormal/high/low/critical flag, does
 // NOT colour-by-abnormal, does NOT delta-check, does NOT interpret. The clinician reads value-vs-range.
 const { t, locale } = useI18n();
+const page = usePage();
+const timezone = computed(() => (page.props.timezone as string) || 'UTC');
 
 type SpecimenRow = { id: string; accession_number: string; status: string; can_result: boolean; result_url: string };
 type ResultRow = { id: string; result_value: string | null; source: string; entered_at: string; accession_number: string | null; entered_by_name: string | null };
@@ -27,11 +30,7 @@ const form = reactive({ specimen_id: resultable[0]?.id ?? '', value: '' });
 const submitting = ref(false);
 
 function fmt(iso: string): string {
-    try {
-        return new Intl.DateTimeFormat(locale.value, { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }).format(new Date(iso));
-    } catch {
-        return iso;
-    }
+    return formatDateTime(iso, timezone.value, locale.value);
 }
 
 function record(): void {

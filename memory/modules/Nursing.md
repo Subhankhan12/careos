@@ -552,6 +552,10 @@ before this field existed has no zone, and the screen shows the raw value rather
 branch and branch selector to active sites, and returns the established `first()` + null-guard empty
 payload when a tenant has no active branch. `Nursing/Dispatch.vue` renders that state before the distinct
 active-but-empty board state; its `/admin/branches` CTA is visible only with `admin.manage`. The focused
+## STEP-2 — practice-time display
+
+The Nurse PWA's visible "Last synced" value now formats the supplied instant in the practice timezone and locale, closing `P4-L1`.
+
 Pest proof includes identical unauthorised responses for active/no-branch tenants, inactive-branch
 exclusion, mature deactivation and an active positive control. The Vitest source check is comment-stripped;
 Playwright drove the rendered coordinator and nurse states on a scratch database. No clinical or scheduling

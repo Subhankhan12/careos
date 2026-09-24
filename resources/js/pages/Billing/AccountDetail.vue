@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Head, Link, useForm } from '@inertiajs/vue3';
+import { Head, Link, useForm, usePage } from '@inertiajs/vue3';
 import { computed, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import AppLayout from '@/Layouts/AppLayout.vue';
@@ -19,8 +19,12 @@ import AppLayout from '@/Layouts/AppLayout.vue';
  */
 
 import { formatSwissMoney } from '@/lib/money';
+import { formatDateOnly, formatDateTime } from '@/lib/date';
 
 const { t, te } = useI18n();
+const page = usePage();
+const timezone = computed(() => page.props.timezone as string);
+const locale = computed(() => (page.props.locale as string) || 'en');
 
 type Overdue = {
     total_overdue_minor: number;
@@ -206,10 +210,18 @@ function toMinor(value: string): number {
 function major(minor: number): string {
     return (minor / 100).toFixed(2);
 }
-// Local calendar date (not the UTC slice of an ISO string, which shifts a day behind UTC).
-function todayLocal(): string {
-    const d = new Date();
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+// Date controls receive the practice's current calendar date, not the viewer's date or a UTC slice.
+function practiceTodayInput(): string {
+    return formatDateTime(
+        new Date().toISOString(),
+        timezone.value,
+        'en-CA',
+        { year: 'numeric', month: '2-digit', day: '2-digit' },
+        '',
+    );
+}
+function dateOnly(value: string | null): string {
+    return formatDateOnly(value, locale.value);
 }
 
 type AllocationLine = { invoice_id: string; number: string | null; open_balance_minor: number; amount: string; apply: boolean };
@@ -238,7 +250,7 @@ watch(
 const form = useForm({
     amount: '',
     method: props.payment.methods[0] ?? 'bank_transfer',
-    received_on: todayLocal(),
+    received_on: practiceTodayInput(),
     reference: '',
 });
 
@@ -251,9 +263,9 @@ const planForm = useForm({
     // Defaulted to the engine's own outstanding figure — a convenience default, not a computation.
     amount: major(props.ledger.account_outstanding_minor),
     installment_count: '3',
-    start_date: todayLocal(),
+    start_date: practiceTodayInput(),
 });
-const installmentForm = useForm({ method: props.payment.methods[0] ?? 'bank_transfer', received_on: todayLocal(), reference: '' });
+const installmentForm = useForm({ method: props.payment.methods[0] ?? 'bank_transfer', received_on: practiceTodayInput(), reference: '' });
 const cancelForm = useForm({ reason: '' });
 const payingId = ref<string | null>(null);
 
@@ -442,7 +454,7 @@ function submitPayment(): void {
                                     </a>
                                     <span v-else class="font-mono text-xs text-ink-subtle">—</span>
                                 </td>
-                                <td class="px-2 py-2.5 tabular-nums text-ink-muted">{{ row.issue_date }}</td>
+                                <td class="px-2 py-2.5 tabular-nums text-ink-muted">{{ dateOnly(row.issue_date) }}</td>
                                 <td class="px-2 py-2.5">
                                     <span class="inline-flex items-center gap-1.5">
                                         <span class="h-2 w-2 rounded-full" :class="row.days_overdue > 0 ? 'bg-warning' : 'bg-euca-500'"></span>
@@ -621,12 +633,12 @@ function submitPayment(): void {
                             <tbody class="divide-y divide-line/70">
                                 <tr v-for="i in plan.current.installments" :key="i.id">
                                     <td class="px-2 py-2.5 tabular-nums text-ink-muted">{{ i.sequence }}</td>
-                                    <td class="px-2 py-2.5 tabular-nums text-ink-muted">{{ i.due_date }}</td>
+                                    <td class="px-2 py-2.5 tabular-nums text-ink-muted">{{ dateOnly(i.due_date) }}</td>
                                     <td class="px-2 py-2.5 text-right tabular-nums text-ink">{{ money(i.amount_minor) }}</td>
                                     <td class="px-2 py-2.5">
                                         <span class="inline-flex items-center gap-1.5">
                                             <span class="h-2 w-2 rounded-full" :class="i.status === 'paid' ? 'bg-euca-500' : i.overdue ? 'bg-warning' : 'bg-ink-subtle'"></span>
-                                            <span class="text-ink">{{ i.status === 'paid' ? t('billing.accountDetail.plan.paidOn', { date: i.paid_on }) : i.overdue ? t('billing.accountDetail.plan.overdue') : t('billing.accountDetail.plan.pending') }}</span>
+                                            <span class="text-ink">{{ i.status === 'paid' ? t('billing.accountDetail.plan.paidOn', { date: dateOnly(i.paid_on) }) : i.overdue ? t('billing.accountDetail.plan.overdue') : t('billing.accountDetail.plan.pending') }}</span>
                                         </span>
                                     </td>
                                     <td v-if="plan.can_manage && planStatusIsOpen" class="px-2 py-2.5 text-right">
@@ -686,7 +698,7 @@ function submitPayment(): void {
                 <!-- The live escalation -->
                 <div v-if="enforcement.current" class="mt-4 rounded-2xl border border-line bg-white/50 p-4">
                     <div class="flex flex-wrap items-baseline justify-between gap-2">
-                        <span class="text-sm font-semibold text-ink">{{ t('billing.accountDetail.enforcement.initiatedBy', { who: enforcement.current.initiated_by ?? '—', date: enforcement.current.initiated_on }) }}</span>
+                        <span class="text-sm font-semibold text-ink">{{ t('billing.accountDetail.enforcement.initiatedBy', { who: enforcement.current.initiated_by ?? '—', date: dateOnly(enforcement.current.initiated_on) }) }}</span>
                         <span class="text-xs tabular-nums text-ink-muted">{{ t('billing.accountDetail.enforcement.atStage', { stage: enforcement.current.dunning_stage, amount: money(enforcement.current.outstanding_minor) }) }}</span>
                     </div>
                     <p class="mt-1 text-sm text-ink-muted">{{ enforcement.current.reason }}</p>
@@ -743,7 +755,7 @@ function submitPayment(): void {
                 <!-- Full provenance: every act, append-only -->
                 <ul v-if="enforcement.history.length > 1" class="mt-4 space-y-1 border-t border-line pt-3">
                     <li v-for="h in enforcement.history" :key="h.id" class="flex flex-wrap items-baseline justify-between gap-2 text-xs text-ink-muted">
-                        <span>{{ t(`billing.accountDetail.enforcement.actions.${h.action}`) }} · {{ h.initiated_by ?? '—' }} · {{ h.initiated_on }}</span>
+                        <span>{{ t(`billing.accountDetail.enforcement.actions.${h.action}`) }} · {{ h.initiated_by ?? '—' }} · {{ dateOnly(h.initiated_on) }}</span>
                         <span class="text-ink-subtle">{{ h.reason }}</span>
                     </li>
                 </ul>

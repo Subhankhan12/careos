@@ -545,5 +545,9 @@ now uses `Rule::in(Bed::STATUSES)`; the load-bearing guard stays in the service 
 and still requires `free`, so a bed wedged before this fix stays wedged. A way back is a designed
 capability with its own authorisation and audit questions — a feature, not a line in a fix gate.
 
+## STEP-2 — practice-time display
+
+Admission, handover, discharge, stay, and ward-board date/time displays use explicit practice context. `P9-M1` and `P9-M4` close; `P9-M2` remains partly fixed because a page cannot invent an observation unit or clinical direction.
+
 **`WardBedManagementTest` needed no change** — it claims beds with **no stay**, so the status machine's own
 tests are unaffected by a guard keyed on an admitted stay. Worth knowing before touching either.

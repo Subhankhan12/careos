@@ -5,11 +5,12 @@ import { useI18n } from 'vue-i18n';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import EmptyState from '@/Components/EmptyState.vue';
 import StatCard from '@/Components/StatCard.vue';
-import { formatDateOnly } from '@/lib/date';
+import { formatDateOnly, formatDateTime } from '@/lib/date';
 
 const { t } = useI18n();
 const page = usePage();
 const locale = computed(() => (page.props.locale as string) || 'en');
+const timezone = computed(() => page.props.timezone as string);
 
 type ThreadSummary = {
     id: string;
@@ -121,13 +122,7 @@ function initials(name: string | null): string {
     return ((p[0]?.[0] ?? '') + (p.length > 1 ? (p[p.length - 1][0] ?? '') : '')).toUpperCase();
 }
 function timeLabel(value: string): string {
-    const d = new Date(value);
-    if (Number.isNaN(d.getTime())) return value;
-    try {
-        return new Intl.DateTimeFormat(locale.value, { hour: '2-digit', minute: '2-digit' }).format(d);
-    } catch {
-        return value;
-    }
+    return formatDateTime(value, timezone.value, locale.value, { hour: '2-digit', minute: '2-digit' }, value);
 }
 
 /**
@@ -144,13 +139,7 @@ function provenanceLabel(message: Message): string {
 
 /** A full timestamp (not date-only) — safe to parse directly; see lib/date.ts. */
 function dateTimeLabel(value: string): string {
-    const d = new Date(value);
-    if (Number.isNaN(d.getTime())) return value;
-    try {
-        return new Intl.DateTimeFormat(locale.value, { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }).format(d);
-    } catch {
-        return value;
-    }
+    return formatDateTime(value, timezone.value, locale.value, { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }, value);
 }
 
 // The declined affordances, named on the page. Iterated so a key that is removed from the copy
@@ -221,7 +210,7 @@ const typeFilters = [
                                         <span v-if="thread.unread > 0" class="h-2 w-2 shrink-0 rounded-full bg-euca-600" :title="t('comms.inbox.unread', { count: thread.unread })"></span>
                                     </span>
                                     <span class="block truncate text-xs text-ink-subtle">
-                                        {{ thread.patient ?? t('comms.inbox.filters.internal') }} · {{ thread.last_message_at ?? '—' }}
+                                        {{ thread.patient ?? t('comms.inbox.filters.internal') }} · {{ thread.last_message_at ? dateTimeLabel(thread.last_message_at) : '—' }}
                                     </span>
                                 </span>
                             </button>

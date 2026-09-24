@@ -9,7 +9,7 @@ import RefusalNotice from '@/Components/RefusalNotice.vue';
 import Tabs from '@/Components/Tabs.vue';
 import Timeline from '@/Components/Timeline.vue';
 import VersionHistory from '@/Components/VersionHistory.vue';
-import { ageFromDateOnly, formatDateTime } from '@/lib/date';
+import { ageFromDateOnly, formatDateOnly, formatDateTime } from '@/lib/date';
 import { vitalDisplayValue } from '@/lib/units';
 
 const { t } = useI18n();
@@ -239,7 +239,7 @@ function transitionOrder(orderId: string, status: string): void {
                             </div>
                             <div class="mt-3 flex flex-wrap items-center gap-2 text-sm">
                                 <span class="rounded-md bg-white/10 px-2.5 py-1 font-mono text-euca-100">{{ patient.mrn }}</span>
-                                <span class="rounded-md bg-white/10 px-2.5 py-1 text-euca-100">{{ patient.date_of_birth }}<template v-if="age !== null"> · {{ age }} y</template> · {{ patient.sex }}</span>
+                                <span class="rounded-md bg-white/10 px-2.5 py-1 text-euca-100">{{ formatDateOnly(patient.date_of_birth, locale) }}<template v-if="age !== null"> · {{ age }} y</template> · {{ patient.sex }}</span>
                                 <span class="rounded-md bg-white/10 px-2.5 py-1 text-euca-100">{{ t('clinical.chart.summary', { encounters: counts.encounters, problems: counts.problems, medications: counts.medications }) }}</span>
                                 <span v-if="counts.openRecalls > 0" class="inline-flex items-center gap-1.5 rounded-md bg-warning/25 px-2.5 py-1 text-euca-50">
                                     <span class="h-1.5 w-1.5 rounded-full bg-warning"></span>{{ t('clinical.chart.openRecalls', { count: counts.openRecalls }, counts.openRecalls) }}

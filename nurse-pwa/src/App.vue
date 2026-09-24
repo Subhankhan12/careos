@@ -18,7 +18,7 @@ import {
 } from './visitActions';
 import type { DayPack, TaskSummary, VisitSummary } from './types';
 import { buildVitalsHistoryRows } from './vitalsDisplay';
-import { formatVisitWindow } from './visitTime';
+import { formatVisitTime, formatVisitWindow } from './visitTime';
 
 const { t } = useI18n();
 const email = ref('');
@@ -61,6 +61,7 @@ let stopIdle: (() => void) | null = null;
  */
 const visitWindow = (visit: VisitSummary): string =>
     formatVisitWindow(visit.window_start_at, visit.window_end_at, dayPack.value?.timezone);
+const lastSynced = computed(() => formatVisitTime(lastSyncedAt.value, dayPack.value?.timezone));
 
 const selectedVisit = computed<VisitSummary | null>(() =>
     dayPack.value?.visits.find((visit) => visit.id === selectedVisitId.value) ?? null,
@@ -294,7 +295,7 @@ onUnmounted(() => {
             <p class="status">{{ t(statusKey) }}</p>
             <p class="status">
                 {{ t('sync.pending', { count: pendingCount }) }}
-                <span v-if="lastSyncedAt">{{ t('sync.lastSynced', { time: lastSyncedAt }) }}</span>
+                <span v-if="lastSyncedAt">{{ t('sync.lastSynced', { time: lastSynced }) }}</span>
                 <span v-if="errorKey">{{ t(errorKey) }}</span>
             </p>
 

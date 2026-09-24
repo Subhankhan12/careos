@@ -3,9 +3,11 @@ import { Head, Link, useForm, usePage } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import AppLayout from '@/Layouts/AppLayout.vue';
+import { formatDateOnly } from '@/lib/date';
 
 const { t, te } = useI18n();
 const page = usePage();
+const locale = computed(() => (page.props.locale as string) || 'en');
 // A record-then-allocate that the service rejects redirects HERE with a flashed
 // 'allocate' error; surface it (the payment is recorded, the allocation was not).
 const flashedAllocateError = computed(() => (page.props.errors as Record<string, string> | undefined)?.allocate ?? null);
@@ -48,6 +50,9 @@ function money(minor: number, currency = props.payment.currency): string {
 function methodLabel(method: string): string {
     const key = `billing.method.${method}`;
     return te(key) ? t(key) : method;
+}
+function dateOnly(value: string | null): string {
+    return formatDateOnly(value, locale.value);
 }
 
 const allocateForm = useForm({ invoice_id: props.openInvoices[0]?.id ?? '', amount: '' });
@@ -94,7 +99,7 @@ function submitReverse(): void {
                         <span class="rounded-full bg-white/15 px-2.5 py-0.5 text-xs font-semibold text-euca-50">{{ methodLabel(payment.method) }}</span>
                     </div>
                     <p class="mt-1 text-sm text-euca-200">
-                        <span v-if="payment.patient">{{ payment.patient }} · </span>{{ t('billing.payments.received') }} {{ payment.received_on }}
+                        <span v-if="payment.patient">{{ payment.patient }} · </span>{{ t('billing.payments.received') }} {{ dateOnly(payment.received_on) }}
                         <span v-if="payment.reference"> · {{ payment.reference }}</span>
                     </p>
                 </div>
@@ -130,7 +135,7 @@ function submitReverse(): void {
                                         <span v-else-if="a.reversed" class="ml-2 rounded-full bg-surface-2 px-2 py-0.5 text-xs font-semibold text-ink-muted">{{ t('billing.payments.reversedTag') }}</span>
                                         <p v-if="a.reason" class="mt-0.5 text-xs text-ink-muted">{{ a.reason }}</p>
                                     </td>
-                                    <td class="px-3 py-3 text-ink-muted">{{ a.allocated_on }}</td>
+                                    <td class="px-3 py-3 text-ink-muted">{{ dateOnly(a.allocated_on) }}</td>
                                     <td class="px-3 py-3 text-right tabular-nums" :class="a.amount_minor < 0 ? 'text-danger' : 'text-ink'">{{ money(a.amount_minor) }}</td>
                                     <td class="py-3 pl-3 text-right">
                                         <button v-if="actions.can_manage && !a.is_reversal && !a.reversed" type="button" class="text-xs font-semibold text-danger hover:underline" @click="openReverse(a.id)">{{ t('billing.payments.reverse') }}</button>
@@ -156,7 +161,7 @@ function submitReverse(): void {
                     <div v-if="refunds.length" class="border-t border-line pt-4">
                         <p class="text-xs font-semibold uppercase tracking-wide text-ink-subtle">{{ t('billing.payments.refunds') }}</p>
                         <div v-for="r in refunds" :key="r.id" class="mt-2 flex items-center justify-between text-sm">
-                            <span class="text-ink-muted">{{ r.refunded_on }} · {{ r.reason }}</span>
+                            <span class="text-ink-muted">{{ dateOnly(r.refunded_on) }} · {{ r.reason }}</span>
                             <span class="tabular-nums text-ink">{{ money(r.amount_minor) }}</span>
                         </div>
                     </div>

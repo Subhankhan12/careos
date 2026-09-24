@@ -1,12 +1,12 @@
 # OPEN-WORK.md — the itemised open-work register
 
-**Full re-parse recorded at STEP-1 (`<pending>`); underlying ROLE-AUDIT artifact state through this gate,
-2026-09-21.** First written at `de57a7c` against `2b4ec48`; refreshed by
+**Full re-parse recorded at STEP-2 (`<pending>`); underlying ROLE-AUDIT artifact state through this gate,
+2026-09-23.** First written at `de57a7c` against `2b4ec48`; refreshed by
 QA-FIX.13b, and refreshed again here by a **full re-parse of the artifact** — not by adjusting the previous
 totals. The staleness banner the last refresh carried is removed because the numbers below are derived
 again, end to end.
 
-This is every piece of open work CareOS has, in one place: the 133 open QA findings itemised one per row,
+This is every piece of open work CareOS has, in one place: the 118 open QA findings itemised one per row,
 plus the product decisions, the deliberately deferred work, the partner-gated work and the deployment
 track. It is derived from `docs/qa/ROLE-AUDIT.md` (the authoritative append-only QA record), `DEFERRED.md`,
 `DECISIONS.md` and `PROJECT-STATE.md`.
@@ -30,9 +30,12 @@ line, totals row, or `PROJECT-STATE.md` figure was trusted as input.
 | Distinct finding ids in the artifact | **195** (185 `P*` + 10 `QF*`) |
 | Findings with a record of their own | **195 / 195** — none orphaned |
 | Per phase | P1 18 · P2 19 · P3 15 · P4 23 · P5 14 · P6 20 · P7 17 · P8 17 · P9 25 · P10 17 (+10 gate-raised) |
-| Resolved | **62** |
-| **Open** | **133** — C **0** · H **21** · M **81** · L **31** |
-| Of the open, PARTLY FIXED | 2 — `P3-H2`, `P10-M1` |
+| Resolved | **77** |
+| **Open** | **118** — C **0** · H **21** · M **70** · L **27** |
+| Of the open, PARTLY FIXED | 3 — `P3-H2`, `P9-M2`, `P10-M1` |
+
+> **Historical re-parse notes follow.** Their prior totals describe the artifact at the stated historical
+> commits; the counted result above is the live number.
 
 **What QA-FIX.13b changed:** `QF11a-M1` closed (MEDIUM −1), and two new findings were recorded rather than
 widened into — `QF13b-H1` and `QF13b-H2`, both HIGH (HIGH +2). 191 → 193 recorded, 59 → 60 resolved,
@@ -117,6 +120,18 @@ with `P8-H2` (line 115). A counter must read every id in a row's first cell, not
 > unbannered-but-fixed records and bring the top-of-file `## Fix status` table up to gate 12, so a reader
 > can get the right answer from either mechanism alone.
 
+### STEP-2 re-parse and closure boundary
+
+STEP-2 resolves **15** display findings: `P1-M3`, `P1-L2`, `P2-M3`, `P3-M2`, `P3-M3`, `P4-L1`, `P5-M2`,
+`P6-L1`, `P7-M3`, `P7-L1`, `P8-M1`, `P9-M1`, `P9-M4`, `P10-M2`, and `P10-M3`. Each named surface now passes
+the tenant's explicit `Europe/Zurich` and `de`/`de-CH` context to the existing display helpers; the shared
+helper's `en` default was not changed. `P9-M2` remains **open and PARTLY FIXED**: a display timestamp is now
+present, but its two other stated defects require a source unit and a clinician-authored direction, neither
+of which a page may invent. This is a status re-parse, not a subtraction from a summary: 66 records now have
+an explicit `FIXED` banner, nine are resolved by a grouped fix-status table only, `P9-H1` is explicitly
+`PREVENTED`, and `QF12a-H1` is the documented same-gate fix without either marker. Those mechanisms yield
+77 resolved IDs and 118 open IDs after the §0 traps are applied.
+
 ### How to read the family and precedent columns
 
 The artifact's *"open list, prioritised"* table groups findings into **seven families by shared remedy**.
@@ -140,14 +155,14 @@ It states family membership **for HIGH findings only**. Therefore:
 | **2** — operations that mislead, or that cannot be undone | **22** | 2 (1†) | 16 | 4 |
 | **3** — invisible refusals | **6** | 1 | 3 (1†) | 2 |
 | **4** — unrecorded disclosure | **3** | 0 | 2 | 1 |
-| **5** — display / locale divergence | **32** | 1 | 20 | 11 |
+| **5** — display / locale divergence | **17** | 1 | 9 | 7 |
 | **6** — attribution recorded but not surfaced | **5** | 0 | 3 | 2 |
 | **7** — partial writes outside a transaction | **2** | 0 | 2 | 0 |
-| **outside the seven** | **9** | 0 | 5 | 4 |
-| **Total** | **134** | **21** | **82** | **31** |
+| **outside the seven** | **8** | 0 | 4 | 4 |
+| **Total** | **118** | **21** | **70** | **27** |
 
-**Families 1 and 5 are two-thirds of everything open.** That is the scheduling fact this register exists
-to surface: 87 of 134 findings are *"a capability you cannot reach"* or *"a value rendered wrongly"*.
+**Families 1 and 5 are still the largest share of everything open.** That is the scheduling fact this register
+exists to surface: 72 of 118 findings are *"a capability you cannot reach"* or *"a value rendered wrongly"*.
 
 **FIX or FEATURE** follows the QA-FIX.12d classification: a **FIX** changes code that already exists to
 stop it misleading, losing or refusing wrongly; a **FEATURE** builds a capability that is not there. The
@@ -167,7 +182,7 @@ be reached and no amount of RBAC wiring creates it — and an eighth, `P9-H5`, i
 nine are genuinely wiring, all against the one D-214 precedent. The artifact's own instruction stands:
 **triage each before scheduling.** Families 4, 6 and 7 have no open HIGH at all.
 
-**Across the whole 134: 120 are FIX, 12 are FEATURE, and 2 are part of each** (`P9-H5`, `P10-M1`). The 14
+**Across the whole 118: 104 are FIX, 12 are FEATURE, and 2 are part of each** (`P9-H5`, `P10-M1`). The 14
 FEATURE-bearing findings are the ones a fix gate must **stop** on rather than build through — the
 `474cefe`, QA-FIX.12d and QA-FIX.13b precedent.
 
@@ -212,9 +227,9 @@ FEATURE-bearing findings are the ones a fix gate must **stop** on rather than bu
 |---|---|---|---|---|---|---|---|---|
 | `QF12c-H1` | H | QA-FIX.12c | surgeon / org_admin | The surgery scheduling form interprets the typed wall clock as UTC, so a case is stored an offset away from what the surgeon typed *(wall clock read as UTC)* | `POST /surgery/cases` | 5 | D-228 (QA-FIX.12c, `2e76387`) — `formatDateTime` + naive-instant normalisation | **FIX** |
 
-## 2. Open MEDIUMs, by family / pattern — 82
+## 2. Open MEDIUMs, by family / pattern — 70
 
-82 open MEDIUMs. Family assignments here are **derived** (see §0) — the artifact states membership for
+70 open MEDIUMs. Family assignments here are **derived** (see §0) — the artifact states membership for
 HIGHs only. The clusters worth taking as **one job** are named in the sub-pattern column, counted across
 all severities:
 
@@ -222,7 +237,7 @@ all severities:
 |---|---|---|---|
 | **RBAC mismatch** — a role 403 on the routes its own permissions name | **13** (H7 · M5 · L1) | D-214 | The single biggest cluster in the product, and all of it is wiring |
 | **Responsive nav absent** below 768 px | **9** (M7 · L2) | **none** | No precedent exists, and one shell change closes every instance. The cheapest 9 findings on this list |
-| **Date/time rendering** | **17** (M13 · L4) | D-091 · D-192/D-193 · D-228 | The helpers now all exist — `formatDateOnly`, `formatDateTime`, the tenant zone on the page — so this is adoption, not design |
+| **Date/time rendering** | **2** (M2) | D-091 · D-192/D-193 · D-228 | `P9-M2` remains partly fixed (timestamp only; unit and clinician-authored direction are not supplied), and `P4-M7` is still a locale-wide UI gap |
 | **Money display** | **6** (M6) | D-091 shape | 4 render money with no currency or a module-local formatter; **2 derive money page-side**, which is the more serious half |
 | **Missing nav entry** — a module with no link anywhere | **5** (H1 · M4) | D-214 | Same nav map as the RBAC cluster; take them together |
 | **Over-offer / role-blind picker** | **6** (M5 · L1) | D-214 | The half of pattern 1 that `c999181` did *not* close |
@@ -302,30 +317,19 @@ all severities:
 | `P10-M4` | M | P10 | Admin / governance + patient portal · Imports | Creating a patient is not audited at all, by any path *(unrecorded write)* | `/imports` | 4 | D-221/D-222 shape (the recorder) — though this is a WRITE, not a disclosure | **FIX** |
 | `QF12a-M1` | M | QA-FIX.12a | raised by a fix gate | A live staff session in the same browser steals attribution for the patient's own portal reads *(disclosure mis-attributed)* | — | 4 | D-226 (QA-FIX.12a, `3c5fed1`) recorded it; `P10-L1` is the same defect | **FIX** |
 
-### Family 5 — display / locale divergence — 20 open MEDIUM
+### Family 5 — display / locale divergence — 9 open MEDIUM
 
 | ID | Sev | Phase | Role / module | What is open | Route or `file:line` | Family | Precedent | FIX / FEATURE |
 |---|---|---|---|---|---|---|---|---|
-| `P1-M3` | M | P1 | reception · Patients | The same date renders in three different formats, one of them US month/day in a de-CH tenant *(date format divergence)* | `/patients, /patients/{id}, /scheduling/appointments/{id}` | 5 | D-091 `formatDateOnly`; D-228 `formatDateTime` | **FIX** |
-| `P10-M2` | M | P10 | Admin / governance + patient portal | The portal tells the patient what day it is in the VIEWER's timezone, so an appointment today is labelled "tomorrow" *(viewer-zone rendering)* | — | 5 | D-228 (QA-FIX.12c, `2e76387`) | **FIX** |
-| `P10-M3` | M | P10 | Admin / governance + patient portal · Portal | Three portal pages print raw UTC timestamps beside a viewer-zone date *(raw UTC on a shipped page)* | `/portal/documents` | 5 | D-228 (QA-FIX.12c, `2e76387`) | **FIX** |
-| `P2-M3` | M | P2 | Clinician (doctor / dentist) · Patients | The same kind of date renders in four formats, one of them US month/day in a de-CH tenant *(date format divergence)* | `/patients` | 5 | D-091; D-228 | **FIX** |
 | `P3-M1` | M | P3 | Billing / finance · UI shell | The Swiss money formatter is used on 1 of 12 billing surfaces *(money display divergence)* | `resources/js/lib/money.ts` | 5 | D-091 shape — one shared formatter, all call sites | **FIX** |
-| `P3-M2` | M | P3 | Billing / finance | Date-entry defaults come from the viewer's calendar, not the practice's *(viewer-zone default)* | `AccountDetail.vue:209-212` | 5 | D-228 (the tenant zone reaches the page) + D-091 | **FIX** |
-| `P3-M3` | M | P3 | Billing / finance | Dates render in two formats inside the billing module *(date format divergence)* | — | 5 | D-091 `formatDateOnly` | **FIX** |
 | `P4-M7` | M | P4 | Nursing / Spitex + Nurse PWA | locale is de and the entire UI is English. The /app payload carries *(locale divergence)* | `en.json` | 5 | none | **FIX** |
-| `P5-M2` | M | P5 | Pharmacy · Pharmacy (UI) | Dates render in US format in the viewer's timezone. The dispensing history shows *(date format divergence)* | `resources/js/pages/Pharmacy/Dispensing.vue:35` | 5 | D-091; D-228 | **FIX** |
 | `P5-M3` | M | P5 | Pharmacy | The pricing screen shows money with no currency at all. Verbatim: *"MED-AMOX-500 · *(money display divergence)* | — | 5 | D-091 shape — one shared formatter | **FIX** |
-| `P7-M3` | M | P7 | Emergency Department | Dates and times render in US format in the viewer's timezone *(date format divergence)* | — | 5 | D-091; D-228 | **FIX** |
 | `P7-M6` | M | P7 | Emergency Department · ED (UI) | The ED billing surface derives money client-side *(money derived page-side)* | `resources/js/pages/ED/Billing.vue:39` | 5 | D-091 shape — money from the server, formatted once | **FIX** |
-| `P8-M1` | M | P8 | Lab + Radiology | Timestamps render in the viewer's zone and US format; the tenant's zone is shipped and read by nothing *(viewer-zone rendering)* | `Lab/Orders.vue:37` | 5 | D-192/D-193 + D-228 (the tenant zone is already shipped) | **FIX** |
 | `P8-M2` | M | P8 | Lab + Radiology | Both billing pages do money arithmetic in the view layer while claiming they do not *(money derived page-side)* | `Lab/Billing.vue:92` | 5 | D-091 shape — money from the server | **FIX** |
 | `P8-M3` | M | P8 | Lab + Radiology | No currency is shipped to either billing page, so every figure is a bare number *(money display divergence)* | `Invoice.php:31,74` | 5 | D-091 shape | **FIX** |
 | `P8-M7` | M | P8 | Lab + Radiology | The stat priority is coloured on three pages and not on the fourth *(display divergence)* | `Lab/Orders.vue:100` | 5 | none | **FIX** |
-| `P9-M1` | M | P9 | Bed management + medical records | The admission page prints raw ISO-8601, and two Hospital pages disagree about when the same event happened *(raw ISO, and two surfaces disagree)* | `Admission.vue` | 5 | D-228 (QA-FIX.12c, `2e76387`) | **FIX** |
-| `P9-M2` | M | P9 | Bed management + medical records | Observations render as bare chips: no timestamp, no unit, no direction *(display divergence)* | `StayChart.vue:17` | 5 | D-228 (QA-FIX.12c, `2e76387`) | **FIX** |
+| `P9-M2` | M | P9 | Bed management + medical records | **PARTLY FIXED by STEP-2:** each observation now carries a tenant-local timestamp; the payload still supplies neither a unit nor a clinician-authored direction. CareOS must not compute a direction. | `StayChart.vue` | 5 | D-228; record-not-judge fence | **FIX (payload/display follow-up)** |
 | `P9-M3` | M | P9 | Bed management + medical records | The discharge summary prints an amount with no currency, through a module-local formatter *(money display divergence)* | `DischargeSummary.vue:77-79` | 5 | D-091 shape — one shared formatter | **FIX** |
-| `P9-M4` | M | P9 | Bed management + medical records | The date-only day-shift D-091 exists to prevent, in a page written after the fix *(date-only day shift)* | `DischargeSummary.vue:73-75` | 5 | D-091 `formatDateOnly` — the helper this page did not use | **FIX** |
 
 ### Family 6 — attribution recorded but not surfaced, or resolved by convenience — 3 open MEDIUM
 
@@ -342,7 +346,7 @@ all severities:
 | `P4-M5` | M | P4 | Nursing / Spitex + Nurse PWA | The outbox sequence is allocated non-atomically and collides. *(non-atomic allocation)* | `dayPackStore.ts:194` | 7 | D-199 one operation, one transaction | **FIX** |
 | `P9-M8` | M | P9 | Bed management + medical records | "Invoice this stay" is four independently committed transactions; a failure at the last step leaves an orphan draft and a retry builds a second *(partial write)* | `charge.invoice_id (permission)` | 7 | D-199 one operation, one transaction — proven six times | **FIX** |
 
-### Outside the seven families — 5 open MEDIUM
+### Outside the seven families — 4 open MEDIUM
 
 | ID | Sev | Phase | Role / module | What is open | Route or `file:line` | Family | Precedent | FIX / FEATURE |
 |---|---|---|---|---|---|---|---|---|
@@ -352,9 +356,9 @@ all severities:
 | `P8-M4` | M | P8 | Lab + Radiology · Lab | A lab result is published by the act of entering it: there is no release or verification step *(lifecycle step absent)* | `/lab/results/review` | — | none — no release/verification step exists | **FEATURE** |
 | `P9-M10` | M | P9 | Bed management + medical records | The nightly accrual has no error handling and leaks tenant context on failure *(unattended-path robustness)* | — | — | D-229 shape — wrap the unattended path | **FIX** |
 
-## 3. Open LOWs — 31
+## 3. Open LOWs — 27
 
-31 open LOWs. Same derivation caveat as §2. Several are literally the same defect in a second phase
+27 open LOWs. Same derivation caveat as §2. Several are literally the same defect in a second phase
 (`P1-L3` / `P2-L1`; `P10-L1` / `QF12a-M1`) and should be closed together.
 
 ### Family 1 — unreachable capabilities & missing nav — 7 open LOW
@@ -391,19 +395,15 @@ all severities:
 |---|---|---|---|---|---|---|---|---|
 | `P10-L1` | L | P10 | Admin / governance + patient portal | A portal read is attributed to the staff user when a staff session exists in the same browser *(disclosure mis-attributed)* | — | 4 | D-226 (QA-FIX.12a, `3c5fed1`); `QF12a-M1` is the same defect | **FIX** |
 
-### Family 5 — display / locale divergence — 11 open LOW
+### Family 5 — display / locale divergence — 7 open LOW
 
 | ID | Sev | Phase | Role / module | What is open | Route or `file:line` | Family | Precedent | FIX / FEATURE |
 |---|---|---|---|---|---|---|---|---|
-| `P1-L2` | L | P1 | Reception / front-desk | Inbox timestamps are raw UTC; appointment history is tenant-local. A message stored *(raw UTC)* | — | 5 | D-228 (QA-FIX.12c, `2e76387`) | **FIX** |
 | `P1-L3` | L | P1 | Reception / front-desk | The allergy block renders twice on Patient 360 — once in the dark hero tile *(duplicate rendering)* | — | 5 | none | **FIX** |
 | `P1-L4` | L | P1 | Reception / front-desk | Ungrammatical action-panel heading. Cancelling shows "REASON FOR CANCEL *(copy defect)* | — | 5 | none | **FIX** |
 | `P2-L1` | L | P2 | Clinician (doctor / dentist) | The allergy is rendered twice on Patient 360 *(duplicate rendering)* | — | 5 | none — the same defect as `P1-L3` | **FIX** |
 | `P2-L2` | L | P2 | Clinician (doctor / dentist) | <html lang="de"> while the entire interface is English *(locale divergence)* | — | 5 | none — the same root as `P4-M7` | **FIX** |
 | `P2-L4` | L | P2 | Clinician (doctor / dentist) | Age is abbreviated differently on the medical and dental charts *(display divergence)* | — | 5 | none | **FIX** |
-| `P4-L1` | L | P4 | Nursing / Spitex + Nurse PWA | "Last synced" prints raw millisecond ISO (2026-09-06T15:20:10.761Z) to a field *(raw ISO)* | — | 5 | D-228 (QA-FIX.12c) + `nurse-pwa/src/visitTime.ts` | **FIX** |
-| `P6-L1` | L | P6 | Surgery / operating theatre | A fifth date mechanism: ISO string-slicing, which prints stored UTC verbatim *(a fifth date mechanism)* | `Case.vue:64` | 5 | D-228 (QA-FIX.12c, `2e76387`) | **FIX** |
-| `P7-L1` | L | P7 | Emergency Department | The board's elapsed time is computed client-side and does not tick *(client-side clock)* | `Board.vue:68` | 5 | D-228 (QA-FIX.12c, `2e76387`) | **FIX** |
 | `P7-L2` | L | P7 | Emergency Department · UI shell | The ed.triage.level translation key is null and unused *(dead i18n key)* | `resources/js/lang/en.json` | 5 | none | **FIX** |
 | `P8-L2` | L | P8 | Lab + Radiology | The amendment reason is collected through a native prompt() dialog *(native dialog instead of the app shell)* | — | 5 | none | **FIX** |
 

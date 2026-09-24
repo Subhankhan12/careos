@@ -1,14 +1,17 @@
 <script setup lang="ts">
-import { Head, router } from '@inertiajs/vue3';
+import { Head, router, usePage } from '@inertiajs/vue3';
 import { computed, reactive } from 'vue';
 import { useI18n } from 'vue-i18n';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import RefusalNotice from '@/Components/RefusalNotice.vue';
+import { formatDateOnly, formatDateTime } from '@/lib/date';
 
 // Discharge summary + closed-episode view (HOSPITAL.G7) — the Phase-1 close-out. PRESENTATIONAL: it shows
 // the derived LOS (a fact), the sign-and-lock summary (draft editor OR finalized read-only), and the stay's
 // EXISTING records (ADT timeline, rounds, handovers, invoices) read-only. No acuity/score/grade is computed.
 const { t, locale } = useI18n();
+const page = usePage();
+const timezone = computed(() => page.props.timezone as string);
 
 type JourneyEvent = { id: string; event_type: string; reason: string | null; disposition: string | null; occurred_at: string };
 type Round = { id: string; at: string | null };
@@ -66,13 +69,11 @@ const losText = computed<string | null>(() => {
 });
 
 function fmtDate(iso: string | null): string {
-    if (!iso) return '—';
-    return new Intl.DateTimeFormat(locale.value, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(iso));
+    return formatDateTime(iso, timezone.value, locale.value);
 }
 
 function fmtDay(iso: string | null): string {
-    if (!iso) return '—';
-    return new Intl.DateTimeFormat(locale.value, { dateStyle: 'medium' }).format(new Date(iso));
+    return formatDateOnly(iso, locale.value);
 }
 
 function fmtAmount(minor: number): string {

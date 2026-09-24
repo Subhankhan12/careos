@@ -598,3 +598,7 @@ case is also a documentation artefact.
 **A case that has MOVED ON is not marked** — a past date on a `pre_op` case is the record of when it
 happened. **A test pins that a past `scheduled_at` is still ACCEPTED**, so a later gate adding the refusal
 must face the trade-off deliberately.
+
+## STEP-2 — practice-time display
+
+Case, supplies, and inventory dates now use the tenant-local shared helpers rather than ISO slicing, closing `P6-L1`.

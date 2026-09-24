@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { Head, Link, router } from '@inertiajs/vue3';
+import { Head, Link, router, usePage } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import RefusalNotice from '@/Components/RefusalNotice.vue';
+import { formatDateTime } from '@/lib/date';
 
 // The lab "results to review" worklist (LAB.G5) — PRESENTATIONAL. Closes the order → result → review loop. The
 // ordering clinician's resulted lab orders, shown as FACTS (patient, test, raw result + displayed range, the
@@ -11,6 +12,8 @@ import RefusalNotice from '@/Components/RefusalNotice.vue';
 // no computed priority/urgency ranking, no computed critical flag — staff MAY sort by the recorded flag or time
 // (a fact), and the result stays raw value + displayed range (no colour-by-abnormal).
 const { t, locale } = useI18n();
+const page = usePage();
+const timezone = computed(() => (page.props.timezone as string) || 'UTC');
 
 type ResultRow = { value: string | null; entered_at: string };
 type OrderRow = {
@@ -48,12 +51,7 @@ const sorted = computed<OrderRow[]>(() => {
 });
 
 function fmt(iso: string | null): string {
-    if (!iso) return '—';
-    try {
-        return new Intl.DateTimeFormat(locale.value, { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }).format(new Date(iso));
-    } catch {
-        return iso;
-    }
+    return formatDateTime(iso, timezone.value, locale.value);
 }
 
 function review(orderId: string | null): void {

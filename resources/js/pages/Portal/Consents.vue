@@ -1,11 +1,15 @@
 <script setup lang="ts">
-import { Head, router } from '@inertiajs/vue3';
-import { reactive, ref } from 'vue';
+import { Head, router, usePage } from '@inertiajs/vue3';
+import { computed, reactive, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import PortalLayout from '@/Layouts/PortalLayout.vue';
 import PortalPageHeader from '@/Components/Portal/PortalPageHeader.vue';
+import { formatDateTime } from '@/lib/date';
 
 const { t, te } = useI18n();
+const page = usePage();
+const timezone = computed(() => page.props.timezone as string);
+const locale = computed(() => (page.props.locale as string) || 'en');
 
 const props = defineProps<{
     consents: Array<{
@@ -56,6 +60,10 @@ function withdraw(consentId: string): void {
 
     router.post(props.actions.withdrawUrl, { consent_id: consentId, reason });
 }
+
+function eventAt(value: string): string {
+    return formatDateTime(value, timezone.value, locale.value);
+}
 </script>
 
 <template>
@@ -82,11 +90,11 @@ function withdraw(consentId: string): void {
                     </span>
                 </div>
                 <p v-if="consent.granted_at" class="mt-1 text-sm text-ink-subtle">
-                    {{ t('portal.consents.grantedOn', { date: consent.granted_at }) }}
+                    {{ t('portal.consents.grantedOn', { date: eventAt(consent.granted_at) }) }}
                 </p>
 
                 <p v-if="consent.withdrawn_at" class="mt-1 text-sm text-ink-subtle">
-                    {{ t('portal.consents.withdrawnOn', { date: consent.withdrawn_at }) }}
+                    {{ t('portal.consents.withdrawnOn', { date: eventAt(consent.withdrawn_at) }) }}
                 </p>
                 <p v-if="consent.captured_by" class="mt-1 text-sm text-ink-subtle">
                     {{ t('portal.consents.capturedBy', { name: consent.captured_by }) }}

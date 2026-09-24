@@ -307,5 +307,9 @@ than one charge: pricing the attendance but not the service code makes capture #
 tests for the orphan, the double-billing retry, and the audit/hash-chain properties. Removing its
 transaction fails FOUR tests.
 
+## STEP-2 — practice-time display
+
+ED triage, documentation, disposition, and board timestamps use explicit practice context; the board's elapsed display now refreshes. This closes `P7-M3` and `P7-L1`.
+
 Fixed as part of QA-FIX.8c even though `P7-M5` is a Phase-7 finding — the three are one defect in three
 files, and leaving the worst instance open while fixing its milder twins was indefensible.

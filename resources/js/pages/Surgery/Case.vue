@@ -1,14 +1,18 @@
 <script setup lang="ts">
-import { Head, Link, router } from '@inertiajs/vue3';
-import { reactive } from 'vue';
+import { Head, Link, router, usePage } from '@inertiajs/vue3';
+import { computed, reactive } from 'vue';
 import { useI18n } from 'vue-i18n';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import RefusalNotice from '@/Components/RefusalNotice.vue';
+import { formatDateTime } from '@/lib/date';
 
 // Surgical case detail (SURGERY.G2) — PRESENTATIONAL. Drives the legal-only lifecycle, records the team + the
 // anesthetist-ASSIGNED ASA/Mallampati, and authors op notes by REUSING the sign-and-lock note editor. The
 // ASA class is a value the anesthetist ASSIGNS (a recorded fact) — nothing here computes a surgical risk.
 const { t } = useI18n();
+const page = usePage();
+const timezone = computed(() => (page.props.timezone as string) || 'UTC');
+const locale = computed(() => (page.props.locale as string) || 'en');
 
 type Note = { id: string; phase: string; status: string; version: number; edit_url: string };
 type TeamMember = { id: string; name: string | null; team_role: string };
@@ -64,7 +68,7 @@ function authorNote(phase: string): void {
     router.post(props.actions.note_url, { phase }, { preserveScroll: true });
 }
 function fmt(iso: string | null): string {
-    return iso ? iso.replace('T', ' ').slice(0, 16) : '—';
+    return formatDateTime(iso, timezone.value, locale.value);
 }
 </script>
 

@@ -1,14 +1,17 @@
 <script setup lang="ts">
-import { Head, router } from '@inertiajs/vue3';
-import { reactive } from 'vue';
+import { Head, router, usePage } from '@inertiajs/vue3';
+import { computed, reactive } from 'vue';
 import { useI18n } from 'vue-i18n';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import AllergyRecordPanel from '@/Components/AllergyRecordPanel.vue';
+import { formatDateTime } from '@/lib/date';
 
 // eMAR (PHARMACY.G3) — PRESENTATIONAL. The due worklist (active orders) + the MAR (given/held/refused).
 // RECORD-NOT-JUDGE: the outcome is the nurse's FACT; late/missed is a raw scheduled-vs-administered time
 // comparison (no flag/grade). The alerts area is wired to the safety seam's SafetyResult and is EMPTY today.
 const { t, locale } = useI18n();
+const page = usePage();
+const timezone = computed(() => (page.props.timezone as string) || 'UTC');
 
 type Due = { id: string; name: string; dose: string; route: string; frequency: string; prn: boolean; administer_url: string };
 type Administration = { id: string; name: string; outcome: string; dose: string; scheduled_at: string | null; administered_at: string; reason: string | null };
@@ -57,7 +60,7 @@ function administer(order: Due): void {
 
 function fmtTime(iso: string | null): string {
     if (!iso) return '—';
-    return new Intl.DateTimeFormat(locale.value, { dateStyle: 'short', timeStyle: 'short' }).format(new Date(iso));
+    return formatDateTime(iso, timezone.value, locale.value);
 }
 </script>
 

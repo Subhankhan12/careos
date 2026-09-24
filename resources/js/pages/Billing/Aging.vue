@@ -24,8 +24,7 @@ function money(minor: number): string {
     return `${(minor / 100).toFixed(2)} ${props.currency}`;
 }
 function formatDate(value: string): string {
-    // Date-only → local-midnight parse so the day never shifts by timezone (M-2).
-    return formatDateOnly(value, locale.value, { day: '2-digit', month: 'long', year: 'numeric' }, value);
+    return formatDateOnly(value, locale.value, undefined, value);
 }
 
 // Bucket order + share are pure presentation of the server's factual amounts.

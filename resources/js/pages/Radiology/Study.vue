@@ -1,14 +1,18 @@
 <script setup lang="ts">
-import { Head, router } from '@inertiajs/vue3';
+import { Head, router, usePage } from '@inertiajs/vue3';
+import { computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import RefusalNotice from '@/Components/RefusalNotice.vue';
+import { formatDateTime } from '@/lib/date';
 
 // Imaging-study tracking (RAD.G3) — PRESENTATIONAL. Acquire a study for an imaging order (accession generated)
 // + advance its legal-only state; view the append-only state history. The state + accession are FACTS — the
 // screen records them; nothing computes an image finding or a priority (the fence). THE STUDY IS METADATA, NOT
 // THE IMAGE — the DICOM image path is the seam-stubbed RAD.G6 (a certified partner), never a diagnostic viewer.
 const { t, locale } = useI18n();
+const page = usePage();
+const timezone = computed(() => (page.props.timezone as string) || 'UTC');
 
 type StudyEventRow = { event_type: string; reason: string | null; occurred_at: string; performed_by_name: string | null };
 type StudyRow = {
@@ -30,12 +34,7 @@ const props = defineProps<{
 }>();
 
 function fmt(iso: string | null): string {
-    if (!iso) return '—';
-    try {
-        return new Intl.DateTimeFormat(locale.value, { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }).format(new Date(iso));
-    } catch {
-        return iso;
-    }
+    return formatDateTime(iso, timezone.value, locale.value);
 }
 
 function acquire(): void {

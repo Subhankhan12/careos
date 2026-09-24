@@ -696,5 +696,10 @@ cannot reintroduce a forged header instead of the real thing. A fixing gate need
 carrying the fields the renderer already computes correctly (**the figures were never the complaint**), and
 a decision about the `.txt` files already stored and downloaded.
 
+## STEP-2 — practice-time display
+
+Date-only ledger, payment, report, and practice-date input values now route through the shared helpers with explicit tenant context, closing `P3-M2` and `P3-M3`. No money calculation or money formatting changed.
+
+
 **`pdf_path` (the column), `has_pdf` and `pdf_url` keep their names** — renaming a column is a migration and
 was out of scope. Internally inconsistent, externally honest; stated rather than hidden.

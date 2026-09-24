@@ -4,6 +4,10 @@ Patient self check-in for a booked appointment, plus a constrained self-update o
 contact details — via a shared reception **kiosk** (no login, identity-verified) OR from the
 **authenticated portal**. One `CheckInService`, two entry paths (P0P.G7).
 
+## STEP-2 — practice-time display
+
+Portal home, appointments, documents, messages, and consents now use explicit practice display context, closing `P10-M2` and `P10-M3`.
+
 ## How it works
 
 - **Storage (D-074):** check-in lives ON the appointment (chosen over a separate table): new columns
@@ -84,4 +88,5 @@ claim verified by query rather than by an exit code.
   — the cause was never the shell's permission list, it was eight ungated `<Link>`s in `Landing.vue`.
 - **STILL OPEN — `P1-H2` (HIGH): patient registration fails silently unless four unmarked fields are filled.**
   It is the first item a new practice hits. It belongs to the *invisible refusals* family in `DEFERRED.md`,
+
   whose precedent fix is `RefusalNotice` (D-210).

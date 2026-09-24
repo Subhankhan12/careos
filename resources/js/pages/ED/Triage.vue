@@ -1,14 +1,18 @@
 <script setup lang="ts">
-import { Head, Link, router } from '@inertiajs/vue3';
+import { Head, Link, router, usePage } from '@inertiajs/vue3';
 import { computed, reactive } from 'vue';
 import { useI18n } from 'vue-i18n';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import RefusalNotice from '@/Components/RefusalNotice.vue';
+import { formatDateTime } from '@/lib/date';
 
 // ED triage (ED.G2) — PRESENTATIONAL. The triage nurse records the presenting complaint, RAW vitals, and the
 // ASSIGNED acuity (they SELECT the level — the system never computes it). The "suggestion" area is wired to
 // the triage-acuity seam and shows nothing today (the electric fence: assigned-not-computed).
 const { t } = useI18n();
+const page = usePage();
+const timezone = computed(() => (page.props.timezone as string) || 'UTC');
+const locale = computed(() => (page.props.locale as string) || 'en');
 
 type Triage = {
     id: string;
@@ -57,7 +61,7 @@ const form = reactive({
 const levelsForScale = computed<string[]>(() => props.options.levels[form.acuity_scale] ?? []);
 
 function fmt(iso: string): string {
-    return new Date(iso).toLocaleString();
+    return formatDateTime(iso, timezone.value, locale.value);
 }
 
 function submit(): void {

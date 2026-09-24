@@ -1,13 +1,16 @@
 <script setup lang="ts">
-import { Head, router } from '@inertiajs/vue3';
-import { reactive } from 'vue';
+import { Head, router, usePage } from '@inertiajs/vue3';
+import { computed, reactive } from 'vue';
 import { useI18n } from 'vue-i18n';
 import AppLayout from '@/Layouts/AppLayout.vue';
+import { formatDateTime } from '@/lib/date';
 
 // Pharmacy inventory (PHARMACY.G4) — PRESENTATIONAL. Stock (on-hand, below-threshold shown FACTUALLY),
 // receive/adjust, and the append-only movement log. Operational facts only: "below threshold" is a plain
 // on-hand-vs-threshold comparison, never a graded alert.
 const { t, locale } = useI18n();
+const page = usePage();
+const timezone = computed(() => (page.props.timezone as string) || 'UTC');
 
 type Stock = { id: string; name: string; on_hand: number; unit: string; reorder_threshold: number | null; below_threshold: boolean; adjust_url: string };
 type Movement = { id: string; name: string; type: string; quantity_change: number; resulting_on_hand: number; reason: string | null; occurred_at: string };
@@ -46,7 +49,7 @@ function adjust(row: Stock): void {
 }
 
 function fmtTime(iso: string): string {
-    return new Intl.DateTimeFormat(locale.value, { dateStyle: 'short', timeStyle: 'short' }).format(new Date(iso));
+    return formatDateTime(iso, timezone.value, locale.value);
 }
 </script>
 

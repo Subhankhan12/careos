@@ -293,5 +293,9 @@ in **ONE query** (the `PatientAccessLogController::actorNames()` shape): staff `
 user's `name` otherwise. **An id that resolves to nobody is left UNNAMED** rather than labelled (D-176), and
 the template prints behind a `v-if` so a null renders no dangling separator.
 
+## STEP-2 — practice-time display
+
+Lab order, result, review, and specimen dates now use the practice timezone and locale through the shared helpers, completing the Lab portion of `P8-M1`.
+
 **Type note that PHPStan caught:** the map is `array<int|string, string>`, not `array<string, string>` —
 **PHP normalises a numeric string key to an int**, so the stricter-looking type was simply wrong.

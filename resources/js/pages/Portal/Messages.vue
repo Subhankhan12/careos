@@ -4,10 +4,12 @@ import { computed, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import PortalLayout from '@/Layouts/PortalLayout.vue';
 import PortalPageHeader from '@/Components/Portal/PortalPageHeader.vue';
+import { formatDateTime } from '@/lib/date';
 
 const { t } = useI18n();
 const page = usePage();
 const locale = computed(() => (page.props.locale as string) || 'en');
+const timezone = computed(() => page.props.timezone as string);
 
 type Message = { id: string; author_type: string; ai_assisted: boolean; body: string; sent_at: string };
 
@@ -36,23 +38,11 @@ function send(): void {
 }
 
 function dayLabel(value: string): string {
-    const d = new Date(value);
-    if (Number.isNaN(d.getTime())) return value;
-    try {
-        return new Intl.DateTimeFormat(locale.value, { weekday: 'long', day: 'numeric', month: 'long' }).format(d);
-    } catch {
-        return value;
-    }
+    return formatDateTime(value, timezone.value, locale.value, { weekday: 'long', day: 'numeric', month: 'long' }, value);
 }
 
 function timeLabel(value: string): string {
-    const d = new Date(value);
-    if (Number.isNaN(d.getTime())) return value;
-    try {
-        return new Intl.DateTimeFormat(locale.value, { hour: '2-digit', minute: '2-digit' }).format(d);
-    } catch {
-        return value;
-    }
+    return formatDateTime(value, timezone.value, locale.value, { hour: '2-digit', minute: '2-digit' }, value);
 }
 
 // Interleave day dividers with messages.
@@ -107,7 +97,7 @@ const timeline = computed(() => {
                                     {{ t('portal.messages.closed') }}
                                 </span>
                             </span>
-                            <span class="mt-0.5 block text-xs text-ink-subtle">{{ thread.last_message_at ?? '—' }}</span>
+                            <span class="mt-0.5 block text-xs text-ink-subtle">{{ thread.last_message_at ? timeLabel(thread.last_message_at) : '—' }}</span>
                         </button>
                     </li>
                 </ul>

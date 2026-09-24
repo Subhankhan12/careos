@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { Head, Link, router } from '@inertiajs/vue3';
+import { Head, Link, router, usePage } from '@inertiajs/vue3';
 import { computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 import AppLayout from '@/Layouts/AppLayout.vue';
+import { formatDateOnly } from '@/lib/date';
 
 /*
  * BILLAR.P6 — the Billing & AR management-report grid. This page is PURELY
@@ -15,6 +16,8 @@ import AppLayout from '@/Layouts/AppLayout.vue';
  */
 
 const { t, te } = useI18n();
+const page = usePage();
+const locale = computed(() => (page.props.locale as string) || 'en');
 
 type Aging = { current: number; days_1_30: number; days_31_60: number; days_61_90: number; days_90_plus: number };
 type RollForward = {
@@ -99,6 +102,9 @@ function payerLabel(type: string): string {
     const key = `billing.report.payerTypes.${type}`;
     return te(key) ? t(key) : type;
 }
+function dateOnly(value: string): string {
+    return formatDateOnly(value, locale.value);
+}
 
 const agingKeys: (keyof Aging)[] = ['current', 'days_1_30', 'days_31_60', 'days_61_90', 'days_90_plus'];
 
@@ -138,7 +144,7 @@ function toggleCompare(): void {
                 <div>
                     <p class="text-xs font-semibold uppercase tracking-[0.14em] text-euca-200">{{ t('billing.report.eyebrow') }}</p>
                     <h1 class="mt-1 text-2xl font-semibold tracking-tight text-euca-50">{{ t('billing.report.title') }}</h1>
-                    <p class="mt-1 text-sm text-euca-200">{{ t('billing.report.rangeLabel', { from: report.period.from, to: report.period.to }) }}</p>
+                    <p class="mt-1 text-sm text-euca-200">{{ t('billing.report.rangeLabel', { from: dateOnly(report.period.from), to: dateOnly(report.period.to) }) }}</p>
                 </div>
                 <div class="flex flex-wrap items-center gap-2">
                     <div class="flex items-center gap-1 rounded-full bg-white/10 p-1">
@@ -195,7 +201,7 @@ function toggleCompare(): void {
 
             <!-- Compare band — two periods fetched from the engine, both displayed (no computed delta) -->
             <div v-if="compare" class="glass-card p-5">
-                <p class="text-xs font-semibold uppercase tracking-wide text-ink-subtle">{{ t('billing.report.comparePrev', { from: compare.period.from, to: compare.period.to }) }}</p>
+                <p class="text-xs font-semibold uppercase tracking-wide text-ink-subtle">{{ t('billing.report.comparePrev', { from: dateOnly(compare.period.from), to: dateOnly(compare.period.to) }) }}</p>
                 <div class="mt-3 grid gap-4 sm:grid-cols-4">
                     <div>
                         <p class="text-xs text-ink-subtle">{{ t('billing.report.rollForward.charges') }}</p>

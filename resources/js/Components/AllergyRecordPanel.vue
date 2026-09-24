@@ -1,8 +1,13 @@
 <script setup lang="ts">
 import { computed } from 'vue';
+import { usePage } from '@inertiajs/vue3';
 import { useI18n } from 'vue-i18n';
+import { formatDateTime } from '@/lib/date';
 
 const { t } = useI18n();
+const page = usePage();
+const locale = computed(() => (page.props.locale as string) || 'en');
+const timezone = computed(() => (page.props.timezone as string) || 'UTC');
 
 type Allergy = {
     id: string;
@@ -39,9 +44,7 @@ function severityLabel(severity: string): string {
     return t(`allergyAlert.severity.${severity}`, severity);
 }
 function formatDate(iso: string | null): string {
-    if (!iso) return '';
-    const d = new Date(iso);
-    return Number.isNaN(d.getTime()) ? '' : d.toLocaleDateString();
+    return formatDateTime(iso, timezone.value, locale.value, { day: '2-digit', month: '2-digit', year: 'numeric' }, '');
 }
 </script>
 

@@ -116,11 +116,7 @@ const readinessLine = computed(() => {
 });
 
 function savedAtLabel(): string {
-    try {
-        return new Intl.DateTimeFormat(undefined, { hour: '2-digit', minute: '2-digit' }).format(new Date());
-    } catch {
-        return '';
-    }
+    return formatDateTime(new Date().toISOString(), tz.value, dtLocale.value, { hour: '2-digit', minute: '2-digit' }, '');
 }
 
 function confirmSign(): void {
@@ -233,10 +229,10 @@ watch(
                                 are named, distinctly, rather than one standing in for the other.
                             -->
                             <span v-if="note.signed_by_is_author">
-                                {{ t('clinical.note.signedLock', { name: note.signed_by_name || note.author_name, date: note.signed_at || '—' }) }}
+                                {{ t('clinical.note.signedLock', { name: note.signed_by_name || note.author_name, date: dt(note.signed_at) || '—' }) }}
                             </span>
                             <span v-else>
-                                {{ t('clinical.note.signedLockByOther', { author: note.author_name, signer: note.signed_by_name || '—', date: note.signed_at || '—' }) }}
+                                {{ t('clinical.note.signedLockByOther', { author: note.author_name, signer: note.signed_by_name || '—', date: dt(note.signed_at) || '—' }) }}
                             </span>
                         </div>
                         <div class="glass-card p-6">

@@ -3,7 +3,7 @@
 Short, factual snapshot of where the project stands. Updated at consolidations and after gates
 (per the MEMORY PROTOCOL in AGENTS.md).
 
-> ## 🏁 RECONCILIATION — 2026-09-10, commit `805930e`; QA counts re-derived at `4a4d8af`. READ THIS BLOCK FIRST; everything below it is history.
+> ## 🏁 RECONCILIATION — 2026-09-23, QA counts re-derived at STEP-2 (`<pending>`). READ THIS BLOCK FIRST; everything below it is history.
 >
 > **WHERE THE PROJECT STANDS, in five facts:**
 >
@@ -23,9 +23,9 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
 >    backend is **inert: zero HTTP routes, no UI**. It is not unfinished by accident; **do not "finish" it.**
 > 4. **THE TEN-PHASE ROLE-BY-ROLE QA PROGRAMME IS COMPLETE, WITH ZERO OPEN CRITICALS.** Ten audit phases
 >    drove every role in a real browser; ten fix gates across 29 code-changing parts closed the top of the
->    list. `docs/qa/ROLE-AUDIT.md` is the authoritative record — **195 findings, 62 resolved, 133 open: 0
->    CRITICAL, 21 HIGH, 81 MEDIUM, 31 LOW.** These are the full ID/status re-parse recorded in
->    `docs/OPEN-WORK.md` at STEP-1 (artifact state through this gate), not a hand-adjusted summary.
+>    list. `docs/qa/ROLE-AUDIT.md` is the authoritative record — **195 findings, 77 resolved, 118 open: 0
+>    CRITICAL, 21 HIGH, 70 MEDIUM, 27 LOW.** These are the full ID/status re-parse recorded in
+>    `docs/OPEN-WORK.md` at STEP-2 (artifact state through this gate), not a hand-adjusted summary.
 > 5. **TWO TRACKS REMAIN: (a) DEPLOYMENT — the highest-value work and the only one actually queued — and
 >    (b) the prioritised open HIGH/MEDIUM list in `DEFERRED.md`.** Nothing else is queued. Wait for a pasted
 >    gate.
@@ -84,7 +84,7 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
 
 ## STATUS: BUILD COMPLETE · DEPLOY-READY 🟢 GO · THE BUILDABLE PARITY PROGRAMME IS COMPLETE — ONE TRACK REMAINS: **DEPLOYMENT + PARTNERSHIPS**
 
-### ✅ THE ROLE-BY-ROLE QA AUDIT IS COMPLETE — `docs/qa/ROLE-AUDIT.md` (10 of 10 phases; **195 findings — 62 resolved, 133 open** from the full ID/status re-parse recorded at STEP-1, artifact state through this gate; **every CRITICAL is fixed — 0 open, highest open severity is HIGH at 21**)
+### ✅ THE ROLE-BY-ROLE QA AUDIT IS COMPLETE — `docs/qa/ROLE-AUDIT.md` (10 of 10 phases; **195 findings — 77 resolved, 118 open** from the full ID/status re-parse recorded at STEP-2, artifact state through this gate; **every CRITICAL is fixed — 0 open, highest open severity is HIGH at 21**)
 
 **The live itemised list is `docs/OPEN-WORK.md`** — every open finding one per row with family, precedent
 and a FIX-or-FEATURE verdict, plus the open product decisions, the deferred work and the deployment track.
@@ -693,8 +693,17 @@ branch selector to `active = true`, and renders its own honest no-active-branch 
 `first()` + null-guard + shared-`actionUrls()` shape as DayBoard and Availability. The setup CTA is separately
 gated on `admin.manage` (D-214). Browser driving proved the old active-branch-nurse 403 / no-branch-nurse 404
 oracle, then the fixed identical 403s; a coordinator saw the rendered zero-active-branch state with no dead-end
-setup link, and the active board rendered normally after reactivation. The full ID/status re-parse now reads
-**195 recorded, 62 resolved, 133 open (0 CRITICAL, 21 HIGH, 81 MEDIUM, 31 LOW)**.
+setup link, and the active board rendered normally after reactivation. At STEP-1, the full ID/status re-parse
+read **195 recorded, 62 resolved, 133 open (0 CRITICAL, 21 HIGH, 81 MEDIUM, 31 LOW)**.
+
+### STEP-2 — practice-time display fixes (D-237)
+
+Fifteen date/time display findings are closed by explicit call-site use of the existing tenant helpers:
+`P1-M3`, `P1-L2`, `P2-M3`, `P3-M2`, `P3-M3`, `P4-L1`, `P5-M2`, `P6-L1`, `P7-M3`, `P7-L1`, `P8-M1`,
+`P9-M1`, `P9-M4`, `P10-M2`, and `P10-M3`. `P9-M2` remains open and partly fixed: the timestamp is now
+tenant-local, but no unit or clinician-authored direction is supplied, and the UI must not create either.
+The `date.ts` default locale remains `en`; visible tenant formatting is passed explicitly. The full §0
+re-parse is now **195 recorded, 77 resolved, 118 open (0 CRITICAL, 21 HIGH, 70 MEDIUM, 27 LOW)**.
 
 ### SERVER DEPLOYMENT PACK — `docs/deploy/` (D-234)
 

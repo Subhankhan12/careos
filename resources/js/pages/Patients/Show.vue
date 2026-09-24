@@ -8,10 +8,12 @@ import DataList from '@/Components/DataList.vue';
 import Input from '@/Components/Input.vue';
 import Tabs from '@/Components/Tabs.vue';
 import PatientClinicalHeader from '@/Components/Clinical/PatientClinicalHeader.vue';
+import { formatDateOnly, formatDateTime } from '@/lib/date';
 
 const { t } = useI18n();
 const page = usePage();
 const locale = computed(() => (page.props.locale as string) || 'en');
+const timezone = computed(() => (page.props.timezone as string) || 'UTC');
 
 // The dental cross-link shows only for a dental-capable user (dental.chart) — the same
 // gate as the top-nav Dental entry (DENTAL.G9). Non-dental staff never see a dead link.
@@ -84,7 +86,7 @@ const tabs = computed(() => [
 const headerPatient = computed(() => ({
     name: `${props.patient.first_name} ${props.patient.last_name}`,
     mrn: props.patient.mrn,
-    dateOfBirth: props.patient.date_of_birth,
+    dateOfBirth: formatDateOnly(props.patient.date_of_birth, locale.value),
     age: `${props.patient.age} ${t('patients.index.ageUnit')}`,
     sex: props.patient.sex,
 }));
@@ -96,7 +98,7 @@ const headerLinks = computed(() =>
 
 const demographics = computed(() => [
     { label: t('patients.fields.mrn'), value: props.patient.mrn },
-    { label: t('patients.fields.dateOfBirth'), value: `${props.patient.date_of_birth} (${props.patient.age})` },
+    { label: t('patients.fields.dateOfBirth'), value: `${formatDateOnly(props.patient.date_of_birth, locale.value)} (${props.patient.age})` },
     { label: t('patients.fields.sex'), value: props.patient.sex },
     { label: t('patients.fields.gender'), value: props.patient.gender },
     { label: t('patients.fields.language'), value: props.patient.preferred_language },
@@ -104,28 +106,20 @@ const demographics = computed(() => [
 ]);
 
 function timePart(value: string): string {
-    const d = new Date(value);
-    if (Number.isNaN(d.getTime())) return value;
-    try {
-        return new Intl.DateTimeFormat(locale.value, { hour: '2-digit', minute: '2-digit' }).format(d);
-    } catch {
-        return value;
-    }
+    return formatDateTime(value, timezone.value, locale.value, { hour: '2-digit', minute: '2-digit' }, value);
 }
 
 const groupedAccess = computed(() => {
     const groups: Record<string, typeof props.accessLog> = {};
     const order: string[] = [];
     for (const entry of props.accessLog) {
-        const d = new Date(entry.occurred_at);
-        let key = entry.occurred_at;
-        if (!Number.isNaN(d.getTime())) {
-            try {
-                key = new Intl.DateTimeFormat(locale.value, { weekday: 'long', day: 'numeric', month: 'long' }).format(d);
-            } catch {
-                key = entry.occurred_at;
-            }
-        }
+        const key = formatDateTime(
+            entry.occurred_at,
+            timezone.value,
+            locale.value,
+            { weekday: 'long', day: 'numeric', month: 'long' },
+            entry.occurred_at,
+        );
         if (!(key in groups)) {
             groups[key] = [];
             order.push(key);

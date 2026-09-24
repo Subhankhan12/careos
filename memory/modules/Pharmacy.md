@@ -389,4 +389,9 @@ transient failure still leaves the dispense standing. Keep that property if you 
 **Uncharged dispenses are findable: `Dispense::query()->uncharged()`** (`whereDoesntHave('charge')`) —
 no migration was needed, the fact was already expressible. The dispensing screen marks rows **"Not
 billed"** and states a count. It deliberately does **not** say WHY (an unpriced med and a
+
 not-permitted actor land in the same list) and claims no automatic reconciliation (D-170).
+
+## STEP-2 — practice-time display
+
+Dispensing, inventory, and eMAR date/time displays now use the shared tenant helpers, closing `P5-M2` without changing medication-safety behavior.

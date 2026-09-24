@@ -1,14 +1,18 @@
 <script setup lang="ts">
-import { Head, router } from '@inertiajs/vue3';
+import { Head, router, usePage } from '@inertiajs/vue3';
 import { computed, reactive } from 'vue';
 import { useI18n } from 'vue-i18n';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import RefusalNotice from '@/Components/RefusalNotice.vue';
+import { formatDateTime } from '@/lib/date';
 
 // Lab order entry (LAB.G2) — PRESENTATIONAL. A lab order IS a Clinical Order (reused); this places one + lists
 // the patient's lab orders with their lifecycle state. The priority is a RECORDED flag the clinician sets — the
 // screen records it; nothing computes a priority or ranks by urgency (the electric fence).
 const { t } = useI18n();
+const page = usePage();
+const timezone = computed(() => (page.props.timezone as string) || 'UTC');
+const locale = computed(() => (page.props.locale as string) || 'en');
 
 type LabOrderRow = {
     id: string;
@@ -35,7 +39,7 @@ const form = reactive({ lab_test_id: props.tests[0]?.id ?? '', priority: 'routin
 const selectedSpecimen = computed(() => props.tests.find((tf) => tf.id === form.lab_test_id)?.specimen ?? '');
 
 function fmt(iso: string | null): string {
-    return iso ? new Date(iso).toLocaleString() : '—';
+    return formatDateTime(iso, timezone.value, locale.value);
 }
 
 function place(): void {

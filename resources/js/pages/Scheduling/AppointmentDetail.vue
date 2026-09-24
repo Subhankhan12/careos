@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import { Head, Link, useForm } from '@inertiajs/vue3';
+import { Head, Link, useForm, usePage } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import AppLayout from '@/Layouts/AppLayout.vue';
-import { ageFromDateOnly, formatDateOnly } from '@/lib/date';
+import { ageFromDateOnly, formatDateOnly, formatDateTime } from '@/lib/date';
 
 /*
  * APPT.P1 — the staff Appointment Detail page: the drill-in from a day-board tile.
@@ -21,6 +21,9 @@ import { ageFromDateOnly, formatDateOnly } from '@/lib/date';
  */
 
 const { t, te } = useI18n();
+const page = usePage();
+const locale = computed(() => (page.props.locale as string) || 'en');
+const timezone = computed(() => page.props.timezone as string);
 
 type Resource = { id: string; name: string; type: string };
 type Allergy = { id: string; substance: string; reaction: string | null; severity: string | null };
@@ -140,10 +143,10 @@ function timelineProvenance(row: TimelineRow): string {
     return t('scheduling.appointmentDetail.timeline.system');
 }
 function timeOf(value: string | null): string {
-    return value ? value.slice(11, 16) : '—';
+    return formatDateTime(value, timezone.value, locale.value, { hour: '2-digit', minute: '2-digit' });
 }
 function dayOf(value: string | null): string {
-    return value ? formatDateOnly(value.slice(0, 10)) : '—';
+    return value ? formatDateTime(value, timezone.value, locale.value, { day: '2-digit', month: 'long', year: 'numeric' }) : '—';
 }
 
 const patientAge = computed(() => (props.patient ? ageFromDateOnly(props.patient.date_of_birth) : null));
@@ -380,7 +383,7 @@ function submitWithReason(): void {
                         <p class="mt-3 text-lg font-semibold text-ink">{{ patient.name }}</p>
                         <div class="mt-1 flex flex-wrap items-center gap-2 text-xs text-ink-muted">
                             <span v-if="patient.mrn" class="rounded-md bg-surface-2 px-2 py-0.5 font-mono">{{ patient.mrn }}</span>
-                            <span v-if="patient.date_of_birth">{{ formatDateOnly(patient.date_of_birth) }}</span>
+                            <span v-if="patient.date_of_birth">{{ formatDateOnly(patient.date_of_birth, locale) }}</span>
                             <span v-if="patientAge !== null">{{ t('scheduling.appointmentDetail.patient.age', { n: patientAge }) }}</span>
                         </div>
                         <div v-if="patient.allergies.length" class="mt-3">

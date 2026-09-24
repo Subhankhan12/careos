@@ -258,6 +258,10 @@ comment they already carried. Before this, these two were the only portal pages 
 `/portal/messages` — which renders the content of the patient's conversations with the practice — was the
 most sensitive of the eight.
 
+## STEP-2 — practice-time display
+
+Inbox list and thread timestamps use the practice timezone and locale through the existing helper, closing `P1-L2`.
+
 Telehealth resolves the patient from `$account->patient_id` rather than assuming a loaded relation.
 `PortalTreatmentPlanController` is still deliberately not in this set: it audits per plan inside the map, so
 a patient with no plans produces no row — correct by construction.

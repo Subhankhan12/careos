@@ -1,14 +1,18 @@
 <script setup lang="ts">
-import { Head, Link, router } from '@inertiajs/vue3';
+import { Head, Link, router, usePage } from '@inertiajs/vue3';
 import { computed, reactive } from 'vue';
 import { useI18n } from 'vue-i18n';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import RefusalNotice from '@/Components/RefusalNotice.vue';
+import { formatDateTime } from '@/lib/date';
 
 // A case's supplies (SURGERY.G4) — PRESENTATIONAL. Record consumables used + implants placed (with
 // lot/serial/UDI for traceability); using an item decrements stock. Record-not-judge: implant traceability
 // is a record (which implant -> which patient), never a device-safety verdict.
 const { t } = useI18n();
+const page = usePage();
+const timezone = computed(() => (page.props.timezone as string) || 'UTC');
+const locale = computed(() => (page.props.locale as string) || 'en');
 
 type Item = { id: string; code: string; name: string; is_implant: boolean };
 type Usage = { id: string; item: string | null; quantity: number; used_at: string };
@@ -35,7 +39,7 @@ function placeImplant(): void {
     router.post(props.actions.implant_url, { ...implantForm }, { preserveScroll: true, onSuccess: () => Object.assign(implantForm, { surgical_item_id: '', lot_number: '', serial_number: '', udi: '', note: '' }) });
 }
 function fmt(iso: string): string {
-    return iso ? iso.replace('T', ' ').slice(0, 16) : '';
+    return formatDateTime(iso, timezone.value, locale.value, undefined, '');
 }
 </script>
 

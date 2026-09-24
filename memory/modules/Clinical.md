@@ -611,3 +611,7 @@ what found the rest, and it is worth redoing before any further work here.
   throws `InvalidArgumentException` at six reachable points; only `markReviewed()`'s is caught, by
   `OrderController::review` (QA-FIX.11a). **`RefusalNotice` cannot help here — a 500 produces no error
   bag.** The remedy is D-224's narrow catch, three lines away in the same file. FIX, not a feature.
+
+## STEP-2 — practice-time display
+
+Chart header dates, allergy records, note save state, and version history use the shared explicit tenant display helpers. This completes the Clinical portion of `P2-M3`; it does not add any clinical interpretation.

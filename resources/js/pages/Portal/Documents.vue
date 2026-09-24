@@ -1,11 +1,15 @@
 <script setup lang="ts">
-import { Head } from '@inertiajs/vue3';
+import { Head, usePage } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import PortalLayout from '@/Layouts/PortalLayout.vue';
 import PortalPageHeader from '@/Components/Portal/PortalPageHeader.vue';
+import { formatDateTime } from '@/lib/date';
 
 const { t } = useI18n();
+const page = usePage();
+const timezone = computed(() => page.props.timezone as string);
+const locale = computed(() => (page.props.locale as string) || 'en');
 
 const props = defineProps<{
     documents: Array<{
@@ -44,6 +48,10 @@ function formatSize(bytes?: number): string {
     if (bytes < 1024) return `${bytes} B`;
     if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function sharedAt(value: string): string {
+    return formatDateTime(value, timezone.value, locale.value);
 }
 </script>
 
@@ -94,7 +102,7 @@ function formatSize(bytes?: number): string {
                         <span class="block text-sm text-ink-subtle">
                             <span class="capitalize">{{ document.category }}</span> · {{ fileType(document.mime_type) }}
                             <template v-if="formatSize(document.size_bytes)"> · {{ formatSize(document.size_bytes) }}</template>
-                            <template v-if="document.shared_at"> · {{ document.shared_at }}</template>
+                            <template v-if="document.shared_at"> · {{ sharedAt(document.shared_at) }}</template>
                         </span>
                     </span>
                     <a

@@ -1,14 +1,17 @@
 <script setup lang="ts">
-import { Head, router } from '@inertiajs/vue3';
-import { reactive } from 'vue';
+import { Head, router, usePage } from '@inertiajs/vue3';
+import { computed, reactive } from 'vue';
 import { useI18n } from 'vue-i18n';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import RefusalNotice from '@/Components/RefusalNotice.vue';
+import { formatDateTime } from '@/lib/date';
 
 // Specimen tracking (LAB.G3) — PRESENTATIONAL. Collect a specimen for a lab order (accession generated) +
 // advance its legal-only state; view the append-only state history. The state + accession are operational
 // FACTS — the screen records them; nothing computes a priority or auto-routes (the electric fence).
 const { t, locale } = useI18n();
+const page = usePage();
+const timezone = computed(() => (page.props.timezone as string) || 'UTC');
 
 type SpecimenEventRow = { event_type: string; reason: string | null; occurred_at: string; performed_by_name: string | null };
 type SpecimenRow = {
@@ -33,11 +36,7 @@ const props = defineProps<{
 const collectForm = reactive({ container_type: '', collection_note: '' });
 
 function fmt(iso: string): string {
-    try {
-        return new Intl.DateTimeFormat(locale.value, { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }).format(new Date(iso));
-    } catch {
-        return iso;
-    }
+    return formatDateTime(iso, timezone.value, locale.value);
 }
 
 function collect(): void {

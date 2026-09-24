@@ -659,3 +659,7 @@ programme established about it are worth keeping:
 the VIEWER's machine, which the audit read as `9/5/2026, 9:51:12 AM` on a Europe/Zurich practice. Both now
 use `formatDateTime` with the `timezone` prop. A dental image and a tooth's history are clinical records;
 they read the practice's clock.
+
+## STEP-2 — practice-time display
+
+Odontogram and PerioChart date-only values now pass the tenant locale/timezone to the shared helpers, completing the Dental portion of `P2-M3`.

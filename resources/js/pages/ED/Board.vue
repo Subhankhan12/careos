@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Head, Link, router } from '@inertiajs/vue3';
-import { computed, ref } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import RefusalNotice from '@/Components/RefusalNotice.vue';
@@ -44,6 +44,16 @@ const props = defineProps<{
 // Sort ONLY on recorded facts: arrival time, or the nurse's RECORDED acuity value. This orders by a recorded
 // field — it is NOT a computed priority ranking (no score is derived; the acuity shown is the nurse's value).
 const sortBy = ref<'arrival' | 'acuity'>('arrival');
+const displayedNow = ref(Date.now());
+let elapsedClock: ReturnType<typeof setInterval> | null = null;
+
+onMounted(() => {
+    elapsedClock = setInterval(() => { displayedNow.value = Date.now(); }, 60_000);
+});
+
+onBeforeUnmount(() => {
+    if (elapsedClock !== null) clearInterval(elapsedClock);
+});
 
 /*
  * Order by the RECORDED acuity, using the position the level holds in ITS OWN scale (QA-FIX.7b, P7-C3).
@@ -100,7 +110,7 @@ function statusClass(status: string): string {
 }
 
 function elapsed(iso: string): string {
-    const mins = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 60000));
+    const mins = Math.max(0, Math.round((displayedNow.value - new Date(iso).getTime()) / 60000));
     if (mins < 60) return t('ed.board.elapsedMin', { n: mins });
     return t('ed.board.elapsedHr', { h: Math.floor(mins / 60), m: mins % 60 });
 }

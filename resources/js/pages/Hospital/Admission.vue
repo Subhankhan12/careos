@@ -1,14 +1,18 @@
 <script setup lang="ts">
-import { Head, Link, router } from '@inertiajs/vue3';
+import { Head, Link, router, usePage } from '@inertiajs/vue3';
 import { computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import RefusalNotice from '@/Components/RefusalNotice.vue';
+import { formatDateTime } from '@/lib/date';
 
 // Inpatient admission detail (HOSPITAL.G2) — PRESENTATIONAL read view of one Stay + its
 // append-only bed journey. The rich ward board (all wards/beds) is HOSPITAL.G3. Facts only:
 // bed/ward/route/disposition — no acuity/severity/score is computed or rendered (electric fence).
 const { t } = useI18n();
+const page = usePage();
+const timezone = computed(() => page.props.timezone as string);
+const locale = computed(() => page.props.locale as string);
 
 type JourneyEvent = {
     id: string;
@@ -64,6 +68,10 @@ const losText = computed<string | null>(() => {
 function invoiceStay(): void {
     router.post(props.actions.invoice_url, {}, { preserveScroll: true });
 }
+
+function fmt(iso: string | null): string {
+    return formatDateTime(iso, timezone.value, locale.value);
+}
 </script>
 
 <template>
@@ -118,11 +126,11 @@ function invoiceStay(): void {
                 </div>
                 <div>
                     <p class="text-xs font-semibold uppercase tracking-wide text-ink-subtle">{{ t('hospital.admission.admittedAt') }}</p>
-                    <p class="mt-1 text-sm font-medium text-ink">{{ stay.admitted_at ?? '—' }}</p>
+                    <p class="mt-1 text-sm font-medium text-ink">{{ fmt(stay.admitted_at) }}</p>
                 </div>
                 <div v-if="stay.discharged_at">
                     <p class="text-xs font-semibold uppercase tracking-wide text-ink-subtle">{{ t('hospital.admission.dischargedAt') }}</p>
-                    <p class="mt-1 text-sm font-medium text-ink">{{ stay.discharged_at }}</p>
+                    <p class="mt-1 text-sm font-medium text-ink">{{ fmt(stay.discharged_at) }}</p>
                 </div>
                 <div v-if="stay.discharge_disposition">
                     <p class="text-xs font-semibold uppercase tracking-wide text-ink-subtle">{{ t('hospital.admission.disposition') }}</p>
@@ -146,7 +154,7 @@ function invoiceStay(): void {
                         <span class="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-euca-200 text-xs font-semibold text-euca-900">•</span>
                         <span class="min-w-0 flex-1">
                             <span class="block text-sm font-semibold text-ink">{{ t(`hospital.admission.events.${event.event_type}`) }}</span>
-                            <span class="block text-xs text-ink-muted">{{ event.occurred_at }}</span>
+                                    <span class="block text-xs text-ink-muted">{{ fmt(event.occurred_at) }}</span>
                             <span v-if="event.reason" class="mt-0.5 block text-xs text-ink-muted">{{ event.reason }}</span>
                         </span>
                     </li>

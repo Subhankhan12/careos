@@ -1,15 +1,18 @@
 <script setup lang="ts">
-import { Head, router } from '@inertiajs/vue3';
-import { reactive, ref } from 'vue';
+import { Head, router, usePage } from '@inertiajs/vue3';
+import { computed, reactive, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import RefusalNotice from '@/Components/RefusalNotice.vue';
+import { formatDateTime } from '@/lib/date';
 
 // Nursing shift handover (HOSPITAL.G5) — PRESENTATIONAL (P0D.GU): the outgoing nurse authors a
 // structured SBAR handover, and the stay's shift-by-shift history is shown raw. RECORD-NOT-JUDGE:
 // every field is what the nurse WROTE — "Assessment" is the nurse's own words, never a computed
 // acuity/score; nothing is auto-populated.
 const { t, locale } = useI18n();
+const page = usePage();
+const timezone = computed(() => page.props.timezone as string);
 
 type HandoverRow = {
     id: string;
@@ -33,11 +36,7 @@ const open = ref(false);
 const form = reactive({ shift: '', situation: '', background: '', assessment: '', recommendation: '' });
 
 function fmt(iso: string): string {
-    try {
-        return new Intl.DateTimeFormat(locale.value, { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }).format(new Date(iso));
-    } catch {
-        return iso;
-    }
+    return formatDateTime(iso, timezone.value, locale.value);
 }
 
 function submit(): void {

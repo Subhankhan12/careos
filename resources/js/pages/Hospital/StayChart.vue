@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { Head, Link, router } from '@inertiajs/vue3';
+import { Head, Link, router, usePage } from '@inertiajs/vue3';
 import { computed, reactive, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import RefusalNotice from '@/Components/RefusalNotice.vue';
+import { formatDateTime } from '@/lib/date';
 
 // Bedside charting for an inpatient stay (HOSPITAL.G4) — PRESENTATIONAL over the REUSED Clinical
 // module (P0D.GU): the stay's ward rounds (reused Encounters, each linking to the EXISTING
@@ -11,6 +12,8 @@ import RefusalNotice from '@/Components/RefusalNotice.vue';
 // round redirects into the existing note editor. ELECTRIC FENCE: vitals are raw values over time
 // — no bands/flags/scores, no computed acuity/early-warning — the existing vitals discipline.
 const { t, locale } = useI18n();
+const page = usePage();
+const timezone = computed(() => page.props.timezone as string);
 
 type NoteRef = { id: string; status: string; edit_url: string };
 type Round = { id: string; practitioner: string | null; started_at: string | null; encounter_status: string | null; note: NoteRef | null };
@@ -40,12 +43,7 @@ const vital = reactive({ systolic: '', diastolic: '', heart_rate: '', temperatur
 const order = reactive({ orderable_item_id: '', priority: 'routine', clinical_note: '' });
 
 function fmt(iso: string | null): string {
-    if (!iso) return '—';
-    try {
-        return new Intl.DateTimeFormat(locale.value, { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }).format(new Date(iso));
-    } catch {
-        return iso;
-    }
+    return formatDateTime(iso, timezone.value, locale.value);
 }
 
 function startRound(): void {
@@ -123,7 +121,7 @@ function submitOrder(): void {
                     <div v-for="metric in presentMetrics" :key="metric" class="flex items-baseline gap-3">
                         <span class="w-28 shrink-0 text-xs font-semibold uppercase tracking-wide text-ink-subtle">{{ t(`hospital.chart.metric.${metric}`) }}</span>
                         <span class="flex flex-wrap gap-2 text-sm tabular-nums text-ink">
-                            <span v-for="(point, i) in vitals.metrics[metric]" :key="i" class="rounded-md bg-surface-2 px-2 py-0.5">{{ point.value }}</span>
+                            <span v-for="(point, i) in vitals.metrics[metric]" :key="i" class="rounded-md bg-surface-2 px-2 py-0.5">{{ point.value }} · {{ fmt(point.recorded_at) }}</span>
                         </span>
                     </div>
                 </div>

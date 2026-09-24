@@ -8,10 +8,12 @@ import PatientClinicalHeader from '@/Components/Clinical/PatientClinicalHeader.v
 import PerioSiteGrid from '@/Components/Dental/PerioSiteGrid.vue';
 import Button from '@/Components/Button.vue';
 import Card from '@/Components/Card.vue';
-import { formatDateOnly } from '@/lib/date';
+import { formatDateOnly, formatDateTime } from '@/lib/date';
 
 const { t } = useI18n();
 const page = usePage();
+const locale = computed(() => (page.props.locale as string) || 'en');
+const timezone = computed(() => page.props.timezone as string);
 
 interface Measurement {
     id: string;
@@ -85,7 +87,15 @@ function freshPerTooth(): Record<string, { mobility: string; furcation: string }
     return perTooth;
 }
 
-const examDate = ref(new Date().toISOString().slice(0, 10));
+const examDate = ref(
+    formatDateTime(
+        new Date().toISOString(),
+        timezone.value,
+        'en-CA',
+        { year: 'numeric', month: '2-digit', day: '2-digit' },
+        '',
+    ),
+);
 const examNote = ref('');
 const entry = ref(freshEntry());
 const perTooth = ref(freshPerTooth());
@@ -123,7 +133,7 @@ const measurements = computed<Array<Omit<Measurement, 'id'>>>(() => {
 const enteredSiteCount = computed(() => measurements.value.length);
 
 const previousReadings = computed(() => props.previous?.pocket_depth_mm ?? {});
-const previousExamDate = computed(() => (props.previous?.exam_date ? formatDateOnly(props.previous.exam_date) : null));
+const previousExamDate = computed(() => (props.previous?.exam_date ? formatDateOnly(props.previous.exam_date, locale.value) : null));
 
 function recordExam(): void {
     if (!measurements.value.length) return;

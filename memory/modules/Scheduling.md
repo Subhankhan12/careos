@@ -666,3 +666,7 @@ controllers: `DayBoardController` (fixed, `b8d5777`), this one (fixed), and
 `Modules/Nursing/.../DispatchBoardController:21` — **still open as `QF13c-M2`**, and NOT the same defect: it
 resolves the branch before authorising and omits `where('active', true)`. The other ~244 `firstOrFail()`
 calls in controllers are `whereKey($id)->firstOrFail()`, where 404 is the CORRECT fail-closed answer.
+
+## STEP-2 — practice-time display
+
+`Scheduling/AppointmentDetail.vue` now uses explicit practice timezone and locale for its appointment and history instants, completing `P1-M3`'s scheduling surface.

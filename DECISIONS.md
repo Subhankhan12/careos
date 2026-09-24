@@ -5786,3 +5786,11 @@ references the old ID.
   The branch-management CTA is independently gated by `admin.manage` (D-214): coordinators may dispatch
   but are not directed to a route that would refuse them. This closes `QF13c-M2` in STEP-1; it does not
   widen or alter the day-board or availability controllers.
+- **D-237 — Tenant-local presentation time is an explicit call-site boundary, not a browser default.**
+  STEP-2 routes date-only values through `formatDateOnly(value, locale)` and instants through
+  `formatDateTime(value, timeZone, locale)` at each named display surface. The helper's legacy default
+  locale remains `en`; it was not broadened implicitly. HTML date inputs may request `en-CA` only for their
+  machine-readable value, while visible text receives the tenant's `de`/`de-CH` locale and
+  `Europe/Zurich` zone. A missing clinical unit or direction is not papered over: `P9-M2` displays the
+  supplied timestamp but remains open until a source supplies the former and a clinician records the
+  latter. This preserves record-not-judge and D-192's single UTC storage base.

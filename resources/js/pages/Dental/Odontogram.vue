@@ -87,7 +87,7 @@ const patientHeader = computed(() => {
         mrn: props.patient.mrn,
         // Formatted HERE with the shared local-midnight helpers (D-091) and passed to the
         // header as strings — the shared component parses and computes nothing.
-        dateOfBirth: formatDateOnly(props.patient.date_of_birth),
+        dateOfBirth: formatDateOnly(props.patient.date_of_birth, dtLocale.value),
         // vue-i18n needs the count as the plural choice AND as a named value.
         age: age === null ? null : t('dental.ageYears', { count: age }, age),
         sex: props.patient.sex,

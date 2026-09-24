@@ -5,10 +5,12 @@ import { useI18n } from 'vue-i18n';
 import PortalLayout from '@/Layouts/PortalLayout.vue';
 import PortalEmptyState from '@/Components/Portal/PortalEmptyState.vue';
 import PortalPageHeader from '@/Components/Portal/PortalPageHeader.vue';
+import { formatDateTime } from '@/lib/date';
 
 const { t } = useI18n();
 const page = usePage();
 const locale = computed(() => (page.props.locale as string) || 'en');
+const timezone = computed(() => page.props.timezone as string);
 
 type Slot = { starts_at: string; ends_at: string; resource_ids: string[] };
 type AppointmentRow = { id: string; service: string | null; starts_at: string; ends_at: string; status: string; checked_in?: boolean; can_check_in?: boolean };
@@ -37,38 +39,29 @@ function parse(value: string): Date | null {
     const d = new Date(value);
     return Number.isNaN(d.getTime()) ? null : d;
 }
-function fmt(d: Date, opts: Intl.DateTimeFormatOptions): string {
-    try {
-        return new Intl.DateTimeFormat(locale.value, opts).format(d);
-    } catch {
-        return '';
-    }
+function fmt(value: string, opts: Intl.DateTimeFormatOptions): string {
+    return formatDateTime(value, timezone.value, locale.value, opts, value);
 }
 function badge(value: string): { weekday: string; day: string; month: string } {
-    const d = parse(value);
-    if (!d) return { weekday: '', day: value, month: '' };
+    if (!parse(value)) return { weekday: '', day: value, month: '' };
     return {
-        weekday: fmt(d, { weekday: 'short' }).toUpperCase(),
-        day: fmt(d, { day: 'numeric' }),
-        month: fmt(d, { month: 'short' }),
+        weekday: fmt(value, { weekday: 'short' }).toUpperCase(),
+        day: fmt(value, { day: 'numeric' }),
+        month: fmt(value, { month: 'short' }),
     };
 }
 function timeRange(s: string, e: string): string {
-    const ds = parse(s);
-    const de = parse(e);
-    const t1 = ds ? fmt(ds, { hour: '2-digit', minute: '2-digit' }) : s;
-    const t2 = de ? fmt(de, { hour: '2-digit', minute: '2-digit' }) : e;
+    const t1 = parse(s) ? fmt(s, { hour: '2-digit', minute: '2-digit' }) : s;
+    const t2 = parse(e) ? fmt(e, { hour: '2-digit', minute: '2-digit' }) : e;
     return `${t1} – ${t2}`;
 }
 function slotTime(value: string): string {
-    const d = parse(value);
-    return d ? fmt(d, { hour: '2-digit', minute: '2-digit' }) : value;
+    return parse(value) ? fmt(value, { hour: '2-digit', minute: '2-digit' }) : value;
 }
 function relative(value: string): string {
-    const d = parse(value);
-    if (!d) return '';
-    const startOfDay = (x: Date) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
-    const days = Math.round((startOfDay(d) - startOfDay(new Date())) / 86_400_000);
+    if (!parse(value)) return '';
+    const calendarDay = (instant: string) => formatDateTime(instant, timezone.value, 'en-CA', { year: 'numeric', month: '2-digit', day: '2-digit' }, '');
+    const days = Math.round((Date.parse(`${calendarDay(value)}T00:00:00Z`) - Date.parse(`${calendarDay(new Date().toISOString())}T00:00:00Z`)) / 86_400_000);
     if (days === 0) return t('portal.appointments.today');
     if (days === 1) return t('portal.appointments.tomorrow');
     if (days > 1) return t('portal.appointments.inDays', { count: days });
@@ -108,8 +101,9 @@ const slots = ref<Slot[]>([]);
 const searched = ref(false);
 const selectedSlot = ref<Slot | null>(null);
 
-const morningSlots = computed(() => slots.value.filter((s) => (parse(s.starts_at)?.getHours() ?? 0) < 12));
-const afternoonSlots = computed(() => slots.value.filter((s) => (parse(s.starts_at)?.getHours() ?? 0) >= 12));
+const practiceHour = (instant: string) => Number(formatDateTime(instant, timezone.value, 'en-CA', { hour: '2-digit', hour12: false }, ''));
+const morningSlots = computed(() => slots.value.filter((s) => practiceHour(s.starts_at) < 12));
+const afternoonSlots = computed(() => slots.value.filter((s) => practiceHour(s.starts_at) >= 12));
 const selectedService = computed(() => props.services.find((s) => s.id === book.service_id));
 const selectedBranch = computed(() => props.branches.find((b) => b.id === book.branch_id));
 

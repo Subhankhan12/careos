@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { Head, Link, router } from '@inertiajs/vue3';
+import { Head, Link, router, usePage } from '@inertiajs/vue3';
 import { computed, reactive, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import RefusalNotice from '@/Components/RefusalNotice.vue';
+import { formatDateTime } from '@/lib/date';
 
 // ED clinical documentation (ED.G4) — the visit's clinical record: its treatment encounters (reused Clinical
 // Encounters + the sign-and-lock note editor), the RAW vitals recorded during the visit, and its orders.
@@ -12,6 +13,8 @@ import RefusalNotice from '@/Components/RefusalNotice.vue';
 // editor. ELECTRIC FENCE: vitals are raw values over time — no bands/flags/scores, no computed acuity/
 // severity/deterioration; the recorded triage acuity is G2's nurse-ASSIGNED value (shown on the triage page).
 const { t, locale } = useI18n();
+const page = usePage();
+const timezone = computed(() => (page.props.timezone as string) || 'UTC');
 
 type Note = { id: string; status: string; edit_url: string };
 type EncounterRow = { id: string; practitioner: string | null; started_at: string | null; encounter_status: string | null; note: Note | null };
@@ -43,12 +46,7 @@ const vital = reactive({ systolic: '', diastolic: '', heart_rate: '', temperatur
 const order = reactive({ orderable_item_id: '', priority: 'routine', clinical_note: '' });
 
 function fmt(iso: string | null): string {
-    if (!iso) return '—';
-    try {
-        return new Intl.DateTimeFormat(locale.value, { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }).format(new Date(iso));
-    } catch {
-        return iso;
-    }
+    return formatDateTime(iso, timezone.value, locale.value);
 }
 
 function startEncounter(): void {

@@ -1,15 +1,18 @@
 <script setup lang="ts">
-import { Head, Link, router } from '@inertiajs/vue3';
+import { Head, Link, router, usePage } from '@inertiajs/vue3';
 import { computed, reactive } from 'vue';
 import { useI18n } from 'vue-i18n';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import RefusalNotice from '@/Components/RefusalNotice.vue';
+import { formatDateTime } from '@/lib/date';
 
 // The radiologist report (RAD.G4) — PRESENTATIONAL. THE FENCE GATE. The radiologist AUTHORS the report
 // (findings + impression as prose) via the reused sign-and-lock ClinicalNote; signing files it (study →
 // reported, Order → resulted) and routes it to the ordering clinician (the shared order → review flow). The
 // system computes NO image finding/CAD/abnormality — every word is the radiologist's (the electric fence).
 const { t, locale } = useI18n();
+const page = usePage();
+const timezone = computed(() => (page.props.timezone as string) || 'UTC');
 
 type ReportVersion = {
     id: string;
@@ -39,12 +42,7 @@ const form = reactive({
 });
 
 function fmt(iso: string | null): string {
-    if (!iso) return '—';
-    try {
-        return new Intl.DateTimeFormat(locale.value, { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }).format(new Date(iso));
-    } catch {
-        return iso;
-    }
+    return formatDateTime(iso, timezone.value, locale.value);
 }
 
 function saveDraft(): void {

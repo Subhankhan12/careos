@@ -1,5 +1,12 @@
 <script setup lang="ts">
-import { Link } from '@inertiajs/vue3';
+import { Link, usePage } from '@inertiajs/vue3';
+import { computed } from 'vue';
+import { formatDateTime } from '@/lib/date';
+
+const page = usePage();
+const locale = computed(() => (page.props.locale as string) || 'en');
+const timezone = computed(() => (page.props.timezone as string) || 'UTC');
+const dateTime = (value: string | null): string => formatDateTime(value, timezone.value, locale.value);
 
 defineProps<{
     versions: Array<{
@@ -40,7 +47,7 @@ defineProps<{
                         </span>
                     </div>
                     <p class="mt-1 text-xs text-ink-muted">
-                        {{ version.author_name }} · {{ version.signed_at || version.created_at || '—' }}
+                        {{ version.author_name }} · {{ dateTime(version.signed_at || version.created_at) || '—' }}
                     </p>
                     <p v-if="version.amendment_reason" class="mt-2 text-sm text-ink-muted">{{ version.amendment_reason }}</p>
                 </div>
