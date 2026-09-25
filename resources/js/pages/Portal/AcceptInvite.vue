@@ -4,6 +4,7 @@ import { useI18n } from 'vue-i18n';
 import Button from '@/Components/Button.vue';
 import Card from '@/Components/Card.vue';
 import Input from '@/Components/Input.vue';
+import { formatDateTime } from '@/lib/date';
 
 const { t } = useI18n();
 
@@ -19,6 +20,8 @@ const props = defineProps<{
     practiceName?: string;
     /** The real expiry of THIS token, as recorded on the row. */
     expiresAt?: string;
+    timezone?: string;
+    locale?: string;
 }>();
 
 const form = useForm({ otp: '', password: '', password_confirmation: '' });
@@ -31,7 +34,7 @@ function submit(): void {
 
 function expiryLabel(iso: string): string {
     // Display only — the server decides whether the token still works.
-    return new Date(iso).toLocaleString();
+    return formatDateTime(iso, props.timezone ?? 'UTC', props.locale ?? 'en', undefined, iso);
 }
 </script>
 

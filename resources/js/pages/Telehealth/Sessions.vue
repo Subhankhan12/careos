@@ -1,10 +1,15 @@
 <script setup lang="ts">
-import { Head, router } from '@inertiajs/vue3';
+import { Head, router, usePage } from '@inertiajs/vue3';
+import { computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import StatCard from '@/Components/StatCard.vue';
+import { formatDateTime } from '@/lib/date';
 
 const { t } = useI18n();
+const page = usePage();
+const timezone = computed(() => (page.props.timezone as string) || 'UTC');
+const locale = computed(() => (page.props.locale as string) || 'en');
 
 /*
  * A recorded join. `leftAt` being null does NOT mean the person is in the call — a dropped
@@ -51,10 +56,10 @@ function setState(state: string | null): void {
 }
 
 function dateTime(iso: string | null): string {
-    return iso ? new Date(iso).toLocaleString() : '—';
+    return formatDateTime(iso, timezone.value, locale.value, undefined, '—');
 }
 function time(iso: string): string {
-    return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    return formatDateTime(iso, timezone.value, locale.value, { hour: '2-digit', minute: '2-digit' }, iso);
 }
 </script>
 

@@ -395,3 +395,7 @@ not-permitted actor land in the same list) and claims no automatic reconciliatio
 ## STEP-2 — practice-time display
 
 Dispensing, inventory, and eMAR date/time displays now use the shared tenant helpers, closing `P5-M2` without changing medication-safety behavior.
+
+## STEP-3 — shared formatters
+
+Pricing now carries the configured currency and uses `formatSwissMoney`, closing `P5-M3`. Numeric price-input defaults remain numeric minor-unit conversions, not rendered currency helpers.

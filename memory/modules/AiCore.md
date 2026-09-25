@@ -694,3 +694,7 @@ saying which side of the fix it was written on. What changed is that no new fals
 
 **If you touch `approve()`: the ordering is pinned comment-stripped**, and the positive control asserts a
 successful approve still writes `approved` THEN `executed` — so "never record an approval" is not a fix.
+
+## STEP-3 — shared formatters
+
+Governance dashboard, approval queue, agent ledger, and knowledge-base timestamps (and dashboard cost) now use the shared presentation helpers with explicit tenant context.

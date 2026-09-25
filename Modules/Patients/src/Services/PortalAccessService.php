@@ -17,6 +17,7 @@ use Modules\Patients\Models\PortalLoginToken;
 use Modules\Patients\Notifications\PortalInviteNotification;
 use Modules\Patients\Notifications\PortalPasswordResetNotification;
 use Modules\Platform\Models\Tenant;
+use Modules\Platform\Services\SettingsService;
 use Modules\Platform\Services\TenantContext;
 
 class PortalAccessService
@@ -25,6 +26,7 @@ class PortalAccessService
         private readonly AuditService $audit,
         private readonly ConsentService $consents,
         private readonly TenantContext $tenants,
+        private readonly SettingsService $settings,
     ) {}
 
     /**
@@ -184,7 +186,7 @@ class PortalAccessService
      * A guest reaches this with no tenant context: the token is the tenant-bound secret, so the
      * lookup runs unscoped and the tenant is then taken FROM the token — never from the session.
      *
-     * @return array{email: string, practiceName: string, expiresAt: string}|null
+     * @return array{email: string, practiceName: string, expiresAt: string, timezone: string, locale: string}|null
      */
     public function previewInvite(string $token): ?array
     {
@@ -213,10 +215,13 @@ class PortalAccessService
             return null;
         }
 
+        $display = $this->displaySettings($tenant);
+
         return [
             'email' => $account->email,
             'practiceName' => $tenant->name,
             'expiresAt' => $loginToken->expires_at->toIso8601String(),
+            ...$display,
         ];
     }
 
@@ -305,7 +310,7 @@ class PortalAccessService
      * for by the account holder, who typed the address themselves a minute ago. Less disclosure on a
      * public URL, for no lost function.
      *
-     * @return array{practiceName: string, expiresAt: string}|null
+     * @return array{practiceName: string, expiresAt: string, timezone: string, locale: string}|null
      */
     public function previewPasswordReset(string $token): ?array
     {
@@ -331,9 +336,12 @@ class PortalAccessService
             return null;
         }
 
+        $display = $this->displaySettings($tenant);
+
         return [
             'practiceName' => $tenant->name,
             'expiresAt' => $loginToken->expires_at->toIso8601String(),
+            ...$display,
         ];
     }
 
@@ -480,6 +488,15 @@ class PortalAccessService
         } finally {
             $previous !== null ? $this->tenants->set($previous) : $this->tenants->forget();
         }
+    }
+
+    /** @return array{timezone: string, locale: string} */
+    private function displaySettings(Tenant $tenant): array
+    {
+        return $this->inTenant($tenant, fn (): array => [
+            'timezone' => (string) $this->settings->get('timezone', 'UTC'),
+            'locale' => (string) $this->settings->get('locale', 'en'),
+        ]);
     }
 
     /**

@@ -50,6 +50,8 @@ class PortalInviteAcceptController
             // not true of this product — a portal invite token lives 30 minutes — so the page
             // states what the row says rather than repeating the mock.
             'expiresAt' => $invite['expiresAt'],
+            'timezone' => $invite['timezone'],
+            'locale' => $invite['locale'],
         ]);
     }
 

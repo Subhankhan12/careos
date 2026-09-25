@@ -1,10 +1,14 @@
 <script setup lang="ts">
-import { Head, Link } from '@inertiajs/vue3';
-import { ref } from 'vue';
+import { Head, Link, usePage } from '@inertiajs/vue3';
+import { computed, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import AppLayout from '@/Layouts/AppLayout.vue';
+import { formatDateTime } from '@/lib/date';
 
 const { t } = useI18n();
+const page = usePage();
+const timezone = computed(() => (page.props.timezone as string) || 'UTC');
+const locale = computed(() => (page.props.locale as string) || 'en');
 
 interface Participant {
     id: string;
@@ -88,7 +92,10 @@ async function join(): Promise<void> {
 }
 
 function dateTime(iso: string | null): string {
-    return iso ? new Date(iso).toLocaleString() : '—';
+    return formatDateTime(iso, timezone.value, locale.value, undefined, '—');
+}
+function time(iso: string): string {
+    return formatDateTime(iso, timezone.value, locale.value, { hour: '2-digit', minute: '2-digit' }, iso);
 }
 </script>
 
@@ -114,7 +121,7 @@ function dateTime(iso: string | null): string {
                     <ul v-if="session.participants.length" class="mt-1.5 space-y-1 text-sm text-ink">
                         <li v-for="p in session.participants" :key="p.id">
                             {{ t(`staffTelehealth.party.${p.type}`) }} ·
-                            {{ t('staffTelehealth.joinedAt', { time: new Date(p.joinedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }) }}
+                            {{ t('staffTelehealth.joinedAt', { time: time(p.joinedAt) }) }}
                         </li>
                     </ul>
                     <p v-else class="mt-1 text-sm text-ink-subtle">{{ t('staffTelehealth.noParticipants') }}</p>

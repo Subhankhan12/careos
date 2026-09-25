@@ -139,3 +139,7 @@ old "awaiting data" stub. Test: `tests/Feature/AppLandingTest.php`. No new metri
   `patient_id`; an export that NAMES patients must additionally write one `action = 'read'` row per named
   patient (D-221) or it cannot reach anyone's access log. **`P9-C1` was exactly that omission** in the AR
   management report.
+
+## STEP-3 — shared formatters
+
+Reporting dashboard money displays now use `formatSwissMoney`; this is presentation only and does not change any billing-engine calculation.

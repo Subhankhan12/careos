@@ -265,3 +265,7 @@ Inbox list and thread timestamps use the practice timezone and locale through th
 Telehealth resolves the patient from `$account->patient_id` rather than assuming a loaded relation.
 `PortalTreatmentPlanController` is still deliberately not in this set: it audits per plan inside the map, so
 a patient with no plans produces no row — correct by construction.
+
+## STEP-3 — shared formatters
+
+Telehealth session and join instants now delegate to the shared tenant display helper; no date/time rule moved into the page.

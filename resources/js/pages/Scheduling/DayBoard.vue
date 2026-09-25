@@ -7,6 +7,7 @@ import EmptyState from '@/Components/EmptyState.vue';
 import ScheduleGrid from '@/Components/ScheduleGrid.vue';
 import StatCard from '@/Components/StatCard.vue';
 import SlotPicker from '@/Components/SlotPicker.vue';
+import { formatDateOnly } from '@/lib/date';
 
 const { t } = useI18n();
 const page = usePage();
@@ -57,14 +58,7 @@ const visibleResources = computed(() =>
 );
 
 const formattedDate = computed(() => {
-    const [y, m, d] = filters.date.split('-').map(Number);
-    const dt = new Date(y, (m ?? 1) - 1, d ?? 1);
-    if (Number.isNaN(dt.getTime())) return filters.date;
-    try {
-        return new Intl.DateTimeFormat(locale.value, { weekday: 'short', day: 'numeric', month: 'long', year: 'numeric' }).format(dt);
-    } catch {
-        return filters.date;
-    }
+    return formatDateOnly(filters.date, locale.value, { weekday: 'short', day: 'numeric', month: 'long', year: 'numeric' }, filters.date);
 });
 
 function toDateString(dt: Date): string {

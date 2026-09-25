@@ -489,3 +489,7 @@ request-level test posts empty arrays directly so it never exercises the client 
 ## STEP-2 — practice-time display
 
 `Patients/Show.vue` renders date-only birth dates and access-history instants through the shared tenant helpers; this closes the Patients surfaces of `P1-M3` and `P2-M3`.
+
+## STEP-3 — shared formatters
+
+The access-log grouping and times, plus valid portal invite/reset expiry text, now use the shared helpers with tenant context where it is available through the validated token.

@@ -3,6 +3,7 @@ import { Head, router } from '@inertiajs/vue3';
 import { ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import AppLayout from '@/Layouts/AppLayout.vue';
+import { formatSwissMoney } from '@/lib/money';
 
 const { t, te } = useI18n();
 
@@ -37,7 +38,7 @@ const props = defineProps<{
 
 // Money is integer minor units from the tested service; the view only formats.
 function money(minor: number): string {
-    return `${(minor / 100).toFixed(2)} ${props.currency}`;
+    return formatSwissMoney(minor, props.currency);
 }
 // no_shows.rate is a raw ratio returned by the service (a fact, not a judgment);
 // rendering it as a percentage is pure formatting — nothing is graded or coloured.

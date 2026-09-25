@@ -65,6 +65,8 @@ class PortalPasswordResetController
             'token' => $token,
             'practiceName' => $reset['practiceName'],
             'expiresAt' => $reset['expiresAt'],
+            'timezone' => $reset['timezone'],
+            'locale' => $reset['locale'],
         ]);
     }
 

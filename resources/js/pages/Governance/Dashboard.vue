@@ -5,9 +5,13 @@ import { useI18n } from 'vue-i18n';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import Card from '@/Components/Card.vue';
 import StatCard from '@/Components/StatCard.vue';
+import { formatDateTime } from '@/lib/date';
+import { formatSwissMoney } from '@/lib/money';
 
 const { t } = useI18n();
 const page = usePage();
+const timezone = computed(() => (page.props.timezone as string) || 'UTC');
+const locale = computed(() => (page.props.locale as string) || 'en');
 
 const props = defineProps<{
     chain: { ok: boolean; count: number | null; brokenAt: string | null; reason: string | null; lastCheckedAt: string | null };
@@ -76,13 +80,13 @@ const flash = computed(() => (page.props.flash as { status?: string } | undefine
 
 // Facts only: display the stored integer-minor cost as a currency amount; the view formats,
 // it never computes a figure of its own.
-const aiCost = computed(() => `${props.ai.currency} ${(props.ai.costMinor / 100).toFixed(2)}`);
+const aiCost = computed(() => formatSwissMoney(props.ai.costMinor, props.ai.currency));
 const outcomes = computed(() => Object.entries(props.ai.byOutcome));
 
 // These are full timestamps (not date-only values), so plain locale formatting is correct —
 // the date-only local-midnight concern (D-091) does not apply here.
 function dateTime(iso: string | null): string {
-    return iso ? new Date(iso).toLocaleString() : '—';
+    return formatDateTime(iso, timezone.value, locale.value, undefined, '—');
 }
 
 function verifyNow(): void {

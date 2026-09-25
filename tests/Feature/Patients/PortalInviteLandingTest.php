@@ -233,7 +233,9 @@ test('a VALID token renders the landing page — practice, address, real expiry,
     expect($props['valid'])->toBeTrue()
         ->and($props['email'])->toBe('erika.invite@example.test')
         ->and($props['practiceName'])->toBe('Alpha Clinic')
-        ->and($props['token'])->toBe($fx['valid']);
+        ->and($props['token'])->toBe($fx['valid'])
+        ->and($props['timezone'])->toBe('UTC')
+        ->and($props['locale'])->toBe('en');
 
     // The expiry shown is the ROW's, not the wireframe's "7 days".
     pinCtx()->set($fx['tenant']);

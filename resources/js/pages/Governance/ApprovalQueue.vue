@@ -6,9 +6,12 @@ import AppLayout from '@/Layouts/AppLayout.vue';
 import RefusalNotice from '@/Components/RefusalNotice.vue';
 import Button from '@/Components/Button.vue';
 import Card from '@/Components/Card.vue';
+import { formatDateTime } from '@/lib/date';
 
 const { t } = useI18n();
 const page = usePage();
+const timezone = computed(() => (page.props.timezone as string) || 'UTC');
+const locale = computed(() => (page.props.locale as string) || 'en');
 
 interface PendingAction {
     id: string;
@@ -189,7 +192,7 @@ function pretty(value: Record<string, unknown> | null): string {
     return value ? JSON.stringify(value, null, 2) : '—';
 }
 function dateTime(iso: string | null): string {
-    return iso ? new Date(iso).toLocaleString() : '—';
+    return formatDateTime(iso, timezone.value, locale.value, undefined, '—');
 }
 // Honest render of a metric with no real source: show "—", never a fabricated value.
 function orDash(value: number | null): string {
@@ -237,7 +240,7 @@ const groupedResolved = computed(() => {
     const groups: Array<{ label: string; rows: ResolvedAction[] }> = [];
     const index = new Map<string, ResolvedAction[]>();
     for (const row of props.resolved) {
-        const label = row.resolvedAt ? new Date(row.resolvedAt).toLocaleDateString() : '—';
+        const label = formatDateTime(row.resolvedAt, timezone.value, locale.value, { day: '2-digit', month: '2-digit', year: 'numeric' }, '—');
         if (!index.has(label)) {
             const rows: ResolvedAction[] = [];
             index.set(label, rows);
@@ -248,7 +251,7 @@ const groupedResolved = computed(() => {
     return groups;
 });
 function timeOnly(iso: string | null): string {
-    return iso ? new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—';
+    return formatDateTime(iso, timezone.value, locale.value, { hour: '2-digit', minute: '2-digit' }, '—');
 }
 const hasResolvedFilters = computed(
     () => rFilters.status !== 'all' || !!rFilters.q || !!rFilters.reviewer || !!rFilters.from || !!rFilters.to,

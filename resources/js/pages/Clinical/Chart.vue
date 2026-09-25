@@ -138,15 +138,7 @@ const monthGroups = computed(() => {
     const groups: Record<string, typeof props.encounters> = {};
     const order: string[] = [];
     for (const e of filtered) {
-        const d = new Date(e.started_at);
-        let key = e.started_at;
-        if (!Number.isNaN(d.getTime())) {
-            try {
-                key = new Intl.DateTimeFormat(locale.value, { month: 'long', year: 'numeric', timeZone: tz.value }).format(d).toUpperCase();
-            } catch {
-                key = e.started_at;
-            }
-        }
+        const key = formatDateTime(e.started_at, tz.value, locale.value, { month: 'long', year: 'numeric' }, e.started_at).toUpperCase();
         if (!(key in groups)) {
             groups[key] = [];
             order.push(key);

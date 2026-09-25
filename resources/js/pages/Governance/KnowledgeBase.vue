@@ -7,9 +7,12 @@ import Button from '@/Components/Button.vue';
 import Card from '@/Components/Card.vue';
 import Input from '@/Components/Input.vue';
 import StatCard from '@/Components/StatCard.vue';
+import { formatDateTime } from '@/lib/date';
 
 const { t } = useI18n();
 const page = usePage();
+const timezone = computed(() => (page.props.timezone as string) || 'UTC');
+const locale = computed(() => (page.props.locale as string) || 'en');
 
 interface Article {
     id: string;
@@ -64,7 +67,7 @@ function savedLine(article: Article): string {
 
     return t('kb.savedBy.by', {
         name: article.lastSavedBy,
-        when: article.lastSavedAt ? new Date(article.lastSavedAt).toLocaleString() : '—',
+        when: formatDateTime(article.lastSavedAt, timezone.value, locale.value, undefined, '—'),
     });
 }
 

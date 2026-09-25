@@ -5794,3 +5794,10 @@ references the old ID.
   `Europe/Zurich` zone. A missing clinical unit or direction is not papered over: `P9-M2` displays the
   supplied timestamp but remains open until a source supplies the former and a clinician records the
   latter. This preserves record-not-judge and D-192's single UTC storage base.
+- **D-238 — Shared presentation helpers are canonical for rendered date/time and money.** STEP-3 replaces
+  remaining non-Billing module-local display formatters with `formatDateOnly`, `formatDateTime`, or
+  `formatSwissMoney`; callers supply the tenant locale/timezone and the server-supplied currency explicitly.
+  A numeric form default is not a rendered currency formatter and may retain its minor-unit conversion. This
+  decision does not bless page-side money derivation: `P7-M6` stays open until the ED estimate comes from the
+  billing engine. Guest portal previews resolve tenant display settings only inside the validated token tenant
+  context, preserving fail-closed isolation and D-192's UTC storage rule.

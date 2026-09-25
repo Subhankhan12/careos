@@ -670,3 +670,7 @@ calls in controllers are `whereKey($id)->firstOrFail()`, where 404 is the CORREC
 ## STEP-2 — practice-time display
 
 `Scheduling/AppointmentDetail.vue` now uses explicit practice timezone and locale for its appointment and history instants, completing `P1-M3`'s scheduling surface.
+
+## STEP-3 — shared formatters
+
+Day-board visible date labels now use the shared date-only helper with the practice locale.

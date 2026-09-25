@@ -5,6 +5,7 @@ import { useI18n } from 'vue-i18n';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import RefusalNotice from '@/Components/RefusalNotice.vue';
 import { formatDateOnly, formatDateTime } from '@/lib/date';
+import { formatSwissMoney } from '@/lib/money';
 
 // Discharge summary + closed-episode view (HOSPITAL.G7) — the Phase-1 close-out. PRESENTATIONAL: it shows
 // the derived LOS (a fact), the sign-and-lock summary (draft editor OR finalized read-only), and the stay's
@@ -16,7 +17,7 @@ const timezone = computed(() => page.props.timezone as string);
 type JourneyEvent = { id: string; event_type: string; reason: string | null; disposition: string | null; occurred_at: string };
 type Round = { id: string; at: string | null };
 type HandoverRow = { id: string; shift: string; situation: string; handed_over_at: string };
-type InvoiceRow = { id: string; series: string; number: string | null; status: string; total_minor: number; issue_date: string | null };
+type InvoiceRow = { id: string; series: string; number: string | null; status: string; total_minor: number; currency: string; issue_date: string | null };
 
 const props = defineProps<{
     stay: {
@@ -76,8 +77,8 @@ function fmtDay(iso: string | null): string {
     return formatDateOnly(iso, locale.value);
 }
 
-function fmtAmount(minor: number): string {
-    return (minor / 100).toLocaleString(locale.value, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+function fmtAmount(minor: number, currency: string): string {
+    return formatSwissMoney(minor, currency);
 }
 
 function saveDraft(): void {
@@ -227,7 +228,7 @@ function finalize(): void {
                     <ol v-else class="mt-3 space-y-2">
                         <li v-for="inv in episode.invoices" :key="inv.id" class="flex items-center justify-between text-sm text-ink">
                             <span>{{ inv.series }}-{{ inv.number ?? '—' }} · {{ fmtDay(inv.issue_date) }}</span>
-                            <span class="font-semibold">{{ fmtAmount(inv.total_minor) }}</span>
+                            <span class="font-semibold">{{ fmtAmount(inv.total_minor, inv.currency) }}</span>
                         </li>
                     </ol>
                 </div>

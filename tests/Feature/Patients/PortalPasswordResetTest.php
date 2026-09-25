@@ -311,6 +311,8 @@ test('a reset sets the password through the existing path, stamps consumed_at, a
     $props = $this->get('/portal/reset/'.$link['token'])->assertOk()->viewData('page')['props'];
     expect($props['valid'])->toBeTrue()
         ->and($props['practiceName'])->toBe('Alpha Clinic')
+        ->and($props['timezone'])->toBe('UTC')
+        ->and($props['locale'])->toBe('en')
         ->and(array_key_exists('email', $props))->toBeFalse('the reset page discloses the address');
 
     pprReset($this, $link['token'], $link['otp'])->assertRedirect(route('portal.login'));

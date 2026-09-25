@@ -16,6 +16,7 @@ use Modules\ED\Models\EdVisitCharge;
 use Modules\ED\Services\EdBillingService;
 use Modules\Platform\Exceptions\CrossTenantReferenceException;
 use Modules\Platform\Models\User;
+use Modules\Platform\Services\SettingsService;
 
 /**
  * ED billing (ED.G6) — PRESENTATIONAL over `EdBillingService`. From a visit, set tenant-authored prices
@@ -27,7 +28,7 @@ use Modules\Platform\Models\User;
  */
 class EdBillingController
 {
-    public function show(Request $request, string $visit, EdBillingService $billing): Response
+    public function show(Request $request, string $visit, EdBillingService $billing, SettingsService $settings): Response
     {
         Gate::authorize('billing.manage');
         abort_unless($request->user() instanceof User, 403);
@@ -71,6 +72,7 @@ class EdBillingController
                 'is_attendance' => $t->code === EdBillingService::ATTENDANCE_CODE,
             ])->values()->all(),
             'invoice' => $invoice === null ? null : ['id' => $invoice->id, 'url' => route('billing.invoices.show', $invoice->id), 'total_minor' => $invoice->total_minor],
+            'currency' => (string) $settings->get('currency', 'EUR'),
             'actions' => [
                 'can_bill' => Gate::allows('billing.manage'),
                 'attendance_code' => EdBillingService::ATTENDANCE_CODE,

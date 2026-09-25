@@ -3,7 +3,7 @@
 Short, factual snapshot of where the project stands. Updated at consolidations and after gates
 (per the MEMORY PROTOCOL in AGENTS.md).
 
-> ## 🏁 RECONCILIATION — 2026-09-23, QA counts re-derived at STEP-2 (`<pending>`). READ THIS BLOCK FIRST; everything below it is history.
+> ## 🏁 RECONCILIATION — 2026-09-24, QA counts re-derived at STEP-3 (`<pending>`). READ THIS BLOCK FIRST; everything below it is history.
 >
 > **WHERE THE PROJECT STANDS, in five facts:**
 >
@@ -23,9 +23,9 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
 >    backend is **inert: zero HTTP routes, no UI**. It is not unfinished by accident; **do not "finish" it.**
 > 4. **THE TEN-PHASE ROLE-BY-ROLE QA PROGRAMME IS COMPLETE, WITH ZERO OPEN CRITICALS.** Ten audit phases
 >    drove every role in a real browser; ten fix gates across 29 code-changing parts closed the top of the
->    list. `docs/qa/ROLE-AUDIT.md` is the authoritative record — **195 findings, 77 resolved, 118 open: 0
->    CRITICAL, 21 HIGH, 70 MEDIUM, 27 LOW.** These are the full ID/status re-parse recorded in
->    `docs/OPEN-WORK.md` at STEP-2 (artifact state through this gate), not a hand-adjusted summary.
+>    list. `docs/qa/ROLE-AUDIT.md` is the authoritative record — **195 findings, 79 resolved, 116 open: 0
+>    CRITICAL, 21 HIGH, 68 MEDIUM, 27 LOW.** These are the full ID/status re-parse recorded in
+>    `docs/OPEN-WORK.md` at STEP-3 (artifact state through this gate), not a hand-adjusted summary.
 > 5. **TWO TRACKS REMAIN: (a) DEPLOYMENT — the highest-value work and the only one actually queued — and
 >    (b) the prioritised open HIGH/MEDIUM list in `DEFERRED.md`.** Nothing else is queued. Wait for a pasted
 >    gate.
@@ -84,7 +84,7 @@ Short, factual snapshot of where the project stands. Updated at consolidations a
 
 ## STATUS: BUILD COMPLETE · DEPLOY-READY 🟢 GO · THE BUILDABLE PARITY PROGRAMME IS COMPLETE — ONE TRACK REMAINS: **DEPLOYMENT + PARTNERSHIPS**
 
-### ✅ THE ROLE-BY-ROLE QA AUDIT IS COMPLETE — `docs/qa/ROLE-AUDIT.md` (10 of 10 phases; **195 findings — 77 resolved, 118 open** from the full ID/status re-parse recorded at STEP-2, artifact state through this gate; **every CRITICAL is fixed — 0 open, highest open severity is HIGH at 21**)
+### ✅ THE ROLE-BY-ROLE QA AUDIT IS COMPLETE — `docs/qa/ROLE-AUDIT.md` (10 of 10 phases; **195 findings — 79 resolved, 116 open** from the full ID/status re-parse recorded at STEP-3, artifact state through this gate; **every CRITICAL is fixed — 0 open, highest open severity is HIGH at 21**)
 
 **The live itemised list is `docs/OPEN-WORK.md`** — every open finding one per row with family, precedent
 and a FIX-or-FEATURE verdict, plus the open product decisions, the deferred work and the deployment track.
@@ -704,6 +704,15 @@ Fifteen date/time display findings are closed by explicit call-site use of the e
 tenant-local, but no unit or clinician-authored direction is supplied, and the UI must not create either.
 The `date.ts` default locale remains `en`; visible tenant formatting is passed explicitly. The full §0
 re-parse is now **195 recorded, 77 resolved, 118 open (0 CRITICAL, 21 HIGH, 70 MEDIUM, 27 LOW)**.
+
+### STEP-3 — shared formatter sweep (D-238)
+
+Every remaining non-Billing module-local display formatter now delegates to the shared date or money helper;
+the three `minor / 100` expressions that initialise numeric price inputs remain because they are not rendered
+currency. `P5-M3` and `P9-M3` close: Pricing carries the practice currency and discharge invoices carry each
+recorded invoice currency. `P7-M6` remains open because ED still derives rate × quantity on the page; only its
+display path changed. The full §0 re-parse is **195 recorded, 79 resolved, 116 open (0 CRITICAL, 21 HIGH,
+68 MEDIUM, 27 LOW)**.
 
 ### SERVER DEPLOYMENT PACK — `docs/deploy/` (D-234)
 

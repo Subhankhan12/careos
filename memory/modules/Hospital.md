@@ -551,3 +551,7 @@ Admission, handover, discharge, stay, and ward-board date/time displays use expl
 
 **`WardBedManagementTest` needed no change** — it claims beds with **no stay**, so the status machine's own
 tests are unaffected by a guard keyed on an admitted stay. Worth knowing before touching either.
+
+## STEP-3 — shared formatters
+
+Discharge summary invoices now pass each recorded invoice currency to `formatSwissMoney`, closing `P9-M3`; no invoice amount is recomputed by the page.

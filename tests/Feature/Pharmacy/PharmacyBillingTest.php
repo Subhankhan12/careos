@@ -191,7 +191,8 @@ test('pharmacy pricing is RBAC-gated (billing.manage) and tenant scoped, fail cl
 
     // the pricing surface is billing.manage-gated through the real stack.
     pbCtx()->forget();
-    $this->actingAs($fx['pharmacist'])->get('/pharmacy/pricing')->assertOk();
+    $pricing = $this->actingAs($fx['pharmacist'])->get('/pharmacy/pricing')->assertOk();
+    expect($pricing->viewData('page')['props']['currency'])->toBe('EUR');
     pbCtx()->forget();
     $this->actingAs($fx['reception'])->get('/pharmacy/pricing')->assertForbidden();
 

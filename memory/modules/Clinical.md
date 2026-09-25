@@ -615,3 +615,7 @@ what found the rest, and it is worth redoing before any further work here.
 ## STEP-2 — practice-time display
 
 Chart header dates, allergy records, note save state, and version history use the shared explicit tenant display helpers. This completes the Clinical portion of `P2-M3`; it does not add any clinical interpretation.
+
+## STEP-3 — shared formatters
+
+Chart month-group labels now delegate to the same tenant display helper; this is presentation-only and retains no clinical judgment.

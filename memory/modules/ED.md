@@ -313,3 +313,7 @@ ED triage, documentation, disposition, and board timestamps use explicit practic
 
 Fixed as part of QA-FIX.8c even though `P7-M5` is a Phase-7 finding — the three are one defect in three
 files, and leaving the worst instance open while fixing its milder twins was indefensible.
+
+## STEP-3 — shared formatters
+
+ED billing now receives tenant currency and renders its estimate through the shared money helper. `P7-M6` remains open because the page still derives rate × quantity; no money computation moved or was approved here.

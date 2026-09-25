@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { Head, Link, router } from '@inertiajs/vue3';
+import { Head, Link, router, usePage } from '@inertiajs/vue3';
 import { computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import AccessLogRow from '@/Components/Clinical/AccessLogRow.vue';
 import { disclosureLabel } from '@/lib/disclosure';
+import { formatDateTime } from '@/lib/date';
 
 /*
  * The dedicated patient access log (PC.P5).
@@ -25,6 +26,9 @@ import { disclosureLabel } from '@/lib/disclosure';
  */
 
 const { t } = useI18n();
+const page = usePage();
+const timezone = computed(() => (page.props.timezone as string) || 'UTC');
+const locale = computed(() => (page.props.locale as string) || 'en');
 
 const props = defineProps<{
     patient: { id: string; mrn: string; name: string; show_url: string };
@@ -63,23 +67,11 @@ const grouped = computed(() => {
 });
 
 function dayLabel(value: string): string {
-    const d = new Date(value.replace(' ', 'T'));
-    if (Number.isNaN(d.getTime())) return value;
-    try {
-        return new Intl.DateTimeFormat(undefined, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).format(d);
-    } catch {
-        return value;
-    }
+    return formatDateTime(value, timezone.value, locale.value, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }, value);
 }
 
 function timeLabel(value: string): string {
-    const d = new Date(value.replace(' ', 'T'));
-    if (Number.isNaN(d.getTime())) return value;
-    try {
-        return new Intl.DateTimeFormat(undefined, { hour: '2-digit', minute: '2-digit' }).format(d);
-    } catch {
-        return value;
-    }
+    return formatDateTime(value, timezone.value, locale.value, { hour: '2-digit', minute: '2-digit' }, value);
 }
 
 /** The recorded actor type, in words. Same styling for every value — it ranks nothing. */

@@ -5,6 +5,8 @@ import { useI18n } from 'vue-i18n';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import FirstRunPanel from '@/Components/FirstRunPanel.vue';
 import StatCard from '@/Components/StatCard.vue';
+import { formatDateOnly } from '@/lib/date';
+import { formatSwissMoney } from '@/lib/money';
 
 const { t } = useI18n();
 const page = usePage();
@@ -29,11 +31,7 @@ const props = defineProps<{
 // Parse the server date as LOCAL midnight ('T00:00:00', no Z) so the weekday/label
 // never shifts a day in a behind-UTC browser.
 const todayLabel = computed(() => {
-    try {
-        return new Intl.DateTimeFormat(locale.value, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).format(new Date(`${props.today}T00:00:00`));
-    } catch {
-        return props.today;
-    }
+    return formatDateOnly(props.today, locale.value, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }, props.today);
 });
 
 /*
@@ -68,7 +66,7 @@ const completed = computed(() => props.operational?.by_status?.completed ?? 0);
 const hasAppointments = computed(() => (props.operational?.appointments ?? 0) > 0);
 
 function money(minor: number, currency: string): string {
-    return `${(minor / 100).toFixed(2)} ${currency}`;
+    return formatSwissMoney(minor, currency);
 }
 </script>
 

@@ -12,6 +12,7 @@ use Modules\Pharmacy\Models\FormularyItem;
 use Modules\Pharmacy\Services\PharmacyBillingService;
 use Modules\Platform\Exceptions\CrossTenantReferenceException;
 use Modules\Platform\Models\User;
+use Modules\Platform\Services\SettingsService;
 
 /**
  * Pharmacy pricing (PHARMACY.G5) — PRESENTATIONAL over `PharmacyBillingService::priceItem`. Set a formulary
@@ -21,12 +22,13 @@ use Modules\Platform\Models\User;
  */
 class PricingController
 {
-    public function index(Request $request): Response
+    public function index(Request $request, SettingsService $settings): Response
     {
         Gate::authorize('billing.manage');
         abort_unless($request->user() instanceof User, 403);
 
         return Inertia::render('Pharmacy/Pricing', [
+            'currency' => (string) $settings->get('currency', 'EUR'),
             'items' => FormularyItem::query()->where('active', true)->with('tariffItem')->orderBy('name')->get()
                 ->map(fn (FormularyItem $item): array => [
                     'id' => $item->id,

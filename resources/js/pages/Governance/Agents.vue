@@ -4,9 +4,12 @@ import { computed, reactive, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import Button from '@/Components/Button.vue';
+import { formatDateTime } from '@/lib/date';
 
 const { t } = useI18n();
 const page = usePage();
+const timezone = computed(() => (page.props.timezone as string) || 'UTC');
+const locale = computed(() => (page.props.locale as string) || 'en');
 
 type Level = { value: string; allowed: boolean };
 type ToolRow = { key: string; name: string; category: string };
@@ -81,9 +84,7 @@ const filteredLedger = computed<LedgerRow[]>(() =>
     ledgerAgentFilter.value === 'all' ? props.ledger : props.ledger.filter((r) => r.agentLabel === ledgerAgentFilter.value),
 );
 function formatWhen(iso: string | null): string {
-    if (!iso) return '—';
-    const d = new Date(iso);
-    return Number.isNaN(d.getTime()) ? '—' : d.toLocaleString();
+    return formatDateTime(iso, timezone.value, locale.value, undefined, '—');
 }
 // Real outcomes carry their own tint; a fence refusal is danger, executed is success, the rest neutral.
 function outcomeClass(outcome: string): string {

@@ -311,4 +311,5 @@ One line per completed gate. Newest at bottom. Format: `<commit> P<phase>.G<n>: 
 
 - `8f96617` DOC-SYNC.1: docs/memory — reconciled QA totals, deployment-status drift, and onboarding method-record drift; composer check 1,806 passed (44,144 assertions), smoke 4 passed.
 - `d3eba56` STEP-1: Nursing — dispatch board authorises before resolving an active branch; QF13c-M2 fixed; composer check 1,810 passed (44,208 assertions), smoke 4 passed, build green.
-- `<pending>` STEP-2: explicit practice-timezone and locale display at the audited date/time call sites; 15 findings fixed, `P9-M2` partly fixed (timestamp only; no invented unit/direction); focused Vitest 63 passed and PracticeClock Pest 8 passed (42 assertions) before final gate verification.
+- `799d095` STEP-2: explicit practice-timezone and locale display at the audited date/time call sites; 15 findings fixed, `P9-M2` partly fixed (timestamp only; no invented unit/direction); focused Vitest 63 passed and PracticeClock Pest 8 passed (42 assertions) before final gate verification.
+- `<pending>` STEP-3: non-Billing module-local display formatters use shared helpers; `P5-M3` and `P9-M3` fixed, while `P7-M6` remains open because ED still derives money page-side; focused checks and browser verification recorded.

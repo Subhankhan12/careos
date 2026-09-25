@@ -8242,3 +8242,20 @@ changing that global contract.
 the original finding also requires a recorded unit and a direction. A direction must never be computed by
 CareOS (the clinical fence), and no recorded unit is available in the current payload. The improvement is
 therefore real but incomplete.
+
+## STEP-3 resolution addendum (append-only)
+
+**Count note (STEP-3).** Applying the §0 counting traps to the full ID/status re-parse yields **195**
+records, **79 resolved** and **116 open** — **0 CRITICAL, 21 HIGH, 68 MEDIUM, 27 LOW**. The historical top
+fix table remains intentionally unchanged; live totals are in `docs/OPEN-WORK.md`.
+
+> ✅ **FIXED — STEP-3, commit `<pending>` (D-238): `P5-M3`.** Pharmacy pricing now receives the practice
+> currency and renders every price through `formatSwissMoney`; the prior currency-less module-local display
+> formatter is gone.
+
+> ✅ **FIXED — STEP-3, commit `<pending>` (D-238): `P9-M3`.** Each discharge-summary invoice now supplies
+> its recorded currency to `formatSwissMoney`; the local formatter that emitted an unlabelled amount is gone.
+
+> ⚠️ **PARTLY FIXED — STEP-3, commit `<pending>` (D-238): `P7-M6` remains OPEN.** Its ED display now uses
+> the shared formatter, but the page still derives rate × quantity. A display sweep cannot move money math
+> out of the billing engine; that outstanding calculation remains the finding's open part.

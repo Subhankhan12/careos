@@ -97,6 +97,7 @@ class DischargeSummaryController
                     'number' => $i->number,
                     'status' => $i->status,
                     'total_minor' => (int) $i->total_minor,
+                    'currency' => (string) $i->currency,
                     'issue_date' => $i->issue_date?->toDateString(),
                 ])->all(),
             ],

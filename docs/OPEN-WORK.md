@@ -1,7 +1,7 @@
 # OPEN-WORK.md — the itemised open-work register
 
-**Full re-parse recorded at STEP-2 (`<pending>`); underlying ROLE-AUDIT artifact state through this gate,
-2026-09-23.** First written at `de57a7c` against `2b4ec48`; refreshed by
+**Full re-parse recorded at STEP-3 (`<pending>`); underlying ROLE-AUDIT artifact state through this gate,
+2026-09-24.** First written at `de57a7c` against `2b4ec48`; refreshed by
 QA-FIX.13b, and refreshed again here by a **full re-parse of the artifact** — not by adjusting the previous
 totals. The staleness banner the last refresh carried is removed because the numbers below are derived
 again, end to end.
@@ -30,8 +30,8 @@ line, totals row, or `PROJECT-STATE.md` figure was trusted as input.
 | Distinct finding ids in the artifact | **195** (185 `P*` + 10 `QF*`) |
 | Findings with a record of their own | **195 / 195** — none orphaned |
 | Per phase | P1 18 · P2 19 · P3 15 · P4 23 · P5 14 · P6 20 · P7 17 · P8 17 · P9 25 · P10 17 (+10 gate-raised) |
-| Resolved | **77** |
-| **Open** | **118** — C **0** · H **21** · M **70** · L **27** |
+| Resolved | **79** |
+| **Open** | **116** — C **0** · H **21** · M **68** · L **27** |
 | Of the open, PARTLY FIXED | 3 — `P3-H2`, `P9-M2`, `P10-M1` |
 
 > **Historical re-parse notes follow.** Their prior totals describe the artifact at the stated historical
@@ -132,6 +132,15 @@ an explicit `FIXED` banner, nine are resolved by a grouped fix-status table only
 `PREVENTED`, and `QF12a-H1` is the documented same-gate fix without either marker. Those mechanisms yield
 77 resolved IDs and 118 open IDs after the §0 traps are applied.
 
+### STEP-3 re-parse and closure boundary
+
+STEP-3 resolves **two** display findings: `P5-M3` (Pharmacy pricing now carries the tenant currency through
+the shared money formatter) and `P9-M3` (each discharge-summary invoice supplies its recorded currency to
+that formatter). `P7-M6` remains **open**: its module-local display formatter is gone, but the ED billing
+page still derives an estimate from rate × quantity; replacing that computation is a separate money-engine
+boundary, not a formatting sweep. Applying the §0 counting traps to the complete artifact after the appended
+resolution banners yields **195 recorded, 79 resolved, 116 open (0 CRITICAL, 21 HIGH, 68 MEDIUM, 27 LOW)**.
+
 ### How to read the family and precedent columns
 
 The artifact's *"open list, prioritised"* table groups findings into **seven families by shared remedy**.
@@ -155,14 +164,14 @@ It states family membership **for HIGH findings only**. Therefore:
 | **2** — operations that mislead, or that cannot be undone | **22** | 2 (1†) | 16 | 4 |
 | **3** — invisible refusals | **6** | 1 | 3 (1†) | 2 |
 | **4** — unrecorded disclosure | **3** | 0 | 2 | 1 |
-| **5** — display / locale divergence | **17** | 1 | 9 | 7 |
+| **5** — display / locale divergence | **15** | 1 | 7 | 7 |
 | **6** — attribution recorded but not surfaced | **5** | 0 | 3 | 2 |
 | **7** — partial writes outside a transaction | **2** | 0 | 2 | 0 |
 | **outside the seven** | **8** | 0 | 4 | 4 |
-| **Total** | **118** | **21** | **70** | **27** |
+| **Total** | **116** | **21** | **68** | **27** |
 
 **Families 1 and 5 are still the largest share of everything open.** That is the scheduling fact this register
-exists to surface: 72 of 118 findings are *"a capability you cannot reach"* or *"a value rendered wrongly"*.
+exists to surface: 70 of 116 findings are *"a capability you cannot reach"* or *"a value rendered wrongly"*.
 
 **FIX or FEATURE** follows the QA-FIX.12d classification: a **FIX** changes code that already exists to
 stop it misleading, losing or refusing wrongly; a **FEATURE** builds a capability that is not there. The
@@ -182,7 +191,7 @@ be reached and no amount of RBAC wiring creates it — and an eighth, `P9-H5`, i
 nine are genuinely wiring, all against the one D-214 precedent. The artifact's own instruction stands:
 **triage each before scheduling.** Families 4, 6 and 7 have no open HIGH at all.
 
-**Across the whole 118: 104 are FIX, 12 are FEATURE, and 2 are part of each** (`P9-H5`, `P10-M1`). The 14
+**Across the whole 116: 102 are FIX, 12 are FEATURE, and 2 are part of each** (`P9-H5`, `P10-M1`). The 14
 FEATURE-bearing findings are the ones a fix gate must **stop** on rather than build through — the
 `474cefe`, QA-FIX.12d and QA-FIX.13b precedent.
 
@@ -227,9 +236,9 @@ FEATURE-bearing findings are the ones a fix gate must **stop** on rather than bu
 |---|---|---|---|---|---|---|---|---|
 | `QF12c-H1` | H | QA-FIX.12c | surgeon / org_admin | The surgery scheduling form interprets the typed wall clock as UTC, so a case is stored an offset away from what the surgeon typed *(wall clock read as UTC)* | `POST /surgery/cases` | 5 | D-228 (QA-FIX.12c, `2e76387`) — `formatDateTime` + naive-instant normalisation | **FIX** |
 
-## 2. Open MEDIUMs, by family / pattern — 70
+## 2. Open MEDIUMs, by family / pattern — 68
 
-70 open MEDIUMs. Family assignments here are **derived** (see §0) — the artifact states membership for
+68 open MEDIUMs. Family assignments here are **derived** (see §0) — the artifact states membership for
 HIGHs only. The clusters worth taking as **one job** are named in the sub-pattern column, counted across
 all severities:
 
@@ -238,7 +247,7 @@ all severities:
 | **RBAC mismatch** — a role 403 on the routes its own permissions name | **13** (H7 · M5 · L1) | D-214 | The single biggest cluster in the product, and all of it is wiring |
 | **Responsive nav absent** below 768 px | **9** (M7 · L2) | **none** | No precedent exists, and one shell change closes every instance. The cheapest 9 findings on this list |
 | **Date/time rendering** | **2** (M2) | D-091 · D-192/D-193 · D-228 | `P9-M2` remains partly fixed (timestamp only; unit and clinician-authored direction are not supplied), and `P4-M7` is still a locale-wide UI gap |
-| **Money display** | **6** (M6) | D-091 shape | 4 render money with no currency or a module-local formatter; **2 derive money page-side**, which is the more serious half |
+| **Money display** | **4** (M4) | D-091 shape | 2 still render money with no currency or a module-local formatter; **2 derive money page-side**, which is the more serious half |
 | **Missing nav entry** — a module with no link anywhere | **5** (H1 · M4) | D-214 | Same nav map as the RBAC cluster; take them together |
 | **Over-offer / role-blind picker** | **6** (M5 · L1) | D-214 | The half of pattern 1 that `c999181` did *not* close |
 | **Capability absent** | **5** (H4 · M1) | none | **FEATURE work.** These do not belong in a fix gate |
@@ -317,19 +326,17 @@ all severities:
 | `P10-M4` | M | P10 | Admin / governance + patient portal · Imports | Creating a patient is not audited at all, by any path *(unrecorded write)* | `/imports` | 4 | D-221/D-222 shape (the recorder) — though this is a WRITE, not a disclosure | **FIX** |
 | `QF12a-M1` | M | QA-FIX.12a | raised by a fix gate | A live staff session in the same browser steals attribution for the patient's own portal reads *(disclosure mis-attributed)* | — | 4 | D-226 (QA-FIX.12a, `3c5fed1`) recorded it; `P10-L1` is the same defect | **FIX** |
 
-### Family 5 — display / locale divergence — 9 open MEDIUM
+### Family 5 — display / locale divergence — 7 open MEDIUM
 
 | ID | Sev | Phase | Role / module | What is open | Route or `file:line` | Family | Precedent | FIX / FEATURE |
 |---|---|---|---|---|---|---|---|---|
 | `P3-M1` | M | P3 | Billing / finance · UI shell | The Swiss money formatter is used on 1 of 12 billing surfaces *(money display divergence)* | `resources/js/lib/money.ts` | 5 | D-091 shape — one shared formatter, all call sites | **FIX** |
 | `P4-M7` | M | P4 | Nursing / Spitex + Nurse PWA | locale is de and the entire UI is English. The /app payload carries *(locale divergence)* | `en.json` | 5 | none | **FIX** |
-| `P5-M3` | M | P5 | Pharmacy | The pricing screen shows money with no currency at all. Verbatim: *"MED-AMOX-500 · *(money display divergence)* | — | 5 | D-091 shape — one shared formatter | **FIX** |
-| `P7-M6` | M | P7 | Emergency Department · ED (UI) | The ED billing surface derives money client-side *(money derived page-side)* | `resources/js/pages/ED/Billing.vue:39` | 5 | D-091 shape — money from the server, formatted once | **FIX** |
+| `P7-M6` | M | P7 | Emergency Department · ED (UI) | The ED billing surface still derives money client-side; STEP-3 moved its display to the shared formatter only *(money derived page-side)* | `resources/js/pages/ED/Billing.vue` | 5 | D-091 shape — money from the server, formatted once | **FIX** |
 | `P8-M2` | M | P8 | Lab + Radiology | Both billing pages do money arithmetic in the view layer while claiming they do not *(money derived page-side)* | `Lab/Billing.vue:92` | 5 | D-091 shape — money from the server | **FIX** |
 | `P8-M3` | M | P8 | Lab + Radiology | No currency is shipped to either billing page, so every figure is a bare number *(money display divergence)* | `Invoice.php:31,74` | 5 | D-091 shape | **FIX** |
 | `P8-M7` | M | P8 | Lab + Radiology | The stat priority is coloured on three pages and not on the fourth *(display divergence)* | `Lab/Orders.vue:100` | 5 | none | **FIX** |
 | `P9-M2` | M | P9 | Bed management + medical records | **PARTLY FIXED by STEP-2:** each observation now carries a tenant-local timestamp; the payload still supplies neither a unit nor a clinician-authored direction. CareOS must not compute a direction. | `StayChart.vue` | 5 | D-228; record-not-judge fence | **FIX (payload/display follow-up)** |
-| `P9-M3` | M | P9 | Bed management + medical records | The discharge summary prints an amount with no currency, through a module-local formatter *(money display divergence)* | `DischargeSummary.vue:77-79` | 5 | D-091 shape — one shared formatter | **FIX** |
 
 ### Family 6 — attribution recorded but not surfaced, or resolved by convenience — 3 open MEDIUM
 

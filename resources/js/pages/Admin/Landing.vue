@@ -5,15 +5,15 @@ import { useI18n } from 'vue-i18n';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import PageHeader from '@/Components/PageHeader.vue';
 import StatCard from '@/Components/StatCard.vue';
+import { formatDateTime } from '@/lib/date';
 
 const { t } = useI18n();
 const page = usePage();
 
 const locale = computed(() => (page.props.locale as string) || 'en');
+const timezone = computed(() => (page.props.timezone as string) || 'UTC');
 const today = computed(() =>
-    new Intl.DateTimeFormat(locale.value, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
-        .format(new Date())
-        .toUpperCase(),
+    formatDateTime(new Date().toISOString(), timezone.value, locale.value, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).toUpperCase(),
 );
 </script>
 

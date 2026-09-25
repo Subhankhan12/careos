@@ -4,6 +4,7 @@ import { computed, reactive, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import RefusalNotice from '@/Components/RefusalNotice.vue';
+import { formatSwissMoney } from '@/lib/money';
 
 // ED billing (ED.G6) — PRESENTATIONAL over EdBillingService. Set tenant-authored prices, capture charges
 // through the EXISTING engine, and invoice (reconciles-to-the-unit). The line/estimate math here is
@@ -19,6 +20,7 @@ const props = defineProps<{
     charges: ChargeRow[];
     tariffs: Tariff[];
     invoice: { id: string; url: string; total_minor: number } | null;
+    currency: string;
     actions: {
         can_bill: boolean;
         attendance_code: string;
@@ -40,7 +42,7 @@ const hasAttendanceTariff = computed(() => props.tariffs.some((tf) => tf.is_atte
 const estimateMinor = computed(() => props.charges.reduce((sum, c) => sum + c.quantity * c.unit_price_minor, 0));
 
 function money(minor: number): string {
-    return (minor / 100).toFixed(2);
+    return formatSwissMoney(minor, props.currency);
 }
 
 function priceAttendance(): void {

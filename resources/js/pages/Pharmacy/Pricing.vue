@@ -3,15 +3,16 @@ import { Head, router } from '@inertiajs/vue3';
 import { reactive } from 'vue';
 import { useI18n } from 'vue-i18n';
 import AppLayout from '@/Layouts/AppLayout.vue';
+import { formatSwissMoney } from '@/lib/money';
 
 // Pharmacy pricing (PHARMACY.G5) — PRESENTATIONAL. Set a med's price as a tenant-authored tariff item (the
 // existing tariff store). Prices are integer minor units server-side; the input is major units, converted on
 // send (a display convenience — the billing ENGINE owns all money math). A med price is a RATE, not a verdict.
-const { t, locale } = useI18n();
+const { t } = useI18n();
 
 type Item = { id: string; code: string; name: string; strength: string | null; price_minor: number | null; unit: string | null; set_url: string };
 
-const props = defineProps<{ items: Item[] }>();
+const props = defineProps<{ items: Item[]; currency: string }>();
 
 const forms = reactive<Record<string, { price: string; unit: string }>>({});
 
@@ -29,8 +30,7 @@ function setPrice(item: Item): void {
 }
 
 function fmtPrice(minor: number | null): string {
-    if (minor === null) return '—';
-    return (minor / 100).toLocaleString(locale.value, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    return minor === null ? '—' : formatSwissMoney(minor, props.currency);
 }
 </script>
 

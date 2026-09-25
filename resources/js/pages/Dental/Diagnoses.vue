@@ -7,9 +7,12 @@ import DentalSectionNav from '@/Components/DentalSectionNav.vue';
 import Button from '@/Components/Button.vue';
 import Card from '@/Components/Card.vue';
 import Input from '@/Components/Input.vue';
+import { formatDateTime } from '@/lib/date';
 
 const { t } = useI18n();
 const page = usePage();
+const timezone = computed(() => (page.props.timezone as string) || 'UTC');
+const locale = computed(() => (page.props.locale as string) || 'en');
 
 interface DiagnosisRow {
     id: string;
@@ -158,7 +161,7 @@ function addTerm(): void {
                         </div>
                         <p class="mt-1 text-xs text-ink-subtle">
                             <span v-if="d.tooth">{{ t('diagnosis.record.tooth') }} {{ d.tooth }}<span v-if="d.surface"> · {{ d.surface }}</span> · </span>
-                            {{ new Date(d.diagnosed_at).toLocaleDateString() }}
+                            {{ formatDateTime(d.diagnosed_at, timezone, locale, { day: '2-digit', month: '2-digit', year: 'numeric' }) }}
                             <span v-if="d.is_free_text"> · {{ t('diagnosis.history.freeText') }}</span>
                         </p>
                         <p v-if="d.findings" class="mt-2 text-sm text-ink-muted">{{ d.findings }}</p>

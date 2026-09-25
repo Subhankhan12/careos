@@ -676,3 +676,7 @@ practice legitimately opens further sites, so this stays usable.
 timezone is what the booking engine reads. The command defaults it from the tenant's `timezone` setting
 (written by `tenant:create`). **The admin UI still defaults its select to UTC** — that trap is not closed
 on the UI path.
+
+## STEP-3 — shared formatters
+
+Authenticated and admin landing-date labels now use the shared date helpers. This is display context only; UTC remains the storage base.

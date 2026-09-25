@@ -663,3 +663,7 @@ they read the practice's clock.
 ## STEP-2 — practice-time display
 
 Odontogram and PerioChart date-only values now pass the tenant locale/timezone to the shared helpers, completing the Dental portion of `P2-M3`.
+
+## STEP-3 — shared formatters
+
+Diagnosis recorded-at text now uses the shared tenant datetime helper.
